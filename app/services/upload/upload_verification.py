@@ -181,7 +181,24 @@ def detect_and_validate_dataframe(df: pd.DataFrame) -> dict:
 # ── sheet reading helpers ─────────────────────────────────────────────────────
 
 def _read_all_sheets_xlsx(filepath: str) -> list[tuple[str, pd.DataFrame]]:
-    """Return [(sheet_name, df), ...] for every sheet in an xlsx/xls file."""
+    """Return [(sheet_name, df), ...] for every sheet in an xlsx/xls file.
+
+    Two-pass strategy to avoid loading entire large sheets just for column
+    detection (Backlog Report File has 1800+ rows across 4 sheets):
+
+    Pass 1 — read only the header row (nrows=0) of every sheet to build a
+              list of (sheet_name, columns) for detect_and_validate_dataframe.
+              This is near-instant regardless of row count.
+    Pass 2 — once the best sheet is identified in verify_uploaded_file, it
+              is fully loaded there.  _read_all_sheets_xlsx returns stub
+              DataFrames (0 rows) for non-winning sheets so the detection
+              logic can still score them, but only the winning sheet is ever
+              fully loaded.
+
+    The full DataFrame for the winning sheet is attached back by
+    verify_uploaded_file via a second xl.parse() call using the returned
+    sheet name.
+    """
     try:
         xl = pd.ExcelFile(filepath, engine="openpyxl")
     except Exception:
@@ -190,8 +207,9 @@ def _read_all_sheets_xlsx(filepath: str) -> list[tuple[str, pd.DataFrame]]:
     try:
         for name in xl.sheet_names:
             try:
-                df = xl.parse(name, header=0)
-                sheets.append((name, df))
+                # Read header only — zero data rows, fast on any sheet size
+                df_header = xl.parse(name, header=0, nrows=0)
+                sheets.append((name, df_header))
             except Exception:
                 pass
     finally:
@@ -273,6 +291,13 @@ def verify_uploaded_file(filepath: str) -> dict:
         else:
             return {"ok": False, "filename": filename, "size_kb": size_kb,
                     "error": f"Unsupported extension: .{ext}"}
+    except PermissionError:
+        return {"ok": False, "filename": filename, "size_kb": size_kb,
+                "error": (
+                    f'The file "{filename}" is currently open in another program '
+                    "(e.g. Microsoft Excel or OneDrive sync). "
+                    "Please close it and try again."
+                )}
     except Exception as exc:
         return {"ok": False, "filename": filename, "size_kb": size_kb,
                 "error": f"Cannot open file: {exc}"}
@@ -281,25 +306,51 @@ def verify_uploaded_file(filepath: str) -> dict:
         return {"ok": False, "filename": filename, "size_kb": size_kb,
                 "error": "File contains no readable sheets."}
 
-    # ── run detection on every sheet, pick the best result ───────────────────
+    # ── run detection on header-only stubs, pick the best sheet ─────────────
     # Priority: Validated > Unknown (Partial Match) > Unknown
     _priority = {"Validated": 2, "Unknown (Partial Match)": 1, "Unknown": 0}
 
     best_sheet_name = sheets[0][0]
-    best_df = sheets[0][1]
-    best_validation = detect_and_validate_dataframe(best_df)
+    best_validation = detect_and_validate_dataframe(sheets[0][1])
     best_score = _priority.get(best_validation.get("validation_status", "Unknown"), 0)
 
-    for sheet_name, df in sheets[1:]:
-        val = detect_and_validate_dataframe(df)
+    for sheet_name, df_stub in sheets[1:]:
+        val = detect_and_validate_dataframe(df_stub)
         score = _priority.get(val.get("validation_status", "Unknown"), 0)
         if score > best_score:
             best_score = score
             best_sheet_name = sheet_name
-            best_df = df
             best_validation = val
         if best_score == 2:
             break  # Validated — no need to check further sheets
+
+    # ── full read of the winning sheet only ───────────────────────────────────
+    # _read_all_sheets_xlsx returned header-only stubs (nrows=0) so we must
+    # do one full read here for the sample rows, row count, and date analysis.
+    try:
+        if ext in ("xlsx", "xls"):
+            try:
+                best_df = pd.read_excel(filepath, sheet_name=best_sheet_name,
+                                        header=0, engine="openpyxl")
+            except PermissionError:
+                raise
+            except Exception:
+                best_df = pd.read_excel(filepath, sheet_name=best_sheet_name, header=0)
+        else:
+            best_df = pd.read_csv(filepath, encoding="utf-8-sig", on_bad_lines="skip")
+    except PermissionError:
+        return {"ok": False, "filename": filename, "size_kb": size_kb,
+                "error": (
+                    f'The file "{filename}" is currently open in another program '
+                    "(e.g. Microsoft Excel or OneDrive sync). "
+                    "Please close it and try again."
+                )}
+    except Exception as exc:
+        return {"ok": False, "filename": filename, "size_kb": size_kb,
+                "error": f"Cannot read sheet '{best_sheet_name}': {exc}"}
+
+    # Re-run validation on the fully loaded DataFrame so date analysis works
+    best_validation = detect_and_validate_dataframe(best_df)
 
     # ── build unified response ────────────────────────────────────────────────
     headers = [str(c) for c in best_df.columns.tolist()]

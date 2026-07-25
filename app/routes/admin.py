@@ -197,11 +197,23 @@ def data_import_verify():
         return jsonify({"ok": False, "error": "Invalid file type. Allowed: .xlsx, .xls, .csv"})
 
     safe_name = secure_filename(file.filename)
-    # Write to a temp file for inspection
     suffix = "." + safe_name.rsplit(".", 1)[-1].lower()
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        tmp_path = tmp.name
-        file.save(tmp_path)
+
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp_path = tmp.name
+            file.save(tmp_path)
+    except PermissionError:
+        return jsonify({
+            "ok": False,
+            "filename": safe_name,
+            "error": (
+                f'The file "{safe_name}" is currently open in another program '
+                "(e.g. Microsoft Excel or OneDrive sync). "
+                "Please close it and try again."
+            ),
+        })
 
     try:
         result = verify_uploaded_file(tmp_path)
@@ -377,6 +389,7 @@ def data_import_upsert_preview(category_key: str):
         return jsonify({"ok": False, "error": f'No uploaded file found for category "{cat_name}".'})
 
     try:
+        import io
         import pandas as pd
         from app.services.database.seed import _safe_int, _build_soid
         from app.services.upload.upload_verification import verify_uploaded_file
@@ -386,12 +399,18 @@ def data_import_upsert_preview(category_key: str):
         sheet_name = vresult.get("sheet_name", "")
         ext = filepath.rsplit(".", 1)[-1].lower()
 
+        # Read the file bytes into memory once so openpyxl's file handle
+        # (held open by verify_uploaded_file on Windows) does not block the
+        # subsequent pd.read_excel call.
+        with open(filepath, "rb") as _fh:
+            _file_bytes = io.BytesIO(_fh.read())
+
         if ext == "csv":
-            df = pd.read_csv(filepath)
+            df = pd.read_csv(_file_bytes)
         elif sheet_name:
-            df = pd.read_excel(filepath, sheet_name=sheet_name)
+            df = pd.read_excel(_file_bytes, sheet_name=sheet_name)
         else:
-            df = pd.read_excel(filepath)
+            df = pd.read_excel(_file_bytes)
 
         db_path = current_app.config["DATABASE_PATH"]
         db_conn = sqlite3.connect(db_path)
@@ -497,6 +516,63 @@ def data_import_upsert_preview(category_key: str):
                 new_df = df[df.apply(_is_impacted_shipment, axis=1)].copy() \
                     if (soid_col in df.columns and so_col in df.columns) \
                     else pd.DataFrame()
+            elif category_key == "PARTONHOLD":
+                # Impacted rows = Excel rows where:
+                #   1. SOID exists in wo_product_detail AND
+                #   2. wo_product_status = 'On Hold - Part Hold' AND
+                #   3. SO ETA is non-empty AND
+                #      (DB eta_parthold_backlog IS NULL OR Excel SO ETA is strictly newer)
+                import math as _math
+
+                def _has_val_ph(v) -> bool:
+                    if v is None:
+                        return False
+                    if isinstance(v, float) and _math.isnan(v):
+                        return False
+                    s = str(v).strip()
+                    return s not in ("", "nan", "nat", "none", "null", "NaT")
+
+                # DB state: soid → eta_parthold_backlog for On Hold - Part Hold rows only
+                db_partonhold = {
+                    r[0]: r[1]  # soid → eta_parthold_backlog
+                    for r in db_conn.execute(
+                        "SELECT soid, eta_parthold_backlog FROM wo_product_detail "
+                        "WHERE LOWER(COALESCE(wo_product_status, '')) = 'on hold - part hold'"
+                    ).fetchall()
+                }
+
+                soid_col = "SOID"
+                eta_col  = "SO ETA"
+                date_col = eta_col
+                preview_cols = [
+                    soid_col, "Service Order ID", "Part Number", "PN Desc",
+                    "ETA", eta_col, "Status", "Category",
+                ]
+
+                def _is_impacted_partonhold(row):
+                    soid = _safe_int(row.get(soid_col))
+                    if soid is None or soid not in db_partonhold:
+                        return False
+                    eta_val = row.get(eta_col)
+                    if not _has_val_ph(eta_val):
+                        return False
+                    eta_iso = str(eta_val).strip()[:10]
+                    db_eta = db_partonhold[soid]
+                    if db_eta is None:
+                        return True
+                    # Overwrite only if Excel SO ETA is strictly newer
+                    try:
+                        from datetime import datetime as _dt2
+                        db_dt  = _dt2.fromisoformat(db_eta[:10])
+                        eta_dt = _dt2.fromisoformat(eta_iso)
+                        return eta_dt > db_dt
+                    except (ValueError, TypeError):
+                        return False
+
+                new_df = df[df.apply(_is_impacted_partonhold, axis=1)].copy() \
+                    if (soid_col in df.columns and eta_col in df.columns) \
+                    else pd.DataFrame()
+
             else:
                 return jsonify({"ok": False, "error": "Category has no DB preview support."})
 

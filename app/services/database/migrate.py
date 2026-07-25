@@ -32,6 +32,7 @@ def run_migrations(app: Flask) -> None:
         conn.commit()
         _migrate_wo_product_detail_cascade(conn)
         _migrate_wo_details_add_product_description(conn)
+        _migrate_wo_product_detail_add_eta_parthold(conn)
     finally:
         conn.close()
 
@@ -102,6 +103,23 @@ def _migrate_wo_product_detail_cascade(conn: sqlite3.Connection) -> None:
         PRAGMA foreign_keys = ON;
         """
     )
+
+
+def _migrate_wo_product_detail_add_eta_parthold(conn: sqlite3.Connection) -> None:
+    """Add eta_parthold_backlog column to wo_product_detail if it does not exist.
+
+    SQLite supports ADD COLUMN without rebuilding the table — cheap and
+    safe to run on every startup.
+    """
+    existing = {
+        row[1]
+        for row in conn.execute("PRAGMA table_info(wo_product_detail)").fetchall()
+    }
+    if "eta_parthold_backlog" not in existing:
+        conn.execute(
+            "ALTER TABLE wo_product_detail ADD COLUMN eta_parthold_backlog TEXT"
+        )
+        conn.commit()
 
 
 def _migrate_wo_details_add_product_description(conn: sqlite3.Connection) -> None:

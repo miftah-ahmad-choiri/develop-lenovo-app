@@ -514,26 +514,38 @@
     var cols          = data.preview_cols || [];
     var allRows       = data.all_rows || [];
     var isShipment    = (categoryKey === 'SHIPMENT');
+    var isPartOnHold  = (categoryKey === 'PARTONHOLD');
 
-    // Stat card labels differ for SHIPMENT (impacted = missing any key shipment column)
-    var impactedLabel = isShipment
-      ? 'Rows missing shipment data'
-      : 'New Rows (INSERT)';
-    var skippedCount  = totalRows - impactedCount;
-    var skippedLabel  = isShipment
-      ? 'Fully filled (skip)'
-      : 'Existing Rows (UPDATE)';
+    // Stat card labels per category
+    var impactedLabel, skippedLabel;
+    if (isPartOnHold) {
+      impactedLabel = 'Target Rows to Update';
+      skippedLabel  = 'No Update Needed (skip)';
+    } else if (isShipment) {
+      impactedLabel = 'Rows missing shipment data';
+      skippedLabel  = 'Fully filled (skip)';
+    } else {
+      impactedLabel = 'New Rows (INSERT)';
+      skippedLabel  = 'Existing Rows (UPDATE)';
+    }
+    var skippedCount = totalRows - impactedCount;
+
+    // Modal sub-description
+    var subDesc;
+    if (isPartOnHold) {
+      subDesc = 'Rows shown are <strong>On Hold &mdash; Part Hold</strong> lines whose SOID matches <code>wo_product_detail</code> and whose ETA can fill an empty <code>target</code> or is newer than the current value.';
+    } else if (isShipment) {
+      subDesc = 'Rows shown are those whose Work Order ID matches <code>wo_summary</code>, where the DB has NULL for at least one of <code>ship_pn</code>, <code>awb</code>, or <code>ship_pou_pod_time</code>, <strong>and</strong> the Excel file has a real value for that column.';
+    } else {
+      subDesc = 'Rows already present will be updated; new rows will be inserted.';
+    }
 
     var html =
       '<div class="modal-title">' +
         '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>' +
         'Confirm Upsert &mdash; ' + esc(filename) +
       '</div>' +
-      '<div class="modal-sub">Review the impact below before writing to the database. ' +
-        (isShipment
-          ? 'Rows shown are those whose Work Order ID matches <code>wo_summary</code>, where the DB has NULL for at least one of <code>ship_pn</code>, <code>awb</code>, or <code>ship_pou_pod_time</code>, <strong>and</strong> the Excel file has a real value for that column.'
-          : 'Rows already present will be updated; new rows will be inserted.') +
-      '</div>';
+      '<div class="modal-sub">Review the impact below before writing to the database. ' + subDesc + '</div>';
 
     // Stat cards
     html +=
@@ -553,19 +565,28 @@
       '</div>';
 
     // Note about filtering
-    html +=
-      '<div class="modal-note">' +
-        (isShipment
-          ? '<strong>Note:</strong> A row is included only when the DB has <code>NULL</code> for at least one of <code>ship_pn</code>, <code>awb</code>, or <code>ship_pou_pod_time</code> <em>and</em> the uploaded Excel provides a real (non-empty) value for that same column. Rows where the Excel value is also empty are excluded — there is nothing to update.'
-          : '<strong>Note:</strong> Only rows whose Work Order ID already exists in <code>wo_summary</code> are written to <code>wo_product_detail</code>. Rows referencing an unknown Work Order ID are skipped.') +
-      '</div>';
+    var noteText;
+    if (isPartOnHold) {
+      noteText = '<strong>Note:</strong> Only rows where <code>wo_product_status = \'On Hold - Part Hold\'</code> in the database are eligible. The <code>ETA</code> column from the Backlog Report File is written to <code>wo_product_detail.target</code> when the DB value is empty <em>or</em> the Excel date is strictly newer than what is already stored.';
+    } else if (isShipment) {
+      noteText = '<strong>Note:</strong> A row is included only when the DB has <code>NULL</code> for at least one of <code>ship_pn</code>, <code>awb</code>, or <code>ship_pou_pod_time</code> <em>and</em> the uploaded Excel provides a real (non-empty) value for that same column. Rows where the Excel value is also empty are excluded — there is nothing to update.';
+    } else {
+      noteText = '<strong>Note:</strong> Only rows whose Work Order ID already exists in <code>wo_summary</code> are written to <code>wo_product_detail</code>. Rows referencing an unknown Work Order ID are skipped.';
+    }
+    html += '<div class="modal-note">' + noteText + '</div>';
 
     if (impactedCount === 0) {
+      var zeroMsg;
+      if (isPartOnHold) {
+        zeroMsg = '<strong>No rows to update.</strong> All matched On Hold &mdash; Part Hold lines already have an up-to-date <code>target</code> value, or there are no matching SOIDs in the database.';
+      } else if (isShipment) {
+        zeroMsg = '<strong>No rows to update.</strong> All matched Excel rows already have <code>ship_pn</code>, <code>awb</code>, and <code>ship_pou_pod_time</code> populated in the database.';
+      } else {
+        zeroMsg = '<strong>No new rows to insert.</strong> All ' + totalRows + ' Excel rows already exist in the database (they will be updated in-place).';
+      }
       html +=
         '<div style="padding:16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;margin-bottom:20px;font-size:13px;color:#15803d;">' +
-          (isShipment
-            ? '<strong>No rows to update.</strong> All matched Excel rows already have <code>ship_pn</code>, <code>awb</code>, and <code>ship_pou_pod_time</code> populated in the database.'
-            : '<strong>No new rows to insert.</strong> All ' + totalRows + ' Excel rows already exist in the database (they will be updated in-place).') +
+          zeroMsg +
         '</div>';
     } else {
       html +=
@@ -657,12 +678,26 @@
     panel.innerHTML = '';
     panel.classList.add('show');
 
-    // hard failure (can't open file)
+    // hard failure (can't open file / permission error / parse error)
     if (!data.ok) {
+      var isLocked = data.error && data.error.toLowerCase().indexOf('open in another program') !== -1;
       panel.innerHTML =
-        '<div class="verify-header fail"><span>&#10007; File error &mdash; ' + esc(data.filename || '') + '</span></div>' +
-        '<div class="verify-meta" style="color:#b91c1c;background:#fff0f0;">' + esc(data.error) + '</div>';
-      submitBtn.style.display = 'none';
+        '<div class="verify-header fail">' +
+          '<span>&#10007; Cannot read file &mdash; ' + esc(data.filename || '') + '</span>' +
+        '</div>' +
+        '<div style="padding:14px 16px;background:#fff7ed;border-bottom:1px solid #fed7aa;display:flex;align-items:flex-start;gap:10px;">' +
+          '<svg style="flex-shrink:0;margin-top:1px;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c2410c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
+          '<div>' +
+            '<div style="font-size:13px;font-weight:700;color:#c2410c;margin-bottom:4px;">' + esc(data.error) + '</div>' +
+            (isLocked
+              ? '<div style="font-size:12px;color:#92400e;">Close the file in Excel (or wait for OneDrive to finish syncing), then click <strong>Verify File</strong> again.</div>'
+              : '') +
+          '</div>' +
+        '</div>';
+      actionRow.classList.remove('show');
+      verifyBtn.style.display = '';
+      verifyBtn.disabled = false;
+      verifyBtn.innerHTML = _verifyIcon() + 'Retry Verify';
       return;
     }
 
@@ -837,11 +872,22 @@
           verifyBtn.innerHTML = _verifyIcon() + 'Re-verify';
         }
       })
-      .catch(function(err) {
+      .catch(function() {
+        var fname = input.files.length ? input.files[0].name : 'the file';
         panel.classList.add('show');
         panel.innerHTML =
-          '<div class="verify-header fail"><span>&#10007; Network error</span></div>' +
-          '<div class="verify-meta" style="color:#b91c1c;background:#fff0f0;">' + esc(String(err)) + '</div>';
+          '<div class="verify-header fail">' +
+            '<span>&#10007; Could not read file &mdash; ' + esc(fname) + '</span>' +
+          '</div>' +
+          '<div style="padding:14px 16px;background:#fff7ed;border-bottom:1px solid #fed7aa;display:flex;align-items:flex-start;gap:10px;">' +
+            '<svg style="flex-shrink:0;margin-top:1px;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c2410c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
+            '<div>' +
+              '<div style="font-size:13px;font-weight:700;color:#c2410c;margin-bottom:4px;">' +
+                'Please make sure you close <strong>' + esc(fname) + '</strong> and retry to Verify.' +
+              '</div>' +
+              '<div style="font-size:12px;color:#92400e;">Close the file in Excel (or wait for OneDrive to finish syncing), then click <strong>Retry Verify</strong> below.</div>' +
+            '</div>' +
+          '</div>';
         verifyBtn.style.display = '';
         verifyBtn.disabled = false;
         verifyBtn.innerHTML = _verifyIcon() + 'Retry Verify';

@@ -35,7 +35,7 @@ from app.services.database.seed import _to_iso, _safe_int, _safe_str, _build_soi
 
 # ── Category keys that map to DB tables ──────────────────────────────────────
 # Any key NOT in this set is silently skipped (no DB tables for it yet).
-_DB_CATEGORIES = {"WOID", "SOID", "SHIPMENT"}
+_DB_CATEGORIES = {"WOID", "SOID", "SHIPMENT", "PARTONHOLD"}
 
 
 # ── upsert helpers ────────────────────────────────────────────────────────────
@@ -279,6 +279,77 @@ def upsert_wo_product_from_shipment(df: pd.DataFrame, conn: sqlite3.Connection) 
     return len(insert_rows)
 
 
+def upsert_eta_parthold_from_backlog(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
+    """
+    Update the ``eta_parthold_backlog`` column on wo_product_detail rows that
+    are On Hold - Part Hold, using the SO ETA column from the Backlog Report File.
+
+    Match key: Backlog ``SOID`` → wo_product_detail ``soid``
+    Filter:    wo_product_detail.wo_product_status = 'On Hold - Part Hold'
+    Write rule:
+        - DB eta_parthold_backlog IS NULL  → fill with Excel SO ETA
+        - DB eta_parthold_backlog IS NOT NULL but Excel SO ETA is strictly newer → overwrite
+
+    Note: the ``target`` column (SLA deadline from Shipment file) is never touched.
+
+    Returns the number of rows updated.
+    """
+    import math as _math
+
+    def _has_val(v) -> bool:
+        if v is None:
+            return False
+        if isinstance(v, float) and _math.isnan(v):
+            return False
+        s = str(v).strip()
+        return s not in ("", "nan", "nat", "none", "null", "NaT")
+
+    # Fetch all part-hold rows from DB keyed by soid
+    db_rows = {
+        r[0]: r[1]  # soid → eta_parthold_backlog (may be None)
+        for r in conn.execute(
+            "SELECT soid, eta_parthold_backlog FROM wo_product_detail "
+            "WHERE LOWER(COALESCE(wo_product_status, '')) = 'on hold - part hold'"
+        ).fetchall()
+    }
+
+    update_sql = "UPDATE wo_product_detail SET eta_parthold_backlog = ? WHERE soid = ?"
+    updates: list[tuple] = []
+
+    for _, r in df.iterrows():
+        soid = _safe_int(r.get("SOID"))
+        if soid is None or soid not in db_rows:
+            continue
+
+        eta_val = r.get("SO ETA")
+        if not _has_val(eta_val):
+            continue
+
+        eta_iso = _to_iso(eta_val)
+        if eta_iso is None:
+            continue
+
+        db_eta = db_rows[soid]
+
+        if db_eta is None:
+            # Empty — always fill
+            updates.append((eta_iso, soid))
+        else:
+            # Only overwrite if Excel SO ETA is strictly newer
+            try:
+                from datetime import datetime as _dt
+                db_dt  = _dt.fromisoformat(db_eta[:10])
+                eta_dt = _dt.fromisoformat(eta_iso[:10])
+                if eta_dt > db_dt:
+                    updates.append((eta_iso, soid))
+            except (ValueError, TypeError):
+                pass  # unparseable dates — skip
+
+    conn.executemany(update_sql, updates)
+    conn.commit()
+    return len(updates)
+
+
 # ── public dispatcher ─────────────────────────────────────────────────────────
 
 def _purge_orphan_product_rows(conn: sqlite3.Connection) -> int:
@@ -327,6 +398,7 @@ def dispatch_upsert(category_key: str, filepath: str, conn: sqlite3.Connection) 
     if key not in _DB_CATEGORIES:
         return 0
 
+    import io as _io
     from app.services.upload.upload_verification import verify_uploaded_file
 
     # Re-use the verification result to get the correct sheet_name cheaply
@@ -334,12 +406,17 @@ def dispatch_upsert(category_key: str, filepath: str, conn: sqlite3.Connection) 
     sheet_name: str = result.get("sheet_name", "")
     ext = filepath.rsplit(".", 1)[-1].lower()
 
+    # Read into memory first so openpyxl's handle (opened by verify_uploaded_file)
+    # does not block the subsequent pd.read_excel call on Windows.
+    with open(filepath, "rb") as _fh:
+        _file_bytes = _io.BytesIO(_fh.read())
+
     if ext == "csv":
-        df = pd.read_csv(filepath)
+        df = pd.read_csv(_file_bytes)
     elif sheet_name:
-        df = pd.read_excel(filepath, sheet_name=sheet_name)
+        df = pd.read_excel(_file_bytes, sheet_name=sheet_name)
     else:
-        df = pd.read_excel(filepath)
+        df = pd.read_excel(_file_bytes)
 
     if key == "WOID":
         n_rows = upsert_wo_summary_and_details(df, conn)
@@ -347,6 +424,9 @@ def dispatch_upsert(category_key: str, filepath: str, conn: sqlite3.Connection) 
         n_rows = upsert_wo_product_from_msd(df, conn)
     elif key == "SHIPMENT":
         n_rows = upsert_wo_product_from_shipment(df, conn)
+    elif key == "PARTONHOLD":
+        n_rows = upsert_eta_parthold_from_backlog(df, conn)
+        return n_rows  # no orphan purge needed for this category
     else:
         return 0  # unreachable, but satisfies type checkers
 

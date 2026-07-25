@@ -45,23 +45,33 @@
   /* ── Badges ─────────────────────────────────────────────────────── */
   .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 13px; font-weight: 600; white-space: nowrap; }
   /* ── WO Status badge palette (one colour per status) ── */
-  .badge-s-closed        { background: #dcfce7; color: #15803d; }
+  /* closed / resolved family — all green */
+  .badge-s-closed        { background: #bbf7d0; color: #166534; }
   .badge-s-completed     { background: #bbf7d0; color: #166534; }
-  .badge-s-repair-done   { background: #ccfbf1; color: #0f766e; }
-  .badge-s-pickup        { background: #cffafe; color: #0e7490; }
-  .badge-s-rma           { background: #dbeafe; color: #1e40af; }
-  .badge-s-returned      { background: #e0e7ff; color: #3730a3; }
+  .badge-s-repair-done   { background: #bbf7d0; color: #166534; }
+  .badge-s-pickup        { background: #bbf7d0; color: #166534; }
+  .badge-s-rma           { background: #bbf7d0; color: #166534; }
+  .badge-s-returned      { background: #bbf7d0; color: #166534; }
+  /* in-progress / active family */
   .badge-s-transit       { background: #ede9fe; color: #6d28d9; }
   .badge-s-part-hold     { background: #fce7f3; color: #9d174d; }
   .badge-s-part-req      { background: #fef3c7; color: #92400e; }
-  .badge-s-part-delivered{ background: #d9f99d; color: #3f6212; }
+  .badge-s-part-delivered{ background: #ffedd5; color: #c2410c; }
   .badge-s-cust-hold     { background: #ffe4e6; color: #be123c; }
   .badge-s-in-repair     { background: #dbeafe; color: #1d4ed8; }
-  .badge-s-tech-assigned { background: #e0f2fe; color: #0369a1; }
+  .badge-s-tech-assigned { background: #fef3c7; color: #b45309; }
   .badge-s-accepted      { background: #ecfccb; color: #4d7c0f; }
   .badge-s-pick-pack     { background: #ffedd5; color: #c2410c; }
   .badge-s-cancelled     { background: #f3f4f6; color: #6b7280; }
   .badge-s-default       { background: #f0f2f5; color: #57606a; }
+  /* new statuses */
+  .badge-s-tech-onsite   { background: #dbeafe; color: #1e40af; }
+  .badge-s-tech-enroute  { background: #fef3c7; color: #c2410c; }
+  .badge-s-in-testing    { background: #f3e8ff; color: #6b21a8; }
+  .badge-s-req-review    { background: #fff7ed; color: #c2410c; }
+  .badge-s-unit-received { background: #fef3c7; color: #92400e; }
+  .badge-s-order-changed { background: #ffedd5; color: #9a3412; }
+  .badge-s-await-release { background: #ffedd5; color: #9a3412; }
   /* legacy aliases (used by part-status badges and return-flag badges) */
   .badge-closed    { background: #dcfce7; color: #15803d; }
   .badge-cancelled { background: #f3f4f6; color: #6b7280; }
@@ -111,9 +121,9 @@
   .modal-close { background: none; border: none; cursor: pointer; color: #8c959f; font-size: 20px; line-height: 1; padding: 2px 6px; flex-shrink: 0; }
   .modal-close:hover { color: #1f2328; }
   /* hero status block */
-  .wo-hero-status { display: flex; flex-direction: column; gap: 5px; align-items: flex-end; flex-shrink: 0; }
-  .wo-hero-status-row { display: flex; align-items: center; gap: 7px; white-space: nowrap; justify-content: flex-end; }
-  .wo-hero-status-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #8c959f; }
+  .wo-hero-status { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; flex-shrink: 0; }
+  .wo-hero-status-row { display: flex; align-items: center; gap: 12px; white-space: nowrap; justify-content: flex-end; min-width: 280px; }
+  .wo-hero-status-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #8c959f; flex-shrink: 0; }
   .wo-hero-status-val { font-size: 12px; color: #1f2328; font-weight: 700; }
   .wo-hero-status-val.muted { color: #8c959f; font-weight: 400; font-style: italic; }
   /* hero info bar */
@@ -243,11 +253,20 @@
   .part-card-num { font-size: 11px; font-weight: 700; color: #8c959f; flex-shrink: 0; }
   .part-card-pn  { font-size: 12px; font-weight: 700; font-family: ui-monospace, monospace; color: #1f2328; }
   .part-card-desc{ font-size: 12px; color: #57606a; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .part-card-body { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1px; background: #e5e7eb; }
+  .part-card-body { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: #e5e7eb; }
   .part-card-field { background: #fff; padding: 8px 12px; }
   .part-card-field .pcf-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #8c959f; margin-bottom: 2px; }
   .part-card-field .pcf-value { font-size: 12px; color: #1f2328; }
   .part-card-field .pcf-value.mono { font-family: ui-monospace, monospace; font-size: 11px; }
+  .part-card-field.eta-pending { background: #fffbeb; border-left: 3px solid #f59e0b; }
+  .part-card-field.eta-pending .pcf-label { color: #b45309; }
+  .part-card-field.eta-pending .pcf-value { color: #92400e; font-weight: 700; }
+  .part-card-field.eta-overdue { background: #fff1f2; border-left: 3px solid #f43f5e; }
+  .part-card-field.eta-overdue .pcf-label { color: #be123c; }
+  .part-card-field.eta-overdue .pcf-value { color: #9f1239; font-weight: 700; }
+  .eta-pill { display: inline-block; font-size: 10px; font-weight: 700; border-radius: 10px; padding: 1px 7px; margin-top: 4px; letter-spacing: 0.03em; }
+  .eta-pill.pending { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+  .eta-pill.overdue { background: #ffe4e6; color: #9f1239; border: 1px solid #fecdd3; }
 
   /* ── Related WO / Ticket table ─────────────────────────────────── */
   .related-wo-id { font-size: 13px; font-weight: 700; color: #3b82d4; cursor: pointer; background: none; border: none; font-family: inherit; padding: 0; text-decoration: underline; text-underline-offset: 2px; flex-shrink: 0; }
@@ -661,23 +680,33 @@ function statusBadge(s) {
   if (!s) return '<span class="badge badge-s-default">—</span>';
   const sl = s.toLowerCase();
   let cls;
-  if (sl === 'closed')                              cls = 'badge-s-closed';
-  else if (sl === 'completed')                      cls = 'badge-s-completed';
-  else if (sl === 'repair completed')               cls = 'badge-s-repair-done';
-  else if (sl === 'ready for pickup')               cls = 'badge-s-pickup';
-  else if (sl === 'rma in progress')                cls = 'badge-s-rma';
-  else if (sl.includes('awaiting for parts rma'))   cls = 'badge-s-returned';
-  else if (sl.includes('transit'))                  cls = 'badge-s-transit';
-  else if (sl.includes('part') && sl.includes('hold'))     cls = 'badge-s-part-hold';
-  else if (sl.includes('part') && sl.includes('request'))  cls = 'badge-s-part-req';
-  else if (sl.includes('part') && sl.includes('deliver'))  cls = 'badge-s-part-delivered';
-  else if (sl === 'customer hold')                  cls = 'badge-s-cust-hold';
-  else if (sl === 'in repair')                      cls = 'badge-s-in-repair';
-  else if (sl.includes('technician assigned'))      cls = 'badge-s-tech-assigned';
-  else if (sl === 'order accepted')                 cls = 'badge-s-accepted';
-  else if (sl.includes('pick') && sl.includes('pack')) cls = 'badge-s-pick-pack';
-  else if (sl.includes('cancel'))                   cls = 'badge-s-cancelled';
-  else                                              cls = 'badge-s-default';
+  /* ── closed / resolved family ── */
+  if (sl === 'closed')                                    cls = 'badge-s-closed';
+  else if (sl === 'completed')                            cls = 'badge-s-completed';
+  else if (sl === 'repair completed')                     cls = 'badge-s-repair-done';
+  else if (sl === 'ready for pickup')                     cls = 'badge-s-pickup';
+  else if (sl === 'rma in progress')                      cls = 'badge-s-rma';
+  else if (sl.includes('awaiting for parts rma') || sl.includes('unit returned')) cls = 'badge-s-returned';
+  /* ── new statuses ── */
+  else if (sl.includes('technician onsite'))              cls = 'badge-s-tech-onsite';
+  else if (sl.includes('technician enroute') || sl.includes('technician en route')) cls = 'badge-s-tech-enroute';
+  else if (sl === 'in testing')                           cls = 'badge-s-in-testing';
+  else if (sl === 'requires review')                      cls = 'badge-s-req-review';
+  else if (sl === 'unit received')                        cls = 'badge-s-unit-received';
+  else if (sl === 'order changed')                        cls = 'badge-s-order-changed';
+  else if (sl.includes('awaiting order release') || sl.includes('awaiting order'))  cls = 'badge-s-await-release';
+  /* ── parts / logistics ── */
+  else if (sl.includes('transit'))                        cls = 'badge-s-transit';
+  else if (sl.includes('part') && sl.includes('hold'))   cls = 'badge-s-part-hold';
+  else if (sl.includes('part') && sl.includes('request'))cls = 'badge-s-part-req';
+  else if (sl.includes('part') && sl.includes('deliver'))cls = 'badge-s-part-delivered';
+  else if (sl === 'customer hold')                        cls = 'badge-s-cust-hold';
+  else if (sl === 'in repair')                            cls = 'badge-s-in-repair';
+  else if (sl.includes('technician assigned'))            cls = 'badge-s-tech-assigned';
+  else if (sl === 'order accepted')                       cls = 'badge-s-accepted';
+  else if (sl.includes('pick') && sl.includes('pack'))   cls = 'badge-s-pick-pack';
+  else if (sl.includes('cancel'))                         cls = 'badge-s-cancelled';
+  else                                                    cls = 'badge-s-default';
   return `<span class="badge ${cls}">${esc(s)}</span>`;
 }
 
@@ -917,34 +946,16 @@ function closingCodePill(val) {
 }
 
 function renderHero(d) {
-  /* ── Right-side status block: WO Status · Case Status · Closing Code ── */
-  const statusBlock = `
-    <div class="wo-hero-status">
-      <div class="wo-hero-status-row">
-        <span class="wo-hero-status-lbl">WO Status</span>
-        ${statusBadge(d.work_order_status)}
-      </div>
-      ${d.case_status ? `<div class="wo-hero-status-row">
-        <span class="wo-hero-status-lbl">Case Status</span>
-        ${caseStatusPill(d.case_status)}
-      </div>` : ''}
-      ${d.closing_code ? `<div class="wo-hero-status-row">
-        <span class="wo-hero-status-lbl">Closing Code</span>
-        ${closingCodePill(d.closing_code)}
-      </div>` : ''}
-    </div>`;
-
-  /* ── Info bars: row1 = type/status/flags, row2 = org/people/location ── */
-  const rrVal = d.repeat_repair || '—';
+  const rrVal   = d.repeat_repair || '—';
   const rrIsYes = (d.repeat_repair || '').toLowerCase() === 'yes';
   const bar1Items = [
-    d.work_order_type      ? { l: 'Type',         v: d.work_order_type,                              cls: 'gray'   } : null,
-    {                        l: 'Repeat Repair',   v: rrIsYes ? (d.repeat_repair_reason || d.repeat_repair) : rrVal,
-                                                                                                       cls: rrIsYes ? 'red' : 'green' },
+    d.work_order_type      ? { l: 'Type',       v: d.work_order_type,                                    cls: 'gray'   } : null,
+    {                        l: 'Repeat Repair', v: rrIsYes ? (d.repeat_repair_reason || d.repeat_repair) : rrVal,
+                                                                                                           cls: rrIsYes ? 'red' : 'green' },
     d.work_order_priority && d.work_order_priority.toLowerCase() !== 'normal'
-      ?                      { l: 'Priority',      v: d.work_order_priority,                          cls: 'red'    } : null,
-    d.premier_service      ? { l: 'Premier',       v: d.premier_service,                              cls: 'purple' } : null,
-    d.order_type           ? { l: 'Order Type',    v: d.order_type,                                   cls: 'gray'   } : null,
+      ?                      { l: 'Priority',   v: d.work_order_priority,                                 cls: 'red'    } : null,
+    d.premier_service      ? { l: 'Premier',    v: d.premier_service,                                     cls: 'purple' } : null,
+    d.order_type           ? { l: 'Order Type', v: d.order_type,                                          cls: 'gray'   } : null,
   ].filter(Boolean);
   const renderBar = items => `<div class="wo-info-bar">
     ${items.map(i => `<div class="wo-info-item">
@@ -952,8 +963,6 @@ function renderHero(d) {
       <span class="wo-info-val ${i.cls}">${esc(i.v)}</span>
     </div>`).join('')}
   </div>`;
-
-  /* ── Customer card: left box (contact) + right box (ASP) ── */
   const hasContact = d.contact_name || d.mobile_phone || d.primary_email || d.address || d.city;
   const hasAsp     = d.customer || d.labor_vendor_related || d.technician_id;
   const customerCard = (hasContact || hasAsp) ? `
@@ -980,30 +989,27 @@ function renderHero(d) {
         </div>
       </div>` : ''}
     </div>` : '';
-
   return `<div class="wo-hero">
-    <!-- Row 1: WO ID (left) + Status block (right) -->
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;">
-      <div>
-        <div class="wo-hero-id"><span style="color:#8c959f">WO</span> ${esc(String(d.work_order_id))}</div>
-        <!-- Sub-row 1: CASE + Serial No. -->
-        <div class="wo-hero-sn" style="margin-top:4px;display:flex;flex-wrap:wrap;align-items:center;gap:0 4px;">
-          ${d.case_number ? `<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;margin-right:2px">Case</span><span style="font-family:ui-monospace,monospace;color:#1f2328;font-weight:700;margin-right:10px">${esc(d.case_number)}</span>` : ''}
-          ${d.serial_number ? `<span style="font-size:10px;font-weight:600;color:#8c959f;margin-right:2px">Serial No.</span><strong style="color:#1f2328;font-family:ui-monospace,monospace">${esc(d.serial_number)}</strong>` : ''}
-        </div>
-        <!-- Sub-row 2: MTM + Product Description -->
-        <div class="wo-hero-sn" style="margin-top:2px;display:flex;flex-wrap:wrap;align-items:center;gap:0 4px;">
-          ${d.product_id_mtm ? `<span style="font-size:10px;font-weight:600;color:#8c959f;margin-right:2px">MTM</span><strong style="color:#1f2328;font-family:ui-monospace,monospace;margin-right:10px">${esc(d.product_id_mtm)}</strong>` : ''}
-          ${d.product_description ? `<span style="font-size:10px;font-weight:600;color:#8c959f;margin-right:2px">Product</span><strong style="color:#1f2328;font-family:ui-monospace,monospace">${esc(d.product_description)}</strong>` : ''}
-        </div>
-      </div>
-      ${statusBlock}
+    <!-- Row 1: WO ID + WO Status badge + Closing Code pill inline -->
+    <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;">
+      <div class="wo-hero-id"><span style="color:#8c959f">WO</span> ${esc(String(d.work_order_id))}</div>
+      ${statusBadge(d.work_order_status)}
+      ${d.closing_code ? closingCodePill(d.closing_code) : ''}
+    </div>
+    <!-- Row 2: Serial No. · CASE number · Case Status inline -->
+    <div class="wo-hero-sn" style="margin-top:6px;display:flex;flex-wrap:wrap;align-items:center;gap:0 4px;">
+      ${d.serial_number  ? `<span style="font-size:10px;font-weight:600;color:#8c959f;margin-right:2px">Serial No.</span><strong style="color:#1f2328;font-family:ui-monospace,monospace;margin-right:10px">${esc(d.serial_number)}</strong>` : ''}
+      ${d.case_number    ? `<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;margin-right:2px">CASE</span><span style="font-family:ui-monospace,monospace;color:#1f2328;font-weight:700;margin-right:10px">${esc(d.case_number)}</span>` : ''}
+      ${d.case_status    ? `<span style="margin-left:2px">${caseStatusPill(d.case_status)}</span>` : ''}
+    </div>
+    <!-- Row 3: MTM · Product Description -->
+    <div class="wo-hero-sn" style="margin-top:3px;display:flex;flex-wrap:wrap;align-items:center;gap:0 4px;">
+      ${d.product_id_mtm      ? `<span style="font-size:10px;font-weight:600;color:#8c959f;margin-right:2px">MTM</span><strong style="color:#1f2328;font-family:ui-monospace,monospace;margin-right:10px">${esc(d.product_id_mtm)}</strong>` : ''}
+      ${d.product_description ? `<span style="font-size:10px;font-weight:600;color:#8c959f;margin-right:2px">Product</span><strong style="color:#1f2328;font-family:ui-monospace,monospace">${esc(d.product_description)}</strong>` : ''}
     </div>
     <!-- Case description -->
     ${d.case_desc ? `<div style="margin-top:10px;font-size:12px;color:#57606a;background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:8px 12px;"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;margin-right:8px">Case</span>${esc(d.case_desc)}</div>` : ''}
-    <!-- Row 5: Customer card -->
-    ${customerCard}    
-    <!-- Type / flags row -->
+    ${customerCard}
     ${bar1Items.length ? renderBar(bar1Items) : ''}
   </div>`;
 }
@@ -1024,6 +1030,9 @@ function renderTimeline(d, parts) {
   const partOrderDate   = activePart ? activePart.order_date         : null;
   const partPickupDate  = activePart ? activePart.ship_pickup_time    : null;
   const partPodDate     = activePart ? activePart.ship_pou_pod_time   : null;
+
+  /* true when the WO is closed/completed — forces onsite nodes to done */
+  const isWoClosed = !!(d.completion_date || d.closing_date);
 
   /* Define timeline nodes in order */
   const nodes = [
@@ -1048,13 +1057,28 @@ function renderTimeline(d, parts) {
     const ts      = hasDate ? new Date(String(n.date).replace(' ', 'T')).getTime() : null;
     const isPast  = ts && ts <= now;
     const isOverdue = !hasDate && i > 0 && i <= lastDoneIdx + 1 && !n.optional;
+    /* Closed WO: Orig. Onsite (5) and Actual Onsite (7) forced done only when they
+       have a date — if empty they stay grey (future). Defer Date (6): forced done
+       if it has a date; forced grey if empty. */
+    const forceDone   = isWoClosed && ((hasDate && (i === 5 || i === 7)) || (i === 6 && hasDate));
+    const forceGrey   = isWoClosed && i === 6 && !hasDate;
+    /* Open WO: Orig. Onsite (5) and Actual Onsite (7) forced active (blue) when
+       they have a date — the WO is not finished yet so they are not "done".
+       Defer Date (6) forced skipped (amber) when it has a date — it is a deferral,
+       not a completion event. */
+    const forceActive = !isWoClosed && hasDate && (i === 5 || i === 7);
+    const forceSkip   = !isWoClosed && hasDate && i === 6;
 
     let state;
-    if (hasDate && isPast)   state = 'done';
-    else if (hasDate)        state = 'active';   /* future date already set */
-    else if (isOverdue)      state = 'future';
+    if (forceDone)                   state = 'done';
+    else if (forceGrey)              state = 'future';
+    else if (forceActive)            state = 'active';
+    else if (forceSkip)              state = 'skipped';
+    else if (hasDate && isPast)      state = 'done';
+    else if (hasDate)                state = 'active';   /* future date already set */
+    else if (isOverdue)              state = 'future';
     else if (n.optional && !hasDate) state = 'skipped';
-    else                     state = 'future';
+    else                             state = 'future';
 
     const connCls = i < nodes.length - 1
       ? `tl-connector ${(state === 'done' && i < lastDoneIdx) ? 'done' : ''}` : '';
@@ -1135,12 +1159,20 @@ function renderParts(parts, woId) {
     const retFlag = p.return_flag === 'Y'
       ? '<span class="badge badge-part-hold">Return</span>'
       : (p.return_flag === 'N' ? '<span class="badge badge-default">No Return</span>' : '<span style="color:#8c959f">—</span>');
+    const isPartHold = (p.wo_product_status || '').toLowerCase() === 'on hold - part hold';
+    const etaWh      = isPartHold && p.eta_parthold_backlog
+      ? `<span style="display:inline-flex;align-items:center;gap:6px;margin-right:4px">
+           <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#8c959f">ETA Arrived on Warehouse</span>
+           <span style="font-size:13px;font-weight:700;color:#d97706">${String(p.eta_parthold_backlog).slice(0,10)}</span>
+         </span>`
+      : '';
     return `<div class="part-card">
       <div class="part-card-hdr">
         <span class="part-card-num">#${i + 1}</span>
         <span class="part-card-pn">${esc(p.product || '—')}</span>
         <span class="part-card-desc" title="${esc(p.description || '')}">${esc(p.description || '—')}</span>
-        <div style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-shrink:0">
+        <div style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">
+          ${etaWh}
           ${partStatusBadge(p.wo_product_status)}
           ${retFlag}
         </div>
@@ -1151,6 +1183,20 @@ function renderParts(parts, woId) {
         <div class="part-card-field"><div class="pcf-label">SLA</div><div class="pcf-value">${esc(p.sla || '—')}</div></div>
         <div class="part-card-field"><div class="pcf-label">Order Date</div><div class="pcf-value">${fmt(p.order_date) || '—'}</div></div>
         <div class="part-card-field"><div class="pcf-label">Pickup Date</div><div class="pcf-value">${fmt(p.ship_pickup_time) || '—'}</div></div>
+        ${(()=>{
+          const pod     = p.ship_pou_pod_time;
+          const eta     = p.target;
+          const etaFmt  = fmt(eta);
+          if (pod || !eta) {
+            return `<div class="part-card-field"><div class="pcf-label">Target ETA</div><div class="pcf-value">${etaFmt || '—'}</div></div>`;
+          }
+          const isOverdue = eta && new Date(String(eta).replace(' ','T')) < new Date();
+          const cls  = isOverdue ? 'eta-overdue' : 'eta-pending';
+          const pill = isOverdue
+            ? `<div><span class="eta-pill overdue">Overdue</span></div>`
+            : `<div><span class="eta-pill pending">Awaiting</span></div>`;
+          return `<div class="part-card-field ${cls}"><div class="pcf-label">Target ETA</div><div class="pcf-value">${etaFmt || '—'}</div>${pill}</div>`;
+        })()}
         <div class="part-card-field"><div class="pcf-label">Part Received (POD)</div><div class="pcf-value">${fmt(p.ship_pou_pod_time) || '—'}</div></div>
       </div>
     </div>`;
@@ -1421,7 +1467,15 @@ function loadAllWo() {
   allWoTable.load(p);
 }
 let allTimer = null;
-document.getElementById('search-all').addEventListener('input', () => { clearTimeout(allTimer); allTimer = setTimeout(loadAllWo, 350); });
+document.getElementById('search-all').addEventListener('input', () => {
+  clearTimeout(allTimer);
+  if (document.getElementById('search-all').value.trim()) {
+    document.getElementById('filter-status-all').value      = '';
+    document.getElementById('filter-type-all').value        = '';
+    document.getElementById('filter-case-status-all').value = '';
+  }
+  allTimer = setTimeout(loadAllWo, 350);
+});
 document.getElementById('filter-status-all').addEventListener('change',      loadAllWo);
 document.getElementById('filter-type-all').addEventListener('change',         loadAllWo);
 document.getElementById('filter-case-status-all').addEventListener('change',  loadAllWo);

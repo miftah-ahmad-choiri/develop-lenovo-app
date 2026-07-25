@@ -147,7 +147,10 @@ cd <repo-name>
 ### 2. Create and activate a virtual environment
 
 ```bash
-python -m venv .venv
+Remove-Item -Recurse -Force .venv
+$env:PYTHONIOENCODING = "utf-8"; python -m venv .venv
+$env:PYTHONIOENCODING = "utf-8"; .venv\Scripts\Activate.ps1
+pip install -r requirements.txt
 
 # macOS / Linux
 source .venv/bin/activate
