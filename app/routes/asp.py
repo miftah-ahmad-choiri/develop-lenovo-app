@@ -142,10 +142,21 @@ def api_wo_parts(work_order_id: int):
 
 @asp_bp.route("/asp/api/wo-related-serial/<int:work_order_id>", methods=["GET"])
 def api_wo_related_serial(work_order_id: int):
-    """Return all other WOs that share the same serial_number as the given WO."""
+    """Return all WOs (including the current one) that share the same serial_number."""
     from app.services.database.queries import get_wo_detail, get_wo_by_serial
     detail = get_wo_detail(work_order_id)
     if not detail or not detail.get("serial_number"):
-        return jsonify([])
-    rows = get_wo_by_serial(detail["serial_number"], exclude_wo_id=work_order_id)
-    return jsonify(rows)
+        return jsonify({"serial_number": None, "current_wo_id": work_order_id, "rows": []})
+    rows = get_wo_by_serial(detail["serial_number"])
+    return jsonify({"serial_number": detail["serial_number"], "current_wo_id": work_order_id, "rows": rows})
+
+
+@asp_bp.route("/asp/api/wo-ticket-history/<int:work_order_id>", methods=["GET"])
+def api_wo_ticket_history(work_order_id: int):
+    """Return all WOs (including the current one) that share the same case_number (ticket)."""
+    from app.services.database.queries import get_wo_detail, get_wo_by_case_number
+    detail = get_wo_detail(work_order_id)
+    if not detail or not detail.get("case_number"):
+        return jsonify({"case_number": None, "current_wo_id": work_order_id, "rows": []})
+    rows = get_wo_by_case_number(detail["case_number"])
+    return jsonify({"case_number": detail["case_number"], "current_wo_id": work_order_id, "rows": rows})

@@ -31,6 +31,7 @@ def run_migrations(app: Flask) -> None:
         conn.executescript(ddl)
         conn.commit()
         _migrate_wo_product_detail_cascade(conn)
+        _migrate_wo_details_add_product_description(conn)
     finally:
         conn.close()
 
@@ -101,3 +102,20 @@ def _migrate_wo_product_detail_cascade(conn: sqlite3.Connection) -> None:
         PRAGMA foreign_keys = ON;
         """
     )
+
+
+def _migrate_wo_details_add_product_description(conn: sqlite3.Connection) -> None:
+    """Add product_description column to wo_details if it does not already exist.
+
+    SQLite supports ADD COLUMN without rebuilding the table, so this is cheap
+    and safe to run on every startup.
+    """
+    existing = {
+        row[1]
+        for row in conn.execute("PRAGMA table_info(wo_details)").fetchall()
+    }
+    if "product_description" not in existing:
+        conn.execute(
+            "ALTER TABLE wo_details ADD COLUMN product_description TEXT"
+        )
+        conn.commit()

@@ -88,6 +88,32 @@ def api_wo_parts(work_order_id: int):
     return jsonify(rows)
 
 
+# ── API: Related WOs by serial number ────────────────────────────────────────
+
+@admin_bp.route("/admin/api/wo-related-serial/<int:work_order_id>", methods=["GET"])
+def api_wo_related_serial(work_order_id: int):
+    """Return all WOs (including the current one) that share the same serial_number."""
+    from app.services.database.queries import get_wo_detail, get_wo_by_serial
+    detail = get_wo_detail(work_order_id)
+    if not detail or not detail.get("serial_number"):
+        return jsonify({"serial_number": None, "current_wo_id": work_order_id, "rows": []})
+    rows = get_wo_by_serial(detail["serial_number"])
+    return jsonify({"serial_number": detail["serial_number"], "current_wo_id": work_order_id, "rows": rows})
+
+
+# ── API: Ticket history by case number ───────────────────────────────────────
+
+@admin_bp.route("/admin/api/wo-ticket-history/<int:work_order_id>", methods=["GET"])
+def api_wo_ticket_history(work_order_id: int):
+    """Return all WOs (including the current one) that share the same case_number (ticket)."""
+    from app.services.database.queries import get_wo_detail, get_wo_by_case_number
+    detail = get_wo_detail(work_order_id)
+    if not detail or not detail.get("case_number"):
+        return jsonify({"case_number": None, "current_wo_id": work_order_id, "rows": []})
+    rows = get_wo_by_case_number(detail["case_number"])
+    return jsonify({"case_number": detail["case_number"], "current_wo_id": work_order_id, "rows": rows})
+
+
 # ── Ticket Management ────────────────────────────────────────────────────────
 
 @admin_bp.route("/admin/tickets", methods=["GET"])
@@ -305,13 +331,15 @@ def data_import_upsert_preview(category_key: str):
     Upsert for *category_key*.
 
     Logic per category:
-      WOID     — excel work_order_id values NOT yet in wo_summary
       SOID     — excel soid values NOT yet in wo_product_detail
                  (where work_order_id already exists in wo_summary)
       SHIPMENT — excel rows whose SO (work_order_id) matches wo_summary
                  AND whose SOID either does not exist in wo_product_detail
                  OR exists but has ship_pn IS NULL
                  (i.e. records that will receive shipment data for the first time)
+
+    NOTE: WOID preview logic is not implemented yet. The Upsert button for
+    Work Order Advance Find View will run the upsert directly without a preview.
 
     Response JSON:
       {
@@ -371,20 +399,9 @@ def data_import_upsert_preview(category_key: str):
 
         try:
             if category_key == "WOID":
-                # New rows = work_order_id values in Excel not yet in wo_summary
-                existing_ids = {
-                    r[0] for r in db_conn.execute(
-                        "SELECT work_order_id FROM wo_summary"
-                    ).fetchall()
-                }
-                wo_id_col   = "Work Order ID"
-                date_col    = "Created On"
-                preview_cols = [wo_id_col, "Serial Number", date_col,
-                                "Work Order Status", "Customer (Labor Vendor Related) (Partner Function)"]
-
-                new_df = df[df[wo_id_col].apply(
-                    lambda v: _safe_int(v) not in existing_ids
-                )].copy() if wo_id_col in df.columns else pd.DataFrame()
+                # Upsert preview for WOID is not implemented yet.
+                db_conn.close()
+                return jsonify({"ok": False, "error": "Upsert preview for Work Order Advance Find View is not set up yet."})
 
             elif category_key == "SOID":
                 # New rows = soid values in Excel not yet in wo_product_detail

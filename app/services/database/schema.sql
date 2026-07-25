@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS wo_details (
     serial_number                   TEXT,
     case_number                     INTEGER,
     product_id_mtm                  TEXT,             -- machine type-model
+    product_description             TEXT,             -- product name / model name
     release_date                    TEXT,
     original_committed_onsite_date  TEXT,
     customer_defer_date             TEXT,

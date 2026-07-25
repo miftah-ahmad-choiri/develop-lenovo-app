@@ -62,7 +62,7 @@ def upsert_wo_summary_and_details(df: pd.DataFrame, conn: sqlite3.Connection) ->
     details_sql = """
         INSERT OR REPLACE INTO wo_details (
             work_order_id, serial_number, case_number,
-            product_id_mtm, release_date, original_committed_onsite_date,
+            product_id_mtm, product_description, release_date, original_committed_onsite_date,
             customer_defer_date, completion_date, closing_date,
             premier_service, order_type, work_order_priority,
             city, company_name, address, mobile_phone, primary_email,
@@ -70,7 +70,7 @@ def upsert_wo_summary_and_details(df: pd.DataFrame, conn: sqlite3.Connection) ->
             repeat_repair, repeat_repair_reason, wo_cancellation_reason
         ) VALUES (
             ?, ?, ?,
-            ?, ?, ?,
+            ?, ?, ?, ?,
             ?, ?, ?,
             ?, ?, ?,
             ?, ?, ?, ?, ?,
@@ -106,6 +106,7 @@ def upsert_wo_summary_and_details(df: pd.DataFrame, conn: sqlite3.Connection) ->
             _safe_str(r.get("Serial Number")),
             _safe_int(r.get("Case Number")),
             _safe_str(r.get("Product ID (MTM)")),
+            _safe_str(r.get("Product Description")),
             _to_iso(r.get("Release Date")),
             _to_iso(r.get("Original Committed Onsite Date")),
             _to_iso(r.get("Customer Defer Date")),

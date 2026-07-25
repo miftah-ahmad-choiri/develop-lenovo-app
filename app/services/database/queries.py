@@ -164,33 +164,71 @@ def get_parts_for_wo(work_order_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def get_wo_by_serial(serial_number: str, exclude_wo_id: int | None = None) -> list[dict]:
-    """Return all WOs that share the same serial_number, ordered by created_on DESC.
-    Optionally exclude a specific work_order_id (the currently-viewed WO)."""
+def get_wo_by_case_number(case_number: int | str) -> list[dict]:
+    """Return all WOs that share the same case_number (ticket), ordered by created_on ASC
+    (oldest first). Each row also includes a JSON-encoded 'parts' array of non-cancelled
+    part lines (product, description, wo_product_status) for that WO."""
+    import json
     conn = get_db()
-    if exclude_wo_id is not None:
-        rows = conn.execute("""
-            SELECT s.work_order_id, s.serial_number, s.created_on,
-                   s.work_order_status, s.case_status, s.case_desc,
-                   s.work_order_type, s.contact_name, s.customer,
-                   d.case_number, d.product_id_mtm
-            FROM wo_summary s
-            LEFT JOIN wo_details d USING (work_order_id)
-            WHERE LOWER(s.serial_number) = LOWER(?)
-              AND s.work_order_id != ?
-            ORDER BY s.created_on DESC
-        """, (serial_number, exclude_wo_id)).fetchall()
-    else:
-        rows = conn.execute("""
-            SELECT s.work_order_id, s.serial_number, s.created_on,
-                   s.work_order_status, s.case_status, s.case_desc,
-                   s.work_order_type, s.contact_name, s.customer,
-                   d.case_number, d.product_id_mtm
-            FROM wo_summary s
-            LEFT JOIN wo_details d USING (work_order_id)
-            WHERE LOWER(s.serial_number) = LOWER(?)
-            ORDER BY s.created_on DESC
-        """, (serial_number,)).fetchall()
+    # Fetch WO rows
+    wo_rows = conn.execute("""
+        SELECT s.work_order_id, s.serial_number, s.created_on,
+               s.work_order_status, s.case_status, s.case_desc,
+               s.work_order_type, s.contact_name, s.customer,
+               d.case_number, d.product_id_mtm, d.completion_date, d.closing_date
+        FROM wo_summary s
+        LEFT JOIN wo_details d USING (work_order_id)
+        WHERE d.case_number = ?
+        ORDER BY s.created_on ASC
+    """, (case_number,)).fetchall()
+
+    if not wo_rows:
+        return []
+
+    wo_ids = [r["work_order_id"] for r in wo_rows]
+    placeholders = ",".join("?" * len(wo_ids))
+
+    # Fetch non-cancelled part lines for all WOs in one query
+    part_rows = conn.execute(f"""
+        SELECT work_order_id, product, description, wo_product_status
+        FROM wo_product_detail
+        WHERE work_order_id IN ({placeholders})
+          AND LOWER(COALESCE(wo_product_status, '')) NOT LIKE '%cancel%'
+        ORDER BY work_order_id, line_order
+    """, wo_ids).fetchall()
+
+    # Group parts by work_order_id
+    parts_by_wo: dict = {}
+    for p in part_rows:
+        wid = p["work_order_id"]
+        parts_by_wo.setdefault(wid, []).append({
+            "product":           p["product"],
+            "description":       p["description"],
+            "wo_product_status": p["wo_product_status"],
+        })
+
+    result = []
+    for r in wo_rows:
+        row = dict(r)
+        row["parts"] = parts_by_wo.get(row["work_order_id"], [])
+        result.append(row)
+    return result
+
+
+def get_wo_by_serial(serial_number: str) -> list[dict]:
+    """Return all WOs that share the same serial_number (including the current WO),
+    ordered by created_on ASC (oldest first)."""
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT s.work_order_id, s.serial_number, s.created_on,
+               s.work_order_status, s.case_status, s.case_desc,
+               s.work_order_type, s.contact_name, s.customer,
+               d.case_number, d.product_id_mtm, d.completion_date
+        FROM wo_summary s
+        LEFT JOIN wo_details d USING (work_order_id)
+        WHERE LOWER(s.serial_number) = LOWER(?)
+        ORDER BY s.created_on ASC
+    """, (serial_number,)).fetchall()
     return [dict(r) for r in rows]
 
 
