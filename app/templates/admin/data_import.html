@@ -1,0 +1,831 @@
+{% extends "base.html" %}
+{% block title %}Data Import / Export — Admin Portal{% endblock %}
+
+{% block extra_styles %}
+  /* ── Upload card ──────────────────────────────────────────────────────── */
+  .upload-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 28px 32px;
+    margin-bottom: 20px;
+  }
+  .upload-card h2 { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .upload-card .card-sub { font-size: 13px; color: #57606a; margin-bottom: 20px; }
+
+  /* Drop zone */
+  .drop-zone {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; padding: 44px 24px;
+    background: #f7f8fa; border: 2px dashed #d0d7de; border-radius: 8px;
+    cursor: pointer; transition: background 0.15s, border-color 0.15s; text-align: center;
+  }
+  .drop-zone:hover, .drop-zone.dragover { background: #eef2fb; border-color: #3b82d4; }
+  .drop-zone svg { flex-shrink: 0; color: #3b82d4; }
+  .drop-zone .dz-title { font-size: 15px; font-weight: 600; color: #3b82d4; }
+  .drop-zone .dz-sub   { font-size: 12px; color: #57606a; }
+  #file-chosen { margin-top: 10px; font-size: 13px; color: #57606a; text-align: center; min-height: 20px; }
+  input[type="file"] { display: none; }
+
+  /* Buttons */
+  .btn-upload {
+    display: block; width: 100%; margin-top: 18px; padding: 11px 28px;
+    background: #3b82d4; color: #fff; font-size: 14px; font-weight: 600;
+    border: none; border-radius: 6px; cursor: pointer; font-family: inherit; transition: background 0.15s;
+  }
+  .btn-upload:hover { background: #2563b0; }
+  .btn-upload:disabled { background: #9ca3af; cursor: not-allowed; }
+  .btn-upload.confirm { background: #16a34a; }
+  .btn-upload.confirm:hover { background: #15803d; }
+  /* Upload / Cancel row (shown after verify succeeds) */
+  .btn-row {
+    display: none; gap: 10px; margin-top: 18px;
+  }
+  .btn-row.show { display: flex; }
+  .btn-row .btn-upload { margin-top: 0; flex: 1; }
+  .btn-cancel {
+    flex: 0 0 auto; padding: 11px 22px;
+    background: #dc2626; color: #fff; font-size: 14px; font-weight: 600;
+    border: none; border-radius: 6px; cursor: pointer; font-family: inherit;
+    transition: background 0.15s;
+  }
+  .btn-cancel:hover { background: #b91c1c; }
+
+  /* Verification result panel */
+  #verify-panel {
+    margin-top: 18px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+    display: none;
+  }
+  #verify-panel.show { display: block; }
+  .verify-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px; font-size: 13px; font-weight: 700;
+  }
+  .verify-header.ok   { background: #dcfce7; color: #15803d; border-bottom: 1px solid #bbf7d0; }
+  .verify-header.fail { background: #fee2e2; color: #b91c1c; border-bottom: 1px solid #fca5a5; }
+  .verify-meta { padding: 8px 16px; font-size: 12px; color: #57606a; background: #f7f8fa; border-bottom: 1px solid #e5e7eb; }
+  .verify-meta span { margin-right: 20px; }
+  .verify-sheet-label {
+    padding: 8px 16px 4px; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.05em; color: #57606a;
+    background: #f7f8fa; border-bottom: 1px solid #e5e7eb;
+  }
+  .verify-table-wrap { overflow-x: auto; }
+  .verify-table {
+    width: 100%; border-collapse: collapse; font-size: 12px;
+  }
+  .verify-table thead { background: #f0f2f5; }
+  .verify-table th {
+    padding: 8px 12px; text-align: left; font-size: 11px; font-weight: 700;
+    color: #57606a; text-transform: uppercase; letter-spacing: 0.04em;
+    border-bottom: 1px solid #e5e7eb; white-space: nowrap;
+  }
+  .verify-table td {
+    padding: 7px 12px; border-bottom: 1px solid #f0f2f5;
+    color: #1f2328; white-space: nowrap; max-width: 200px;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .verify-table tr:last-child td { border-bottom: none; }
+  .verify-table tbody tr:hover { background: #f7f8fa; }
+  .verify-table td.row-num { color: #9ca3af; font-size: 11px; width: 30px; text-align: center; }
+  .verify-note { padding: 6px 16px 10px; font-size: 11px; color: #57606a; background: #f7f8fa; border-top: 1px solid #e5e7eb; }
+  .verify-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #d0d7de; border-top-color: #3b82d4; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Action bar */
+  .action-bar { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 20px 24px; margin-bottom: 20px; }
+  .action-bar-top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+  .action-bar h3 { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+  .action-bar .bar-sub { font-size: 12px; color: #57606a; }
+  .action-bar-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-action {
+    display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px;
+    font-size: 13px; font-weight: 600; border: none; border-radius: 6px; cursor: pointer;
+    font-family: inherit; text-decoration: none; transition: background 0.15s;
+  }
+  .btn-action.blue   { background: #3b82d4; color: #fff; }
+  .btn-action.blue:hover   { background: #2563b0; }
+  .btn-action.green  { background: #16a34a; color: #fff; }
+  .btn-action.green:hover  { background: #15803d; }
+  .btn-action.red    { background: #dc2626; color: #fff; }
+  .btn-action.red:hover    { background: #b91c1c; }
+
+  /* File list */
+  .file-list-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; }
+  .file-list-header { padding: 14px 20px; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: space-between; }
+  .file-list-header h2 { font-size: 15px; font-weight: 700; }
+  .file-count { font-size: 12px; font-weight: 600; background: #f0f2f5; border: 1px solid #e5e7eb; border-radius: 12px; padding: 2px 10px; color: #57606a; }
+
+  .file-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .file-table thead { background: #f7f8fa; }
+  .file-table th { padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 700; color: #57606a; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+  .file-table td { padding: 10px 16px; border-bottom: 1px solid #f0f2f5; vertical-align: middle; }
+  .file-table tr:last-child td { border-bottom: none; }
+  .file-table tbody tr:hover { background: #f7f8fa; }
+  .file-name { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .file-name svg { flex-shrink: 0; color: #16a34a; }
+  .file-ext { font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; background: #dcfce7; color: #15803d; letter-spacing: 0.04em; }
+  .file-ext.csv { background: #fef3c7; color: #92400e; }
+  .file-ext.xls { background: #dbeafe; color: #1e40af; }
+
+  .btn-delete { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; font-size: 12px; font-weight: 600; border: 1px solid #fca5a5; background: #fff0f0; color: #b91c1c; border-radius: 5px; cursor: pointer; font-family: inherit; transition: background 0.12s; }
+  .btn-delete:hover { background: #fee2e2; }
+
+  .btn-view { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; font-size: 12px; font-weight: 600; border: 1px solid #bfdbfe; background: #eef4fd; color: #2563b0; border-radius: 5px; text-decoration: none; transition: background 0.12s; }
+  .btn-view:hover { background: #dbeafe; }
+
+  .btn-upsert { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; font-size: 12px; font-weight: 600; border: 1px solid #a7f3d0; background: #ecfdf5; color: #065f46; border-radius: 5px; cursor: pointer; font-family: inherit; transition: background 0.12s; }
+  .btn-upsert:hover { background: #d1fae5; }
+  .btn-upsert:disabled, .btn-upsert.done { border-color: #e5e7eb; background: #f7f8fa; color: #9ca3af; cursor: not-allowed; pointer-events: none; }
+
+  .empty-state { padding: 44px; text-align: center; color: #57606a; font-size: 13px; }
+  .empty-state svg { display: block; margin: 0 auto 12px; color: #d0d7de; }
+
+  /* ── Upsert Confirmation Modal ───────────────────────────────────────────── */
+  .modal-backdrop {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45); z-index: 1000;
+    align-items: center; justify-content: center;
+  }
+  .modal-backdrop.show { display: flex; }
+  .modal-box {
+    background: #fff; border-radius: 12px; padding: 28px 32px;
+    max-width: 780px; width: 96vw; max-height: 88vh;
+    overflow-y: auto; position: relative;
+    border: 1px solid #e5e7eb;
+  }
+  .modal-title {
+    font-size: 16px; font-weight: 700; color: #1f2328; margin-bottom: 4px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .modal-sub {
+    font-size: 13px; color: #57606a; margin-bottom: 20px;
+  }
+  .modal-stat-row {
+    display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;
+  }
+  .modal-stat {
+    flex: 1; min-width: 120px; background: #f7f8fa;
+    border: 1px solid #e5e7eb; border-radius: 8px;
+    padding: 12px 16px; text-align: center;
+  }
+  .modal-stat .stat-val {
+    font-size: 22px; font-weight: 700; color: #1f2328; line-height: 1;
+  }
+  .modal-stat .stat-lbl {
+    font-size: 11px; color: #57606a; margin-top: 4px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .modal-stat.accent .stat-val { color: #16a34a; }
+  .modal-stat.warn   .stat-val { color: #d97706; }
+  .modal-section-title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; color: #57606a; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .modal-section-title .badge-latest { background: #dcfce7; color: #15803d; padding: 1px 7px; border-radius: 10px; font-size: 10px; font-weight: 700; }
+  .modal-section-title .badge-oldest { background: #fef9c3; color: #92400e; padding: 1px 7px; border-radius: 10px; font-size: 10px; font-weight: 700; }
+  .modal-preview-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 16px; }
+  .modal-preview-table thead { background: #f0f2f5; }
+  .modal-preview-table th {
+    padding: 7px 10px; text-align: left; font-size: 10px; font-weight: 700;
+    color: #57606a; text-transform: uppercase; letter-spacing: 0.04em;
+    border-bottom: 1px solid #e5e7eb; white-space: nowrap;
+  }
+  .modal-preview-table td {
+    padding: 6px 10px; border-bottom: 1px solid #f0f2f5;
+    color: #1f2328; white-space: nowrap; max-width: 180px;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .modal-preview-table tr:last-child td { border-bottom: none; }
+  .modal-preview-table tbody tr:hover { background: #f7f8fa; }
+  .modal-divider { border: none; border-top: 1px solid #e5e7eb; margin: 18px 0; }
+  .modal-note {
+    font-size: 12px; color: #57606a; background: #fffbeb;
+    border: 1px solid #fde68a; border-radius: 6px;
+    padding: 10px 14px; margin-bottom: 20px;
+  }
+  .modal-footer {
+    display: flex; gap: 10px; justify-content: flex-end;
+  }
+  .modal-btn-confirm {
+    padding: 10px 24px; background: #16a34a; color: #fff;
+    font-size: 13px; font-weight: 600; border: none; border-radius: 6px;
+    cursor: pointer; font-family: inherit; transition: background 0.15s;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .modal-btn-confirm:hover { background: #15803d; }
+  .modal-btn-cancel {
+    padding: 10px 24px; background: #fff; color: #57606a;
+    font-size: 13px; font-weight: 600; border: 1px solid #d0d7de;
+    border-radius: 6px; cursor: pointer; font-family: inherit; transition: background 0.15s;
+  }
+  .modal-btn-cancel:hover { background: #f7f8fa; }
+  .modal-spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid #d0d7de; border-top-color: #3b82d4; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  .modal-loading { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 40px 0; color: #57606a; font-size: 13px; }
+  .modal-error { padding: 20px; background: #fff0f0; border-radius: 8px; color: #b91c1c; font-size: 13px; }
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Data Import / Export</h1>
+  <p>Upload WO spreadsheets and manage source files.</p>
+</div>
+
+<!-- File Actions -->
+<div class="action-bar">
+  <div class="action-bar-top">
+    <div>
+      <h3>File Actions</h3>
+    </div>
+    <div class="action-bar-btns">
+      <form method="POST" action="/admin/data-import/reset"
+            onsubmit="return confirm('Delete ALL uploaded Excel files? This cannot be undone.')">
+        <button type="submit" class="btn-action red">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+          Reset All Files
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Uploaded files list (always shows all 7 categories) -->
+<div class="file-list-card">
+  <div class="file-list-header">
+    <h2>Uploaded Files</h2>
+    <span class="file-count">{{ files | length }} / {{ category_rows | length }} uploaded</span>
+  </div>
+
+  <table class="file-table">
+    <thead>
+      <tr>
+        <th>Category</th>
+        <th>Source</th>
+        <th>File Name</th>
+        <th>Size</th>
+        <th>Last Upload</th>
+        <th>Latest Date</th>
+        <th>Range</th>
+        <th></th>
+        <th></th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in category_rows %}
+      <tr>
+        <td>
+          <span style="font-size:12px;font-weight:600;color:#1f2328;">{{ row.file_category }}</span>
+        </td>
+        <td>
+          <span style="font-size:12px;color:#57606a;">{{ row.source_file }}</span>
+        </td>
+        <td>
+          {% if row.filename %}
+            <div class="file-name">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              {{ row.filename }}
+              <span class="file-ext {% if row.filename.endswith('.csv') %}csv{% elif row.filename.endswith('.xls') and not row.filename.endswith('.xlsx') %}xls{% endif %}">
+                {{ row.filename.rsplit('.', 1)[-1] }}
+              </span>
+            </div>
+          {% else %}
+            <span style="font-size:12px;color:#9ca3af;font-style:italic;">No file uploaded</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if row.size_kb %}
+            <span style="font-size:12px;color:#57606a;">{{ row.size_kb }} KB</span>
+          {% else %}
+            <span style="font-size:12px;color:#9ca3af;">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if row.modified_fmt %}
+            <span style="font-size:12px;color:#57606a;">{{ row.modified_fmt }}</span>
+          {% else %}
+            <span style="font-size:12px;color:#9ca3af;">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if row.latest_date %}
+            <span style="font-size:12px;color:#1f2328;">{{ row.latest_date }}</span>
+          {% else %}
+            <span style="font-size:12px;color:#9ca3af;">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if row.days_range %}
+            <span style="font-size:12px;color:#57606a;">{{ row.days_range }}</span>
+          {% else %}
+            <span style="font-size:12px;color:#9ca3af;">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if row.filename %}
+            <a href="/admin/data-import/view/{{ row.category_key }}" class="btn-view">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              View
+            </a>
+          {% else %}
+            <span style="font-size:12px;color:#d0d7de;">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if row.filename %}
+            {% if row.upserted %}
+              <button type="button" class="btn-upsert done" disabled title="Already upserted — upload a new file to re-enable">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                Upserted
+              </button>
+            {% else %}
+              {# Hidden form — submitted programmatically after modal confirmation #}
+              <form id="upsert-form-{{ row.category_key }}"
+                    method="POST" action="/admin/data-import/upsert/{{ row.category_key }}"
+                    style="display:none;"></form>
+              <button type="button" class="btn-upsert"
+                      data-category="{{ row.category_key }}"
+                      data-filename="{{ row.filename }}"
+                      onclick="openUpsertModal(this)">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+                Upsert
+              </button>
+            {% endif %}
+          {% else %}
+            <span style="font-size:12px;color:#d0d7de;">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if row.filename %}
+            <form method="POST" action="/admin/data-import/delete/{{ row.filename }}"
+                  onsubmit="return confirm('Delete {{ row.filename }}?')">
+              <button type="submit" class="btn-delete">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                Delete
+              </button>
+            </form>
+          {% else %}
+            <span style="font-size:12px;color:#d0d7de;">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- ── Upsert Confirmation Modal ──────────────────────────────────────────── -->
+<div class="modal-backdrop" id="upsert-modal">
+  <div class="modal-box" id="upsert-modal-box">
+    <!-- content injected by JS -->
+  </div>
+</div>
+
+<!-- Upload card -->
+<div class="upload-card" style="margin-top:20px;">
+  <h2>Upload a Spreadsheet</h2>
+  <p class="card-sub">Accepted formats: <strong>.xlsx</strong>, <strong>.xls</strong>, <strong>.csv</strong> &mdash; max 16 MB per file.</p>
+
+  <form method="POST" action="/admin/data-import/upload" enctype="multipart/form-data" id="upload-form">
+    <label class="drop-zone" for="excel_file" id="drop-zone">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="12" y1="18" x2="12" y2="12"/>
+        <polyline points="9 15 12 12 15 15"/>
+      </svg>
+      <span class="dz-title">Click to browse or drag &amp; drop</span>
+      <span class="dz-sub">.xlsx &bull; .xls &bull; .csv</span>
+    </label>
+    <input type="file" id="excel_file" name="excel_file" accept=".xlsx,.xls,.csv" />
+    <div id="file-chosen">No file chosen</div>
+
+    <!-- Verify button (hidden once verify passes) -->
+    <button type="button" class="btn-upload" id="verify-btn" disabled>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      Verify File
+    </button>
+
+    <!-- Verification result panel (hidden until verify runs) -->
+    <div id="verify-panel">
+      <!-- content injected by JS -->
+    </div>
+
+    <!-- Upload + Cancel row (replaces verify button after successful verify) -->
+    <div class="btn-row" id="action-row">
+      <button type="submit" class="btn-upload confirm">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Upload File
+      </button>
+      <button type="button" class="btn-cancel" id="cancel-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        Cancel
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  // ── Upsert Confirmation Modal ───────────────────────────────────────────────
+
+  var _upsertCategoryKey = null;
+
+  function esc(str) {
+    return String(str == null ? '' : str)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function openUpsertModal(btn) {
+    var categoryKey = btn.getAttribute('data-category');
+    var filename    = btn.getAttribute('data-filename');
+    _upsertCategoryKey = categoryKey;
+
+    var modal    = document.getElementById('upsert-modal');
+    var modalBox = document.getElementById('upsert-modal-box');
+
+    // Show modal with loading spinner
+    modalBox.innerHTML =
+      '<div class="modal-title">' +
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>' +
+        'Confirm Upsert' +
+      '</div>' +
+      '<div class="modal-sub">Loading impact preview for <strong>' + esc(filename) + '</strong>…</div>' +
+      '<div class="modal-loading"><span class="modal-spinner"></span> Analysing new rows against database…</div>';
+    modal.classList.add('show');
+
+    // Fetch preview data
+    fetch('/admin/data-import/upsert-preview/' + encodeURIComponent(categoryKey))
+      .then(function(r) { return r.json(); })
+      .then(function(data) { renderUpsertModal(data, filename, categoryKey); })
+      .catch(function(err) {
+        modalBox.innerHTML =
+          '<div class="modal-title">Confirm Upsert</div>' +
+          '<div class="modal-error">Network error: ' + esc(String(err)) + '</div>' +
+          '<div class="modal-footer">' +
+            '<button class="modal-btn-cancel" onclick="closeUpsertModal()">Close</button>' +
+          '</div>';
+      });
+  }
+
+  function renderUpsertModal(data, filename, categoryKey) {
+    var modalBox = document.getElementById('upsert-modal-box');
+
+    if (!data.ok) {
+      modalBox.innerHTML =
+        '<div class="modal-title">Confirm Upsert</div>' +
+        '<div class="modal-error">' + esc(data.error || 'Unknown error.') + '</div>' +
+        '<div class="modal-footer">' +
+          '<button class="modal-btn-cancel" onclick="closeUpsertModal()">Close</button>' +
+        '</div>';
+      return;
+    }
+
+    var impactedCount = data.impacted_count;
+    var totalRows     = data.total_excel_rows;
+    var dateCol       = data.date_col || 'Date';
+    var cols          = data.preview_cols || [];
+    var allRows       = data.all_rows || [];
+    var isShipment    = (categoryKey === 'SHIPMENT');
+
+    // Stat card labels differ for SHIPMENT (impacted = missing any key shipment column)
+    var impactedLabel = isShipment
+      ? 'Rows missing shipment data'
+      : 'New Rows (INSERT)';
+    var skippedCount  = totalRows - impactedCount;
+    var skippedLabel  = isShipment
+      ? 'Fully filled (skip)'
+      : 'Existing Rows (UPDATE)';
+
+    var html =
+      '<div class="modal-title">' +
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>' +
+        'Confirm Upsert &mdash; ' + esc(filename) +
+      '</div>' +
+      '<div class="modal-sub">Review the impact below before writing to the database. ' +
+        (isShipment
+          ? 'Rows shown are those whose Work Order ID matches <code>wo_summary</code>, where the DB has NULL for at least one of <code>ship_pn</code>, <code>awb</code>, or <code>ship_pou_pod_time</code>, <strong>and</strong> the Excel file has a real value for that column.'
+          : 'Rows already present will be updated; new rows will be inserted.') +
+      '</div>';
+
+    // Stat cards
+    html +=
+      '<div class="modal-stat-row">' +
+        '<div class="modal-stat">' +
+          '<div class="stat-val">' + totalRows + '</div>' +
+          '<div class="stat-lbl">Total Excel Rows</div>' +
+        '</div>' +
+        '<div class="modal-stat accent">' +
+          '<div class="stat-val">' + impactedCount + '</div>' +
+          '<div class="stat-lbl">' + impactedLabel + '</div>' +
+        '</div>' +
+        '<div class="modal-stat warn">' +
+          '<div class="stat-val">' + skippedCount + '</div>' +
+          '<div class="stat-lbl">' + skippedLabel + '</div>' +
+        '</div>' +
+      '</div>';
+
+    // Note about filtering
+    html +=
+      '<div class="modal-note">' +
+        (isShipment
+          ? '<strong>Note:</strong> A row is included only when the DB has <code>NULL</code> for at least one of <code>ship_pn</code>, <code>awb</code>, or <code>ship_pou_pod_time</code> <em>and</em> the uploaded Excel provides a real (non-empty) value for that same column. Rows where the Excel value is also empty are excluded — there is nothing to update.'
+          : '<strong>Note:</strong> Only rows whose Work Order ID already exists in <code>wo_summary</code> are written to <code>wo_product_detail</code>. Rows referencing an unknown Work Order ID are skipped.') +
+      '</div>';
+
+    if (impactedCount === 0) {
+      html +=
+        '<div style="padding:16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;margin-bottom:20px;font-size:13px;color:#15803d;">' +
+          (isShipment
+            ? '<strong>No rows to update.</strong> All matched Excel rows already have <code>ship_pn</code>, <code>awb</code>, and <code>ship_pou_pod_time</code> populated in the database.'
+            : '<strong>No new rows to insert.</strong> All ' + totalRows + ' Excel rows already exist in the database (they will be updated in-place).') +
+        '</div>';
+    } else {
+      html +=
+        '<div class="modal-section-title" style="margin-bottom:8px;">' +
+          'All ' + impactedCount + ' impacted rows &mdash; sorted by ' + esc(dateCol) + ' (newest first)' +
+        '</div>' +
+        '<div style="overflow-x:auto;max-height:340px;overflow-y:auto;margin-bottom:16px;border:1px solid #e5e7eb;border-radius:6px;">' +
+          '<table class="modal-preview-table" style="margin-bottom:0;">' +
+            '<thead style="position:sticky;top:0;z-index:1;background:#f0f2f5;"><tr>' +
+              cols.map(function(c) { return '<th>' + esc(c) + '</th>'; }).join('') +
+            '</tr></thead>' +
+            '<tbody>' +
+              (allRows.length === 0
+                ? '<tr><td colspan="' + cols.length + '" style="color:#9ca3af;font-style:italic;padding:12px;">No rows to preview.</td></tr>'
+                : allRows.map(function(row) {
+                    return '<tr>' +
+                      cols.map(function(c) {
+                        var v = row[c] !== undefined ? row[c] : '';
+                        return '<td title="' + esc(v) + '">' + esc(v) + '</td>';
+                      }).join('') +
+                    '</tr>';
+                  }).join('')
+              ) +
+            '</tbody>' +
+          '</table>' +
+        '</div>';
+    }
+
+    // Footer buttons
+    html +=
+      '<div class="modal-footer">' +
+        '<button class="modal-btn-cancel" onclick="closeUpsertModal()">Cancel</button>' +
+        '<button class="modal-btn-confirm" onclick="confirmUpsert(\'' + esc(categoryKey) + '\')">' +
+          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>' +
+          'Confirm Upsert' +
+        '</button>' +
+      '</div>';
+
+    modalBox.innerHTML = html;
+  }
+
+  function confirmUpsert(categoryKey) {
+    var form = document.getElementById('upsert-form-' + categoryKey);
+    if (form) {
+      closeUpsertModal();
+      form.submit();
+    }
+  }
+
+  function closeUpsertModal() {
+    document.getElementById('upsert-modal').classList.remove('show');
+    _upsertCategoryKey = null;
+  }
+
+  // Close on backdrop click
+  document.getElementById('upsert-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeUpsertModal();
+  });
+
+  // ── Upload section ──────────────────────────────────────────────────────────
+
+  const input     = document.getElementById('excel_file');
+  const label     = document.getElementById('drop-zone');
+  const chosen    = document.getElementById('file-chosen');
+  const verifyBtn = document.getElementById('verify-btn');
+  const actionRow = document.getElementById('action-row');
+  const cancelBtn = document.getElementById('cancel-btn');
+  const panel     = document.getElementById('verify-panel');
+
+  // ── helpers ──────────────────────────────────────────────────────────────
+
+  function resetVerify() {
+    panel.className = 'verify-panel';
+    panel.innerHTML = '';
+    // hide Upload/Cancel row, restore Verify button
+    actionRow.classList.remove('show');
+    verifyBtn.style.display = '';
+    verifyBtn.disabled = input.files.length === 0;
+    verifyBtn.innerHTML = _verifyIcon() + 'Verify File';
+  }
+
+  function _verifyIcon() {
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>';
+  }
+
+  // ── main render ───────────────────────────────────────────────────────────
+
+  function renderResult(data) {
+    panel.innerHTML = '';
+    panel.classList.add('show');
+
+    // hard failure (can't open file)
+    if (!data.ok) {
+      panel.innerHTML =
+        '<div class="verify-header fail"><span>&#10007; File error &mdash; ' + esc(data.filename || '') + '</span></div>' +
+        '<div class="verify-meta" style="color:#b91c1c;background:#fff0f0;">' + esc(data.error) + '</div>';
+      submitBtn.style.display = 'none';
+      return;
+    }
+
+    var status    = data.validation_status || 'Unknown';
+    var isValid   = status === 'Validated';
+    var isPartial = status === 'Unknown (Partial Match)';
+    var isUnknown = status === 'Unknown';
+    var overallOk = isValid || isPartial;   // allow upload on partial too
+
+    // ── top header ──
+    var headerClass = isValid ? 'ok' : (isPartial ? 'ok' : 'fail');
+    var headerIcon  = isUnknown ? '&#10007;' : '&#10003;';
+    var headerText  = isValid   ? 'Validated &mdash; all required columns present'
+                    : isPartial ? 'Partial match &mdash; ' + (data.missing_columns || []).length + ' column(s) missing'
+                    :             'Unknown &mdash; could not detect file category';
+
+    var html =
+      '<div class="verify-header ' + headerClass + '">' +
+        '<span>' + headerIcon + ' ' + headerText + '</span>' +
+        '<span style="font-weight:400;font-size:11px;">' +
+          data.size_kb + ' KB &bull; ' + data.format.toUpperCase() +
+          ' &bull; ' + esc(data.sheet_name) +
+        '</span>' +
+      '</div>';
+
+    // ── file meta row ──
+    html += '<div class="verify-meta">';
+    html += '<span><strong>File:</strong> ' + esc(data.filename) + '</span>';
+    if (data.file_category) {
+      html += '<span><strong>Category:</strong> ' + esc(data.file_category) + '</span>';
+      html += '<span><strong>Source:</strong> ' + esc(data.source_file || '') + '</span>';
+    } else {
+      html += '<span style="color:#b91c1c;"><strong>Category:</strong> Unknown</span>';
+    }
+    html += '<span><strong>Rows:</strong> ' + data.total_rows + '</span>';
+    html += '<span><strong>Columns:</strong> ' + data.total_cols + '</span>';
+    if (data.latest_date) {
+      html += '<span><strong>Latest date:</strong> ' + esc(data.latest_date) + '</span>';
+      html += '<span><strong>Range:</strong> ' + esc(data.days_range || '') + '</span>';
+    }
+    html += '</div>';
+
+    // ── column check result ──
+    if (!isUnknown && data.required_columns && data.required_columns.length > 0) {
+      var missingSet = data.missing_columns || [];
+      if (missingSet.length === 0) {
+        // All required columns present — single green badge
+        html +=
+          '<div style="padding:10px 16px;background:#f0fdf4;border-top:1px solid #bbf7d0;border-bottom:1px solid #bbf7d0;display:flex;align-items:center;gap:8px;">' +
+            '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
+            '<span style="font-size:13px;font-weight:700;color:#15803d;">ALL DETECTION PASSED</span>' +
+            '<span style="font-size:12px;color:#166534;margin-left:4px;">&#8212; ' + data.required_columns.length + ' required column' + (data.required_columns.length !== 1 ? 's' : '') + ' verified</span>' +
+          '</div>';
+      } else {
+        // Some columns missing — show which ones
+        html +=
+          '<div style="padding:10px 16px;background:#fff0f0;border-top:1px solid #fca5a5;border-bottom:1px solid #fca5a5;display:flex;align-items:center;gap:8px;">' +
+            '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b91c1c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
+            '<span style="font-size:13px;font-weight:700;color:#b91c1c;">' + missingSet.length + ' REQUIRED COLUMN' + (missingSet.length !== 1 ? 'S' : '') + ' MISSING</span>' +
+          '</div>' +
+          '<div class="verify-note" style="color:#b91c1c;background:#fff8f8;border-top:none;">' +
+            esc(data.message || ('Missing: ' + missingSet.join(', '))) +
+          '</div>';
+      }
+    } else if (isUnknown) {
+      html +=
+        '<div style="padding:10px 16px;background:#fff0f0;border-top:1px solid #fca5a5;border-bottom:1px solid #fca5a5;display:flex;align-items:center;gap:8px;">' +
+          '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b91c1c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
+          '<span style="font-size:13px;font-weight:700;color:#b91c1c;">UNKNOWN FILE</span>' +
+          '<span style="font-size:12px;color:#b91c1c;margin-left:4px;">&#8212; ' + esc(data.message || 'Could not detect file category.') + '</span>' +
+        '</div>';
+    }
+
+    // ── data preview table ──
+    html += '<div class="verify-sheet-label">Data Preview &mdash; ' + esc(data.sheet_name) + '</div>';
+    if (!data.headers || data.headers.length === 0) {
+      html += '<div class="verify-meta" style="color:#92400e;background:#fffbeb;">File appears to be empty.</div>';
+    } else {
+      html += '<div class="verify-table-wrap"><table class="verify-table"><thead><tr><th>#</th>';
+      data.headers.forEach(function(h) {
+        html += '<th>' + esc(h) + '</th>';
+      });
+      html += '</tr></thead><tbody>';
+
+      if (!data.sample_rows || data.sample_rows.length === 0) {
+        html += '<tr><td class="row-num">—</td><td colspan="' + data.headers.length +
+          '" style="color:#9ca3af;font-style:italic;">No data rows found</td></tr>';
+      } else {
+        data.sample_rows.forEach(function(row, idx) {
+          html += '<tr><td class="row-num">' + (idx + 1) + '</td>';
+          for (var c = 0; c < data.headers.length; c++) {
+            var cell = row[c] !== undefined ? row[c] : '';
+            html += '<td title="' + esc(cell) + '">' + esc(cell) + '</td>';
+          }
+          html += '</tr>';
+        });
+      }
+
+      html += '</tbody></table></div>';
+      if (data.total_rows > data.sample_rows.length) {
+        html += '<div class="verify-note">Showing first ' + data.sample_rows.length +
+          ' of ' + data.total_rows + ' data rows.</div>';
+      }
+    }
+
+    panel.innerHTML = html;
+
+    // After verify: swap Verify button → Upload + Cancel row (only when ok)
+    if (overallOk) {
+      verifyBtn.style.display = 'none';
+      actionRow.classList.add('show');
+    } else {
+      verifyBtn.style.display = '';
+      actionRow.classList.remove('show');
+    }
+  }
+
+  // ── file selection ────────────────────────────────────────────────────────
+
+  function onFileSelected(file) {
+    chosen.textContent = file ? file.name : 'No file chosen';
+    resetVerify();
+    verifyBtn.disabled = !file;
+  }
+
+  input.addEventListener('change', () => {
+    onFileSelected(input.files.length > 0 ? input.files[0] : null);
+  });
+
+  label.addEventListener('dragover',  ev => { ev.preventDefault(); label.classList.add('dragover'); });
+  label.addEventListener('dragleave', ()  => label.classList.remove('dragover'));
+  label.addEventListener('drop', ev => {
+    ev.preventDefault();
+    label.classList.remove('dragover');
+    if (ev.dataTransfer.files.length > 0) {
+      input.files = ev.dataTransfer.files;
+      onFileSelected(ev.dataTransfer.files[0]);
+    }
+  });
+
+  // ── cancel button ─────────────────────────────────────────────────────────
+
+  cancelBtn.addEventListener('click', function() {
+    // Clear the file input and reset everything
+    input.value = '';
+    chosen.textContent = 'No file chosen';
+    label.querySelector('.dz-title').textContent = 'Click to browse or drag & drop';
+    resetVerify();
+  });
+
+  // ── verify button ─────────────────────────────────────────────────────────
+
+  verifyBtn.addEventListener('click', function() {
+    if (!input.files.length) return;
+
+    verifyBtn.disabled = true;
+    verifyBtn.innerHTML = '<span class="verify-spinner"></span>Verifying\u2026';
+    panel.innerHTML = '';
+    panel.classList.remove('show');
+    actionRow.classList.remove('show');
+
+    var fd = new FormData();
+    fd.append('excel_file', input.files[0]);
+
+    fetch('/admin/data-import/verify', { method: 'POST', body: fd })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        renderResult(data);
+        // If result was ok, verify btn is hidden; otherwise restore it
+        if (verifyBtn.style.display !== 'none') {
+          verifyBtn.disabled = false;
+          verifyBtn.innerHTML = _verifyIcon() + 'Re-verify';
+        }
+      })
+      .catch(function(err) {
+        panel.classList.add('show');
+        panel.innerHTML =
+          '<div class="verify-header fail"><span>&#10007; Network error</span></div>' +
+          '<div class="verify-meta" style="color:#b91c1c;background:#fff0f0;">' + esc(String(err)) + '</div>';
+        verifyBtn.style.display = '';
+        verifyBtn.disabled = false;
+        verifyBtn.innerHTML = _verifyIcon() + 'Retry Verify';
+        actionRow.classList.remove('show');
+      });
+  });
+</script>
+{% endblock %}

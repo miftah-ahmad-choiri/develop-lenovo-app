@@ -1,0 +1,1494 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — ASP Portal{% endblock %}
+
+{% block extra_styles %}
+  /* ── Stat cards ─────────────────────────────────────────────────── */
+  .stat-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 28px; }
+  .stat-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px 20px; cursor: pointer; transition: box-shadow 0.15s; }
+  .stat-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .stat-card .sc-label { font-size: 11px; color: #57606a; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  .stat-card .sc-value { font-size: 30px; font-weight: 700; margin-top: 2px; line-height: 1.2; }
+  .stat-card.blue  .sc-value { color: #3b82d4; }
+  .stat-card.green .sc-value { color: #16a34a; }
+  .stat-card.amber .sc-value { color: #d97706; }
+  .stat-card.red   .sc-value { color: #dc2626; }
+
+  /* ── Tab bar ────────────────────────────────────────────────────── */
+  .tab-bar { display: flex; border-bottom: 2px solid #e5e7eb; margin-bottom: 24px; gap: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .tab-bar::-webkit-scrollbar { display: none; }
+  .tab-btn { padding: 10px 18px; font-size: 13px; font-weight: 600; color: #57606a; background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -2px; cursor: pointer; transition: color 0.15s, border-color 0.15s; white-space: nowrap; font-family: inherit; flex-shrink: 0; }
+  .tab-btn.active { color: #3b82d4; border-bottom-color: #3b82d4; }
+  .tab-btn:hover:not(.active) { color: #1f2328; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── Table card ─────────────────────────────────────────────────── */
+  .table-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
+  .table-toolbar { padding: 12px 16px; display: flex; align-items: center; justify-content: flex-end; gap: 10px; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap; }
+  .table-toolbar input[type="search"] { padding: 7px 11px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 13px; width: 220px; font-family: inherit; }
+  .table-toolbar input[type="search"]:focus { outline: none; border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,.1); }
+  .filter-select { padding: 7px 28px 7px 10px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 13px; font-family: inherit; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2357606a' d='M1 1l5 5 5-5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; background-color: #fff; color: #1f2328; }
+  .filter-select:focus { outline: none; border-color: #3b82d4; }
+  .toolbar-count { font-size: 12px; color: #57606a; white-space: nowrap; }
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table thead { background: #f7f8fa; }
+  .data-table th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 700; color: #57606a; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+  .data-table td { padding: 9px 12px; border-bottom: 1px solid #f0f2f5; vertical-align: middle; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tbody tr:hover { background: #f7f8fa; }
+  .wo-link { color: #3b82d4; font-weight: 600; cursor: pointer; background: none; border: none; font-family: inherit; font-size: inherit; padding: 0; text-decoration: underline; text-underline-offset: 2px; }
+  .wo-link:hover { color: #1d4ed8; }
+  .empty-state  { padding: 44px; text-align: center; color: #57606a; font-size: 13px; }
+  .loading-state{ padding: 32px; text-align: center; color: #57606a; font-size: 13px; }
+
+  /* ── Badges ─────────────────────────────────────────────────────── */
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+  /* ── WO Status badge palette (one colour per status) ── */
+  .badge-s-closed        { background: #dcfce7; color: #15803d; }
+  .badge-s-completed     { background: #bbf7d0; color: #166534; }
+  .badge-s-repair-done   { background: #ccfbf1; color: #0f766e; }
+  .badge-s-pickup        { background: #cffafe; color: #0e7490; }
+  .badge-s-rma           { background: #dbeafe; color: #1e40af; }
+  .badge-s-returned      { background: #e0e7ff; color: #3730a3; }
+  .badge-s-transit       { background: #ede9fe; color: #6d28d9; }
+  .badge-s-part-hold     { background: #fce7f3; color: #9d174d; }
+  .badge-s-part-req      { background: #fef3c7; color: #92400e; }
+  .badge-s-part-delivered{ background: #d9f99d; color: #3f6212; }
+  .badge-s-cust-hold     { background: #ffe4e6; color: #be123c; }
+  .badge-s-in-repair     { background: #dbeafe; color: #1d4ed8; }
+  .badge-s-tech-assigned { background: #e0f2fe; color: #0369a1; }
+  .badge-s-accepted      { background: #ecfccb; color: #4d7c0f; }
+  .badge-s-pick-pack     { background: #ffedd5; color: #c2410c; }
+  .badge-s-cancelled     { background: #f3f4f6; color: #6b7280; }
+  .badge-s-default       { background: #f0f2f5; color: #57606a; }
+  /* legacy aliases (used by part-status badges and return-flag badges) */
+  .badge-closed    { background: #dcfce7; color: #15803d; }
+  .badge-cancelled { background: #f3f4f6; color: #6b7280; }
+  .badge-part-hold { background: #ffedd5; color: #c2410c; }
+  .badge-default   { background: #f0f2f5; color: #57606a; }
+
+  /* ── Buttons ────────────────────────────────────────────────────── */
+  .btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; font-size: 12px; font-weight: 600; border-radius: 5px; border: 1px solid transparent; cursor: pointer; white-space: nowrap; font-family: inherit; transition: background 0.12s; }
+  .btn-primary { background: #3b82d4; color: #fff; border-color: #3b82d4; }
+  .btn-primary:hover { background: #2563b0; }
+  .btn-danger  { background: #dc2626; color: #fff; border-color: #dc2626; }
+  .btn-danger:hover  { background: #b91c1c; }
+  .btn-ghost   { background: #f7f8fa; color: #1f2328; border-color: #d0d7de; }
+  .btn-ghost:hover { background: #e5e7eb; }
+  .btn-purple  { background: #7c5cd8; color: #fff; border-color: #7c5cd8; }
+  .btn-purple:hover { background: #6040b8; }
+  .btn-amber   { background: #d97706; color: #fff; border-color: #d97706; }
+  .btn-amber:hover { background: #b45309; }
+  .btn-sm { padding: 4px 9px; font-size: 11px; }
+  .btn-group { display: flex; gap: 5px; }
+
+  /* ── Pagination ─────────────────────────────────────────────────── */
+  .pagination { display: flex; gap: 4px; align-items: center; padding: 12px 16px; border-top: 1px solid #e5e7eb; flex-wrap: wrap; }
+  .page-btn { padding: 4px 10px; border: 1px solid #d0d7de; border-radius: 5px; background: #fff; font-size: 12px; cursor: pointer; font-family: inherit; color: #1f2328; }
+  .page-btn.active { background: #3b82d4; color: #fff; border-color: #3b82d4; }
+  .page-btn:hover:not(.active):not(:disabled) { background: #f7f8fa; }
+  .page-btn:disabled { opacity: 0.4; cursor: default; }
+  .page-info { font-size: 12px; color: #57606a; margin-right: auto; }
+  .page-jump { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #57606a; margin-left: 8px; }
+  .page-jump input { width: 52px; padding: 3px 6px; border: 1px solid #d0d7de; border-radius: 5px; font-size: 12px; font-family: inherit; text-align: center; }
+
+  /* ── Detail modal ───────────────────────────────────────────────── */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; align-items: flex-start; justify-content: center; padding: 20px 8px 40px; overflow-y: auto; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: #fff; border-radius: 12px; width: 100%; max-width: 1100px; box-shadow: 0 12px 40px rgba(0,0,0,0.2); }
+  .modal-header { padding: 8px 14px 8px; border-bottom: none; display: flex; align-items: center; justify-content: flex-end; }
+  .modal-title { font-size: 17px; font-weight: 800; color: #1f2328; font-family: ui-monospace, monospace; letter-spacing: -0.01em; }
+  .modal-subtitle { font-size: 12px; color: #57606a; margin-top: 3px; line-height: 1.5; }
+  .modal-subtitle strong { color: #1f2328; font-family: ui-monospace, monospace; }
+  .modal-subtitle .sep { color: #d1d5db; margin: 0 5px; }
+  .modal-meta { display: flex; flex-direction: column; gap: 3px; align-items: flex-end; flex-shrink: 0; }
+  .modal-meta-row { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .modal-meta-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #8c959f; }
+  .modal-meta-val { font-size: 12px; color: #1f2328; font-weight: 600; }
+  .modal-meta-val.muted { color: #8c959f; font-weight: 400; font-style: italic; }
+  .modal-header-right { display: flex; align-items: flex-start; gap: 14px; flex-shrink: 0; }
+  .modal-close { background: none; border: none; cursor: pointer; color: #8c959f; font-size: 20px; line-height: 1; padding: 2px 6px; flex-shrink: 0; }
+  .modal-close:hover { color: #1f2328; }
+  /* hero status block */
+  .wo-hero-status { display: flex; flex-direction: column; gap: 5px; align-items: flex-end; flex-shrink: 0; }
+  .wo-hero-status-row { display: flex; align-items: center; gap: 7px; white-space: nowrap; justify-content: flex-end; }
+  .wo-hero-status-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #8c959f; }
+  .wo-hero-status-val { font-size: 12px; color: #1f2328; font-weight: 700; }
+  .wo-hero-status-val.muted { color: #8c959f; font-weight: 400; font-style: italic; }
+  /* hero info bar */
+  .wo-info-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 0; margin-top: 10px; }
+  .wo-info-item { display: flex; align-items: center; gap: 5px; padding: 0 16px 0 0; white-space: nowrap; }
+  .wo-info-item:last-child { padding-right: 0; }
+  .wo-info-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #8c959f; }
+  .wo-info-val { display: inline-block; font-size: 11px; font-weight: 700; border-radius: 12px; padding: 2px 9px; border: 1px solid transparent; }
+  .wo-info-val.gray   { color: #374151; background: #f3f4f6; border-color: #e5e7eb; }
+  .wo-info-val.blue   { color: #1e40af; background: #dbeafe; border-color: #bfdbfe; }
+  .wo-info-val.green  { color: #15803d; background: #dcfce7; border-color: #bbf7d0; }
+  .wo-info-val.red    { color: #b91c1c; background: #fee2e2; border-color: #fecaca; }
+  .wo-info-val.amber  { color: #92400e; background: #fef3c7; border-color: #fde68a; }
+  .wo-info-val.purple { color: #6d28d9; background: #ede9fe; border-color: #ddd6fe; }
+  /* customer card */
+  .wo-customer-card { margin-top: 10px; background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 16px; display: flex; flex-direction: column; gap: 4px; max-width: 380px; }
+  .wo-customer-name { font-size: 13px; font-weight: 800; color: #1f2328; text-transform: uppercase; letter-spacing: .01em; }
+  .wo-customer-row { display: flex; align-items: baseline; gap: 7px; font-size: 12px; }
+  .wo-customer-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #8c959f; white-space: nowrap; }
+  .wo-customer-val { color: #1f2328; word-break: break-all; }
+  .modal-body { padding: 0; }
+  .modal-loading { padding: 48px; text-align: center; color: #57606a; font-size: 13px; }
+
+  /* Action modals (Part Received / Part Return / Reschedule) */
+  .modal.narrow { max-width: 480px; }
+  .modal.narrow .modal-body { padding: 20px; }
+  .mf-group { margin-bottom: 16px; }
+  .mf-group label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 5px; }
+  .mf-group label .req { color: #dc2626; margin-left: 2px; }
+  .mf-group input, .mf-group select, .mf-group textarea { width: 100%; padding: 8px 10px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 13px; font-family: inherit; color: #1f2328; box-sizing: border-box; }
+  .mf-group input:focus, .mf-group select:focus, .mf-group textarea:focus { outline: none; border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,.1); }
+  .mf-group textarea { resize: vertical; min-height: 76px; }
+  .mf-group select { appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2357606a' d='M1 1l5 5 5-5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; }
+  .file-upload-zone { border: 2px dashed #d0d7de; border-radius: 6px; padding: 14px; text-align: center; cursor: pointer; color: #3b82d4; font-weight: 600; font-size: 13px; transition: border-color 0.15s; }
+  .file-upload-zone:hover { border-color: #3b82d4; background: #f0f5ff; }
+  .file-upload-zone input { display: none; }
+  .file-upload-name { font-size: 11px; color: #57606a; margin-top: 5px; }
+  .modal-footer { padding: 14px 20px; border-top: 1px solid #e5e7eb; display: flex; gap: 8px; justify-content: flex-end; }
+  .wo-strip { background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; }
+  .wo-strip-num { font-weight: 700; font-size: 14px; }
+  .wo-strip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 12px; margin-top: 6px; font-size: 12px; }
+  .wo-strip-grid span { color: #57606a; }
+  .wo-strip-grid strong { color: #1f2328; }
+
+  /* ── WO Detail — hero banner ────────────────────────────────────── */
+  .wo-hero { padding: 20px 22px 16px; background: #f7f8fa; border-bottom: 1px solid #e5e7eb; }
+  .wo-hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .wo-hero-id { font-size: 22px; font-weight: 800; color: #1f2328; font-family: ui-monospace, monospace; letter-spacing: -0.02em; }
+  .wo-hero-sn { font-size: 12px; color: #57606a; margin-top: 2px; }
+  .wo-hero-sn strong { color: #1f2328; font-family: ui-monospace, monospace; }
+  .wo-hero-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
+  .wo-chip { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; border: 1px solid transparent; white-space: nowrap; }
+  .wo-chip-label { color: #8c959f; font-size: 10px; font-weight: 600; text-transform: uppercase; margin-right: 2px; }
+  .wo-chip.blue  { background: #dbeafe; border-color: #bfdbfe; color: #1e40af; }
+  .wo-chip.green { background: #dcfce7; border-color: #bbf7d0; color: #15803d; }
+  .wo-chip.amber { background: #fef3c7; border-color: #fde68a; color: #92400e; }
+  .wo-chip.red   { background: #fee2e2; border-color: #fecaca; color: #b91c1c; }
+  .wo-chip.gray  { background: #f3f4f6; border-color: #e5e7eb; color: #374151; }
+  .wo-chip.purple{ background: #ede9fe; border-color: #ddd6fe; color: #6d28d9; }
+
+  /* ── WO Detail — info cards grid ───────────────────────────────── */
+  .detail-body-inner { padding: 20px 22px; }
+  .detail-section { margin-bottom: 22px; }
+  .detail-section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #8c959f; border-bottom: 1px solid #e5e7eb; padding-bottom: 7px; margin-bottom: 14px; display: flex; align-items: center; gap: 7px; }
+  .detail-section-title svg { flex-shrink: 0; }
+  .detail-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: #e5e7eb; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
+  .detail-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .detail-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+  .detail-field { background: #fff; padding: 10px 14px; min-width: 0; }
+  .detail-field.span-2 { grid-column: span 2; }
+  .detail-field.span-3 { grid-column: span 3; }
+  .detail-field .df-label { font-size: 10px; color: #8c959f; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 3px; }
+  .detail-field .df-value { font-size: 13px; color: #1f2328; word-break: break-word; white-space: normal; line-height: 1.4; }
+  .detail-field .df-value.mono { font-family: ui-monospace, monospace; font-size: 12px; }
+  .detail-field .df-value.muted { color: #8c959f; font-style: italic; }
+
+  /* ── WO Detail — timeline ───────────────────────────────────────── */
+  .tl-wrap { position: relative; padding: 4px 0 4px 0; }
+  /* horizontal scroll only on small screens */
+  .tl-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+  .tl-track { display: flex; align-items: flex-start; gap: 0; padding: 0 2px; }
+  /* connector line between nodes — grows to fill space evenly */
+  .tl-connector { flex: 1; min-width: 8px; height: 2px; margin-top: 18px; background: #e5e7eb; }
+  .tl-connector.done { background: #86efac; }
+  /* individual node — flex-shrink so nodes compress on wide screens */
+  .tl-node { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 72px; max-width: 100px; }
+  .tl-dot-wrap { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; position: relative; }
+  .tl-dot-wrap.done   { background: #dcfce7; border: 2px solid #86efac; }
+  .tl-dot-wrap.active { background: #dbeafe; border: 2px solid #93c5fd; }
+  .tl-dot-wrap.future { background: #f3f4f6; border: 2px dashed #d1d5db; }
+  .tl-dot-wrap.skipped{ background: #fef9c3; border: 2px dashed #fde68a; }
+  .tl-dot-wrap.overdue{ background: #fee2e2; border: 2px solid #fca5a5; }
+  .tl-dot-inner { width: 10px; height: 10px; border-radius: 50%; }
+  .tl-dot-wrap.done   .tl-dot-inner { background: #22c55e; }
+  .tl-dot-wrap.active .tl-dot-inner { background: #3b82f6; }
+  .tl-dot-wrap.future .tl-dot-inner { background: #d1d5db; }
+  .tl-dot-wrap.skipped .tl-dot-inner { background: #ca8a04; }
+  .tl-dot-wrap.overdue .tl-dot-inner { background: #ef4444; }
+  .tl-label { font-size: 10px; font-weight: 600; color: #57606a; text-align: center; margin-top: 6px; line-height: 1.3; max-width: 80px; }
+  .tl-date  { font-size: 10px; color: #8c959f; text-align: center; margin-top: 2px; line-height: 1.2; max-width: 80px; white-space: pre-line; }
+  .tl-date.done-text   { color: #16a34a; font-weight: 600; }
+  .tl-date.active-text { color: #2563eb; font-weight: 600; }
+  .tl-date.overdue-text{ color: #dc2626; font-weight: 600; }
+  .tl-date.future-text { color: #9ca3af; }
+
+  /* ── WO Detail — collapsible section ───────────────────────────── */
+  .collapsible-hdr { cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; }
+  .collapsible-hdr .caret { transition: transform 0.2s; flex-shrink: 0; }
+  .collapsible-hdr.collapsed .caret { transform: rotate(-90deg); }
+  .collapsible-body { overflow: hidden; transition: max-height 0.25s ease; }
+  .collapsible-body.collapsed { max-height: 0 !important; }
+
+  /* ── WO Detail — parts card ─────────────────────────────────────── */
+  .part-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
+  .part-card-hdr { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #f7f8fa; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap; }
+  .part-card-num { font-size: 11px; font-weight: 700; color: #8c959f; flex-shrink: 0; }
+  .part-card-pn  { font-size: 12px; font-weight: 700; font-family: ui-monospace, monospace; color: #1f2328; }
+  .part-card-desc{ font-size: 12px; color: #57606a; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .part-card-body { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1px; background: #e5e7eb; }
+  .part-card-field { background: #fff; padding: 8px 12px; }
+  .part-card-field .pcf-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #8c959f; margin-bottom: 2px; }
+  .part-card-field .pcf-value { font-size: 12px; color: #1f2328; }
+  .part-card-field .pcf-value.mono { font-family: ui-monospace, monospace; font-size: 11px; }
+
+  /* ── Related WO / Ticket table ─────────────────────────────────── */
+  .related-wo-id { font-size: 13px; font-weight: 700; color: #3b82d4; cursor: pointer; background: none; border: none; font-family: inherit; padding: 0; text-decoration: underline; text-underline-offset: 2px; flex-shrink: 0; }
+  .related-wo-id:hover { color: #1d4ed8; }
+  .ticket-table td { padding: 8px 10px; border-bottom: 1px solid #f0f2f5; vertical-align: middle; }
+  .ticket-table tr:last-child td { border-bottom: none; }
+  .ticket-table tbody tr:hover { background: #f7f8fa; }
+  .ticket-group-row td:first-child { border-right: 2px solid #bfdbfe; background: #eff6ff; }
+
+  /* Toast */
+  .toast-wrap { position: fixed; bottom: 24px; right: 24px; z-index: 300; display: flex; flex-direction: column; gap: 8px; }
+  .toast { background: #1f2328; color: #fff; padding: 11px 16px; border-radius: 7px; font-size: 13px; min-width: 240px; box-shadow: 0 4px 16px rgba(0,0,0,0.18); opacity: 0; transform: translateY(8px); transition: opacity 0.2s, transform 0.2s; }
+  .toast.show  { opacity: 1; transform: translateY(0); }
+  .toast.ok    { border-left: 3px solid #22c55e; }
+  .toast.err   { border-left: 3px solid #dc2626; }
+
+  /* Mini parts table inside detail modal */
+  .parts-mini-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .parts-mini-table thead { background: #f7f8fa; }
+  .parts-mini-table th { padding: 7px 10px; text-align: left; font-size: 10px; font-weight: 700; color: #57606a; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+  .parts-mini-table td { padding: 7px 10px; border-bottom: 1px solid #f0f2f5; vertical-align: middle; white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+  .parts-mini-table tr:last-child td { border-bottom: none; }
+  .parts-mini-table .mono { font-family: ui-monospace, monospace; font-size: 11px; }
+
+  @media (max-width: 1024px) { .stat-row { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 700px) {
+    .stat-row { grid-template-columns: repeat(2, 1fr); }
+    .detail-grid { grid-template-columns: repeat(2, 1fr); }
+    .detail-grid.cols-4 { grid-template-columns: repeat(2, 1fr); }
+    .detail-field.span-2 { grid-column: span 1; }
+    .detail-field.span-3 { grid-column: span 2; }
+    .part-card-body { grid-template-columns: repeat(2, 1fr); }
+    .modal-overlay { padding: 0 !important; }
+    .modal { border-radius: 0; min-height: 100dvh; max-width: 100% !important; }
+    .wo-hero-id { font-size: 18px; }
+  }
+  @media (max-width: 480px) {
+    .detail-grid { grid-template-columns: 1fr; }
+    .detail-grid.cols-2 { grid-template-columns: 1fr; }
+    .detail-field.span-2, .detail-field.span-3 { grid-column: span 1; }
+    .part-card-body { grid-template-columns: repeat(2, 1fr); }
+  }
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Dashboard</h1>
+  <p>Overview of all Work Orders — ASP Portal</p>
+</div>
+
+<!-- Stat cards -->
+<div class="stat-row">
+<div class="stat-card blue"  data-goto="tab-all">
+  <div class="sc-label">Total WO</div>
+  <div class="sc-value">{{ total }}</div>
+</div>
+<div class="stat-card amber" data-goto="tab-all">
+  <div class="sc-label">Open / Active</div>
+  <div class="sc-value">{{ total_open }}</div>
+</div>
+<div class="stat-card green" data-goto="tab-all">
+  <div class="sc-label">Closed / Completed</div>
+  <div class="sc-value">{{ total_closed }}</div>
+</div>
+<div class="stat-card red"   data-goto="tab-part-received">
+  <div class="sc-label">Part Hold</div>
+  <div class="sc-value">{{ total_part_hold }}</div>
+</div>
+<div class="stat-card blue"  data-goto="tab-part-received">
+  <div class="sc-label">Part in Transit</div>
+  <div class="sc-value">{{ total_part_transit | default(0) }}</div>
+</div>
+</div>
+
+<!-- Tab bar -->
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="tab-all">All WO</button>
+  <button class="tab-btn" data-tab="tab-reschedule">WO Reschedule</button>
+  <button class="tab-btn" data-tab="tab-part-received">Part Received</button>
+  <button class="tab-btn" data-tab="tab-part-return">Part Return</button>
+</div>
+
+<!-- ── TAB: All WO ──────────────────────────────────────────────────────── -->
+<div class="tab-panel active" id="tab-all">
+  <div class="table-card">
+    <div class="table-toolbar">
+      <input type="search" id="search-all" placeholder="Search WO, serial, contact, customer…" autocomplete="off" />
+      <select class="filter-select" id="filter-status-all">
+        <option value="active">Current Active WO</option>
+        <option value="open">All WO Open</option>
+        <option value="">All WO Status</option>
+        <option value="closed">Closed / Completed / RMA</option>
+        <option value="part_hold">Part On Hold</option>
+        <option value="transit">Parts in Transit</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+      <select class="filter-select" id="filter-type-all">
+        <option value="">All Types</option>
+        <option value="Onsite">Onsite</option>
+        <option value="Carry-In">Carry-In</option>
+      </select>
+      <select class="filter-select" id="filter-case-status-all">
+        <option value="">All Case Statuses</option>
+        <option value="Closed">Closed</option>
+        <option value="WO Created">WO Created</option>
+        <option value="Solution Provided">Solution Provided</option>
+        <option value="WO Follow Up">WO Follow Up</option>
+        <option value="WO On Hold">WO On Hold</option>
+        <option value="Escalated">Escalated</option>
+        <option value="Customer Action">Customer Action</option>
+        <option value="In Progress">In Progress</option>
+        <option value="Cancelled">Cancelled</option>
+      </select>
+      <span class="toolbar-count" id="count-all"></span>
+    </div>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr>
+          <th style="width:40px;text-align:center">#</th>
+          <th>Created On</th><th>WO Number</th>
+          <th>WO Type</th><th>Case</th><th>WO Status</th><th>Case Status</th>
+          <th>Committed Delivery</th><th>Actual Committed</th>
+          <th>Contact Name</th><th>ASP</th>
+        </tr></thead>
+        <tbody id="tbody-all"><tr><td colspan="11" class="loading-state">Loading…</td></tr></tbody>
+      </table>
+    </div>
+    <div id="empty-all" class="empty-state" style="display:none">No records found.</div>
+    <div class="pagination" id="pg-all"></div>
+  </div>
+</div>
+
+<!-- ── TAB: Part Received ───────────────────────────────────────────────── -->
+<div class="tab-panel" id="tab-part-received">
+  <div class="table-card">
+    <div class="table-toolbar">
+      <input type="search" id="search-recv" placeholder="Search WO, serial, contact…" autocomplete="off" />
+      <span class="toolbar-count" id="count-recv"></span>
+    </div>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr>
+          <th style="width:40px;text-align:center">#</th>
+          <th>Created On</th><th>WO Number</th>
+          <th>WO Type</th><th>Case</th><th>WO Status</th><th>Case Status</th>
+          <th>Committed Delivery</th><th>Contact Name</th><th>ASP</th><th>Actions</th>
+        </tr></thead>
+        <tbody id="tbody-recv"><tr><td colspan="11" class="loading-state">Loading…</td></tr></tbody>
+      </table>
+    </div>
+    <div id="empty-recv" class="empty-state" style="display:none">No records found.</div>
+    <div class="pagination" id="pg-recv"></div>
+  </div>
+</div>
+
+<!-- ── TAB: Part Return ─────────────────────────────────────────────────── -->
+<div class="tab-panel" id="tab-part-return">
+  <div class="table-card">
+    <div class="table-toolbar">
+      <input type="search" id="search-ret" placeholder="Search WO, serial, contact…" autocomplete="off" />
+      <span class="toolbar-count" id="count-ret"></span>
+    </div>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr>
+          <th style="width:40px;text-align:center">#</th>
+          <th>Created On</th><th>WO Number</th>
+          <th>WO Type</th><th>Case</th><th>WO Status</th><th>Case Status</th>
+          <th>Actual Committed</th><th>Contact Name</th><th>ASP</th><th>Actions</th>
+        </tr></thead>
+        <tbody id="tbody-ret"><tr><td colspan="11" class="loading-state">Loading…</td></tr></tbody>
+      </table>
+    </div>
+    <div id="empty-ret" class="empty-state" style="display:none">No records found.</div>
+    <div class="pagination" id="pg-ret"></div>
+  </div>
+</div>
+
+<!-- ── TAB: WO Reschedule ───────────────────────────────────────────────── -->
+<div class="tab-panel" id="tab-reschedule">
+  <div class="table-card">
+    <div class="table-toolbar">
+      <input type="search" id="search-rs" placeholder="Search WO, serial, contact…" autocomplete="off" />
+      <span class="toolbar-count" id="count-rs"></span>
+    </div>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr>
+          <th style="width:40px;text-align:center">#</th>
+          <th>Created On</th><th>WO Number</th>
+          <th>WO Type</th><th>Case</th><th>WO Status</th><th>Case Status</th>
+          <th>Committed Delivery</th><th>Contact Name</th><th>ASP</th><th>Actions</th>
+        </tr></thead>
+        <tbody id="tbody-rs"><tr><td colspan="11" class="loading-state">Loading…</td></tr></tbody>
+      </table>
+    </div>
+    <div id="empty-rs" class="empty-state" style="display:none">No records found.</div>
+    <div class="pagination" id="pg-rs"></div>
+  </div>
+</div>
+
+<!-- ── WO Detail Modal ──────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-detail">
+  <div class="modal">
+    <div class="modal-header">
+      <button class="modal-close" id="btn-detail-close">×</button>
+    </div>
+    <div class="modal-body" id="detail-body">
+      <div class="modal-loading">Loading detail…</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Part Received Confirmation Modal ─────────────────────────────────── -->
+<div class="modal-overlay" id="modal-received">
+  <div class="modal narrow">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Part Received Confirmation</div>
+        <div class="modal-subtitle" id="recv-sub">CCI — Parts in Transit</div>
+      </div>
+      <button class="modal-close" data-close="modal-received">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="wo-strip">
+        <div class="wo-strip-num" id="recv-wo-num">—</div>
+        <div class="wo-strip-grid">
+          <div><span>Contact: </span><strong id="recv-contact">—</strong></div>
+          <div><span>Committed Delivery: </span><strong id="recv-eta">—</strong></div>
+        </div>
+      </div>
+      <div class="mf-group">
+        <label>Upload AWB (Air Waybill) <span class="req">*</span></label>
+        <label class="file-upload-zone" for="awb-file">
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 4px;display:block"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 12V4m0 0L8 8m4-4l4 4"/></svg>
+          Click to upload AWB document or image
+          <input type="file" id="awb-file" accept=".pdf,.png,.jpg,.jpeg" />
+        </label>
+        <div class="file-upload-name" id="awb-file-name">No file chosen</div>
+      </div>
+      <div class="mf-group">
+        <label>Received Date &amp; Time <span class="req">*</span></label>
+        <input type="datetime-local" id="recv-datetime" />
+      </div>
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0 14px" />
+      <div class="mf-group">
+        <label>Escalation Reason <span style="font-weight:400;color:#57606a">(optional)</span></label>
+        <select id="recv-escalation">
+          <option value="">— No issue / Normal receipt —</option>
+          <option value="Wrong Part Received">Wrong Part Received</option>
+          <option value="DOA">DOA (Dead on Arrival)</option>
+          <option value="Wrong Route">Wrong Route</option>
+          <option value="Incomplete">Incomplete (Missing items)</option>
+        </select>
+      </div>
+      <div class="mf-group" id="recv-esc-note-group" style="display:none">
+        <label>Escalation Notes <span class="req">*</span></label>
+        <textarea id="recv-esc-note" placeholder="Describe the issue…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" data-close="modal-received">Cancel</button>
+      <button class="btn btn-danger" id="btn-escalate-only" style="display:none">Escalate Only</button>
+      <button class="btn btn-primary" id="btn-confirm-received">Confirm Receipt</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Part Return Modal ────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-return">
+  <div class="modal narrow">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Part Return</div>
+        <div class="modal-subtitle">Enter return shipment details</div>
+      </div>
+      <button class="modal-close" data-close="modal-return">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="wo-strip">
+        <div class="wo-strip-num" id="ret-wo-num">—</div>
+        <div class="wo-strip-grid">
+          <div><span>Contact: </span><strong id="ret-contact">—</strong></div>
+          <div><span>Actual Onsite: </span><strong id="ret-onsite">—</strong></div>
+        </div>
+      </div>
+      <div class="mf-group">
+        <label>DC Number (Delivery/Collection) <span class="req">*</span></label>
+        <input type="text" id="ret-dc" placeholder="e.g. DC-2024-001234" />
+      </div>
+      <div class="mf-group">
+        <label>Return Shipment Date <span class="req">*</span></label>
+        <input type="datetime-local" id="ret-date" />
+      </div>
+      <div class="mf-group">
+        <label>Issue Type <span style="font-weight:400;color:#57606a">(optional)</span></label>
+        <select id="ret-issue">
+          <option value="">— No issue —</option>
+          <option value="Part Not Picked Up">Part Not Picked Up by Courier</option>
+          <option value="Lost in Transit">Lost in Transit</option>
+          <option value="Wrong DC Number">Wrong DC Number</option>
+          <option value="Part Damaged">Part Damaged During Return</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="mf-group" id="ret-issue-note-group" style="display:none">
+        <label>Issue Description <span class="req">*</span></label>
+        <textarea id="ret-issue-note" placeholder="Describe the return issue…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" data-close="modal-return">Cancel</button>
+      <button class="btn btn-primary" id="btn-confirm-return">Submit Return</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── WO Reschedule Modal ──────────────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-reschedule">
+  <div class="modal narrow">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">WO Reschedule</div>
+        <div class="modal-subtitle">Set a new appointment date with the customer</div>
+      </div>
+      <button class="modal-close" data-close="modal-reschedule">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="wo-strip">
+        <div class="wo-strip-num" id="rs-wo-num">—</div>
+        <div class="wo-strip-grid">
+          <div><span>Contact: </span><strong id="rs-contact">—</strong></div>
+          <div><span>Status: </span><strong id="rs-status">—</strong></div>
+        </div>
+      </div>
+      <div class="mf-group">
+        <label>Reschedule by <span class="req">*</span></label>
+        <select id="rs-by">
+          <option value="">— Select —</option>
+          <option value="ASP Defer">ASP Defer</option>
+          <option value="Customer Defer">Customer Defer</option>
+        </select>
+      </div>
+      <div id="rs-section-asp" style="display:none;background:#f7f8fa;border-left:3px solid #3b82d4;border-radius:0 6px 6px 0;padding:14px 14px 2px;margin-bottom:12px">
+        <div class="mf-group">
+          <label>ASP Defer Reason <span class="req">*</span></label>
+          <select id="rs-reason-asp">
+            <option value="">— Select reason —</option>
+            <option value="Teknisi Overload">Teknisi Overload</option>
+            <option value="Teknisi Sakit">Teknisi Sakit</option>
+            <option value="Teknisi masih handle customer lain">Teknisi masih handle customer lain</option>
+          </select>
+        </div>
+      </div>
+      <div id="rs-section-customer" style="display:none;background:#f3f0fb;border-left:3px solid #7c5cd8;border-radius:0 6px 6px 0;padding:14px 14px 2px;margin-bottom:12px">
+        <div class="mf-group">
+          <label>Customer Defer Reason <span class="req">*</span></label>
+          <select id="rs-reason-customer">
+            <option value="">— Select reason —</option>
+            <option value="Customer Sibuk">Customer Sibuk</option>
+            <option value="Customer tidak bisa dihubungi">Customer tidak bisa dihubungi</option>
+            <option value="Customer tidak ada dirumah">Customer tidak ada dirumah</option>
+            <option value="Customer tidak ada dikantor">Customer tidak ada dikantor</option>
+            <option value="Customer cuti">Customer cuti</option>
+            <option value="Customer diluar kota">Customer diluar kota</option>
+            <option value="Customer keluar negeri">Customer keluar negeri</option>
+            <option value="Customer request di weekend">Customer request di weekend</option>
+            <option value="Customer request tanggal tertentu">Customer request tanggal tertentu</option>
+            <option value="Customer sakit">Customer sakit</option>
+            <option value="Unit masih digunakan oleh customer">Unit masih digunakan oleh customer</option>
+            <option value="Unit customer belum sampai (tersedia)">Unit customer belum sampai (tersedia)</option>
+          </select>
+        </div>
+      </div>
+      <div class="mf-group">
+        <label>New Appointment Date <span class="req">*</span></label>
+        <input type="datetime-local" id="rs-date" />
+      </div>
+      <div class="mf-group">
+        <label>Upload Evidence <span style="font-weight:400;color:#57606a">(screenshot / chat)</span></label>
+        <label class="file-upload-zone" for="rs-evidence-file">
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 4px;display:block"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 12V4m0 0L8 8m4-4l4 4"/></svg>
+          Click to upload chat screenshot or evidence
+          <input type="file" id="rs-evidence-file" accept=".png,.jpg,.jpeg,.pdf,.webp" />
+        </label>
+        <div class="file-upload-name" id="rs-evidence-name">No file chosen</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" data-close="modal-reschedule">Cancel</button>
+      <button class="btn btn-amber" id="btn-confirm-reschedule">Confirm Reschedule</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toast-wrap"></div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   UTILITIES
+═══════════════════════════════════════════════════════════════ */
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fmt(s) { return s ? String(s).slice(0,16).replace('T',' ') : '—'; }
+
+function statusBadge(s) {
+  if (!s) return '<span class="badge badge-s-default">—</span>';
+  const sl = s.toLowerCase();
+  let cls;
+  if (sl === 'closed')                              cls = 'badge-s-closed';
+  else if (sl === 'completed')                      cls = 'badge-s-completed';
+  else if (sl === 'repair completed')               cls = 'badge-s-repair-done';
+  else if (sl === 'ready for pickup')               cls = 'badge-s-pickup';
+  else if (sl === 'rma in progress')                cls = 'badge-s-rma';
+  else if (sl.includes('awaiting for parts rma'))   cls = 'badge-s-returned';
+  else if (sl.includes('transit'))                  cls = 'badge-s-transit';
+  else if (sl.includes('part') && sl.includes('hold'))     cls = 'badge-s-part-hold';
+  else if (sl.includes('part') && sl.includes('request'))  cls = 'badge-s-part-req';
+  else if (sl.includes('part') && sl.includes('deliver'))  cls = 'badge-s-part-delivered';
+  else if (sl === 'customer hold')                  cls = 'badge-s-cust-hold';
+  else if (sl === 'in repair')                      cls = 'badge-s-in-repair';
+  else if (sl.includes('technician assigned'))      cls = 'badge-s-tech-assigned';
+  else if (sl === 'order accepted')                 cls = 'badge-s-accepted';
+  else if (sl.includes('pick') && sl.includes('pack')) cls = 'badge-s-pick-pack';
+  else if (sl.includes('cancel'))                   cls = 'badge-s-cancelled';
+  else                                              cls = 'badge-s-default';
+  return `<span class="badge ${cls}">${esc(s)}</span>`;
+}
+
+function toast(msg, type='ok') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById('toast-wrap').appendChild(el);
+  requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('show')));
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 3800);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GENERIC PAGINATED TABLE FACTORY
+   Each tab gets its own independent instance.
+═══════════════════════════════════════════════════════════════ */
+function makeTabTable({ apiUrl, tbodyId, emptyId, pgId, cntId, colsFn, actionsFn, onBind }) {
+  let state = { page: 1, timer: null };
+
+  function params(extra) {
+    const p = new URLSearchParams(extra || {});
+    p.set('page', state.page);
+    p.set('per_page', 25);
+    return p.toString();
+  }
+
+  function load(extraParams) {
+    state.extraParams = extraParams || {};
+    state.page = 1;
+    _fetch();
+  }
+
+  function _fetch() {
+    const tbody = document.getElementById(tbodyId);
+    const cols  = colsFn().length + (actionsFn ? 1 : 0) + 1; /* +1 for # index */
+    tbody.innerHTML = `<tr><td colspan="${cols}" class="loading-state">Loading…</td></tr>`;
+    document.getElementById(emptyId).style.display = 'none';
+    document.getElementById(pgId).innerHTML = '';
+
+    fetch(apiUrl + '?' + params(state.extraParams))
+      .then(r => r.json())
+      .then(data => _render(data))
+      .catch(() => {
+        const cols = colsFn().length + (actionsFn ? 1 : 0) + 1;
+        tbody.innerHTML = `<tr><td colspan="${cols}" class="empty-state">Failed to load.</td></tr>`;
+      });
+  }
+
+  function _render(data) {
+    const tbody = document.getElementById(tbodyId);
+    const empty = document.getElementById(emptyId);
+    const cols  = colsFn();
+
+    document.getElementById(cntId).textContent =
+      `${data.total.toLocaleString()} record${data.total !== 1 ? 's' : ''}`;
+
+    if (!data.rows.length) {
+      tbody.innerHTML = '';
+      empty.style.display = 'block';
+      document.getElementById(pgId).innerHTML = '';
+      return;
+    }
+    empty.style.display = 'none';
+
+    const offset = (data.page - 1) * 25;
+    tbody.innerHTML = data.rows.map((r, i) => {
+      const idx = `<td style="text-align:center;color:#8c959f;font-size:12px;width:40px">${offset + i + 1}</td>`;
+      let cells = cols.map(c => {
+        const v = c.render ? c.render(r) : esc(r[c.key] || '—');
+        return `<td title="${esc(String(r[c.key]||''))}">${v}</td>`;
+      }).join('');
+      if (actionsFn) cells += `<td><div class="btn-group">${actionsFn(r)}</div></td>`;
+      return `<tr>${idx}${cells}</tr>`;
+    }).join('');
+
+    if (onBind) onBind(data.rows);
+    _renderPg(data.total, data.page, data.pages);
+  }
+
+  function _renderPg(total, page, pages) {
+    const pg = document.getElementById(pgId);
+    if (pages <= 1) { pg.innerHTML = ''; return; }
+    const s = Math.max(1, page - 2), e = Math.min(pages, s + 4);
+    let h = `<span class="page-info">Page ${page} of ${pages} · ${total.toLocaleString()} total</span>`;
+    h += `<button class="page-btn" data-p="prev" ${page===1?'disabled':''}>&#8592;</button>`;
+    if (s > 1) h += `<button class="page-btn" data-p="1">1</button>${s>2?'<span style="padding:0 4px;color:#8c959f">…</span>':''}`;
+    for (let i = s; i <= e; i++) h += `<button class="page-btn ${i===page?'active':''}" data-p="${i}">${i}</button>`;
+    if (e < pages) h += `${e<pages-1?'<span style="padding:0 4px;color:#8c959f">…</span>':''}<button class="page-btn" data-p="${pages}">${pages}</button>`;
+    h += `<button class="page-btn" data-p="next" ${page===pages?'disabled':''}>&#8594;</button>`;
+    h += `<span class="page-jump">Go to <input type="number" id="pjmp-${tbodyId}" min="1" max="${pages}" value="${page}"/> <button class="page-btn" id="pjmpb-${tbodyId}">Go</button></span>`;
+    pg.innerHTML = h;
+
+    pg.querySelectorAll('[data-p]').forEach(b => b.addEventListener('click', () => {
+      const v = b.dataset.p;
+      if (v === 'prev') state.page = page - 1;
+      else if (v === 'next') state.page = page + 1;
+      else state.page = +v;
+      _fetch();
+    }));
+    document.getElementById(`pjmpb-${tbodyId}`).addEventListener('click', () => {
+      const v = parseInt(document.getElementById(`pjmp-${tbodyId}`).value, 10);
+      if (v >= 1 && v <= pages) { state.page = v; _fetch(); }
+    });
+    document.getElementById(`pjmp-${tbodyId}`).addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById(`pjmpb-${tbodyId}`).click();
+    });
+  }
+
+  return { load, _fetch };
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   WO DETAIL MODAL
+═══════════════════════════════════════════════════════════════ */
+/* ─── Helpers ─────────────────────────────────────────────────────────── */
+function field(label, value, mono, span) {
+  const v   = (value == null || value === '') ? null : String(value);
+  const cls = ['detail-field', span ? `span-${span}` : ''].filter(Boolean).join(' ');
+  const valCls = ['df-value', mono ? 'mono' : '', v ? '' : 'muted'].filter(Boolean).join(' ');
+  return `<div class="${cls}">
+    <div class="df-label">${esc(label)}</div>
+    <div class="${valCls}">${v ? esc(v) : '—'}</div>
+  </div>`;
+}
+
+function sectionTitle(icon, text) {
+  return `<div class="detail-section-title">${icon}<span>${esc(text)}</span></div>`;
+}
+
+const ICONS = {
+  summary : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>`,
+  details : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>`,
+  timeline: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="3"/></svg>`,
+  parts   : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>`,
+  closing : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+  contact : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+  related : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+};
+
+/* chip colour based on WO status string */
+function heroChipClass(s) {
+  if (!s) return 'gray';
+  const sl = s.toLowerCase();
+  if (sl === 'closed' || sl === 'completed' || sl === 'repair completed') return 'green';
+  if (sl.includes('cancel')) return 'gray';
+  if (sl.includes('part') && sl.includes('hold'))    return 'red';
+  if (sl.includes('transit') || sl.includes('deliver')) return 'purple';
+  if (sl.includes('part'))   return 'amber';
+  if (sl.includes('technician') || sl.includes('repair')) return 'blue';
+  return 'blue';
+}
+
+/* fmtShort: "23 Jul\n10:17" for timeline nodes */
+function fmtShort(s) {
+  if (!s) return null;
+  const d = new Date(String(s).replace(' ', 'T'));
+  if (isNaN(d)) return s.slice(0, 16).replace('T', ' ');
+  const day  = d.getDate().toString().padStart(2, '0');
+  const mon  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
+  const time = `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+  return `${day} ${mon}\n${time}`;
+}
+
+/* ─── openDetail ─────────────────────────────────────────────────────── */
+function openDetail(woId) {
+  const overlay = document.getElementById('modal-detail');
+  const body    = document.getElementById('detail-body');
+  body.innerHTML = '<div class="modal-loading">Loading detail…</div>';
+  overlay.classList.add('open');
+
+  Promise.all([
+    fetch(`/asp/api/wo-detail/${woId}`).then(r => r.json()),
+    fetch(`/asp/api/wo-parts/${woId}`).then(r => r.json()),
+    fetch(`/asp/api/wo-related-serial/${woId}`).then(r => r.json()),
+  ])
+    .then(([d, parts, relatedWos]) => {
+      if (d.error) { body.innerHTML = `<div style="padding:24px;color:#dc2626">${esc(d.error)}</div>`; return; }
+      body.innerHTML =
+        renderHero(d) +
+        `<div class="detail-body-inner">` +
+          renderTimeline(d, parts) +
+          renderParts(parts) +
+          renderRelatedBySerial(d.serial_number, relatedWos) +
+          renderDetailBody(d) +
+        `</div>`;
+      initCollapsibles();
+    })
+    .catch(() => { body.innerHTML = '<div style="padding:24px;color:#dc2626">Failed to load detail.</div>'; });
+}
+
+/* ─── Hero banner ────────────────────────────────────────────────────── */
+function renderHero(d) {
+  /* ── Right-side status block: WO Status · Case Status · Closing Code ── */
+  const statusBlock = `
+    <div class="wo-hero-status">
+      <div class="wo-hero-status-row">
+        <span class="wo-hero-status-lbl">WO Status</span>
+        ${statusBadge(d.work_order_status)}
+      </div>
+      ${d.case_status ? `<div class="wo-hero-status-row">
+        <span class="wo-hero-status-lbl">Case Status</span>
+        <span class="wo-hero-status-val">${esc(d.case_status)}</span>
+      </div>` : ''}
+      ${d.closing_code ? `<div class="wo-hero-status-row">
+        <span class="wo-hero-status-lbl">Closing Code</span>
+        <span class="wo-hero-status-val">${esc(d.closing_code)}</span>
+      </div>` : ''}
+    </div>`;
+
+  /* ── Info bars: row1 = type/status/flags, row2 = org/people/location ── */
+  const rrVal = d.repeat_repair || '—';
+  const rrIsYes = (d.repeat_repair || '').toLowerCase() === 'yes';
+  const bar1Items = [
+    d.work_order_type      ? { l: 'Type',         v: d.work_order_type,                              cls: 'gray'   } : null,
+    {                        l: 'Repeat Repair',   v: rrIsYes ? (d.repeat_repair_reason || d.repeat_repair) : rrVal,
+                                                                                                       cls: rrIsYes ? 'red' : 'green' },
+    d.work_order_priority && d.work_order_priority.toLowerCase() !== 'normal'
+      ?                      { l: 'Priority',      v: d.work_order_priority,                          cls: 'red'    } : null,
+    d.premier_service      ? { l: 'Premier',       v: d.premier_service,                              cls: 'purple' } : null,
+    d.order_type           ? { l: 'Order Type',    v: d.order_type,                                   cls: 'gray'   } : null,
+  ].filter(Boolean);
+  const bar2Items = [
+    d.customer             ? { l: 'ASP',           v: d.customer,                                     cls: 'blue'   } : null,
+    d.technician_id        ? { l: 'Technician',    v: d.technician_id,                                cls: 'gray'   } : null,
+    d.city                 ? { l: 'City',          v: d.city,                                         cls: 'gray'   } : null,
+    d.labor_vendor_related ? { l: 'Vendor ID',     v: d.labor_vendor_related,                         cls: 'gray'   } : null,
+  ].filter(Boolean);
+
+  const renderBar = items => `<div class="wo-info-bar">
+    ${items.map(i => `<div class="wo-info-item">
+      <span class="wo-info-lbl">${esc(i.l)}</span>
+      <span class="wo-info-val ${i.cls}">${esc(i.v)}</span>
+    </div>`).join('')}
+  </div>`;
+
+  /* ── Customer card ──────────────────────────────────────────────── */
+  const customerCard = (d.contact_name || d.mobile_phone || d.primary_email || d.address) ? `
+    <div class="wo-customer-card">
+      ${d.contact_name ? `<div class="wo-customer-name">${esc(d.contact_name)}</div>` : ''}
+      ${d.mobile_phone ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Mobile Phone</span><span class="wo-customer-val">${esc(d.mobile_phone)}</span></div>` : ''}
+      ${d.primary_email ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Email</span><span class="wo-customer-val">${esc(d.primary_email)}</span></div>` : ''}
+      ${d.address ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Address</span><span class="wo-customer-val">${esc(d.address)}</span></div>` : ''}
+    </div>` : '';
+
+  return `<div class="wo-hero">
+    <!-- Row 1: WO ID (left) + Status block (right) -->
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;">
+      <div>
+        <div class="wo-hero-id"><span style="color:#8c959f">WO</span> ${esc(String(d.work_order_id))}</div>
+        <div class="wo-hero-sn" style="margin-top:4px;display:flex;flex-wrap:wrap;align-items:center;gap:0 4px;">
+          ${d.case_number ? `<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;margin-right:2px">Case</span><span style="font-family:ui-monospace,monospace;color:#1f2328;font-weight:700;margin-right:10px">${esc(d.case_number)}</span>` : ''}
+          ${d.serial_number ? `<span style="font-size:10px;font-weight:600;color:#8c959f;margin-right:2px">Serial No.</span><strong style="color:#1f2328;font-family:ui-monospace,monospace;margin-right:10px">${esc(d.serial_number)}</strong>` : ''}
+          ${d.product_id_mtm ? `<span style="font-size:10px;font-weight:600;color:#8c959f;margin-right:2px">MTM</span><strong style="color:#1f2328;font-family:ui-monospace,monospace">${esc(d.product_id_mtm)}</strong>` : ''}
+        </div>
+      </div>
+      ${statusBlock}
+    </div>
+    <!-- Divider: header → info bars -->
+    ${(bar1Items.length || bar2Items.length) ? `<div style="border-top:1px solid #e5e7eb;margin:10px 0 4px;"></div>` : ''}
+    <!-- Row 2: type / flags row -->
+    ${bar1Items.length ? renderBar(bar1Items) : ''}
+    <!-- Row 3: org / people / location row -->
+    ${bar2Items.length ? renderBar(bar2Items) : ''}
+    <!-- Row 4: Case description -->
+    ${d.case_desc ? `<div style="margin-top:10px;font-size:12px;color:#57606a;background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:8px 12px;"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;margin-right:8px">Case</span>${esc(d.case_desc)}</div>` : ''}
+    <!-- Row 5: Customer card -->
+    ${customerCard}
+  </div>`;
+}
+
+/* ─── Date timeline ──────────────────────────────────────────────────── */
+function renderTimeline(d, parts) {
+  const now = Date.now();
+
+  /* Pick the first non-cancelled part line for date data; fall back to
+     line 1 only if every line is cancelled or there are no parts. */
+  const isCancelled = p => {
+    const s = (p.wo_product_status || '').toLowerCase();
+    return s.includes('cancel');
+  };
+  const activePart = (parts && parts.find(p => !isCancelled(p))) || (parts && parts[0]) || null;
+  const activePartIdx = activePart ? parts.indexOf(activePart) : -1;
+
+  const partOrderDate   = activePart ? activePart.order_date         : null;
+  const partPickupDate  = activePart ? activePart.ship_pickup_time    : null;
+  const partPodDate     = activePart ? activePart.ship_pou_pod_time   : null;
+
+  /* Define timeline nodes in order */
+  const nodes = [
+    { label: 'Case\nCreated',        date: d.created_on },
+    { label: 'Released',             date: d.release_date },
+    { label: 'Part Order',           date: partOrderDate },
+    { label: 'Part Pickup',          date: partPickupDate },
+    { label: 'Part Received\n(POD)', date: partPodDate },
+    { label: 'Orig. Onsite',         date: d.original_committed_onsite_date },
+    { label: 'Defer Date',           date: d.customer_defer_date, optional: true },
+    { label: 'Actual\nOnsite',       date: d.actual_committed_onsite_date },
+    { label: 'Completion',           date: d.completion_date },
+    { label: 'Closed',               date: d.closing_date },
+  ];
+
+  /* Determine "progress" — the last node index that has a real date */
+  let lastDoneIdx = -1;
+  nodes.forEach((n, i) => { if (n.date) lastDoneIdx = i; });
+
+  const nodeHtml = nodes.map((n, i) => {
+    const hasDate = !!n.date;
+    const ts      = hasDate ? new Date(String(n.date).replace(' ', 'T')).getTime() : null;
+    const isPast  = ts && ts <= now;
+    const isOverdue = !hasDate && i > 0 && i <= lastDoneIdx + 1 && !n.optional;
+
+    let state;
+    if (hasDate && isPast)   state = 'done';
+    else if (hasDate)        state = 'active';   /* future date already set */
+    else if (isOverdue)      state = 'future';
+    else if (n.optional && !hasDate) state = 'skipped';
+    else                     state = 'future';
+
+    const connCls = i < nodes.length - 1
+      ? `tl-connector ${(state === 'done' && i < lastDoneIdx) ? 'done' : ''}` : '';
+
+    const dateStr  = fmtShort(n.date);
+    const dateCls  = state === 'done' ? 'done-text' : state === 'active' ? 'active-text' : 'future-text';
+
+    /* SVG icon inside dot */
+    let dotSvg = '';
+    if (state === 'done')
+      dotSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+    else if (state === 'active')
+      dotSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/></svg>`;
+    else if (state === 'overdue')
+      dotSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+    else
+      dotSvg = `<div class="tl-dot-inner"></div>`;
+
+    return `
+      <div class="tl-node">
+        <div class="tl-dot-wrap ${state}">${dotSvg}</div>
+        <div class="tl-label">${n.label.replace(/\n/g, '<br>')}</div>
+        <div class="tl-date ${dateCls}">${dateStr ? dateStr.replace(/\n/g, '<br>') : '<span style="color:#d1d5db">—</span>'}</div>
+      </div>
+      ${i < nodes.length - 1 ? `<div class="${connCls}"></div>` : ''}`;
+  }).join('');
+
+  return `<div class="detail-section">
+    ${sectionTitle(ICONS.timeline, 'Date Timeline')}
+    <div class="tl-wrap">
+      <div class="tl-scroll"><div class="tl-track">${nodeHtml}</div></div>
+    </div>
+    ${parts.length > 1 ? `<div style="font-size:11px;color:#8c959f;margin-top:8px">* Part dates shown for line #${activePartIdx + 1}${isCancelled(parts[0]) ? ' (skipping cancelled lines)' : ''}. See Part Order Details for all lines.</div>` : ''}
+  </div>`;
+}
+
+/* ─── Detail info sections ───────────────────────────────────────────── */
+function renderDetailBody(d) {
+  /* Closing Info and Contact have moved into the hero — only show
+     cancellation reason here if present, otherwise nothing. */
+  if (!d.wo_cancellation_reason) return '';
+  return `
+    <div class="detail-section">
+      ${sectionTitle(ICONS.closing, 'Cancellation')}
+      <div style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;color:#1f2328">${esc(d.wo_cancellation_reason)}</div>
+    </div>`;
+}
+
+/* ─── Part cards ─────────────────────────────────────────────────────── */
+function partStatusBadge(s) {
+  if (!s) return '<span class="badge badge-s-default">—</span>';
+  const sl = s.toLowerCase().trim();
+  let cls;
+  if (sl === 'delivered')                        cls = 'badge-s-part-delivered'; // lime green
+  else if (sl === 'shipped')                     cls = 'badge-s-transit';        // violet — in transit
+  else if (sl === 'pick - pack' || sl === 'pick-pack' || sl === 'pick pack')
+                                                 cls = 'badge-s-pick-pack';      // orange
+  else if (sl === 'accepted')                    cls = 'badge-s-accepted';       // light green
+  else if (sl === 'pending')                     cls = 'badge-s-part-req';       // amber
+  else if (sl === 'on hold - part hold' || sl.includes('hold'))
+                                                 cls = 'badge-s-part-hold';      // pink
+  else if (sl === 'cancelled by lenovo')         cls = 'badge-s-cust-hold';      // red-pink — cancelled by vendor
+  else if (sl.includes('cancel'))               cls = 'badge-s-cancelled';      // grey
+  else                                           cls = 'badge-s-default';
+  return `<span class="badge ${cls}">${esc(s)}</span>`;
+}
+
+function renderParts(parts) {
+  const uid  = 'parts-body-' + Date.now();
+  const title = sectionTitle(ICONS.parts, `Part Order Details (${parts.length} line${parts.length !== 1 ? 's' : ''})`);
+
+  if (!parts.length) return `<div class="detail-section">
+    ${title}
+    <div style="font-size:13px;color:#8c959f;font-style:italic;padding:4px 0 8px">No part order lines found for this WO.</div>
+  </div>`;
+
+  const cards = parts.map((p, i) => {
+    const retFlag = p.return_flag === 'Y'
+      ? '<span class="badge badge-part-hold">Return</span>'
+      : (p.return_flag === 'N' ? '<span class="badge badge-default">No Return</span>' : '<span style="color:#8c959f">—</span>');
+    return `<div class="part-card">
+      <div class="part-card-hdr">
+        <span class="part-card-num">#${i + 1}</span>
+        <span class="part-card-pn">${esc(p.product || '—')}</span>
+        <span class="part-card-desc" title="${esc(p.description || '')}">${esc(p.description || '—')}</span>
+        <div style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-shrink:0">
+          ${partStatusBadge(p.wo_product_status)}
+          ${retFlag}
+        </div>
+      </div>
+      <div class="part-card-body">
+        <div class="part-card-field"><div class="pcf-label">SOID</div><div class="pcf-value mono">${esc(p.soid || '—')}</div></div>
+        <div class="part-card-field"><div class="pcf-label">AWB</div><div class="pcf-value mono">${esc(p.awb || '—')}</div></div>
+        <div class="part-card-field"><div class="pcf-label">SLA</div><div class="pcf-value">${esc(p.sla || '—')}</div></div>
+        <div class="part-card-field"><div class="pcf-label">Order Date</div><div class="pcf-value">${fmt(p.order_date) || '—'}</div></div>
+        <div class="part-card-field"><div class="pcf-label">Pickup Date</div><div class="pcf-value">${fmt(p.ship_pickup_time) || '—'}</div></div>
+        <div class="part-card-field"><div class="pcf-label">Part Received (POD)</div><div class="pcf-value">${fmt(p.ship_pou_pod_time) || '—'}</div></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  /* always expanded */
+  return `<div class="detail-section">
+    <div class="detail-section-title collapsible-hdr" data-target="${uid}">
+      ${ICONS.parts}<span>Part Order Details (${parts.length} line${parts.length !== 1 ? 's' : ''})</span>
+      <svg class="caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div class="collapsible-body" id="${uid}" style="max-height:2000px">
+      ${cards}
+    </div>
+  </div>`;
+}
+
+/* ─── Ticket table grouped by case_number ────────────────────────────── */
+function renderRelatedBySerial(serialNumber, rows) {
+  const sn  = serialNumber || '—';
+  const uid = 'related-body-' + Date.now();
+
+  const title = `<div class="detail-section-title collapsible-hdr" data-target="${uid}">
+    ${ICONS.related}<span>Ticket Related to this Serial Number</span>
+    <svg class="caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+  </div>`;
+
+  const snLabel = `<div style="font-size:12px;color:#57606a;margin-bottom:10px">
+    Laptop Device SN: <strong style="font-family:ui-monospace,monospace;color:#1f2328">${esc(sn)}</strong>
+  </div>`;
+
+  if (!rows || !rows.length) {
+    return `<div class="detail-section">
+      ${title}
+      <div id="${uid}" class="collapsible-body" style="max-height:2000px">
+        ${snLabel}
+        <div style="font-size:12px;color:#8c959f;font-style:italic;padding:4px 0 8px">No other work orders found for this serial number.</div>
+      </div>
+    </div>`;
+  }
+
+  /* Group rows by case_number (ticket) */
+  const groups = {};
+  const order  = [];
+  rows.forEach(r => {
+    const key = r.case_number ? String(r.case_number) : '__none__';
+    if (!groups[key]) { groups[key] = []; order.push(key); }
+    groups[key].push(r);
+  });
+
+  const tableRows = order.map(key => {
+    const wos     = groups[key];
+    const ticket  = key === '__none__' ? '—' : key;
+    /* render each WO in this ticket as a sub-row; first WO spans the ticket cell */
+    return wos.map((r, i) => {
+      const trStyle    = i === 0 && wos.length > 1 ? ' style="border-top:2px solid #e5e7eb"' : '';
+      const ticketCell = i === 0
+        ? `<td rowspan="${wos.length}" style="font-family:ui-monospace,monospace;font-size:12px;font-weight:600;color:#3b82d4;vertical-align:top;padding-top:10px;white-space:nowrap;border-right:2px solid #bfdbfe;background:#eff6ff">${esc(ticket)}</td>`
+        : '';
+      return `
+      <tr${trStyle}>
+        ${ticketCell}
+        <td><button class="related-wo-id" data-wo="${esc(r.work_order_id)}" onclick="openDetail(this.dataset.wo)">${esc(r.work_order_id)}</button></td>
+        <td>${statusBadge(r.work_order_status)}</td>
+        <td>${r.case_status ? `<span style="font-size:12px">${esc(r.case_status)}</span>` : '<span style="color:#8c959f">—</span>'}</td>
+        <td style="font-size:12px">${esc(r.work_order_type || '—')}</td>
+        <td style="font-size:12px;white-space:nowrap">${fmt(r.created_on)}</td>
+        <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.case_desc || '')}">${esc(r.case_desc || '—')}</td>
+      </tr>`;
+    }).join('');
+  }).join('');
+
+  const table = `
+    <div style="overflow-x:auto">
+      <table class="ticket-table" style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="background:#f7f8fa">
+            <th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:#57606a;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e5e7eb;white-space:nowrap">Ticket (Case#)</th>
+            <th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:#57606a;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e5e7eb;white-space:nowrap">WO Number</th>
+            <th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:#57606a;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e5e7eb;white-space:nowrap">WO Status</th>
+            <th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:#57606a;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e5e7eb;white-space:nowrap">Case Status</th>
+            <th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:#57606a;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e5e7eb;white-space:nowrap">Type</th>
+            <th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:#57606a;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e5e7eb;white-space:nowrap">Created</th>
+            <th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:#57606a;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e5e7eb">Case Description</th>
+          </tr>
+        </thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    </div>`;
+
+  return `<div class="detail-section">
+    ${title}
+    <div id="${uid}" class="collapsible-body" style="max-height:4000px">
+      ${snLabel}
+      <div style="font-size:11px;color:#8c959f;margin-bottom:8px">List of Ticket &amp; WO attached to each ticket</div>
+      ${table}
+    </div>
+  </div>`;
+}
+
+/* ─── Collapsible init ───────────────────────────────────────────────── */
+function initCollapsibles() {
+  document.querySelectorAll('#detail-body .collapsible-hdr').forEach(hdr => {
+    hdr.addEventListener('click', () => {
+      const target = document.getElementById(hdr.dataset.target);
+      if (!target) return;
+      const isCollapsed = target.classList.contains('collapsed');
+      if (isCollapsed) {
+        target.classList.remove('collapsed');
+        target.style.maxHeight = target.scrollHeight + 'px';
+        hdr.classList.remove('collapsed');
+      } else {
+        target.style.maxHeight = target.scrollHeight + 'px';
+        requestAnimationFrame(() => {
+          target.classList.add('collapsed');
+          hdr.classList.add('collapsed');
+        });
+      }
+    });
+  });
+}
+
+document.getElementById('btn-detail-close').addEventListener('click', () => {
+  document.getElementById('modal-detail').classList.remove('open');
+});
+document.getElementById('modal-detail').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-detail'))
+    document.getElementById('modal-detail').classList.remove('open');
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   TAB 1 — All WO
+═══════════════════════════════════════════════════════════════ */
+const allWoTable = makeTabTable({
+  apiUrl: '/asp/api/all-wo',
+  tbodyId: 'tbody-all', emptyId: 'empty-all', pgId: 'pg-all', cntId: 'count-all',
+  colsFn: () => [
+    { key: 'created_on',     render: r => fmt(r.created_on) },
+    { key: 'work_order_id', render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
+    { key: 'work_order_type',render: r => esc(r.work_order_type||'—') },
+    { key: 'case_desc',      render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
+    { key: 'work_order_status', render: r => statusBadge(r.work_order_status) },
+    { key: 'case_status',    render: r => esc(r.case_status||'—') },
+    { key: 'committed_delivery_date',       render: r => fmt(r.committed_delivery_date) },
+    { key: 'actual_committed_onsite_date',  render: r => fmt(r.actual_committed_onsite_date) },
+    { key: 'contact_name',   render: r => esc(r.contact_name||'—') },
+    { key: 'customer',       render: r => esc(r.customer||'—') },
+  ],
+  actionsFn: null,
+  onBind: rows => {
+    document.querySelectorAll('#tbody-all .wo-link').forEach(b =>
+      b.addEventListener('click', () => openDetail(b.dataset.wo)));
+  },
+});
+
+function loadAllWo() {
+  const q  = document.getElementById('search-all').value.trim();
+  const st = document.getElementById('filter-status-all').value;
+  const ty = document.getElementById('filter-type-all').value;
+  const cs = document.getElementById('filter-case-status-all').value;
+  const p  = {};
+  if (q)  p.q           = q;
+  if (st) p.status      = st;
+  if (ty) p.wo_type     = ty;
+  if (cs) p.case_status = cs;
+  allWoTable.load(p);
+}
+let allTimer = null;
+document.getElementById('search-all').addEventListener('input', () => { clearTimeout(allTimer); allTimer = setTimeout(loadAllWo, 350); });
+document.getElementById('filter-status-all').addEventListener('change',      loadAllWo);
+document.getElementById('filter-type-all').addEventListener('change',         loadAllWo);
+document.getElementById('filter-case-status-all').addEventListener('change',  loadAllWo);
+
+/* ═══════════════════════════════════════════════════════════════
+   TAB 2 — Part Received
+═══════════════════════════════════════════════════════════════ */
+const recvTable = makeTabTable({
+  apiUrl: '/asp/api/part-received',
+  tbodyId: 'tbody-recv', emptyId: 'empty-recv', pgId: 'pg-recv', cntId: 'count-recv',
+  colsFn: () => [
+    { key: 'created_on',     render: r => fmt(r.created_on) },
+    { key: 'work_order_id', render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
+    { key: 'work_order_type',render: r => esc(r.work_order_type||'—') },
+    { key: 'case_desc',      render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
+    { key: 'work_order_status', render: r => statusBadge(r.work_order_status) },
+    { key: 'case_status',    render: r => esc(r.case_status||'—') },
+    { key: 'committed_delivery_date', render: r => fmt(r.committed_delivery_date) },
+    { key: 'contact_name',   render: r => esc(r.contact_name||'—') },
+    { key: 'customer',       render: r => esc(r.customer||'—') },
+  ],
+  actionsFn: r => `
+    <button class="btn btn-primary btn-sm" data-action="confirm-recv" data-wo="${esc(r.work_order_id)}" data-contact="${esc(r.contact_name||'')}" data-eta="${esc(r.committed_delivery_date||'')}">Confirm Receipt</button>
+    <button class="btn btn-danger  btn-sm" data-action="escalate-recv" data-wo="${esc(r.work_order_id)}" data-contact="${esc(r.contact_name||'')}" data-eta="${esc(r.committed_delivery_date||'')}">Escalate</button>`,
+  onBind: rows => {
+    document.querySelectorAll('#tbody-recv .wo-link').forEach(b =>
+      b.addEventListener('click', () => openDetail(b.dataset.wo)));
+    document.querySelectorAll('#tbody-recv [data-action="confirm-recv"]').forEach(b =>
+      b.addEventListener('click', () => openRecv(b.dataset.wo, b.dataset.contact, b.dataset.eta, false)));
+    document.querySelectorAll('#tbody-recv [data-action="escalate-recv"]').forEach(b =>
+      b.addEventListener('click', () => openRecv(b.dataset.wo, b.dataset.contact, b.dataset.eta, true)));
+  },
+});
+
+let recvTimer = null;
+document.getElementById('search-recv').addEventListener('input', () => {
+  clearTimeout(recvTimer);
+  recvTimer = setTimeout(() => recvTable.load({ q: document.getElementById('search-recv').value.trim() }), 350);
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   TAB 3 — Part Return
+═══════════════════════════════════════════════════════════════ */
+const retTable = makeTabTable({
+  apiUrl: '/asp/api/part-return',
+  tbodyId: 'tbody-ret', emptyId: 'empty-ret', pgId: 'pg-ret', cntId: 'count-ret',
+  colsFn: () => [
+    { key: 'created_on',     render: r => fmt(r.created_on) },
+    { key: 'work_order_id', render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
+    { key: 'work_order_type',render: r => esc(r.work_order_type||'—') },
+    { key: 'case_desc',      render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
+    { key: 'work_order_status', render: r => statusBadge(r.work_order_status) },
+    { key: 'case_status',    render: r => esc(r.case_status||'—') },
+    { key: 'actual_committed_onsite_date', render: r => fmt(r.actual_committed_onsite_date) },
+    { key: 'contact_name',   render: r => esc(r.contact_name||'—') },
+    { key: 'customer',       render: r => esc(r.customer||'—') },
+  ],
+  actionsFn: r => `<button class="btn btn-purple btn-sm" data-action="part-return" data-wo="${esc(r.work_order_id)}" data-contact="${esc(r.contact_name||'')}" data-onsite="${esc(r.actual_committed_onsite_date||'')}">Input Return</button>`,
+  onBind: rows => {
+    document.querySelectorAll('#tbody-ret .wo-link').forEach(b =>
+      b.addEventListener('click', () => openDetail(b.dataset.wo)));
+    document.querySelectorAll('#tbody-ret [data-action="part-return"]').forEach(b =>
+      b.addEventListener('click', () => openReturn(b.dataset.wo, b.dataset.contact, b.dataset.onsite)));
+  },
+});
+
+let retTimer = null;
+document.getElementById('search-ret').addEventListener('input', () => {
+  clearTimeout(retTimer);
+  retTimer = setTimeout(() => retTable.load({ q: document.getElementById('search-ret').value.trim() }), 350);
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   TAB 4 — WO Reschedule
+═══════════════════════════════════════════════════════════════ */
+const rsTable = makeTabTable({
+  apiUrl: '/asp/api/reschedule',
+  tbodyId: 'tbody-rs', emptyId: 'empty-rs', pgId: 'pg-rs', cntId: 'count-rs',
+  colsFn: () => [
+    { key: 'created_on',     render: r => fmt(r.created_on) },
+    { key: 'work_order_id', render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
+    { key: 'work_order_type',render: r => esc(r.work_order_type||'—') },
+    { key: 'case_desc',      render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
+    { key: 'work_order_status', render: r => statusBadge(r.work_order_status) },
+    { key: 'case_status',    render: r => esc(r.case_status||'—') },
+    { key: 'committed_delivery_date', render: r => fmt(r.committed_delivery_date) },
+    { key: 'contact_name',   render: r => esc(r.contact_name||'—') },
+    { key: 'customer',       render: r => esc(r.customer||'—') },
+  ],
+  actionsFn: r => `<button class="btn btn-amber btn-sm" data-action="reschedule" data-wo="${esc(r.work_order_id)}" data-contact="${esc(r.contact_name||'')}" data-status="${esc(r.work_order_status||'')}">Reschedule</button>`,
+  onBind: rows => {
+    document.querySelectorAll('#tbody-rs .wo-link').forEach(b =>
+      b.addEventListener('click', () => openDetail(b.dataset.wo)));
+    document.querySelectorAll('#tbody-rs [data-action="reschedule"]').forEach(b =>
+      b.addEventListener('click', () => openReschedule(b.dataset.wo, b.dataset.contact, b.dataset.status)));
+  },
+});
+
+let rsTimer = null;
+document.getElementById('search-rs').addEventListener('input', () => {
+  clearTimeout(rsTimer);
+  rsTimer = setTimeout(() => rsTable.load({ q: document.getElementById('search-rs').value.trim() }), 350);
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   TAB SWITCHING — load data lazily on first activation
+═══════════════════════════════════════════════════════════════ */
+const tabLoaded = { 'tab-all': false, 'tab-part-received': false, 'tab-part-return': false, 'tab-reschedule': false };
+const tabLoaders = {
+  'tab-all':           () => loadAllWo(),
+  'tab-part-received': () => recvTable.load({}),
+  'tab-part-return':   () => retTable.load({}),
+  'tab-reschedule':    () => rsTable.load({}),
+};
+
+function switchTab(id) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === id));
+  if (!tabLoaded[id]) { tabLoaded[id] = true; tabLoaders[id](); }
+}
+
+document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+document.querySelectorAll('[data-goto]').forEach(c => c.addEventListener('click', () => switchTab(c.dataset.goto)));
+
+/* ── URL param: ?tab= ── */
+(function () {
+  const map = { 'all':'tab-all', 'part-received':'tab-part-received', 'part-return':'tab-part-return', 'reschedule':'tab-reschedule' };
+  const p   = new URLSearchParams(location.search).get('tab');
+  const id  = (p && map[p]) || 'tab-all';
+  switchTab(id);
+})();
+
+/* ═══════════════════════════════════════════════════════════════
+   ACTION MODALS
+═══════════════════════════════════════════════════════════════ */
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeModal(b.dataset.close)));
+document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) closeModal(o.id); }));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(o => o.classList.remove('open')); });
+
+/* Part Received modal */
+let activeRecvWo = null;
+function openRecv(woId, contact, eta, escalateMode) {
+  activeRecvWo = woId;
+  document.getElementById('recv-sub').textContent       = escalateMode ? 'Escalate Issue' : 'CCI — Parts in Transit';
+  document.getElementById('recv-wo-num').textContent    = woId;
+  document.getElementById('recv-contact').textContent   = contact || '—';
+  document.getElementById('recv-eta').textContent       = fmt(eta);
+  document.getElementById('recv-datetime').value        = '';
+  document.getElementById('recv-escalation').value      = '';
+  document.getElementById('recv-esc-note').value        = '';
+  document.getElementById('awb-file-name').textContent  = 'No file chosen';
+  document.getElementById('recv-esc-note-group').style.display = 'none';
+  document.getElementById('btn-escalate-only').style.display   = escalateMode ? 'inline-flex' : 'none';
+  openModal('modal-received');
+}
+document.getElementById('recv-escalation').addEventListener('change', function() {
+  document.getElementById('recv-esc-note-group').style.display = this.value ? 'block' : 'none';
+  document.getElementById('btn-escalate-only').style.display   = this.value ? 'inline-flex' : 'none';
+});
+document.getElementById('awb-file').addEventListener('change', function() {
+  document.getElementById('awb-file-name').textContent = this.files[0] ? this.files[0].name : 'No file chosen';
+});
+document.getElementById('btn-confirm-received').addEventListener('click', () => {
+  if (!document.getElementById('recv-datetime').value) { toast('Please enter the received date & time.', 'err'); return; }
+  const esc_ = document.getElementById('recv-escalation').value;
+  if (esc_ && !document.getElementById('recv-esc-note').value.trim()) { toast('Please describe the escalation issue.', 'err'); return; }
+  toast(`WO ${activeRecvWo} — receipt confirmed${esc_ ? ' + escalated: ' + esc_ : ' ✓'}`, esc_ ? 'err' : 'ok');
+  closeModal('modal-received');
+});
+document.getElementById('btn-escalate-only').addEventListener('click', () => {
+  const esc_ = document.getElementById('recv-escalation').value;
+  if (!esc_) { toast('Please select an escalation reason.', 'err'); return; }
+  if (!document.getElementById('recv-esc-note').value.trim()) { toast('Please describe the issue.', 'err'); return; }
+  toast(`WO ${activeRecvWo} — escalated: ${esc_}`, 'err');
+  closeModal('modal-received');
+});
+
+/* Part Return modal */
+let activeRetWo = null;
+function openReturn(woId, contact, onsite) {
+  activeRetWo = woId;
+  document.getElementById('ret-wo-num').textContent  = woId;
+  document.getElementById('ret-contact').textContent = contact || '—';
+  document.getElementById('ret-onsite').textContent  = fmt(onsite);
+  document.getElementById('ret-dc').value            = '';
+  document.getElementById('ret-date').value          = '';
+  document.getElementById('ret-issue').value         = '';
+  document.getElementById('ret-issue-note').value    = '';
+  document.getElementById('ret-issue-note-group').style.display = 'none';
+  openModal('modal-return');
+}
+document.getElementById('ret-issue').addEventListener('change', function() {
+  document.getElementById('ret-issue-note-group').style.display = this.value ? 'block' : 'none';
+});
+document.getElementById('btn-confirm-return').addEventListener('click', () => {
+  const dc    = document.getElementById('ret-dc').value.trim();
+  const dt    = document.getElementById('ret-date').value;
+  const issue = document.getElementById('ret-issue').value;
+  if (!dc) { toast('Please enter the DC Number.', 'err'); return; }
+  if (!dt) { toast('Please enter the return date.', 'err'); return; }
+  if (issue && !document.getElementById('ret-issue-note').value.trim()) { toast('Please describe the issue.', 'err'); return; }
+  toast(`WO ${activeRetWo} — return submitted${issue ? ' (issue: ' + issue + ')' : ' ✓ DC: ' + dc}`, issue ? 'err' : 'ok');
+  closeModal('modal-return');
+});
+
+/* Reschedule modal */
+let activeRsWo = null;
+function openReschedule(woId, contact, status) {
+  activeRsWo = woId;
+  document.getElementById('rs-wo-num').textContent    = woId;
+  document.getElementById('rs-contact').textContent   = contact || '—';
+  document.getElementById('rs-status').textContent    = status || '—';
+  document.getElementById('rs-by').value              = '';
+  document.getElementById('rs-date').value            = '';
+  document.getElementById('rs-reason-asp').value      = '';
+  document.getElementById('rs-reason-customer').value = '';
+  document.getElementById('rs-section-asp').style.display      = 'none';
+  document.getElementById('rs-section-customer').style.display = 'none';
+  document.getElementById('rs-evidence-file').value            = '';
+  document.getElementById('rs-evidence-name').textContent      = 'No file chosen';
+  openModal('modal-reschedule');
+}
+document.getElementById('rs-by').addEventListener('change', function() {
+  document.getElementById('rs-section-asp').style.display      = this.value === 'ASP Defer'      ? 'block' : 'none';
+  document.getElementById('rs-section-customer').style.display = this.value === 'Customer Defer' ? 'block' : 'none';
+});
+document.getElementById('rs-evidence-file').addEventListener('change', function() {
+  document.getElementById('rs-evidence-name').textContent = this.files[0] ? this.files[0].name : 'No file chosen';
+});
+document.getElementById('btn-confirm-reschedule').addEventListener('click', () => {
+  const by = document.getElementById('rs-by').value;
+  const dt = document.getElementById('rs-date').value;
+  if (!by) { toast('Please select Reschedule by Customer or ASP.', 'err'); return; }
+  if (!dt) { toast('Please select a new appointment date.', 'err'); return; }
+  if (by === 'ASP Defer' && !document.getElementById('rs-reason-asp').value) { toast('Please select the ASP Defer reason.', 'err'); return; }
+  if (by === 'Customer Defer' && !document.getElementById('rs-reason-customer').value) { toast('Please select the Customer Defer reason.', 'err'); return; }
+  toast(`WO ${activeRsWo} — rescheduled (${by}) to ${dt.replace('T',' ')} ✓`, 'ok');
+  closeModal('modal-reschedule');
+});
+</script>
+{% endblock %}

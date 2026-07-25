@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Lenovo Portal{% endblock %}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      background: #f0f2f5;
+      color: #1f2328;
+      min-height: 100vh;
+    }
+
+    /* ── Topbar ──────────────────────────────────────────────────────────── */
+    .topbar {
+      background: #1f2328;
+      color: #fff;
+      height: 52px;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .topbar-brand {
+      font-weight: 700;
+      font-size: 15px;
+      color: #fff;
+      text-decoration: none;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+    .topbar-brand span { color: #e8490f; }
+
+    /* Portal switcher pills */
+    .portal-switcher {
+      display: flex;
+      gap: 4px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 7px;
+      padding: 3px;
+      margin-left: 16px;
+    }
+    .portal-btn {
+      padding: 4px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 5px;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      color: #c9d0d8;
+      background: transparent;
+      text-decoration: none;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .portal-btn.active { background: #fff; color: #1f2328; }
+    .portal-btn:hover:not(.active) { color: #fff; background: rgba(255,255,255,0.12); }
+
+    /* User badge on far right */
+    .topbar-user {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #c9d0d8;
+    }
+    .topbar-avatar {
+      width: 28px; height: 28px;
+      background: #3b82d4;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 12px; color: #fff;
+      flex-shrink: 0;
+    }
+
+    /* ── Body layout: content + right sidebar ────────────────────────────── */
+    .app-body {
+      display: flex;
+      align-items: flex-start;
+      min-height: calc(100vh - 52px);
+    }
+
+    /* ── Main content ─────────────────────────────────────────────────────── */
+    .main-content {
+      flex: 1;
+      min-width: 0;
+      padding: 28px 24px 60px;
+    }
+
+    /* ── Left sidebar ─────────────────────────────────────────────────────── */
+    .sidebar {
+      width: 228px;
+      flex-shrink: 0;
+      background: #fff;
+      border-right: 1px solid #e5e7eb;
+      min-height: calc(100vh - 52px);
+      position: sticky;
+      top: 52px;
+      display: flex;
+      flex-direction: column;
+      transition: width 0.22s ease;
+      overflow: hidden;
+    }
+    .sidebar.collapsed { width: 52px; }
+
+    /* Toggle button */
+    .sidebar-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 8px;
+      height: 44px;
+      padding: 0 14px;
+      border-bottom: 1px solid #e5e7eb;
+      cursor: pointer;
+      background: none;
+      border-top: none;
+      border-right: none;
+      border-left: none;
+      width: 100%;
+      color: #57606a;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .sidebar-toggle:hover { background: #f7f8fa; color: #1f2328; }
+    .sidebar-toggle svg { flex-shrink: 0; transition: transform 0.22s; }
+    .sidebar.collapsed .sidebar-toggle svg { transform: rotate(180deg); }
+    .sidebar-toggle-label {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      overflow: hidden;
+      transition: opacity 0.15s, width 0.22s;
+    }
+    .sidebar.collapsed .sidebar-toggle-label { opacity: 0; width: 0; }
+
+    /* Nav sections */
+    .sidebar-nav { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 0; }
+    .sidebar-nav::-webkit-scrollbar { width: 4px; }
+    .sidebar-nav::-webkit-scrollbar-thumb { background: #d0d7de; border-radius: 2px; }
+
+    /* Section label */
+    .nav-section-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #8c959f;
+      padding: 10px 14px 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      transition: opacity 0.15s;
+    }
+    .sidebar.collapsed .nav-section-label { opacity: 0; }
+
+    /* Nav item */
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      cursor: pointer;
+      color: #57606a;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 6px;
+      margin: 1px 6px;
+      white-space: nowrap;
+      transition: background 0.13s, color 0.13s;
+      overflow: hidden;
+    }
+    .nav-item:hover { background: #f0f2f5; color: #1f2328; }
+    .nav-item.active { background: #eef4fd; color: #2563b0; font-weight: 600; }
+    .nav-item.active .nav-icon { color: #3b82d4; }
+    .nav-icon { flex-shrink: 0; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; }
+    .nav-label { transition: opacity 0.15s; }
+    .sidebar.collapsed .nav-label { opacity: 0; width: 0; overflow: hidden; }
+
+    /* Expandable group */
+    .nav-group-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      cursor: pointer;
+      color: #57606a;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 6px;
+      margin: 1px 6px;
+      white-space: nowrap;
+      transition: background 0.13s, color 0.13s;
+      overflow: hidden;
+      user-select: none;
+    }
+    .nav-group-header:hover { background: #f0f2f5; color: #1f2328; }
+    .nav-group-header.open { color: #1f2328; }
+    .nav-chevron {
+      margin-left: auto;
+      flex-shrink: 0;
+      transition: transform 0.2s;
+      color: #8c959f;
+    }
+    .nav-group-header.open .nav-chevron { transform: rotate(90deg); }
+    .sidebar.collapsed .nav-chevron { opacity: 0; width: 0; }
+
+    /* Sub-items */
+    .nav-sub {
+      overflow: hidden;
+      max-height: 0;
+      transition: max-height 0.22s ease;
+    }
+    .nav-sub.open { max-height: 400px; }
+    .sidebar.collapsed .nav-sub { max-height: 0 !important; }
+    .nav-sub-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px 6px 42px;
+      cursor: pointer;
+      color: #57606a;
+      text-decoration: none;
+      font-size: 12px;
+      border-radius: 6px;
+      margin: 1px 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      transition: background 0.13s, color 0.13s;
+    }
+    .nav-sub-item:hover { background: #f0f2f5; color: #1f2328; }
+    .nav-sub-item.active { background: #eef4fd; color: #2563b0; font-weight: 600; }
+    .nav-sub-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: #d0d7de;
+      flex-shrink: 0;
+    }
+    .nav-sub-item.active .nav-sub-dot { background: #3b82d4; }
+
+    /* Collapsed tooltip hint (icon-only mode) */
+    .sidebar.collapsed .nav-item,
+    .sidebar.collapsed .nav-group-header {
+      justify-content: center;
+      padding: 8px;
+      margin: 2px 6px;
+    }
+
+    /* ── Page header ─────────────────────────────────────────────────────── */
+    .page-header { margin-bottom: 24px; }
+    .page-header h1 { font-size: 20px; font-weight: 700; }
+    .page-header p  { font-size: 13px; color: #57606a; margin-top: 3px; }
+    .page-header-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    /* ── Flash alerts ────────────────────────────────────────────────────── */
+    .alerts { margin-bottom: 20px; }
+    .alert {
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      margin-bottom: 8px;
+      border: 1px solid transparent;
+    }
+    .alert-danger  { background: #fff0f0; border-color: #fca5a5; color: #b91c1c; }
+    .alert-warning { background: rgba(220,38,38,0.06); border-color: rgba(220,38,38,0.35); color: #b91c1c; }
+    .alert-success { background: #f0fdf4; border-color: #86efac; color: #15803d; }
+    .alert-info    { background: #eff6ff; border-color: #93c5fd; color: #1e40af; }
+
+    /* ── Coming Soon placeholder ─────────────────────────────────────────── */
+    .coming-soon {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 64px 32px;
+      text-align: center;
+      max-width: 520px;
+      margin: 40px auto 0;
+    }
+    .coming-soon svg { color: #d0d7de; margin-bottom: 16px; }
+    .coming-soon h2 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+    .coming-soon p  { font-size: 13px; color: #57606a; line-height: 1.7; }
+    .coming-soon .cs-badge {
+      display: inline-block;
+      margin-top: 16px;
+      padding: 4px 14px;
+      background: #f0f2f5;
+      border: 1px solid #e5e7eb;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #57606a;
+    }
+
+    /* ── Responsive ──────────────────────────────────────────────────────── */
+
+    /* Mobile hamburger button in topbar */
+    .topbar-menu-btn {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      background: rgba(255,255,255,0.1);
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      color: #fff;
+      flex-shrink: 0;
+      margin-left: 8px;
+    }
+    .topbar-menu-btn:hover { background: rgba(255,255,255,0.18); }
+
+    /* Backdrop */
+    .sidebar-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 98;
+    }
+    .sidebar-backdrop.open { display: block; }
+
+    @media (max-width: 768px) {
+      .main-content { padding: 16px 14px 40px; }
+      .topbar-menu-btn { display: flex; }
+
+      /* Sidebar becomes a fixed drawer that slides in from the left */
+      .sidebar {
+        position: fixed;
+        top: 52px;
+        left: 0;
+        height: calc(100% - 52px);
+        width: 260px !important;   /* always fully expanded on mobile */
+        z-index: 99;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        box-shadow: 4px 0 16px rgba(0,0,0,0.12);
+      }
+      .sidebar.mobile-open {
+        transform: translateX(0);
+      }
+      /* Hide the collapse toggle on mobile — not needed in drawer mode */
+      .sidebar-toggle { display: none; }
+      /* Always show labels in drawer mode */
+      .sidebar .nav-label,
+      .sidebar .sidebar-toggle-label,
+      .sidebar .nav-chevron { opacity: 1 !important; width: auto !important; }
+      .sidebar .nav-sub.open { max-height: 400px !important; }
+      .sidebar .nav-item,
+      .sidebar .nav-group-header { justify-content: flex-start; padding: 8px 14px; margin: 1px 6px; }
+    }
+
+    {% block extra_styles %}{% endblock %}
+  </style>
+</head>
+<body>
+
+<!-- ═══ Topbar ═══════════════════════════════════════════════════════════════ -->
+<div class="topbar">
+  <a class="topbar-brand" href="/">Lenovo <span>ASP</span></a>
+
+  <div class="portal-switcher">
+    <a href="/asp/dashboard"   class="portal-btn {% if portal == 'asp' %}active{% endif %}">ASP Portal</a>
+    <a href="/admin/dashboard" class="portal-btn {% if portal == 'admin' %}active{% endif %}">Admin Portal</a>
+  </div>
+
+  <!-- Hamburger — mobile only -->
+  <button class="topbar-menu-btn" id="mobile-menu-btn" title="Open navigation">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="3" y1="6"  x2="21" y2="6"/>
+      <line x1="3" y1="12" x2="21" y2="12"/>
+      <line x1="3" y1="18" x2="21" y2="18"/>
+    </svg>
+  </button>
+
+  <div class="topbar-user">
+    <div class="topbar-avatar">U</div>
+    <span style="display:none" class="topbar-name">User</span>
+  </div>
+</div>
+
+<!-- Backdrop for mobile drawer -->
+<div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+<!-- ═══ App body ═════════════════════════════════════════════════════════════ -->
+<div class="app-body">
+
+  <!-- ── Left sidebar ───────────────────────────────────────────────────── -->
+  <aside class="sidebar" id="app-sidebar">
+    <button class="sidebar-toggle" id="sidebar-toggle" title="Toggle navigation">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="9 18 15 12 9 6"/>
+      </svg>
+      <span class="sidebar-toggle-label">{% if portal == 'admin' %}Admin Portal{% else %}ASP Portal{% endif %}</span>
+    </button>
+
+    <nav class="sidebar-nav" id="sidebar-nav">
+
+      {% if portal == 'asp' %}
+      <!-- ── ASP Portal nav ─────────────────────────────────────────── -->
+      <a href="/asp/dashboard" class="nav-item {% if active_page == 'asp_dashboard' %}active{% endif %}">
+        <span class="nav-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        </span>
+        <span class="nav-label">Dashboard</span>
+      </a>
+
+      <!-- Work Orders group -->
+      <div class="nav-group-header {% if active_group == 'work_orders' %}open{% endif %}" data-group="grp-wo">
+        <span class="nav-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        </span>
+        <span class="nav-label">Work Orders</span>
+        <svg class="nav-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <div class="nav-sub {% if active_group == 'work_orders' %}open{% endif %}" id="grp-wo">
+        <a href="/asp/work-orders?tab=active"  class="nav-sub-item {% if active_page == 'wo_active' %}active{% endif %}"><span class="nav-sub-dot"></span>Active WO</a>
+        <a href="/asp/work-orders?tab=closed"  class="nav-sub-item {% if active_page == 'wo_closed' %}active{% endif %}"><span class="nav-sub-dot"></span>Closed WO</a>
+        <a href="/asp/work-orders?tab=escalated" class="nav-sub-item {% if active_page == 'wo_escalated' %}active{% endif %}"><span class="nav-sub-dot"></span>Escalated WO</a>
+        <a href="/asp/work-orders?tab=pending" class="nav-sub-item {% if active_page == 'wo_pending' %}active{% endif %}"><span class="nav-sub-dot"></span>My Pending Actions</a>
+      </div>
+
+      <!-- Parts Management group -->
+      <div class="nav-group-header {% if active_group == 'parts' %}open{% endif %}" data-group="grp-parts">
+        <span class="nav-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        </span>
+        <span class="nav-label">Parts Management</span>
+        <svg class="nav-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <div class="nav-sub {% if active_group == 'parts' %}open{% endif %}" id="grp-parts">
+        <a href="/asp/parts?tab=awaiting"    class="nav-sub-item {% if active_page == 'parts_awaiting' %}active{% endif %}"><span class="nav-sub-dot"></span>Awaiting Delivery</a>
+        <a href="/asp/parts?tab=received"    class="nav-sub-item {% if active_page == 'parts_received' %}active{% endif %}"><span class="nav-sub-dot"></span>Received Confirmation</a>
+        <a href="/asp/parts?tab=return"      class="nav-sub-item {% if active_page == 'parts_return' %}active{% endif %}"><span class="nav-sub-dot"></span>Return Status</a>
+      </div>
+
+      <a href="/asp/reschedule" class="nav-item {% if active_page == 'reschedule' %}active{% endif %}">
+        <span class="nav-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </span>
+        <span class="nav-label">Reschedule Mgmt</span>
+      </a>
+
+      <a href="/asp/escalation" class="nav-item {% if active_page == 'escalation' %}active{% endif %}">
+        <span class="nav-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </span>
+        <span class="nav-label">Escalation Center</span>
+      </a>
+
+      {% else %}
+      <!-- ── Admin Portal nav ───────────────────────────────────────── -->
+      <a href="/admin/dashboard" class="nav-item {% if active_page == 'admin_dashboard' %}active{% endif %}">
+        <span class="nav-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        </span>
+        <span class="nav-label">Dashboard</span>
+      </a>
+
+      <a href="/admin/tickets" class="nav-item {% if active_page == 'admin_tickets' %}active{% endif %}">
+        <span class="nav-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        </span>
+        <span class="nav-label">Ticket Management</span>
+      </a>
+
+      <a href="/admin/data-import" class="nav-item {% if active_page == 'data_import' %}active{% endif %}">
+        <span class="nav-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </span>
+        <span class="nav-label">Data Import / Export</span>
+      </a>
+
+      <a href="/admin/validation" class="nav-item {% if active_page == 'validation' %}active{% endif %}">
+        <span class="nav-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        </span>
+        <span class="nav-label">Validation Center</span>
+      </a>
+
+      <a href="/admin/users" class="nav-item {% if active_page == 'user_mgmt' %}active{% endif %}">
+        <span class="nav-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </span>
+        <span class="nav-label">User &amp; ASP Mgmt</span>
+      </a>
+
+      <a href="/admin/archive" class="nav-item {% if active_page == 'archive' %}active{% endif %}">
+        <span class="nav-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+        </span>
+        <span class="nav-label">System Archive</span>
+      </a>
+
+      {% endif %}
+    </nav>
+  </aside>
+
+  <!-- ── Main content ───────────────────────────────────────────────────── -->
+  <div class="main-content">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="alerts">
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </div>
+
+</div><!-- /app-body -->
+
+<script>
+// ── Sidebar collapse/expand ───────────────────────────────────────────────────
+(function () {
+  const sidebar = document.getElementById('app-sidebar');
+  const toggle  = document.getElementById('sidebar-toggle');
+  const KEY     = 'sidebar_collapsed';
+
+  function applyState(collapsed) {
+    sidebar.classList.toggle('collapsed', collapsed);
+    try { localStorage.setItem(KEY, collapsed ? '1' : '0'); } catch(e) {}
+  }
+
+  // Restore saved state
+  try {
+    const saved = localStorage.getItem(KEY);
+    if (saved === '1') applyState(true);
+  } catch(e) {}
+
+  toggle.addEventListener('click', () => applyState(!sidebar.classList.contains('collapsed')));
+
+  // ── Mobile drawer ─────────────────────────────────────────────────────────
+  const menuBtn  = document.getElementById('mobile-menu-btn');
+  const backdrop = document.getElementById('sidebar-backdrop');
+
+  function openDrawer() {
+    sidebar.classList.add('mobile-open');
+    backdrop.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeDrawer() {
+    sidebar.classList.remove('mobile-open');
+    backdrop.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  menuBtn.addEventListener('click', openDrawer);
+  backdrop.addEventListener('click', closeDrawer);
+
+  // Close drawer when a nav link is tapped
+  sidebar.querySelectorAll('a.nav-item, a.nav-sub-item').forEach(link => {
+    link.addEventListener('click', closeDrawer);
+  });
+
+  // Accordion groups
+  document.querySelectorAll('.nav-group-header').forEach(header => {
+    header.addEventListener('click', () => {
+      if (sidebar.classList.contains('collapsed')) {
+        applyState(false);
+        return;
+      }
+      const targetId = header.dataset.group;
+      const sub      = document.getElementById(targetId);
+      const isOpen   = header.classList.contains('open');
+      // Close all first
+      document.querySelectorAll('.nav-group-header').forEach(h => h.classList.remove('open'));
+      document.querySelectorAll('.nav-sub').forEach(s => s.classList.remove('open'));
+      // Toggle clicked
+      if (!isOpen) {
+        header.classList.add('open');
+        sub.classList.add('open');
+      }
+    });
+  });
+})();
+</script>
+
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

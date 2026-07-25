@@ -1,0 +1,49 @@
+import os
+import click
+from flask import Flask, redirect, url_for
+from app.config import Config
+from app.routes.excel_upload import excel_upload_bp
+from app.routes.asp import asp_bp
+from app.routes.admin import admin_bp
+
+
+def create_app():
+    app = Flask(__name__, template_folder="templates")
+    app.config.from_object(Config)
+
+    # Ensure runtime directories exist
+    os.makedirs(app.config["UPLOAD_FOLDER"],       exist_ok=True)  # files/upload/
+    os.makedirs(app.config["EXCEL_UPLOAD_FOLDER"], exist_ok=True)  # files/upload/excel/
+    os.makedirs(app.config["EXCELS_DIR"],          exist_ok=True)  # files/download/excel/
+    os.makedirs(app.config["UPLOAD_META_FOLDER"],  exist_ok=True)  # app/templates/admin/upload_meta/
+
+    # ── Database setup ─────────────────────────────────────────────────────────
+    from app.services.database.migrate import run_migrations
+    from app.services.database.db import close_db
+    run_migrations(app)
+    app.teardown_appcontext(close_db)
+
+    # ── CLI: flask seed-db ─────────────────────────────────────────────────────
+    @app.cli.command("seed-db")
+    def seed_db_command():
+        """Populate the database from the source-db Excel files (run once)."""
+        from app.services.database.seed import seed_from_source_db
+        click.echo("Seeding database from files/source-db/ …")
+        counts = seed_from_source_db(app)
+        click.echo("Done.")
+        click.echo(f"  wo_summary               : {counts['wo_summary']:,} rows")
+        click.echo(f"  wo_details               : {counts['wo_details']:,} rows")
+        click.echo(f"  wo_product_detail (MSD)  : {counts['wo_product_from_msd']:,} rows")
+        click.echo(f"  wo_product_detail (Ship) : {counts['wo_product_from_shipment']:,} rows processed")
+
+    # Register blueprints
+    app.register_blueprint(excel_upload_bp)  # legacy: /upload-excel (kept for backward compat)
+    app.register_blueprint(asp_bp)           # /asp/*
+    app.register_blueprint(admin_bp)         # /admin/*
+
+    # Root → ASP dashboard
+    @app.route("/")
+    def root():
+        return redirect(url_for("asp.dashboard"))
+
+    return app

@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}Parts Management — ASP Portal{% endblock %}
+
+{% block extra_styles %}
+  .tab-bar { display: flex; border-bottom: 2px solid #e5e7eb; margin-bottom: 24px; gap: 0; overflow-x: auto; scrollbar-width: none; }
+  .tab-bar::-webkit-scrollbar { display: none; }
+  .tab-btn { padding: 10px 18px; font-size: 13px; font-weight: 600; color: #57606a; background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -2px; cursor: pointer; transition: color 0.15s, border-color 0.15s; white-space: nowrap; font-family: inherit; flex-shrink: 0; }
+  .tab-btn.active { color: #3b82d4; border-bottom-color: #3b82d4; }
+  .tab-btn:hover:not(.active) { color: #1f2328; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .section-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 32px; }
+  .section-card h2 { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+  .section-card p  { font-size: 13px; color: #57606a; }
+
+  .info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 20px; }
+  .info-tile { background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px 18px; }
+  .info-tile .it-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #8c959f; }
+  .info-tile .it-value { font-size: 26px; font-weight: 700; color: #1f2328; margin-top: 4px; }
+  .info-tile.blue  .it-value { color: #3b82d4; }
+  .info-tile.amber .it-value { color: #d97706; }
+  .info-tile.green .it-value { color: #16a34a; }
+  .info-tile.purple .it-value { color: #7c5cd8; }
+
+  .action-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; font-size: 13px; font-weight: 600; border-radius: 6px; border: 1px solid transparent; cursor: pointer; font-family: inherit; transition: background 0.12s; text-decoration: none; }
+  .btn-primary { background: #3b82d4; color: #fff; border-color: #3b82d4; }
+  .btn-primary:hover { background: #2563b0; }
+  .btn-ghost   { background: #f7f8fa; color: #1f2328; border-color: #d0d7de; }
+  .btn-ghost:hover   { background: #e5e7eb; }
+  .btn-purple  { background: #7c5cd8; color: #fff; border-color: #7c5cd8; }
+  .btn-purple:hover  { background: #6040b8; }
+
+  .step-list { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+  .step-item { display: flex; gap: 14px; align-items: flex-start; padding: 14px 16px; background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 8px; }
+  .step-num  { width: 28px; height: 28px; border-radius: 50%; background: #3b82d4; color: #fff; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .step-body .s-title { font-size: 13px; font-weight: 600; }
+  .step-body .s-desc  { font-size: 12px; color: #57606a; margin-top: 2px; }
+
+  @media (max-width: 900px) { .info-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 600px) { .info-grid { grid-template-columns: 1fr; } }
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Parts Management</h1>
+  <p>Track part delivery, confirm receipts, and manage returns.</p>
+</div>
+
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="tab-awaiting">Awaiting Delivery</button>
+  <button class="tab-btn" data-tab="tab-received">Received Confirmation</button>
+  <button class="tab-btn" data-tab="tab-return">Return Status</button>
+</div>
+
+<!-- TAB: Awaiting Delivery -->
+<div class="tab-panel active" id="tab-awaiting">
+  <div class="section-card">
+    <h2>Parts Awaiting Delivery</h2>
+    <p>Parts that have been shipped from the warehouse and are in transit to your ASP location.</p>
+    <div class="info-grid">
+      <div class="info-tile amber">
+        <div class="it-label">Awaiting Delivery</div>
+        <div class="it-value">{{ total_transit }}</div>
+      </div>
+      <div class="info-tile blue">
+        <div class="it-label">Total WO (All)</div>
+        <div class="it-value">{{ total }}</div>
+      </div>
+    </div>
+    <div class="action-row">
+      <a href="/asp/dashboard" class="btn btn-primary">View in Dashboard (Part Received tab)</a>
+    </div>
+    <div style="margin-top:24px;padding:20px;background:#fff8ed;border-radius:8px;border:1px dashed #fbbf24;text-align:center;color:#92400e;font-size:13px;">
+      Dedicated awaiting delivery list with courier tracking info — <strong>coming soon</strong>
+    </div>
+  </div>
+</div>
+
+<!-- TAB: Received Confirmation -->
+<div class="tab-panel" id="tab-received">
+  <div class="section-card">
+    <h2>Received Confirmation</h2>
+    <p>Confirm receipt of parts for WOs currently on hold with "Waiting Part" status. Upload AWB and set the received date.</p>
+
+    <div class="step-list">
+      <div class="step-item">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="s-title">Go to Dashboard → Part Received tab</div>
+          <div class="s-desc">Find the WO in the Part Received list and click "Confirm Receipt"</div>
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="s-title">Upload AWB document</div>
+          <div class="s-desc">Attach the Air Waybill PDF or image for the received shipment</div>
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="s-title">Set received date &amp; time</div>
+          <div class="s-desc">Record the exact date and time the parts arrived at your location</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="action-row">
+      <a href="/asp/dashboard" class="btn btn-primary">Open Dashboard</a>
+    </div>
+
+    <div style="margin-top:24px;padding:20px;background:#f0fdf4;border-radius:8px;border:1px dashed #86efac;text-align:center;color:#15803d;font-size:13px;">
+      Bulk confirmation &amp; history view — <strong>coming soon</strong>
+    </div>
+  </div>
+</div>
+
+<!-- TAB: Return Status -->
+<div class="tab-panel" id="tab-return">
+  <div class="section-card">
+    <h2>Return Status</h2>
+    <p>Track and submit part return shipments for completed WOs. Enter DC numbers and return dates.</p>
+
+    <div class="info-grid">
+      <div class="info-tile green">
+        <div class="it-label">Total Closed WO</div>
+        <div class="it-value">{{ total_closed }}</div>
+      </div>
+      <div class="info-tile purple">
+        <div class="it-label">Returns Pending</div>
+        <div class="it-value">—</div>
+      </div>
+    </div>
+
+    <div class="action-row">
+      <a href="/asp/dashboard" class="btn btn-purple">Open Part Return Tab</a>
+    </div>
+
+    <div style="margin-top:24px;padding:20px;background:#f3f0fb;border-radius:8px;border:1px dashed #c4b5fd;text-align:center;color:#6d28d9;font-size:13px;">
+      Return tracking dashboard with courier status — <strong>coming soon</strong>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tab-btn').forEach(x => x.classList.toggle('active', x === b));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === b.dataset.tab));
+}));
+
+(function () {
+  const map = { awaiting:'tab-awaiting', received:'tab-received', return:'tab-return' };
+  const p   = new URLSearchParams(location.search).get('tab');
+  if (p && map[p]) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === map[p]));
+    document.querySelectorAll('.tab-panel').forEach(x => x.classList.toggle('active', x.id === map[p]));
+  }
+})();
+</script>
+{% endblock %}

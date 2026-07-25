@@ -1,0 +1,446 @@
+{% extends "base.html" %}
+{% block title %}{{ label }} — DataFrame Viewer{% endblock %}
+
+{% block extra_styles %}
+  /* ── Page header row ─────────────────────────────────────────────────────── */
+  .viewer-header-row {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px; margin-bottom: 16px;
+  }
+  .viewer-header-row h1 { font-size: 20px; font-weight: 700; line-height: 1.3; }
+  .viewer-back {
+    display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px;
+    font-size: 13px; font-weight: 600; border: none; border-radius: 6px; cursor: pointer;
+    font-family: inherit; text-decoration: none; background: #f0f2f5; color: #1f2328;
+    transition: background 0.15s; flex-shrink: 0;
+  }
+  .viewer-back:hover { background: #e5e7eb; }
+
+  /* ── df_name info card ───────────────────────────────────────────────────── */
+  .df-info-card {
+    background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 10px;
+    padding: 14px 20px; margin-bottom: 18px;
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  }
+  .df-info-item { display: flex; flex-direction: column; gap: 2px; }
+  .df-info-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: #9ca3af;
+  }
+  .df-info-value { font-size: 13px; font-weight: 600; color: #1f2328; }
+  .df-name-code {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 15px; font-weight: 700; color: #2563b0;
+    background: #eef4fd; border: 1px solid #bfdbfe;
+    border-radius: 6px; padding: 3px 10px; letter-spacing: 0.03em;
+  }
+  .source-chip {
+    font-size: 12px; font-weight: 600; color: #15803d;
+    background: #f0fdf4; border: 1px solid #bbf7d0;
+    border-radius: 5px; padding: 2px 9px;
+  }
+  .df-info-divider {
+    width: 1px; height: 36px; background: #e5e7eb; flex-shrink: 0;
+  }
+
+  /* ── Summary stat badges ─────────────────────────────────────────────────── */
+  .summary-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+  .summary-badge {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 8px;
+    padding: 9px 16px; font-size: 12px; color: #57606a;
+  }
+  .summary-badge strong { color: #1f2328; font-size: 16px; display: block; line-height: 1.2; }
+
+  /* ── Search + filter bar ─────────────────────────────────────────────────── */
+  .search-bar {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap;
+  }
+  .search-wrap { position: relative; flex: 1; max-width: 380px; }
+  .search-wrap svg {
+    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    color: #9ca3af; pointer-events: none;
+  }
+  .search-wrap input {
+    width: 100%; padding: 8px 12px 8px 32px; font-size: 13px;
+    border: 1px solid #d0d7de; border-radius: 6px; font-family: inherit;
+    outline: none; transition: border-color 0.15s;
+  }
+  .search-wrap input:focus { border-color: #3b82d4; }
+  .search-clear {
+    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer; color: #9ca3af;
+    padding: 2px; display: none; line-height: 1;
+  }
+  .search-clear:hover { color: #1f2328; }
+  .search-status { font-size: 12px; color: #57606a; white-space: nowrap; }
+  .search-status .match-count { font-weight: 700; color: #2563b0; }
+  .search-status .no-match    { color: #b91c1c; }
+
+  /* ── Table ───────────────────────────────────────────────────────────────── */
+  .df-table-wrap {
+    overflow-x: auto; border: 1px solid #e5e7eb; border-radius: 10px;
+    max-height: 70vh; overflow-y: auto;
+  }
+  .df-table {
+    width: 100%; border-collapse: collapse; font-size: 12.5px; white-space: nowrap;
+  }
+  .df-table thead { background: #f0f2f5; position: sticky; top: 0; z-index: 2; }
+  .df-table th {
+    padding: 9px 14px; text-align: left; font-size: 11px; font-weight: 700;
+    color: #57606a; text-transform: uppercase; letter-spacing: 0.04em;
+    border-bottom: 2px solid #e5e7eb; white-space: nowrap;
+  }
+  .df-table th.col-num { width: 44px; text-align: center; color: #9ca3af; }
+  .df-table td {
+    padding: 7px 14px; border-bottom: 1px solid #f0f2f5;
+    color: #1f2328; max-width: 260px; overflow: hidden; text-overflow: ellipsis;
+  }
+  .df-table td.col-num { color: #c0c0c0; font-size: 11px; text-align: center; }
+  .df-table tbody tr:hover td { background: #f7f8fa; }
+  .df-table tbody tr:last-child td { border-bottom: none; }
+  .df-table td.null-cell { color: #c0c0c0; font-style: italic; }
+  .df-table tr.row-hidden { display: none; }
+
+  /* highlight matched text */
+  mark { background: #fef08a; color: inherit; border-radius: 2px; padding: 0 1px; }
+
+  /* ── Pagination ──────────────────────────────────────────────────────────── */
+  .pager-row {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 10px; margin-top: 14px;
+  }
+  .pager-info { font-size: 12px; color: #57606a; }
+  .pager-info strong { color: #1f2328; }
+  .pagination {
+    display: flex; align-items: center; gap: 5px; flex-wrap: wrap; font-size: 13px;
+  }
+  .pagination button {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 32px; height: 32px; padding: 0 7px; border-radius: 6px;
+    border: 1px solid #e5e7eb; background: #fff; color: #1f2328;
+    font-family: inherit; font-size: 13px; cursor: pointer; transition: background 0.12s;
+  }
+  .pagination button:hover:not(:disabled) { background: #f0f2f5; }
+  .pagination button.active { background: #3b82d4; color: #fff; border-color: #3b82d4; font-weight: 700; }
+  .pagination button:disabled { opacity: 0.35; cursor: default; }
+  .pagination .pg-ellipsis {
+    min-width: 22px; height: 32px; display: inline-flex; align-items: center;
+    justify-content: center; color: #9ca3af; border: none; background: none; cursor: default;
+  }
+  .per-page-select {
+    font-size: 12px; color: #57606a; display: flex; align-items: center; gap: 6px;
+  }
+  .per-page-select select {
+    font-size: 12px; border: 1px solid #d0d7de; border-radius: 5px;
+    padding: 3px 6px; font-family: inherit; background: #fff;
+  }
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Header ──────────────────────────────────────────────────────────────── -->
+<div class="viewer-header-row">
+  <div>
+    <h1>{{ label }}</h1>
+  </div>
+  <a href="/admin/data-import" class="viewer-back">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+         stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    Back to Data Import
+  </a>
+</div>
+
+<!-- ── DataFrame identity card ─────────────────────────────────────────────── -->
+<div class="df-info-card">
+  <div class="df-info-item">
+    <span class="df-info-label">DataFrame Name</span>
+    <span class="df-name-code">{{ df_name }}</span>
+  </div>
+
+  <div class="df-info-divider"></div>
+
+  <div class="df-info-item">
+    <span class="df-info-label">Category</span>
+    <span class="df-info-value">{{ label }}</span>
+  </div>
+
+  {% if source_file %}
+  <div class="df-info-divider"></div>
+  <div class="df-info-item">
+    <span class="df-info-label">Source</span>
+    <span class="source-chip">{{ source_file }}</span>
+  </div>
+  {% endif %}
+
+  <div class="df-info-divider"></div>
+
+  <div class="df-info-item">
+    <span class="df-info-label">Total Rows</span>
+    <span class="df-info-value">{{ total_rows }}</span>
+  </div>
+
+  <div class="df-info-divider"></div>
+
+  <div class="df-info-item">
+    <span class="df-info-label">Columns</span>
+    <span class="df-info-value">{{ total_cols }}</span>
+  </div>
+</div>
+
+<!-- ── Search bar ───────────────────────────────────────────────────────────── -->
+<div class="search-bar">
+  <div class="search-wrap">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+    <input type="text" id="df-search" placeholder="Search all {{ total_rows }} rows…" autocomplete="off">
+    <button class="search-clear" id="search-clear" title="Clear search">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+  </div>
+  <span class="search-status" id="search-status"></span>
+</div>
+
+<!-- ── Table (all rows rendered, visibility controlled by JS) ─────────────── -->
+<div class="df-table-wrap">
+  <table class="df-table" id="df-table">
+    <thead>
+      <tr>
+        <th class="col-num">#</th>
+        {% for col in headers %}
+        <th title="{{ col }}">{{ col }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody id="df-tbody">
+      {% for row in rows %}
+      <tr class="df-row" data-idx="{{ loop.index }}">
+        <td class="col-num">{{ loop.index }}</td>
+        {% for cell in row %}
+          {% if cell is none or cell == 'nan' or cell == '' %}
+          <td class="null-cell">—</td>
+          {% else %}
+          <td title="{{ cell }}">{{ cell }}</td>
+          {% endif %}
+        {% endfor %}
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="{{ total_cols + 1 }}"
+            style="text-align:center;padding:40px;color:#9ca3af;font-style:italic;">
+          No data rows to display.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- ── Pagination row ────────────────────────────────────────────────────────── -->
+<div class="pager-row">
+  <div class="pager-info" id="pager-info"></div>
+  <div class="pagination" id="pagination"></div>
+  <div class="per-page-select">
+    Rows/page
+    <select id="per-page-select">
+      <option value="25">25</option>
+      <option value="50" selected>50</option>
+      <option value="100">100</option>
+      <option value="200">200</option>
+      <option value="0">All</option>
+    </select>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  /* ── state ───────────────────────────────────────────────────────────────── */
+  var allRows     = Array.from(document.querySelectorAll('#df-tbody .df-row'));
+  var matchedRows = allRows.slice();   // rows visible after search filter
+  var currentPage = 1;
+  var perPage     = 50;
+
+  var searchInput  = document.getElementById('df-search');
+  var searchClear  = document.getElementById('search-clear');
+  var searchStatus = document.getElementById('search-status');
+  var pagerInfo    = document.getElementById('pager-info');
+  var pagination   = document.getElementById('pagination');
+  var perPageSel   = document.getElementById('per-page-select');
+
+  /* ── helpers ─────────────────────────────────────────────────────────────── */
+  function totalPages() {
+    if (perPage === 0) return 1;
+    return Math.max(1, Math.ceil(matchedRows.length / perPage));
+  }
+
+  function clampPage() {
+    currentPage = Math.max(1, Math.min(currentPage, totalPages()));
+  }
+
+  /* remove old highlights */
+  function clearHighlights(tr) {
+    tr.querySelectorAll('mark').forEach(function (m) {
+      var parent = m.parentNode;
+      parent.replaceChild(document.createTextNode(m.textContent), m);
+      parent.normalize();
+    });
+  }
+
+  /* highlight a query string inside a td's text */
+  function highlight(td, q) {
+    var text = td.textContent;
+    var lower = text.toLowerCase();
+    var idx = lower.indexOf(q);
+    if (idx === -1) return;
+    var mark = document.createElement('mark');
+    mark.textContent = text.substring(idx, idx + q.length);
+    var after = document.createTextNode(text.substring(idx + q.length));
+    td.textContent = text.substring(0, idx);
+    td.appendChild(mark);
+    td.appendChild(after);
+  }
+
+  /* ── search ──────────────────────────────────────────────────────────────── */
+  function applySearch() {
+    var q = searchInput.value.trim().toLowerCase();
+    searchClear.style.display = q ? 'block' : 'none';
+
+    /* clear all old highlights first */
+    allRows.forEach(function (tr) { clearHighlights(tr); });
+
+    if (q === '') {
+      matchedRows = allRows.slice();
+      searchStatus.innerHTML = '';
+    } else {
+      matchedRows = [];
+      allRows.forEach(function (tr) {
+        var text = tr.textContent.toLowerCase();
+        if (text.indexOf(q) !== -1) {
+          matchedRows.push(tr);
+          /* highlight each cell that contains the query */
+          tr.querySelectorAll('td:not(.col-num):not(.null-cell)').forEach(function (td) {
+            highlight(td, q);
+          });
+        }
+      });
+      var n = matchedRows.length;
+      if (n === 0) {
+        searchStatus.innerHTML = '<span class="no-match">No rows match &ldquo;' +
+          q.replace(/</g,'&lt;') + '&rdquo;</span>';
+      } else {
+        searchStatus.innerHTML =
+          '<span class="match-count">' + n + '</span> row' +
+          (n !== 1 ? 's' : '') + ' match';
+      }
+    }
+
+    currentPage = 1;
+    render();
+  }
+
+  /* ── render: show only the current page slice ────────────────────────────── */
+  function render() {
+    clampPage();
+    var tp = totalPages();
+
+    /* hide all rows first */
+    allRows.forEach(function (tr) { tr.classList.add('row-hidden'); });
+
+    /* show only the slice that belongs to this page */
+    var start = perPage === 0 ? 0 : (currentPage - 1) * perPage;
+    var end   = perPage === 0 ? matchedRows.length : start + perPage;
+    var slice = matchedRows.slice(start, end);
+    slice.forEach(function (tr) { tr.classList.remove('row-hidden'); });
+
+    /* pager info */
+    var total = matchedRows.length;
+    var from  = total === 0 ? 0 : start + 1;
+    var to    = Math.min(end, total);
+    pagerInfo.innerHTML =
+      'Showing <strong>' + from + '–' + to + '</strong> of <strong>' +
+      total + '</strong> row' + (total !== 1 ? 's' : '') +
+      (matchedRows.length < allRows.length
+        ? ' (filtered from <strong>' + allRows.length + '</strong> total)'
+        : '');
+
+    /* build pagination buttons */
+    buildPagination(tp);
+  }
+
+  /* ── pagination builder ──────────────────────────────────────────────────── */
+  function buildPagination(tp) {
+    pagination.innerHTML = '';
+    if (tp <= 1) return;
+
+    function btn(label, page, disabled, active) {
+      var b = document.createElement('button');
+      b.innerHTML = label;
+      if (disabled) b.disabled = true;
+      if (active)   b.classList.add('active');
+      if (!disabled && !active) {
+        b.addEventListener('click', function () {
+          currentPage = page;
+          render();
+        });
+      }
+      return b;
+    }
+
+    pagination.appendChild(btn('&laquo;', 1,           currentPage === 1, false));
+    pagination.appendChild(btn('&lsaquo;', currentPage - 1, currentPage === 1, false));
+
+    var window = 2;
+    var pStart = Math.max(1, currentPage - window);
+    var pEnd   = Math.min(tp, currentPage + window);
+
+    if (pStart > 1) {
+      pagination.appendChild(btn('1', 1, false, false));
+      if (pStart > 2) {
+        var ell = document.createElement('span');
+        ell.className = 'pg-ellipsis'; ell.textContent = '…';
+        pagination.appendChild(ell);
+      }
+    }
+    for (var p = pStart; p <= pEnd; p++) {
+      pagination.appendChild(btn(p, p, false, p === currentPage));
+    }
+    if (pEnd < tp) {
+      if (pEnd < tp - 1) {
+        var ell2 = document.createElement('span');
+        ell2.className = 'pg-ellipsis'; ell2.textContent = '…';
+        pagination.appendChild(ell2);
+      }
+      pagination.appendChild(btn(tp, tp, false, false));
+    }
+
+    pagination.appendChild(btn('&rsaquo;', currentPage + 1, currentPage === tp, false));
+    pagination.appendChild(btn('&raquo;', tp,               currentPage === tp, false));
+  }
+
+  /* ── event listeners ─────────────────────────────────────────────────────── */
+  searchInput.addEventListener('input', applySearch);
+
+  searchClear.addEventListener('click', function () {
+    searchInput.value = '';
+    applySearch();
+    searchInput.focus();
+  });
+
+  perPageSel.addEventListener('change', function () {
+    perPage = parseInt(this.value, 10);
+    currentPage = 1;
+    render();
+  });
+
+  /* ── initial render ──────────────────────────────────────────────────────── */
+  render();
+}());
+</script>
+{% endblock %}

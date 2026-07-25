@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Escalation Center — ASP Portal{% endblock %}
+
+{% block extra_styles %}
+  .section-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 32px; margin-bottom: 20px; }
+  .section-card h2 { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+  .section-card p  { font-size: 13px; color: #57606a; }
+
+  .action-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; font-size: 13px; font-weight: 600; border-radius: 6px; border: 1px solid transparent; cursor: pointer; font-family: inherit; transition: background 0.12s; text-decoration: none; }
+  .btn-danger { background: #dc2626; color: #fff; border-color: #dc2626; }
+  .btn-danger:hover { background: #b91c1c; }
+  .btn-ghost  { background: #f7f8fa; color: #1f2328; border-color: #d0d7de; }
+  .btn-ghost:hover  { background: #e5e7eb; }
+
+  .esc-type-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 20px; }
+  .esc-type-card { padding: 16px; border: 1px solid #e5e7eb; border-radius: 8px; background: #f7f8fa; }
+  .esc-type-card .et-title { font-size: 13px; font-weight: 700; margin-bottom: 4px; color: #1f2328; }
+  .esc-type-card .et-desc  { font-size: 12px; color: #57606a; }
+  .esc-type-card.red   { border-left: 3px solid #dc2626; }
+  .esc-type-card.amber { border-left: 3px solid #d97706; }
+  .esc-type-card.blue  { border-left: 3px solid #3b82d4; }
+  .esc-type-card.purple{ border-left: 3px solid #7c5cd8; }
+
+  @media (max-width: 640px) { .esc-type-grid { grid-template-columns: 1fr; } }
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Escalation Center</h1>
+  <p>Raise and track escalations for part issues, delivery problems, and WO disputes.</p>
+</div>
+
+<div class="section-card">
+  <h2>Escalation Types</h2>
+  <p>Escalations can be raised from the Part Received modal on the Dashboard when a part issue is detected.</p>
+
+  <div class="esc-type-grid">
+    <div class="esc-type-card red">
+      <div class="et-title">Wrong Part Received</div>
+      <div class="et-desc">Delivered part does not match the WO part number or description</div>
+    </div>
+    <div class="esc-type-card amber">
+      <div class="et-title">DOA — Dead on Arrival</div>
+      <div class="et-desc">Part arrived damaged or non-functional</div>
+    </div>
+    <div class="esc-type-card blue">
+      <div class="et-title">Wrong Route / Delivery</div>
+      <div class="et-desc">Shipment routed to wrong ASP or location</div>
+    </div>
+    <div class="esc-type-card purple">
+      <div class="et-title">Incomplete Shipment</div>
+      <div class="et-desc">Parcel received but items are missing from the order</div>
+    </div>
+  </div>
+
+  <div class="action-row">
+    <a href="/asp/dashboard" class="btn btn-danger">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg>
+      Escalate via Dashboard
+    </a>
+    <a href="/asp/dashboard" class="btn btn-ghost">Go to Part Received Tab</a>
+  </div>
+</div>
+
+<div class="coming-soon">
+  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+  <h2>Escalation Center Coming Soon</h2>
+  <p>A dedicated escalation dashboard with status tracking, admin communication thread, SLA breach alerts, and resolution history is planned for a future release.</p>
+  <span class="cs-badge">In Development</span>
+</div>
+{% endblock %}

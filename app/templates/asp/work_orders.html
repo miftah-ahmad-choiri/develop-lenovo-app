@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+{% block title %}Work Orders — ASP Portal{% endblock %}
+
+{% block extra_styles %}
+  .tab-bar { display: flex; border-bottom: 2px solid #e5e7eb; margin-bottom: 24px; gap: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .tab-bar::-webkit-scrollbar { display: none; }
+  .tab-btn { padding: 10px 18px; font-size: 13px; font-weight: 600; color: #57606a; background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -2px; cursor: pointer; transition: color 0.15s, border-color 0.15s; white-space: nowrap; font-family: inherit; flex-shrink: 0; }
+  .tab-btn.active { color: #3b82d4; border-bottom-color: #3b82d4; }
+  .tab-btn:hover:not(.active) { color: #1f2328; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .section-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 32px; margin-bottom: 16px; }
+  .section-card h2 { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+  .section-card p  { font-size: 13px; color: #57606a; }
+
+  .info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 20px; }
+  .info-tile { background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px 18px; }
+  .info-tile .it-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #8c959f; }
+  .info-tile .it-value { font-size: 26px; font-weight: 700; color: #1f2328; margin-top: 4px; }
+  .info-tile.blue  .it-value { color: #3b82d4; }
+  .info-tile.amber .it-value { color: #d97706; }
+  .info-tile.red   .it-value { color: #dc2626; }
+  .info-tile.green .it-value { color: #16a34a; }
+
+  .action-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; font-size: 13px; font-weight: 600; border-radius: 6px; border: 1px solid transparent; cursor: pointer; font-family: inherit; transition: background 0.12s; text-decoration: none; }
+  .btn-primary { background: #3b82d4; color: #fff; border-color: #3b82d4; }
+  .btn-primary:hover { background: #2563b0; }
+  .btn-ghost { background: #f7f8fa; color: #1f2328; border-color: #d0d7de; }
+  .btn-ghost:hover { background: #e5e7eb; }
+  .btn-amber { background: #d97706; color: #fff; border-color: #d97706; }
+  .btn-amber:hover { background: #b45309; }
+  .btn-danger { background: #dc2626; color: #fff; border-color: #dc2626; }
+  .btn-danger:hover { background: #b91c1c; }
+
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .badge-in-progress { background: #e0f2fe; color: #0369a1; }
+  .badge-pending { background: #fef9c3; color: #854d0e; }
+  .badge-done   { background: #dcfce7; color: #15803d; }
+
+  .pending-list { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .pending-item { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px 16px; display: flex; align-items: center; gap: 14px; }
+  .pending-item-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .pi-amber { background: #fef3c7; color: #d97706; }
+  .pi-red   { background: #fee2e2; color: #dc2626; }
+  .pi-blue  { background: #dbeafe; color: #1d4ed8; }
+  .pending-item-body { flex: 1; }
+  .pending-item-body .pi-title { font-size: 13px; font-weight: 600; }
+  .pending-item-body .pi-sub   { font-size: 12px; color: #57606a; margin-top: 1px; }
+  .pending-item-action { flex-shrink: 0; }
+
+  @media (max-width: 900px) { .info-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 600px) { .info-grid { grid-template-columns: 1fr; } }
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Work Orders</h1>
+  <p>Manage active, closed, and escalated work orders assigned to your ASP.</p>
+</div>
+
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="tab-active">Active WO</button>
+  <button class="tab-btn" data-tab="tab-closed">Closed WO</button>
+  <button class="tab-btn" data-tab="tab-escalated">Escalated WO</button>
+  <button class="tab-btn" data-tab="tab-pending">My Pending Actions</button>
+</div>
+
+<!-- TAB: Active WO -->
+<div class="tab-panel active" id="tab-active">
+  <div class="section-card">
+    <h2>Active Work Orders</h2>
+    <p>Work orders currently open and in progress. Go to <a href="/asp/dashboard" style="color:#3b82d4">Dashboard</a> to view and filter the full active WO table.</p>
+    <div class="info-grid">
+      <div class="info-tile blue">
+        <div class="it-label">Total Active</div>
+        <div class="it-value">{{ total_open }}</div>
+      </div>
+      <div class="info-tile amber">
+        <div class="it-label">Part on Hold</div>
+        <div class="it-value">{{ total_transit }}</div>
+      </div>
+      <div class="info-tile green">
+        <div class="it-label">Completed</div>
+        <div class="it-value">{{ total_closed }}</div>
+      </div>
+    </div>
+    <div class="action-row">
+      <a href="/asp/dashboard" class="btn btn-primary">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Open Full Dashboard
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- TAB: Closed WO -->
+<div class="tab-panel" id="tab-closed">
+  <div class="section-card">
+    <h2>Closed Work Orders</h2>
+    <p>Work orders that have been completed or closed.</p>
+    <div class="info-grid">
+      <div class="info-tile green">
+        <div class="it-label">Total Closed</div>
+        <div class="it-value">{{ total_closed }}</div>
+      </div>
+    </div>
+    <div class="action-row">
+      <a href="/asp/dashboard" class="btn btn-ghost">View in Dashboard</a>
+    </div>
+    <div style="margin-top:24px;padding:20px;background:#f7f8fa;border-radius:8px;border:1px dashed #d0d7de;text-align:center;color:#57606a;font-size:13px;">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 8px;display:block;color:#d0d7de" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Dedicated Closed WO view with filters and export — <strong>coming soon</strong>
+    </div>
+  </div>
+</div>
+
+<!-- TAB: Escalated WO -->
+<div class="tab-panel" id="tab-escalated">
+  <div class="section-card">
+    <h2>Escalated Work Orders</h2>
+    <p>Work orders that have been flagged for escalation due to part issues, delays, or other problems.</p>
+    <div class="action-row">
+      <a href="/asp/escalation" class="btn btn-danger">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Go to Escalation Center
+      </a>
+    </div>
+    <div style="margin-top:24px;padding:20px;background:#fff5f5;border-radius:8px;border:1px dashed #fca5a5;text-align:center;color:#b91c1c;font-size:13px;">
+      Escalated WO tracking view — <strong>coming soon</strong>
+    </div>
+  </div>
+</div>
+
+<!-- TAB: My Pending Actions -->
+<div class="tab-panel" id="tab-pending">
+  <div class="section-card">
+    <h2>My Pending Actions</h2>
+    <p>Action items that require your attention today.</p>
+
+    <div class="pending-list">
+      <div class="pending-item">
+        <div class="pending-item-icon pi-amber">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <div class="pending-item-body">
+          <div class="pi-title">Parts awaiting delivery confirmation</div>
+          <div class="pi-sub">Confirm receipt for parts with status "Waiting Part"</div>
+        </div>
+        <div class="pending-item-action">
+          <span class="badge badge-pending">Pending</span>
+        </div>
+      </div>
+
+      <div class="pending-item">
+        <div class="pending-item-icon pi-blue">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        </div>
+        <div class="pending-item-body">
+          <div class="pi-title">Parts return to be submitted</div>
+          <div class="pi-sub">Submit return DC numbers for closed WOs</div>
+        </div>
+        <div class="pending-item-action">
+          <span class="badge badge-pending">Pending</span>
+        </div>
+      </div>
+
+      <div class="pending-item">
+        <div class="pending-item-icon pi-red">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg>
+        </div>
+        <div class="pending-item-body">
+          <div class="pi-title">Reschedule requests pending approval</div>
+          <div class="pi-sub">Rescheduled WOs awaiting customer confirmation</div>
+        </div>
+        <div class="pending-item-action">
+          <span class="badge badge-pending">Pending</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:20px;padding:16px;background:#f7f8fa;border-radius:8px;border:1px dashed #d0d7de;text-align:center;color:#57606a;font-size:12px;">
+      Personalised action queue with real-time counts — <strong>coming soon</strong>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tab-btn').forEach(x => x.classList.toggle('active', x === b));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === b.dataset.tab));
+}));
+
+// Activate tab from URL param ?tab=
+(function () {
+  const map = { active:'tab-active', closed:'tab-closed', escalated:'tab-escalated', pending:'tab-pending' };
+  const p   = new URLSearchParams(location.search).get('tab');
+  if (p && map[p]) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === map[p]));
+    document.querySelectorAll('.tab-panel').forEach(x => x.classList.toggle('active', x.id === map[p]));
+  }
+})();
+</script>
+{% endblock %}

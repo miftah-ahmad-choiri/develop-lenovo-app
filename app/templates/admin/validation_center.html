@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Validation Center — Admin Portal{% endblock %}
+
+{% block extra_styles %}
+  .section-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 32px; margin-bottom: 20px; }
+  .section-card h2 { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+  .section-card p  { font-size: 13px; color: #57606a; }
+
+  .feature-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 20px; }
+  .feature-item { padding: 16px; border: 1px solid #e5e7eb; border-radius: 8px; background: #f7f8fa; }
+  .feature-item .fi-title { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .feature-item .fi-desc  { font-size: 12px; color: #57606a; }
+  .feature-item.blue  { border-left: 3px solid #3b82d4; }
+  .feature-item.amber { border-left: 3px solid #d97706; }
+
+  @media (max-width: 640px) { .feature-grid { grid-template-columns: 1fr; } }
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Validation Center</h1>
+  <p>Validate AWB documents and reschedule request evidence submitted by ASPs.</p>
+</div>
+
+<div class="section-card">
+  <h2>Validation Scope</h2>
+  <p>This module covers two primary validation workflows:</p>
+
+  <div class="feature-grid">
+    <div class="feature-item blue">
+      <div class="fi-title">AWB Validation</div>
+      <div class="fi-desc">Review AWB documents uploaded during part received confirmation. Cross-check with courier data and approve or reject submissions.</div>
+    </div>
+    <div class="feature-item amber">
+      <div class="fi-title">Reschedule Validation</div>
+      <div class="fi-desc">Verify reschedule evidence (chat screenshots) submitted by ASPs. Confirm customer consent or flag policy violations.</div>
+    </div>
+  </div>
+</div>
+
+<div class="coming-soon">
+  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+  <h2>Validation Center Coming Soon</h2>
+  <p>Document review queue, approve/reject workflow, and validation audit log are planned for a future release.</p>
+  <span class="cs-badge">In Development</span>
+</div>
+{% endblock %}
