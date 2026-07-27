@@ -22,23 +22,31 @@
   .tab-badge { background: #dc2626; color: #fff; border-radius: 10px; padding: 1px 7px; font-size: 10px; font-weight: 800; line-height: 1.6; }
   /* Follow-up state badges */
   .fu-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 12px; font-size: 11px; font-weight: 700; white-space: nowrap; }
-  .fu-confirm  { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
-  .fu-part-sla { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
-  .fu-wo-sla   { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
-  .fu-input-dc { background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; }
-  .fu-cancelled{ background: #f3f4f6; color: #6b7280; border: 1px solid #e5e7eb; }
+  .fu-badge-btn { cursor: pointer; font-family: inherit; transition: filter .12s, transform .1s; }
+  .fu-badge-btn:hover { filter: brightness(.92); transform: translateY(-1px); }
+  .fu-badge-btn:active { transform: translateY(0); filter: brightness(.85); }
+  .fu-confirm    { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+  .fu-part-sla   { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+  .fu-wo-sla     { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+  .fu-input-dc   { background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; }
+  .fu-reschedule { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+  .fu-cancelled  { background: #f3f4f6; color: #6b7280; border: 1px solid #e5e7eb; }
   /* CCI sub-tab pills */
   .subtab-bar { display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap; }
   .subtab-pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1.5px solid transparent; background: #f7f8fa; color: #57606a; border-color: #e5e7eb; font-family: inherit; transition: background .12s, color .12s; white-space: nowrap; }
   .subtab-pill:hover { background: #e5e7eb; color: #1f2328; }
   .subtab-pill.active { background: #1f2328; color: #fff; border-color: #1f2328; }
-  .subtab-pill.sactive-confirm  { background: #eff6ff; color: #1e40af; border-color: #3b82d4; }
-  .subtab-pill.sactive-part-sla { background: #fee2e2; color: #b91c1c; border-color: #dc2626; }
-  .subtab-pill.sactive-wo-sla   { background: #fef3c7; color: #92400e; border-color: #d97706; }
-  .subtab-pill.sactive-input-dc { background: #ede9fe; color: #6d28d9; border-color: #7c5cd8; }
+  .subtab-pill.sactive-confirm    { background: #eff6ff; color: #1e40af; border-color: #3b82d4; }
+  .subtab-pill.sactive-part-sla   { background: #fee2e2; color: #b91c1c; border-color: #dc2626; }
+  .subtab-pill.sactive-wo-sla     { background: #fef3c7; color: #92400e; border-color: #d97706; }
+  .subtab-pill.sactive-input-dc   { background: #ede9fe; color: #6d28d9; border-color: #7c5cd8; }
+  .subtab-pill.sactive-reschedule { background: #eff6ff; color: #1e40af; border-color: #3b82d4; }
   .subtab-sep { color: #d1d5db; font-size: 13px; margin: 0 2px; }
-  /* CCI toolbar override — search right, count right */
-  .cci-toolbar { padding: 10px 16px; display: flex; align-items: center; justify-content: flex-end; gap: 10px; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap; }
+  /* CCI toolbar — merged into subtab-bar row */
+  .subtab-bar { justify-content: space-between; }
+  .subtab-bar-left { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .subtab-bar-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .cci-toolbar { display: none; }
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
 
@@ -146,6 +154,9 @@
   .wo-hero-status-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #8c959f; flex-shrink: 0; }
   .wo-hero-status-val { font-size: 12px; color: #1f2328; font-weight: 700; }
   .wo-hero-status-val.muted { color: #8c959f; font-weight: 400; font-style: italic; }
+  /* CCI action buttons in hero row */
+  .cci-hero-btns { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; max-width: 340px; }
+  .cci-hero-btns .fu-badge-btn { font-size: 11.5px; padding: 5px 11px; }
   /* hero info bar */
   .wo-info-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 0; margin-top: 10px; }
   .wo-info-item { display: flex; align-items: center; gap: 5px; padding: 0 16px 0 0; white-space: nowrap; }
@@ -192,13 +203,18 @@
   /* AWB upload zone — full width */
   .awb-upload-zone { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; width: 100%; padding: 14px 12px; border: 2px dashed #3b82d4; border-radius: 7px; background: #f0f7ff; color: #3b82d4; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer; text-align: center; transition: background .15s, border-color .15s; box-sizing: border-box; }
   .awb-upload-zone:hover { background: #dbeafe; border-color: #2563b0; color: #2563b0; }
+  .awb-upload-zone.has-file { border-color: #22c55e; background: #f0fdf4; color: #15803d; }
   .awb-upload-zone input { display: none; }
   .awb-upload-zone .upload-sub { font-size: 11px; font-weight: 400; color: #57606a; }
+  .awb-img-preview { display: none; margin-top: 8px; width: 100%; border-radius: 7px; border: 1px solid #e5e7eb; overflow: hidden; background: #f7f8fa; }
+  .awb-img-preview img { display: block; width: 100%; max-height: 220px; object-fit: contain; background: #f7f8fa; }
   .file-upload-zone { border: 2px dashed #d0d7de; border-radius: 7px; padding: 14px; text-align: center; cursor: pointer; color: #3b82d4; font-weight: 600; font-size: 13px; transition: border-color 0.15s; }
   .file-upload-zone:hover { border-color: #3b82d4; background: #f0f5ff; }
   .file-upload-zone input { display: none; }
   .file-upload-name { font-size: 11px; color: #57606a; margin-top: 5px; }
   .file-chosen { margin-top: 6px; font-size: 11px; color: #15803d; display: flex; align-items: center; gap: 5px; font-weight: 600; }
+  .file-chosen-remove { margin-left: auto; display: flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; border: 1px solid #fca5a5; background: #fee2e2; color: #dc2626; cursor: pointer; flex-shrink: 0; padding: 0; line-height: 1; }
+  .file-chosen-remove:hover { background: #fecaca; border-color: #f87171; }
   .file-chosen svg { flex-shrink: 0; }
   .modal-footer { padding: 14px 20px; border-top: 1px solid #e5e7eb; display: flex; gap: 8px; justify-content: space-between; align-items: center; }
   .modal-footer-hint { font-size: 11px; color: #8c959f; }
@@ -324,6 +340,15 @@
 
   /* ── WO Detail — parts card ─────────────────────────────────────── */
   .part-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
+  .part-card.cancelled { background: #fafafa; border-color: #e5e7eb; opacity: 0.7; }
+  .part-card.cancelled .part-card-hdr { background: #f3f4f6; }
+  .part-card.cancelled .part-card-pn  { text-decoration: line-through; color: #8c959f; }
+  .part-card.cancelled .part-card-desc { color: #adb5bd; }
+  .part-card.cancelled .part-card-field { background: #fafafa; }
+  .part-card.cancelled .pcf-value { color: #8c959f; }
+  .parts-cancelled-divider { display: flex; align-items: center; gap: 8px; margin: 14px 0 10px; }
+  .parts-cancelled-divider span { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #8c959f; white-space: nowrap; }
+  .parts-cancelled-divider::before, .parts-cancelled-divider::after { content: ''; flex: 1; height: 1px; background: #e5e7eb; }
   .part-card-hdr { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #f7f8fa; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap; }
   .part-card-num { font-size: 11px; font-weight: 700; color: #8c959f; flex-shrink: 0; }
   .part-card-pn  { font-size: 12px; font-weight: 700; font-family: ui-monospace, monospace; color: #1f2328; }
@@ -357,6 +382,49 @@
   .toast.show  { opacity: 1; transform: translateY(0); }
   .toast.ok    { border-left: 3px solid #22c55e; }
   .toast.err   { border-left: 3px solid #dc2626; }
+
+  /* ── AWB multi-WO checklist ─────────────────────────────────────────────── */
+  .awb-wo-list { margin-top: 10px; border: 1px solid #e5e7eb; border-radius: 7px; overflow: hidden; }
+  .awb-wo-list-header { padding: 7px 12px; background: #f7f8fa; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .awb-wo-list-title { font-size: 11px; font-weight: 700; color: #57606a; text-transform: uppercase; letter-spacing: .04em; }
+  .awb-wo-list-hint  { font-size: 11px; color: #8c959f; }
+  .awb-wo-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 12px; border-bottom: 1px solid #f0f2f5; background: #fff; cursor: pointer; transition: background .1s; }
+  .awb-wo-item:last-child { border-bottom: none; }
+  .awb-wo-item:hover { background: #f7f8fa; }
+  .awb-wo-item.is-primary { background: #f0f7ff; }
+  .awb-wo-item.is-primary:hover { background: #e8f2ff; }
+  .awb-wo-item input[type="checkbox"] { margin-top: 2px; flex-shrink: 0; width: 15px; height: 15px; accent-color: #3b82d4; cursor: pointer; }
+  .awb-wo-item input[type="checkbox"]:disabled { opacity: 0.6; cursor: default; }
+  .awb-wo-item-body { flex: 1; min-width: 0; }
+  .awb-wo-item-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .awb-wo-item-id { font-family: ui-monospace, monospace; font-size: 12px; font-weight: 700; color: #1f2328; }
+  .awb-wo-item-primary-tag { font-size: 10px; font-weight: 700; background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; border-radius: 8px; padding: 1px 6px; white-space: nowrap; }
+  .awb-wo-item-meta { font-size: 11px; color: #57606a; margin-top: 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .awb-wo-list-loading { padding: 12px; text-align: center; font-size: 12px; color: #8c959f; }
+  .awb-wo-select-all { font-size: 11px; font-weight: 600; color: #3b82d4; cursor: pointer; background: none; border: none; font-family: inherit; padding: 0; }
+  .awb-wo-select-all:hover { color: #1d4ed8; text-decoration: underline; }
+
+  /* ── No-AWB WO panel (inside Part Received modal Section 2) ────────── */
+  .no-awb-section { margin-top: 16px; }
+  .no-awb-list { margin-top: 8px; border: 1px solid #e5e7eb; border-radius: 7px; overflow: hidden; }
+  .no-awb-list-header { padding: 7px 12px; background: #fffbeb; border-bottom: 1px solid #fde68a; display: flex; align-items: center; gap: 8px; }
+  .no-awb-list-title { font-size: 11px; font-weight: 700; color: #92400e; text-transform: uppercase; letter-spacing: .04em; flex: 1; }
+  .no-awb-count-pill { font-size: 10px; font-weight: 700; background: #fef3c7; color: #92400e; border: 1px solid #fde68a; border-radius: 10px; padding: 1px 7px; white-space: nowrap; }
+  .no-awb-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 12px; border-bottom: 1px solid #f0f2f5; background: #fff; cursor: pointer; transition: background .1s; }
+  .no-awb-item:last-child { border-bottom: none; }
+  .no-awb-item:hover { background: #f7f8fa; }
+  .no-awb-item.is-current { background: #f0f7ff; }
+  .no-awb-item.is-current:hover { background: #e8f2ff; }
+  .no-awb-item input[type="checkbox"] { margin-top: 2px; flex-shrink: 0; width: 15px; height: 15px; accent-color: #f59e0b; cursor: pointer; }
+  .no-awb-item-body { flex: 1; min-width: 0; }
+  .no-awb-item-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .no-awb-item-id { font-family: ui-monospace, monospace; font-size: 12px; font-weight: 700; color: #1f2328; }
+  .no-awb-item-meta { font-size: 11px; color: #57606a; margin-top: 2px; }
+  .no-awb-item-current { font-size: 10px; font-weight: 700; background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; border-radius: 8px; padding: 1px 6px; white-space: nowrap; }
+  .no-awb-empty { padding: 10px 12px; font-size: 12px; color: #8c959f; font-style: italic; }
+  .no-awb-loading { padding: 12px; text-align: center; font-size: 12px; color: #8c959f; }
+  .no-awb-select-all { font-size: 11px; font-weight: 600; color: #b45309; cursor: pointer; background: none; border: none; font-family: inherit; padding: 0; }
+  .no-awb-select-all:hover { color: #92400e; text-decoration: underline; }
 
   /* Mini parts table inside detail modal */
   .parts-mini-table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -423,9 +491,10 @@
     CCI Follow-Up
     <span class="tab-badge" id="tab-cci-badge" style="display:none"></span>
   </button>
-  <button class="tab-btn" data-tab="tab-part-received">Part Received</button>
-  <button class="tab-btn" data-tab="tab-part-return">Part Return</button>
-  <button class="tab-btn" data-tab="tab-reschedule">WO Reschedule</button>
+  <button class="tab-btn" data-tab="tab-onsite-followup">
+    Onsite Follow-Up
+    <span class="tab-badge" id="tab-onsite-badge" style="display:none"></span>
+  </button>
 </div>
 
 <!-- ── TAB: All WO ──────────────────────────────────────────────────────── -->
@@ -483,40 +552,43 @@
   <div class="table-card">
     <!-- Sub-tab pills -->
     <div class="subtab-bar" id="cci-subtab-bar">
-      <button class="subtab-pill active" data-state="">All Follow-Up States</button>
-      <span class="subtab-sep">|</span>
-      <button class="subtab-pill" data-state="confirm_receipt">
-        <span class="fu-badge fu-confirm" style="padding:1px 6px;font-size:10px">●</span>
-        Confirm Receipt
-      </button>
-      <button class="subtab-pill" data-state="part_sla">
-        <span class="fu-badge fu-part-sla" style="padding:1px 6px;font-size:10px">▲</span>
-        Part SLA Overdue
-      </button>
-      <button class="subtab-pill" data-state="wo_sla">
-        <span class="fu-badge fu-wo-sla" style="padding:1px 6px;font-size:10px">●</span>
-        WO SLA Follow-Up
-      </button>
-      <button class="subtab-pill" data-state="input_dc">
-        <span class="fu-badge fu-input-dc" style="padding:1px 6px;font-size:10px">●</span>
-        Input DC Number
-      </button>
+      <div class="subtab-bar-left">
+        <button class="subtab-pill active" data-state="">All Follow-Up States</button>
+        <span class="subtab-sep">|</span>
+        <button class="subtab-pill" data-state="confirm_receipt">
+          <span class="fu-badge fu-confirm" style="padding:1px 6px;font-size:10px">📬</span>
+          Confirm Receipt
+        </button>
+        <button class="subtab-pill" data-state="part_sla">
+          <span class="fu-badge fu-part-sla" style="padding:1px 6px;font-size:10px">⚠️</span>
+          Part SLA Overdue
+        </button>
+        <button class="subtab-pill" data-state="wo_sla">
+          <span class="fu-badge fu-wo-sla" style="padding:1px 6px;font-size:10px">🔔</span>
+          WO SLA Follow-Up
+        </button>
+        <button class="subtab-pill" data-state="input_dc">
+          <span class="fu-badge fu-input-dc" style="padding:1px 6px;font-size:10px">🔢</span>
+          Input DC Number
+        </button>
+      </div>
+      <div class="subtab-bar-right">
+        <input type="search" id="search-cci" placeholder="Search WO, serial, contact, cust…" autocomplete="off" style="width:260px;padding:7px 11px;border:1px solid #d0d7de;border-radius:6px;font-size:13px;font-family:inherit;" />
+        <span class="toolbar-count" id="count-cci"></span>
+      </div>
     </div>
-    <!-- Toolbar: search + count on the right -->
-    <div class="cci-toolbar">
-      <input type="search" id="search-cci" placeholder="Search WO, serial, contact, cust…" autocomplete="off" style="width:260px;padding:7px 11px;border:1px solid #d0d7de;border-radius:6px;font-size:13px;font-family:inherit;" />
-      <span class="toolbar-count" id="count-cci"></span>
-    </div>
+    <!-- Toolbar hidden — search + count are now inline in the subtab-bar -->
+    <div class="cci-toolbar"></div>
     <div class="table-scroll">
       <table class="data-table">
         <thead><tr>
           <th style="width:40px;text-align:center">#</th>
           <th>Created On</th><th>WO Number</th>
-          <th>WO Type</th><th>Case</th>
-          <th>WO Status</th><th>Follow-Up State</th>
-          <th>Contact Name</th><th>ASP</th><th>Action</th>
+          <th>Follow-Up State</th><th>WO Type</th><th>Case</th>
+          <th>WO Status</th>
+          <th>Contact Name</th><th>ASP</th>
         </tr></thead>
-        <tbody id="tbody-cci"><tr><td colspan="10" class="loading-state">Loading…</td></tr></tbody>
+        <tbody id="tbody-cci"><tr><td colspan="9" class="loading-state">Loading…</td></tr></tbody>
       </table>
     </div>
     <div id="empty-cci" class="empty-state" style="display:none">No CCI WOs found.</div>
@@ -524,72 +596,50 @@
   </div>
 </div>
 
-<!-- ── TAB: Part Received ───────────────────────────────────────────────── -->
-<div class="tab-panel" id="tab-part-received">
+<!-- ── TAB: Onsite Follow-Up ────────────────────────────────────────────── -->
+<div class="tab-panel" id="tab-onsite-followup">
   <div class="table-card">
-    <div class="table-toolbar">
-      <input type="search" id="search-recv" placeholder="Search WO, serial, contact…" autocomplete="off" />
-      <span class="toolbar-count" id="count-recv"></span>
+    <!-- Sub-tab pills -->
+    <div class="subtab-bar" id="onsite-subtab-bar">
+      <div class="subtab-bar-left">
+        <button class="subtab-pill active" data-state="">All Follow-Up States</button>
+        <span class="subtab-sep">|</span>
+        <button class="subtab-pill" data-state="wo_reschedule">
+          <span class="fu-badge fu-reschedule" style="padding:1px 6px;font-size:10px">📅</span>
+          WO Reschedule
+        </button>
+        <button class="subtab-pill" data-state="part_sla">
+          <span class="fu-badge fu-part-sla" style="padding:1px 6px;font-size:10px">⚠️</span>
+          Part SLA Overdue
+        </button>
+        <button class="subtab-pill" data-state="wo_sla">
+          <span class="fu-badge fu-wo-sla" style="padding:1px 6px;font-size:10px">🔔</span>
+          WO SLA Follow-Up
+        </button>
+        <button class="subtab-pill" data-state="input_dc">
+          <span class="fu-badge fu-input-dc" style="padding:1px 6px;font-size:10px">🔢</span>
+          Input DC Number
+        </button>
+      </div>
+      <div class="subtab-bar-right">
+        <input type="search" id="search-onsite" placeholder="Search WO, serial, contact, cust…" autocomplete="off" style="width:260px;padding:7px 11px;border:1px solid #d0d7de;border-radius:6px;font-size:13px;font-family:inherit;" />
+        <span class="toolbar-count" id="count-onsite"></span>
+      </div>
     </div>
     <div class="table-scroll">
       <table class="data-table">
         <thead><tr>
           <th style="width:40px;text-align:center">#</th>
           <th>Created On</th><th>WO Number</th>
-          <th>WO Type</th><th>Case</th><th>WO Status</th><th>Case Status</th>
-          <th>Committed Delivery</th><th>Contact Name</th><th>ASP</th><th>Actions</th>
+          <th>Follow-Up State</th><th>WO Type</th><th>Case</th>
+          <th>WO Status</th>
+          <th>Contact Name</th><th>ASP</th>
         </tr></thead>
-        <tbody id="tbody-recv"><tr><td colspan="11" class="loading-state">Loading…</td></tr></tbody>
+        <tbody id="tbody-onsite"><tr><td colspan="9" class="loading-state">Loading…</td></tr></tbody>
       </table>
     </div>
-    <div id="empty-recv" class="empty-state" style="display:none">No records found.</div>
-    <div class="pagination" id="pg-recv"></div>
-  </div>
-</div>
-
-<!-- ── TAB: Part Return ─────────────────────────────────────────────────── -->
-<div class="tab-panel" id="tab-part-return">
-  <div class="table-card">
-    <div class="table-toolbar">
-      <input type="search" id="search-ret" placeholder="Search WO, serial, contact…" autocomplete="off" />
-      <span class="toolbar-count" id="count-ret"></span>
-    </div>
-    <div class="table-scroll">
-      <table class="data-table">
-        <thead><tr>
-          <th style="width:40px;text-align:center">#</th>
-          <th>Created On</th><th>WO Number</th>
-          <th>WO Type</th><th>Case</th><th>WO Status</th><th>Case Status</th>
-          <th>Actual Committed</th><th>Contact Name</th><th>ASP</th><th>Actions</th>
-        </tr></thead>
-        <tbody id="tbody-ret"><tr><td colspan="11" class="loading-state">Loading…</td></tr></tbody>
-      </table>
-    </div>
-    <div id="empty-ret" class="empty-state" style="display:none">No records found.</div>
-    <div class="pagination" id="pg-ret"></div>
-  </div>
-</div>
-
-<!-- ── TAB: WO Reschedule ───────────────────────────────────────────────── -->
-<div class="tab-panel" id="tab-reschedule">
-  <div class="table-card">
-    <div class="table-toolbar">
-      <input type="search" id="search-rs" placeholder="Search WO, serial, contact…" autocomplete="off" />
-      <span class="toolbar-count" id="count-rs"></span>
-    </div>
-    <div class="table-scroll">
-      <table class="data-table">
-        <thead><tr>
-          <th style="width:40px;text-align:center">#</th>
-          <th>Created On</th><th>WO Number</th>
-          <th>WO Type</th><th>Case</th><th>WO Status</th><th>Case Status</th>
-          <th>Committed Delivery</th><th>Contact Name</th><th>ASP</th><th>Actions</th>
-        </tr></thead>
-        <tbody id="tbody-rs"><tr><td colspan="11" class="loading-state">Loading…</td></tr></tbody>
-      </table>
-    </div>
-    <div id="empty-rs" class="empty-state" style="display:none">No records found.</div>
-    <div class="pagination" id="pg-rs"></div>
+    <div id="empty-onsite" class="empty-state" style="display:none">No Onsite WOs found.</div>
+    <div class="pagination" id="pg-onsite"></div>
   </div>
 </div>
 
@@ -678,63 +728,55 @@
           <div class="file-chosen" id="awb-file-chosen" style="display:none">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             <span id="awb-file-name"></span>
+            <button type="button" class="file-chosen-remove" id="awb-file-remove" title="Remove image">
+              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div class="awb-img-preview" id="awb-img-preview">
+            <img id="awb-img-preview-src" src="" alt="AWB preview" />
           </div>
         </div>
       </div>
 
-      <!-- SECTION 2 — WO Closing Date -->
-      <div class="mf-section">
+      <!-- SECTION 2 — Other WOs sharing the same AWB -->
+      <div class="mf-section" id="awb-wo-list-wrap" style="display:none">
         <div class="mf-section-label">
-          <span class="sec-num" style="background:#16a34a">2</span>
-          WO Closing Date
+          <span class="sec-num">2</span>
+          Other WOs on this AWB
         </div>
-
-        <div class="mf-group" style="margin-bottom:0">
-          <span class="mf-label">Date &amp; Time WO# Closed <span class="req">*</span></span>
-          <input type="datetime-local" id="recv-closed-datetime" />
+        <div class="awb-wo-list">
+          <div class="awb-wo-list-header">
+            <span class="awb-wo-list-title">WOs on this AWB</span>
+            <span class="awb-wo-list-hint">Check each WO you want to confirm receipt for</span>
+            <button type="button" class="awb-wo-select-all" id="awb-select-all">Select all</button>
+          </div>
+          <div id="awb-wo-list-body">
+            <div class="awb-wo-list-loading">Looking up AWB…</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:#8c959f;margin-top:6px">
+          The same AWB number and photo will be applied to all selected WOs above.
         </div>
       </div>
 
-      <!-- SECTION 3 — Issue -->
-      <div class="mf-section conditional">
+      <!-- SECTION 3 — WOs Missing AWB (same ASP) -->
+      <div class="mf-section no-awb-section" id="no-awb-section" style="display:none">
         <div class="mf-section-label">
-          <span class="sec-num" style="background:#d97706">3</span>
-          Issue
-          <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px;color:#8c959f">— only if WO have issue or problem</span>
+          <span class="sec-num">2</span>
+          WOs Without AWB — Same ASP
         </div>
-
-        <div class="mf-group">
-          <span class="mf-label">Issue / Status</span>
-          <!-- Custom dropdown -->
-          <div class="custom-dd" id="recv-issue-dd">
-            <div class="custom-dd-trigger" tabindex="0" id="recv-issue-trigger">
-              <span class="dd-val" id="recv-issue-display">— WO Closed (no issue) —</span>
-              <svg class="dd-arrow" width="12" height="8" viewBox="0 0 12 8" fill="none"><path fill="#57606a" d="M1 1l5 5 5-5"/></svg>
-            </div>
-            <div class="custom-dd-list" id="recv-issue-list">
-              <div class="dd-option dd-default active" data-value="WO Closed">— WO Closed (no issue) —</div>
-              <div class="dd-group-label">Part Problem</div>
-              <div class="dd-option part-problem" data-value="Wrong Part Received">Wrong Part Received</div>
-              <div class="dd-option part-problem" data-value="DOA">DOA — Part Dead on Arrival</div>
-              <div class="dd-option part-problem" data-value="Incomplete Shipment">Incomplete Shipment (missing items)</div>
-              <div class="dd-option part-problem" data-value="Wrong Route">Wrong Route / Delivered to wrong ASP</div>
-              <div class="dd-group-label">Repair Issue</div>
-              <div class="dd-option repair-issue" data-value="Need Additional Part">Need Additional Part</div>
-              <div class="dd-option repair-issue" data-value="Technical Issue - Need Running Test">Technical Issue — Need Running Test</div>
-              <div class="dd-option repair-issue" data-value="Technical Issue - Need Escalation">Technical Issue — Need Escalation</div>
-              <div class="dd-group-label">Administrative</div>
-              <div class="dd-option administrative" data-value="ASP Issue - Late Repair">ASP Issue — Late Repair</div>
-              <div class="dd-option administrative" data-value="Machine at Customer">Machine Still at Customer</div>
-              <div class="dd-option administrative" data-value="WO Cancelled">WO Cancelled / Duplicate</div>
-              <div class="dd-option administrative" data-value="MSD Issue">MSD Issue — System not updated</div>
-            </div>
+        <div class="no-awb-list">
+          <div class="no-awb-list-header">
+            <span class="no-awb-list-title">Also apply to these WOs</span>
+            <span class="no-awb-count-pill" id="no-awb-count"></span>
+            <button type="button" class="no-awb-select-all" id="no-awb-select-all">Select all</button>
           </div>
-          <input type="hidden" id="recv-issue-status" value="WO Closed" />
+          <div id="no-awb-list-body">
+            <div class="no-awb-loading">Loading…</div>
+          </div>
         </div>
-
-        <div class="mf-group" style="margin-bottom:0">
-          <span class="mf-label">Notes <span class="opt">(optional)</span></span>
-          <textarea id="recv-notes" placeholder="Additional notes or context…"></textarea>
+        <div style="font-size:11px;color:#8c959f;margin-top:6px">
+          The same AWB number and photo will be applied to all selected WOs above.
         </div>
       </div>
 
@@ -805,77 +847,214 @@
 <!-- ── WO Reschedule Modal ──────────────────────────────────────────────── -->
 <div class="modal-overlay" id="modal-reschedule">
   <div class="modal narrow">
-    <div class="modal-header">
-      <div>
-        <div class="modal-title">WO Reschedule</div>
-        <div class="modal-subtitle">Set a new appointment date with the customer</div>
+
+    <!-- Header -->
+    <div class="modal-header" style="padding:14px 20px 12px;border-bottom:1px solid #e5e7eb;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="modal-hdr-icon" style="background:#eff6ff;border-color:#bfdbfe;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82d4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        </div>
+        <div>
+          <div class="modal-title" style="font-weight:700">WO Reschedule</div>
+          <div class="modal-subtitle">Defer appointment date with customer evidence</div>
+        </div>
       </div>
       <button class="modal-close" data-close="modal-reschedule">×</button>
     </div>
+
     <div class="modal-body">
+
+      <!-- WO context strip -->
       <div class="wo-strip">
-        <div class="wo-strip-num" id="rs-wo-num">—</div>
-        <div class="wo-strip-grid">
-          <div><span>Contact: </span><strong id="rs-contact">—</strong></div>
-          <div><span>Status: </span><strong id="rs-status">—</strong></div>
+        <div class="wo-strip-top">
+          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8c959f">WO#</span>
+          <span class="wo-strip-num" id="rs-wo-num">—</span>
+          <span id="rs-wo-status-badge"></span>
+        </div>
+        <div class="wo-strip-meta-row">
+          <span class="wo-strip-meta" id="rs-contact">—</span>
         </div>
       </div>
-      <div class="mf-group">
-        <label>Reschedule by <span class="req">*</span></label>
-        <select id="rs-by">
-          <option value="">— Select —</option>
-          <option value="ASP Defer">ASP Defer</option>
-          <option value="Customer Defer">Customer Defer</option>
-        </select>
-      </div>
-      <div id="rs-section-asp" style="display:none;background:#f7f8fa;border-left:3px solid #3b82d4;border-radius:0 6px 6px 0;padding:14px 14px 2px;margin-bottom:12px">
-        <div class="mf-group">
-          <label>ASP Defer Reason <span class="req">*</span></label>
-          <select id="rs-reason-asp">
-            <option value="">— Select reason —</option>
-            <option value="Teknisi Overload">Teknisi Overload</option>
-            <option value="Teknisi Sakit">Teknisi Sakit</option>
-            <option value="Teknisi masih handle customer lain">Teknisi masih handle customer lain</option>
-          </select>
+
+      <!-- SECTION 1 — Defer Details -->
+      <div class="mf-section">
+        <div class="mf-section-label">
+          <span class="sec-num">1</span>
+          Defer Details
+        </div>
+
+        <div class="mf-group" style="margin-bottom:14px">
+          <span class="mf-label">Reschedule by / Reason <span class="req">*</span></span>
+          <div class="custom-dd" id="rs-by-dd">
+            <div class="custom-dd-trigger" tabindex="0" id="rs-by-trigger">
+              <span class="dd-val" id="rs-by-display">— Select defer type &amp; reason —</span>
+              <svg class="dd-arrow" width="12" height="8" viewBox="0 0 12 8" fill="none"><path fill="#57606a" d="M1 1l5 5 5-5"/></svg>
+            </div>
+            <div class="custom-dd-list" id="rs-by-list" style="bottom:auto;top:calc(100% + 4px);box-shadow:0 4px 24px rgba(0,0,0,0.12);">
+              <div class="dd-option dd-default active" data-value="" data-by="">— Select defer type &amp; reason —</div>
+              <div class="dd-group-label">ASP Defer</div>
+              <div class="dd-option" data-value="Teknisi Overload" data-by="ASP Defer">Teknisi Overload</div>
+              <div class="dd-option" data-value="Teknisi Sakit" data-by="ASP Defer">Teknisi Sakit</div>
+              <div class="dd-option" data-value="Teknisi masih handle customer lain" data-by="ASP Defer">Teknisi masih handle customer lain</div>
+              <div class="dd-group-label">Customer Defer</div>
+              <div class="dd-option" data-value="Customer Sibuk" data-by="Customer Defer">Customer Sibuk</div>
+              <div class="dd-option" data-value="Customer tidak bisa dihubungi" data-by="Customer Defer">Customer tidak bisa dihubungi</div>
+              <div class="dd-option" data-value="Customer tidak ada dirumah" data-by="Customer Defer">Customer tidak ada dirumah</div>
+              <div class="dd-option" data-value="Customer tidak ada dikantor" data-by="Customer Defer">Customer tidak ada dikantor</div>
+              <div class="dd-option" data-value="Customer cuti" data-by="Customer Defer">Customer cuti</div>
+              <div class="dd-option" data-value="Customer diluar kota" data-by="Customer Defer">Customer diluar kota</div>
+              <div class="dd-option" data-value="Customer keluar negeri" data-by="Customer Defer">Customer keluar negeri</div>
+              <div class="dd-option" data-value="Customer request di weekend" data-by="Customer Defer">Customer request di weekend</div>
+              <div class="dd-option" data-value="Customer request tanggal tertentu" data-by="Customer Defer">Customer request tanggal tertentu</div>
+              <div class="dd-option" data-value="Customer sakit" data-by="Customer Defer">Customer sakit</div>
+              <div class="dd-option" data-value="Unit masih digunakan oleh customer" data-by="Customer Defer">Unit masih digunakan oleh customer</div>
+              <div class="dd-option" data-value="Unit customer belum sampai (tersedia)" data-by="Customer Defer">Unit customer belum sampai (tersedia)</div>
+            </div>
+          </div>
+          <input type="hidden" id="rs-by-value" value="" />
+          <input type="hidden" id="rs-by-type" value="" />
+        </div>
+
+        <div class="mf-group" style="margin-bottom:0">
+          <span class="mf-label">New Appointment Date <span class="req">*</span></span>
+          <input type="datetime-local" id="rs-date" />
         </div>
       </div>
-      <div id="rs-section-customer" style="display:none;background:#f3f0fb;border-left:3px solid #7c5cd8;border-radius:0 6px 6px 0;padding:14px 14px 2px;margin-bottom:12px">
-        <div class="mf-group">
-          <label>Customer Defer Reason <span class="req">*</span></label>
-          <select id="rs-reason-customer">
-            <option value="">— Select reason —</option>
-            <option value="Customer Sibuk">Customer Sibuk</option>
-            <option value="Customer tidak bisa dihubungi">Customer tidak bisa dihubungi</option>
-            <option value="Customer tidak ada dirumah">Customer tidak ada dirumah</option>
-            <option value="Customer tidak ada dikantor">Customer tidak ada dikantor</option>
-            <option value="Customer cuti">Customer cuti</option>
-            <option value="Customer diluar kota">Customer diluar kota</option>
-            <option value="Customer keluar negeri">Customer keluar negeri</option>
-            <option value="Customer request di weekend">Customer request di weekend</option>
-            <option value="Customer request tanggal tertentu">Customer request tanggal tertentu</option>
-            <option value="Customer sakit">Customer sakit</option>
-            <option value="Unit masih digunakan oleh customer">Unit masih digunakan oleh customer</option>
-            <option value="Unit customer belum sampai (tersedia)">Unit customer belum sampai (tersedia)</option>
-          </select>
+
+      <!-- SECTION 2 — Chat Evidence -->
+      <div class="mf-section">
+        <div class="mf-section-label">
+          <span class="sec-num" style="background:#d97706">2</span>
+          Chat Evidence with Customer
+        </div>
+
+        <div class="mf-group" style="margin-bottom:0">
+          <span class="mf-label">Upload Chat Screenshot <span class="req">*</span></span>
+          <label class="awb-upload-zone" for="rs-evidence-file">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Click to upload chat screenshot or evidence
+            <span class="upload-sub">PNG, JPG, PDF — max 5 MB</span>
+            <input type="file" id="rs-evidence-file" accept=".png,.jpg,.jpeg,.pdf,.webp" />
+          </label>
+          <div class="file-chosen" id="rs-evidence-chosen" style="display:none">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <span id="rs-evidence-name"></span>
+          </div>
         </div>
       </div>
-      <div class="mf-group">
-        <label>New Appointment Date <span class="req">*</span></label>
-        <input type="datetime-local" id="rs-date" />
-      </div>
-      <div class="mf-group">
-        <label>Upload Evidence <span style="font-weight:400;color:#57606a">(screenshot / chat)</span></label>
-        <label class="file-upload-zone" for="rs-evidence-file">
-          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 4px;display:block"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 12V4m0 0L8 8m4-4l4 4"/></svg>
-          Click to upload chat screenshot or evidence
-          <input type="file" id="rs-evidence-file" accept=".png,.jpg,.jpeg,.pdf,.webp" />
-        </label>
-        <div class="file-upload-name" id="rs-evidence-name">No file chosen</div>
+
+    </div><!-- /.modal-body -->
+
+    <div class="modal-footer">
+      <div class="modal-footer-hint"><strong>*</strong> required fields</div>
+      <div class="modal-footer-btns">
+        <button class="btn btn-ghost" data-close="modal-reschedule">Cancel</button>
+        <button class="btn btn-amber" id="btn-confirm-reschedule">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Confirm Reschedule
+        </button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ── WO SLA Follow-Up Modal (CCI & Onsite) ────────────────────────────── -->
+<div class="modal-overlay" id="modal-wo-sla">
+  <div class="modal narrow">
+
+    <!-- Header -->
+    <div class="modal-header" style="padding:14px 20px 12px;border-bottom:1px solid #e5e7eb;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="modal-hdr-icon" style="background:#fef3c7;border-color:#fde68a;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+        </div>
+        <div>
+          <div class="modal-title" style="font-weight:700">WO SLA Follow-Up</div>
+          <div class="modal-subtitle" id="wo-sla-subtitle">CCI — WO SLA</div>
+        </div>
+      </div>
+      <button class="modal-close" data-close="modal-wo-sla">×</button>
+    </div>
+
+    <div class="modal-body">
+
+      <!-- WO context strip -->
+      <div class="wo-strip">
+        <div class="wo-strip-top">
+          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8c959f">WO#</span>
+          <span class="wo-strip-num" id="wosla-wo-num">—</span>
+          <span id="wosla-wo-status-badge"></span>
+        </div>
+        <div class="wo-strip-meta-row">
+          <span class="wo-strip-meta" id="wosla-contact">—</span>
+        </div>
+      </div>
+
+      <!-- SECTION 1 — WO Closing Date -->
+      <div class="mf-section">
+        <div class="mf-section-label">
+          <span class="sec-num" style="background:#16a34a">1</span>
+          WO Closing Date
+        </div>
+        <div class="mf-group" style="margin-bottom:0">
+          <span class="mf-label">Date &amp; Time WO# Closed <span class="req">*</span></span>
+          <input type="datetime-local" id="wosla-closed-datetime" />
+        </div>
+      </div>
+
+      <!-- SECTION 2 — Issue -->
+      <div class="mf-section conditional">
+        <div class="mf-section-label">
+          <span class="sec-num" style="background:#d97706">2</span>
+          Issue
+          <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px;color:#8c959f">— only if WO have issue or problem</span>
+        </div>
+
+        <div class="mf-group">
+          <span class="mf-label">Issue / Status</span>
+          <div class="custom-dd" id="wosla-issue-dd">
+            <div class="custom-dd-trigger" tabindex="0" id="wosla-issue-trigger">
+              <span class="dd-val" id="wosla-issue-display">— WO Closed (no issue) —</span>
+              <svg class="dd-arrow" width="12" height="8" viewBox="0 0 12 8" fill="none"><path fill="#57606a" d="M1 1l5 5 5-5"/></svg>
+            </div>
+            <div class="custom-dd-list" id="wosla-issue-list" style="bottom:auto;top:calc(100% + 4px);box-shadow:0 4px 24px rgba(0,0,0,0.12);">
+              <div class="dd-option dd-default active" data-value="WO Closed">— WO Closed (no issue) —</div>
+              <div class="dd-group-label">Part Problem</div>
+              <div class="dd-option part-problem" data-value="Wrong Part Received">Wrong Part Received</div>
+              <div class="dd-option part-problem" data-value="DOA">DOA — Part Dead on Arrival</div>
+              <div class="dd-option part-problem" data-value="Incomplete Shipment">Incomplete Shipment (missing items)</div>
+              <div class="dd-option part-problem" data-value="Wrong Route">Wrong Route / Delivered to wrong ASP</div>
+              <div class="dd-group-label">Repair Issue</div>
+              <div class="dd-option repair-issue" data-value="Need Additional Part">Need Additional Part</div>
+              <div class="dd-option repair-issue" data-value="Technical Issue - Need Running Test">Technical Issue — Need Running Test</div>
+              <div class="dd-option repair-issue" data-value="Technical Issue - Need Escalation">Technical Issue — Need Escalation</div>
+              <div class="dd-group-label">Administrative</div>
+              <div class="dd-option administrative" data-value="ASP Issue - Late Repair">ASP Issue — Late Repair</div>
+              <div class="dd-option administrative" data-value="Machine at Customer">Machine Still at Customer</div>
+              <div class="dd-option administrative" data-value="WO Cancelled">WO Cancelled / Duplicate</div>
+              <div class="dd-option administrative" data-value="MSD Issue">MSD Issue — System not updated</div>
+            </div>
+          </div>
+          <input type="hidden" id="wosla-issue-status" value="WO Closed" />
+        </div>
+
+        <div class="mf-group" style="margin-bottom:0">
+          <span class="mf-label">Notes <span class="opt">(optional)</span></span>
+          <textarea id="wosla-notes" placeholder="Additional notes or context…"></textarea>
+        </div>
+      </div>
+
+    </div><!-- /.modal-body -->
+
     <div class="modal-footer">
-      <button class="btn btn-ghost" data-close="modal-reschedule">Cancel</button>
-      <button class="btn btn-amber" id="btn-confirm-reschedule">Confirm Reschedule</button>
+      <div class="modal-footer-hint"><strong>*</strong> required fields</div>
+      <div class="modal-footer-btns">
+        <button class="btn btn-ghost" data-close="modal-wo-sla">Cancel</button>
+        <button class="btn btn-amber" id="btn-confirm-wo-sla">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Submit Follow-Up
+        </button>
+      </div>
     </div>
   </div>
 </div>
@@ -1115,6 +1294,7 @@ function openDetail(woId) {
           renderDetailBody(d) +
         `</div>`;
       initCollapsibles();
+      _cciBindRows(body);
     })
     .catch(() => { body.innerHTML = '<div style="padding:24px;color:#dc2626">Failed to load detail.</div>'; });
 }
@@ -1164,6 +1344,77 @@ function closingCodePill(val) {
   return `<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:${bg};color:${color};border:1px solid ${border}">${esc(val)}</span>`;
 }
 
+/* Returns HTML for CCI follow-up action buttons to show in the hero row,
+   or '' if this WO is not a CCI/Carry-In type. */
+function _cciHeroBtns(d) {
+  const type = (d.work_order_type || '').toLowerCase();
+  if (!type.includes('carry') && !type.includes('cci')) return '';
+
+  const status  = (d.work_order_status || '').toLowerCase();
+  const eta     = (d.committed_delivery_date || '').slice(0, 10);
+  const today   = new Date().toISOString().slice(0, 10);
+  const isClosed  = ['closed','completed','repair done','rma','returned','pickup'].some(k => status.includes(k));
+  const isTransit = status.includes('transit') || status.includes('part');
+
+  let state;
+  if (isClosed)        state = 'input_dc';
+  else if (isTransit)  state = (eta && eta < today) ? 'part_sla' : 'confirm_receipt';
+  else                 state = 'wo_sla';
+
+  const wo      = esc(String(d.work_order_id));
+  const contact = esc(d.contact_name || '');
+  const etaEsc  = esc(d.committed_delivery_date || '');
+  const stEsc   = esc(d.work_order_status || '');
+  const custEsc = esc(d.customer || '');
+
+  const btns = [];
+  if (state === 'confirm_receipt')
+    btns.push(`<button class="fu-badge fu-confirm fu-badge-btn" data-action="cci-recv" data-wo="${wo}" data-contact="${contact}" data-eta="${etaEsc}" data-status="${stEsc}" data-customer="${custEsc}">📬 Confirm Receipt</button>`);
+  if (state === 'part_sla')
+    btns.push(`<button class="fu-badge fu-part-sla fu-badge-btn" data-action="cci-part-sla" data-wo="${wo}" data-contact="${contact}" data-eta="${etaEsc}">⚠️ Part SLA Overdue</button>`);
+  if (state === 'wo_sla')
+    btns.push(`<button class="fu-badge fu-wo-sla fu-badge-btn" data-action="cci-wo-sla" data-wo="${wo}" data-contact="${contact}" data-status="${stEsc}">🔔 WO SLA Follow-Up</button>`);
+  if (state === 'input_dc')
+    btns.push(`<button class="fu-badge fu-input-dc fu-badge-btn" data-action="cci-dc" data-wo="${wo}" data-contact="${contact}">🔢 Input DC Number</button>`);
+
+  return btns.join('');
+}
+
+/* Returns HTML for Onsite follow-up action buttons to show in the hero row,
+   or '' if this WO is not an Onsite type. */
+function _onsiteHeroBtns(d) {
+  const type = (d.work_order_type || '').toLowerCase();
+  if (!type.includes('onsite')) return '';
+
+  const status  = (d.work_order_status || '').toLowerCase();
+  const eta     = (d.committed_delivery_date || '').slice(0, 10);
+  const today   = new Date().toISOString().slice(0, 10);
+  const isClosed  = ['closed','completed','repair done','rma','returned','pickup'].some(k => status.includes(k));
+  const isTransit = status.includes('transit') || status.includes('part');
+
+  let state;
+  if (isClosed)        state = 'input_dc';
+  else if (isTransit)  state = (eta && eta < today) ? 'part_sla' : 'wo_sla';
+  else                 state = 'wo_reschedule';
+
+  const wo      = esc(String(d.work_order_id));
+  const contact = esc(d.contact_name || '');
+  const etaEsc  = esc(d.committed_delivery_date || '');
+  const stEsc   = esc(d.work_order_status || '');
+
+  const btns = [];
+  if (state === 'wo_reschedule')
+    btns.push(`<button class="fu-badge fu-reschedule fu-badge-btn" data-action="onsite-reschedule" data-wo="${wo}" data-contact="${contact}" data-status="${stEsc}">📅 WO Reschedule</button>`);
+  if (state === 'part_sla')
+    btns.push(`<button class="fu-badge fu-part-sla fu-badge-btn" data-action="onsite-part-sla" data-wo="${wo}" data-contact="${contact}" data-eta="${etaEsc}">⚠️ Part SLA Overdue</button>`);
+  if (state === 'wo_sla')
+    btns.push(`<button class="fu-badge fu-wo-sla fu-badge-btn" data-action="onsite-wo-sla" data-wo="${wo}" data-contact="${contact}" data-status="${stEsc}">🔔 WO SLA Follow-Up</button>`);
+  if (state === 'input_dc')
+    btns.push(`<button class="fu-badge fu-input-dc fu-badge-btn" data-action="onsite-dc" data-wo="${wo}" data-contact="${contact}">🔢 Input DC Number</button>`);
+
+  return btns.join('');
+}
+
 function renderHero(d) {
   const rrVal   = d.repeat_repair || '—';
   const rrIsYes = (d.repeat_repair || '').toLowerCase() === 'yes';
@@ -1208,12 +1459,16 @@ function renderHero(d) {
         </div>
       </div>` : ''}
     </div>` : '';
+  const heroBtns = _cciHeroBtns(d) || _onsiteHeroBtns(d);
   return `<div class="wo-hero">
-    <!-- Row 1: WO ID + WO Status badge + Closing Code pill inline -->
-    <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;">
-      <div class="wo-hero-id"><span style="color:#8c959f">WO#</span> ${esc(String(d.work_order_id))}</div>
-      ${statusBadge(d.work_order_status)}
-      ${d.closing_code ? closingCodePill(d.closing_code) : ''}
+    <!-- Row 1: WO ID + WO Status badge + Closing Code pill | Follow-Up buttons right-aligned -->
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;">
+        <div class="wo-hero-id"><span style="color:#8c959f">WO#</span> ${esc(String(d.work_order_id))}</div>
+        ${statusBadge(d.work_order_status)}
+        ${d.closing_code ? closingCodePill(d.closing_code) : ''}
+      </div>
+      ${heroBtns ? `<div class="cci-hero-btns">${heroBtns}</div>` : ''}
     </div>
     <!-- Row 2 + 3: SN/CASE and MTM/PRODUCT in aligned grid columns -->
     <div style="margin-top:6px;display:grid;grid-template-columns:200px 1fr;row-gap:4px;align-items:center;">
@@ -1380,7 +1635,11 @@ function renderParts(parts, woId) {
     <div style="font-size:13px;color:#8c959f;font-style:italic;padding:4px 0 8px">No part order lines found for this WO.</div>
   </div>`;
 
-  const cards = parts.map((p, i) => {
+  /* Sort: cancelled lines last, preserving original order within each group */
+  const activeRows    = parts.filter(p => !(p.wo_product_status || '').toLowerCase().includes('cancel'));
+  const cancelledRows = parts.filter(p =>  (p.wo_product_status || '').toLowerCase().includes('cancel'));
+
+  function buildCard(p, i, isCancelledCard) {
     const retFlag = p.return_flag === 'Y'
       ? '<span class="badge badge-part-hold">Return</span>'
       : (p.return_flag === 'N' ? '<span class="badge badge-default">No Return</span>' : '<span style="color:#8c959f">—</span>');
@@ -1391,7 +1650,7 @@ function renderParts(parts, woId) {
            <span style="font-size:13px;font-weight:700;color:#d97706">${String(p.eta_parthold_backlog).slice(0,10)}</span>
          </span>`
       : '';
-    return `<div class="part-card">
+    return `<div class="part-card${isCancelledCard ? ' cancelled' : ''}">
       <div class="part-card-hdr">
         <span class="part-card-num">#${i + 1}</span>
         <span class="part-card-pn">${esc(p.product || '—')}</span>
@@ -1425,7 +1684,16 @@ function renderParts(parts, woId) {
         <div class="part-card-field"><div class="pcf-label">Part Received (POD)</div><div class="pcf-value">${fmt(p.ship_pou_pod_time || p.delivery_date) || '—'}</div></div>
       </div>
     </div>`;
-  }).join('');
+  }
+
+  const activeCards    = activeRows.map((p, i) => buildCard(p, i, false));
+  const cancelledCards = cancelledRows.map((p, i) => buildCard(p, i, true));
+
+  const divider = cancelledCards.length && activeCards.length
+    ? `<div class="parts-cancelled-divider"><span>Cancelled (${cancelledCards.length})</span></div>`
+    : '';
+
+  const cards = [...activeCards, divider ? [divider] : [], ...cancelledCards].flat().join('');
 
   /* always expanded */
   return `<div class="detail-section">
@@ -1709,61 +1977,42 @@ document.getElementById('filter-case-status-all').addEventListener('change',  lo
    TAB 2 — CCI Follow-Up
 ═══════════════════════════════════════════════════════════════ */
 /* ── CCI helpers ── */
-function fuBadge(state) {
-  const map = {
-    confirm_receipt: ['fu-badge fu-confirm',  '● Confirm Receipt'],
-    part_sla:        ['fu-badge fu-part-sla', '▲ Part SLA Overdue'],
-    wo_sla:          ['fu-badge fu-wo-sla',   '● WO SLA Follow-Up'],
-    input_dc:        ['fu-badge fu-input-dc', '● Input DC Number'],
-    cancelled:       ['fu-badge fu-cancelled','— Cancelled'],
-  };
-  const [cls, label] = map[state] || ['fu-badge fu-cancelled', state || '—'];
-  return `<span class="${cls}">${label}</span>`;
-}
-
-function fuActionBtn(r) {
+function fuBadge(r) {
   const s = r.followup_state;
-  if (s === 'confirm_receipt')
-    return `<button class="btn btn-primary btn-sm" data-action="cci-recv" data-wo="${esc(r.work_order_id)}" data-contact="${esc(r.contact_name||'')}" data-eta="${esc(r.committed_delivery_date||'')}" data-status="${esc(r.work_order_status||'')}">Confirm Receipt</button>`;
-  if (s === 'part_sla')
-    return `<button class="btn btn-danger btn-sm" data-action="cci-part-sla" data-wo="${esc(r.work_order_id)}" data-contact="${esc(r.contact_name||'')}" data-eta="${esc(r.committed_delivery_date||'')}">Part Follow-Up</button>`;
-  if (s === 'wo_sla')
-    return `<button class="btn btn-amber btn-sm" data-action="cci-wo-sla" data-wo="${esc(r.work_order_id)}" data-contact="${esc(r.contact_name||'')}">WO Follow-Up</button>`;
-  if (s === 'input_dc')
-    return `<button class="btn btn-purple btn-sm" data-action="cci-dc" data-wo="${esc(r.work_order_id)}" data-contact="${esc(r.contact_name||'')}">Input DC</button>`;
-  return '—';
-}
-
-/* Build a row's <td> cells in the correct column order */
-function _cciRowCells(r, i) {
-  return [
-    `<td style="text-align:center;color:#8c959f;font-size:12px">${i + 1}</td>`,
-    `<td>${fmt(r.created_on)}</td>`,
-    `<td><button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button></td>`,
-    `<td>${esc(r.work_order_type||'—')}</td>`,
-    `<td><span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span></td>`,
-    `<td>${statusBadge(r.work_order_status)}</td>`,
-    `<td>${fuBadge(r.followup_state)}</td>`,
-    `<td>${esc(r.contact_name||'—')}</td>`,
-    `<td>${esc(r.customer||'—')}</td>`,
-    `<td>${fuActionBtn(r)}</td>`,
-  ].join('');
+  const map = {
+    confirm_receipt: ['fu-badge fu-confirm fu-badge-btn',  '📬 Confirm Receipt',  'cci-recv',     `data-contact="${esc(r.contact_name||'')}" data-eta="${esc(r.committed_delivery_date||'')}" data-status="${esc(r.work_order_status||'')}" data-customer="${esc(r.customer||'')}"`],
+    part_sla:        ['fu-badge fu-part-sla fu-badge-btn', '⚠️ Part SLA Overdue', 'cci-part-sla', `data-contact="${esc(r.contact_name||'')}" data-eta="${esc(r.committed_delivery_date||'')}"`],
+    wo_sla:          ['fu-badge fu-wo-sla fu-badge-btn',   '🔔 WO SLA Follow-Up', 'cci-wo-sla',   `data-contact="${esc(r.contact_name||'')}" data-status="${esc(r.work_order_status||'')}"`],
+    input_dc:        ['fu-badge fu-input-dc fu-badge-btn', '🔢 Input DC Number',  'cci-dc',       `data-contact="${esc(r.contact_name||'')}"`],
+  };
+  const [cls, label, action, extras] = map[s] || ['fu-badge fu-input-dc', s || '—', '', ''];
+  if (!action) return `<span class="${cls}">${label}</span>`;
+  return `<button class="${cls}" data-action="${action}" data-wo="${esc(r.work_order_id)}" ${extras}>${label}</button>`;
 }
 
 function _cciBindRows(tbody) {
   tbody.querySelectorAll('.wo-link').forEach(b =>
     b.addEventListener('click', () => openDetail(b.dataset.wo)));
+  /* CCI actions */
   tbody.querySelectorAll('[data-action="cci-recv"]').forEach(b =>
-    b.addEventListener('click', () => openRecv(b.dataset.wo, b.dataset.contact, b.dataset.eta, b.dataset.status)));
+    b.addEventListener('click', () => openRecv(b.dataset.wo, b.dataset.contact, b.dataset.eta, b.dataset.status, b.dataset.customer)));
   tbody.querySelectorAll('[data-action="cci-part-sla"]').forEach(b =>
     b.addEventListener('click', () => toast(`Part SLA Follow-Up for WO ${b.dataset.wo} — form coming soon`, 'err')));
   tbody.querySelectorAll('[data-action="cci-wo-sla"]').forEach(b =>
-    b.addEventListener('click', () => toast(`WO SLA Follow-Up for WO ${b.dataset.wo} — form coming soon`, 'err')));
+    b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.contact, b.dataset.status, 'cci')));
   tbody.querySelectorAll('[data-action="cci-dc"]').forEach(b =>
+    b.addEventListener('click', () => toast(`Input DC for WO ${b.dataset.wo} — form coming soon`, 'err')));
+  /* Onsite actions */
+  tbody.querySelectorAll('[data-action="onsite-reschedule"]').forEach(b =>
+    b.addEventListener('click', () => openReschedule(b.dataset.wo, b.dataset.contact, b.dataset.status)));
+  tbody.querySelectorAll('[data-action="onsite-part-sla"]').forEach(b =>
+    b.addEventListener('click', () => toast(`Part SLA Follow-Up for WO ${b.dataset.wo} — form coming soon`, 'err')));
+  tbody.querySelectorAll('[data-action="onsite-wo-sla"]').forEach(b =>
+    b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.contact, b.dataset.status, 'onsite')));
+  tbody.querySelectorAll('[data-action="onsite-dc"]').forEach(b =>
     b.addEventListener('click', () => toast(`Input DC for WO ${b.dataset.wo} — form coming soon`, 'err')));
 }
 
-let _cciAllRows    = [];
 let _cciActiveState = '';   /* current sub-tab filter */
 
 const cciTable = makeTabTable({
@@ -1772,46 +2021,24 @@ const cciTable = makeTabTable({
   colsFn: () => [
     { key: 'created_on',        render: r => fmt(r.created_on) },
     { key: 'work_order_id',     render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
+    { key: 'followup_state',    render: r => fuBadge(r) },
     { key: 'work_order_type',   render: r => esc(r.work_order_type||'—') },
     { key: 'case_desc',         render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
     { key: 'work_order_status', render: r => statusBadge(r.work_order_status) },
-    { key: 'followup_state',    render: r => fuBadge(r.followup_state) },
     { key: 'contact_name',      render: r => esc(r.contact_name||'—') },
     { key: 'customer',          render: r => esc(r.customer||'—') },
   ],
-  actionsFn: r => fuActionBtn(r),
   onBind: rows => {
-    _cciAllRows = rows;
-    /* Red tab badge — actionable count */
-    const actionable = rows.filter(r => r.followup_state !== 'cancelled').length;
+    /* Red tab badge — actionable count from the total returned by API */
     const badge = document.getElementById('tab-cci-badge');
-    badge.textContent  = actionable;
-    badge.style.display = actionable > 0 ? 'inline-block' : 'none';
+    const cnt   = parseInt(document.getElementById('count-cci').textContent, 10) || rows.length;
+    badge.textContent   = cnt;
+    badge.style.display = cnt > 0 ? 'inline-block' : 'none';
     _cciBindRows(document.getElementById('tbody-cci'));
-    /* Apply active sub-tab filter if one is set */
-    if (_cciActiveState) _cciRenderFiltered(_cciActiveState);
   },
 });
 
-/* Re-render tbody with client-side filter */
-function _cciRenderFiltered(state) {
-  const tbody  = document.getElementById('tbody-cci');
-  const empty  = document.getElementById('empty-cci');
-  const count  = document.getElementById('count-cci');
-  const source = state ? _cciAllRows.filter(r => r.followup_state === state) : _cciAllRows;
-  if (!source.length) {
-    tbody.innerHTML = '';
-    empty.style.display = 'block';
-    count.textContent = '0 records';
-    return;
-  }
-  empty.style.display = 'none';
-  count.textContent   = source.length + ' record' + (source.length !== 1 ? 's' : '');
-  tbody.innerHTML     = source.map((r, i) => `<tr>${_cciRowCells(r, i)}</tr>`).join('');
-  _cciBindRows(tbody);
-}
-
-/* Sub-tab pill clicks */
+/* Sub-tab pill clicks — fire server-side load with followup_state param */
 document.querySelectorAll('#cci-subtab-bar .subtab-pill').forEach(pill => {
   pill.addEventListener('click', () => {
     document.querySelectorAll('#cci-subtab-bar .subtab-pill').forEach(p => {
@@ -1826,7 +2053,9 @@ document.querySelectorAll('#cci-subtab-bar .subtab-pill').forEach(pill => {
       input_dc:        'sactive-input-dc',
     }[state] || 'active';
     pill.classList.add(activeClass);
-    _cciRenderFiltered(state);
+    const params = { q: document.getElementById('search-cci').value.trim() };
+    if (state) params.followup_state = state;
+    cciTable.load(params);
   });
 });
 
@@ -1834,117 +2063,104 @@ let cciTimer = null;
 document.getElementById('search-cci').addEventListener('input', () => {
   clearTimeout(cciTimer);
   cciTimer = setTimeout(() => {
-    cciTable.load({ q: document.getElementById('search-cci').value.trim() });
+    const params = { q: document.getElementById('search-cci').value.trim() };
+    if (_cciActiveState) params.followup_state = _cciActiveState;
+    cciTable.load(params);
   }, 350);
 });
 
 /* ═══════════════════════════════════════════════════════════════
-   TAB 3 — Part Received
+   TAB 3 — Onsite Follow-Up
 ═══════════════════════════════════════════════════════════════ */
-const recvTable = makeTabTable({
-  apiUrl: '/asp/api/part-received',
-  tbodyId: 'tbody-recv', emptyId: 'empty-recv', pgId: 'pg-recv', cntId: 'count-recv',
+function onsiteFuBadge(r) {
+  const s = r.followup_state;
+  const map = {
+    wo_reschedule: ['fu-badge fu-reschedule fu-badge-btn', '📅 WO Reschedule',    'onsite-reschedule', `data-contact="${esc(r.contact_name||'')}" data-status="${esc(r.work_order_status||'')}"`],
+    part_sla:      ['fu-badge fu-part-sla fu-badge-btn', '⚠️ Part SLA Overdue',  'onsite-part-sla',   `data-contact="${esc(r.contact_name||'')}" data-eta="${esc(r.committed_delivery_date||'')}"`],
+    wo_sla:        ['fu-badge fu-wo-sla fu-badge-btn',   '🔔 WO SLA Follow-Up',  'onsite-wo-sla',     `data-contact="${esc(r.contact_name||'')}" data-status="${esc(r.work_order_status||'')}"`],
+    input_dc:      ['fu-badge fu-input-dc fu-badge-btn', '🔢 Input DC Number',   'onsite-dc',         `data-contact="${esc(r.contact_name||'')}"`],
+  };
+  const [cls, label, action, extras] = map[s] || ['fu-badge fu-wo-sla', s || '—', '', ''];
+  if (!action) return `<span class="${cls}">${label}</span>`;
+  return `<button class="${cls}" data-action="${action}" data-wo="${esc(r.work_order_id)}" ${extras}>${label}</button>`;
+}
+
+function _onsiteBindRows(tbody) {
+  tbody.querySelectorAll('.wo-link').forEach(b =>
+    b.addEventListener('click', () => openDetail(b.dataset.wo)));
+  tbody.querySelectorAll('[data-action="onsite-reschedule"]').forEach(b =>
+    b.addEventListener('click', () => openReschedule(b.dataset.wo, b.dataset.contact, b.dataset.status)));
+  tbody.querySelectorAll('[data-action="onsite-part-sla"]').forEach(b =>
+    b.addEventListener('click', () => toast(`Part SLA Follow-Up for WO ${b.dataset.wo} — form coming soon`, 'err')));
+  tbody.querySelectorAll('[data-action="onsite-wo-sla"]').forEach(b =>
+    b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.contact, b.dataset.status, 'onsite')));
+  tbody.querySelectorAll('[data-action="onsite-dc"]').forEach(b =>
+    b.addEventListener('click', () => toast(`Input DC for WO ${b.dataset.wo} — form coming soon`, 'err')));
+}
+
+let _onsiteActiveState = '';
+
+const onsiteTable = makeTabTable({
+  apiUrl:  '/asp/api/onsite-followup',
+  tbodyId: 'tbody-onsite', emptyId: 'empty-onsite', pgId: 'pg-onsite', cntId: 'count-onsite',
   colsFn: () => [
-    { key: 'created_on',     render: r => fmt(r.created_on) },
-    { key: 'work_order_id', render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
-    { key: 'work_order_type',render: r => esc(r.work_order_type||'—') },
-    { key: 'case_desc',      render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
+    { key: 'created_on',        render: r => fmt(r.created_on) },
+    { key: 'work_order_id',     render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
+    { key: 'followup_state',    render: r => onsiteFuBadge(r) },
+    { key: 'work_order_type',   render: r => esc(r.work_order_type||'—') },
+    { key: 'case_desc',         render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
     { key: 'work_order_status', render: r => statusBadge(r.work_order_status) },
-    { key: 'case_status',    render: r => esc(r.case_status||'—') },
-    { key: 'committed_delivery_date', render: r => fmt(r.committed_delivery_date) },
-    { key: 'contact_name',   render: r => esc(r.contact_name||'—') },
-    { key: 'customer',       render: r => esc(r.customer||'—') },
+    { key: 'contact_name',      render: r => esc(r.contact_name||'—') },
+    { key: 'customer',          render: r => esc(r.customer||'—') },
   ],
-  actionsFn: r => `
-    <button class="btn btn-primary btn-sm" data-action="confirm-recv" data-wo="${esc(r.work_order_id)}" data-contact="${esc(r.contact_name||'')}" data-eta="${esc(r.committed_delivery_date||'')}" data-status="${esc(r.work_order_status||'')}">Confirm Receipt</button>`,
   onBind: rows => {
-    document.querySelectorAll('#tbody-recv .wo-link').forEach(b =>
-      b.addEventListener('click', () => openDetail(b.dataset.wo)));
-    document.querySelectorAll('#tbody-recv [data-action="confirm-recv"]').forEach(b =>
-      b.addEventListener('click', () => openRecv(b.dataset.wo, b.dataset.contact, b.dataset.eta, b.dataset.status)));
+    const badge = document.getElementById('tab-onsite-badge');
+    const cnt   = parseInt(document.getElementById('count-onsite').textContent, 10) || rows.length;
+    badge.textContent   = cnt;
+    badge.style.display = cnt > 0 ? 'inline-block' : 'none';
+    _onsiteBindRows(document.getElementById('tbody-onsite'));
   },
 });
 
-let recvTimer = null;
-document.getElementById('search-recv').addEventListener('input', () => {
-  clearTimeout(recvTimer);
-  recvTimer = setTimeout(() => recvTable.load({ q: document.getElementById('search-recv').value.trim() }), 350);
+/* Sub-tab pill clicks */
+document.querySelectorAll('#onsite-subtab-bar .subtab-pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    document.querySelectorAll('#onsite-subtab-bar .subtab-pill').forEach(p => {
+      p.classList.remove('active','sactive-confirm','sactive-part-sla','sactive-wo-sla','sactive-input-dc','sactive-reschedule');
+    });
+    const state = pill.dataset.state;
+    _onsiteActiveState = state;
+    const activeClass = {
+      wo_reschedule: 'sactive-reschedule',
+      part_sla:      'sactive-part-sla',
+      wo_sla:        'sactive-confirm',
+      input_dc:      'sactive-input-dc',
+    }[state] || 'active';
+    pill.classList.add(activeClass);
+    const params = { q: document.getElementById('search-onsite').value.trim() };
+    if (state) params.followup_state = state;
+    onsiteTable.load(params);
+  });
 });
 
-/* ═══════════════════════════════════════════════════════════════
-   TAB 3 — Part Return
-═══════════════════════════════════════════════════════════════ */
-const retTable = makeTabTable({
-  apiUrl: '/asp/api/part-return',
-  tbodyId: 'tbody-ret', emptyId: 'empty-ret', pgId: 'pg-ret', cntId: 'count-ret',
-  colsFn: () => [
-    { key: 'created_on',     render: r => fmt(r.created_on) },
-    { key: 'work_order_id', render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
-    { key: 'work_order_type',render: r => esc(r.work_order_type||'—') },
-    { key: 'case_desc',      render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
-    { key: 'work_order_status', render: r => statusBadge(r.work_order_status) },
-    { key: 'case_status',    render: r => esc(r.case_status||'—') },
-    { key: 'actual_committed_onsite_date', render: r => fmt(r.actual_committed_onsite_date) },
-    { key: 'contact_name',   render: r => esc(r.contact_name||'—') },
-    { key: 'customer',       render: r => esc(r.customer||'—') },
-  ],
-  actionsFn: r => `<button class="btn btn-purple btn-sm" data-action="part-return" data-wo="${esc(r.work_order_id)}" data-contact="${esc(r.contact_name||'')}" data-onsite="${esc(r.actual_committed_onsite_date||'')}">Input Return</button>`,
-  onBind: rows => {
-    document.querySelectorAll('#tbody-ret .wo-link').forEach(b =>
-      b.addEventListener('click', () => openDetail(b.dataset.wo)));
-    document.querySelectorAll('#tbody-ret [data-action="part-return"]').forEach(b =>
-      b.addEventListener('click', () => openReturn(b.dataset.wo, b.dataset.contact, b.dataset.onsite)));
-  },
-});
-
-let retTimer = null;
-document.getElementById('search-ret').addEventListener('input', () => {
-  clearTimeout(retTimer);
-  retTimer = setTimeout(() => retTable.load({ q: document.getElementById('search-ret').value.trim() }), 350);
-});
-
-/* ═══════════════════════════════════════════════════════════════
-   TAB 4 — WO Reschedule
-═══════════════════════════════════════════════════════════════ */
-const rsTable = makeTabTable({
-  apiUrl: '/asp/api/reschedule',
-  tbodyId: 'tbody-rs', emptyId: 'empty-rs', pgId: 'pg-rs', cntId: 'count-rs',
-  colsFn: () => [
-    { key: 'created_on',     render: r => fmt(r.created_on) },
-    { key: 'work_order_id', render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
-    { key: 'work_order_type',render: r => esc(r.work_order_type||'—') },
-    { key: 'case_desc',      render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
-    { key: 'work_order_status', render: r => statusBadge(r.work_order_status) },
-    { key: 'case_status',    render: r => esc(r.case_status||'—') },
-    { key: 'committed_delivery_date', render: r => fmt(r.committed_delivery_date) },
-    { key: 'contact_name',   render: r => esc(r.contact_name||'—') },
-    { key: 'customer',       render: r => esc(r.customer||'—') },
-  ],
-  actionsFn: r => `<button class="btn btn-amber btn-sm" data-action="reschedule" data-wo="${esc(r.work_order_id)}" data-contact="${esc(r.contact_name||'')}" data-status="${esc(r.work_order_status||'')}">Reschedule</button>`,
-  onBind: rows => {
-    document.querySelectorAll('#tbody-rs .wo-link').forEach(b =>
-      b.addEventListener('click', () => openDetail(b.dataset.wo)));
-    document.querySelectorAll('#tbody-rs [data-action="reschedule"]').forEach(b =>
-      b.addEventListener('click', () => openReschedule(b.dataset.wo, b.dataset.contact, b.dataset.status)));
-  },
-});
-
-let rsTimer = null;
-document.getElementById('search-rs').addEventListener('input', () => {
-  clearTimeout(rsTimer);
-  rsTimer = setTimeout(() => rsTable.load({ q: document.getElementById('search-rs').value.trim() }), 350);
+let onsiteTimer = null;
+document.getElementById('search-onsite').addEventListener('input', () => {
+  clearTimeout(onsiteTimer);
+  onsiteTimer = setTimeout(() => {
+    const params = { q: document.getElementById('search-onsite').value.trim() };
+    if (_onsiteActiveState) params.followup_state = _onsiteActiveState;
+    onsiteTable.load(params);
+  }, 350);
 });
 
 /* ═══════════════════════════════════════════════════════════════
    TAB SWITCHING — load data lazily on first activation
 ═══════════════════════════════════════════════════════════════ */
-const tabLoaded = { 'tab-all': false, 'tab-cci-followup': false, 'tab-part-received': false, 'tab-part-return': false, 'tab-reschedule': false };
+const tabLoaded = { 'tab-all': false, 'tab-cci-followup': false, 'tab-onsite-followup': false };
 const tabLoaders = {
-  'tab-all':           () => loadAllWo(),
-  'tab-cci-followup':  () => cciTable.load({}),
-  'tab-part-received': () => recvTable.load({}),
-  'tab-part-return':   () => retTable.load({}),
-  'tab-reschedule':    () => rsTable.load({}),
+  'tab-all':            () => loadAllWo(),
+  'tab-cci-followup':   () => cciTable.load({}),
+  'tab-onsite-followup':() => onsiteTable.load({}),
 };
 
 function switchTab(id) {
@@ -1972,7 +2188,7 @@ document.querySelectorAll('[data-goto]').forEach(c => c.addEventListener('click'
 
 /* ── URL param: ?tab= ── */
 (function () {
-  const map = { 'all':'tab-all', 'cci-followup':'tab-cci-followup', 'part-received':'tab-part-received', 'part-return':'tab-part-return', 'reschedule':'tab-reschedule' };
+  const map = { 'all':'tab-all', 'cci-followup':'tab-cci-followup', 'onsite-followup':'tab-onsite-followup' };
   const p   = new URLSearchParams(location.search).get('tab');
   const id  = (p && map[p]) || 'tab-all';
   switchTab(id);
@@ -1987,13 +2203,13 @@ document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click
 document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) closeModal(o.id); }));
 document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(o => o.classList.remove('open')); });
 
-/* ── Custom dropdown — Issue / Status ── */
-(function() {
-  const dd      = document.getElementById('recv-issue-dd');
-  const trigger = document.getElementById('recv-issue-trigger');
-  const list    = document.getElementById('recv-issue-list');
-  const display = document.getElementById('recv-issue-display');
-  const hidden  = document.getElementById('recv-issue-status');
+/* ── Custom dropdown factory — used by Part Received and WO SLA modals ── */
+function initCustomDd(ddId, triggerId, listId, displayId, hiddenId) {
+  const dd      = document.getElementById(ddId);
+  const trigger = document.getElementById(triggerId);
+  const list    = document.getElementById(listId);
+  const display = document.getElementById(displayId);
+  const hidden  = document.getElementById(hiddenId);
 
   function openDd()  { dd.classList.add('open'); }
   function closeDd() { dd.classList.remove('open'); }
@@ -2010,17 +2226,100 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') document.que
       list.querySelectorAll('.dd-option').forEach(o => o.classList.remove('active'));
       opt.classList.add('active');
       const val = opt.dataset.value;
-      display.textContent = opt.textContent;
+      display.textContent = opt.textContent.trim();
       display.classList.toggle('has-selection', val !== 'WO Closed');
       hidden.value = val;
       closeDd();
     });
   });
-})();
+
+  return {
+    reset() {
+      list.querySelectorAll('.dd-option').forEach(o => o.classList.remove('active'));
+      list.querySelector('.dd-default').classList.add('active');
+      display.textContent = '— WO Closed (no issue) —';
+      display.classList.remove('has-selection');
+      hidden.value = 'WO Closed';
+    }
+  };
+}
+
+const woslaIssueDd = initCustomDd('wosla-issue-dd', 'wosla-issue-trigger', 'wosla-issue-list', 'wosla-issue-display', 'wosla-issue-status');
 
 /* Part Received modal */
-let activeRecvWo = null;
-function openRecv(woId, contact, eta, woStatus) {
+let activeRecvWo   = null;
+let _awbLookupTimer = null;
+
+function _resetAwbWoList() {
+  document.getElementById('awb-wo-list-wrap').style.display = 'none';
+  document.getElementById('awb-wo-list-body').innerHTML =
+    '<div class="awb-wo-list-loading">Looking up AWB…</div>';
+}
+
+function _renderAwbWoList(rows, primaryWoId) {
+  const body = document.getElementById('awb-wo-list-body');
+  if (!rows.length) {
+    document.getElementById('awb-wo-list-wrap').style.display = 'none';
+    return;
+  }
+
+  /* Group rows by work_order_id to deduplicate parts */
+  const byWo = {};
+  rows.forEach(r => {
+    const id = String(r.work_order_id);
+    if (!byWo[id]) byWo[id] = { ...r, parts: [] };
+    byWo[id].parts.push(r.description || r.product || '');
+  });
+
+  /* Sort: current WO always first */
+  const woList = Object.values(byWo).sort((a, b) => {
+    const aIs = String(a.work_order_id) === String(primaryWoId);
+    const bIs = String(b.work_order_id) === String(primaryWoId);
+    return aIs ? -1 : bIs ? 1 : 0;
+  });
+  body.innerHTML = woList.map(w => {
+    const id        = String(w.work_order_id);
+    const isPrimary = id === String(primaryWoId);
+    const partStr   = [...new Set(w.parts)].slice(0, 2).join(', ');
+    const moreCount = Math.max(0, new Set(w.parts).size - 2);
+    return `<label class="awb-wo-item${isPrimary ? ' is-primary' : ''}">
+      <input type="checkbox" class="awb-wo-cb" data-wo="${esc(id)}" ${isPrimary ? 'checked disabled' : ''} />
+      <div class="awb-wo-item-body">
+        <div class="awb-wo-item-top">
+          <span class="awb-wo-item-id">${esc(id)}</span>
+          ${isPrimary ? '<span class="awb-wo-item-primary-tag">current WO</span>' : ''}
+          ${statusBadge(w.work_order_status)}
+        </div>
+        <div class="awb-wo-item-meta">
+          <span>${esc(w.contact_name || '—')}</span>
+          ${w.committed_delivery_date && !isSentinel(w.committed_delivery_date)
+            ? `<span>· ETA ${fmt(w.committed_delivery_date)}</span>` : ''}
+          ${partStr ? `<span style="color:#8c959f">· ${esc(partStr)}${moreCount ? ` +${moreCount} more` : ''}</span>` : ''}
+        </div>
+      </div>
+    </label>`;
+  }).join('');
+
+  document.getElementById('awb-wo-list-wrap').style.display = 'block';
+
+  /* Select-all toggle — excludes the locked current-WO checkbox */
+  const allBtn = document.getElementById('awb-select-all');
+  function _updateSelectAll() {
+    const cbs = body.querySelectorAll('.awb-wo-cb:not(:disabled)');
+    allBtn.textContent = cbs.length && [...cbs].every(c => c.checked) ? 'Deselect all' : 'Select all';
+  }
+  body.querySelectorAll('.awb-wo-cb:not(:disabled)').forEach(cb =>
+    cb.addEventListener('change', _updateSelectAll));
+  _updateSelectAll();
+  allBtn.onclick = () => {
+    const cbs        = body.querySelectorAll('.awb-wo-cb:not(:disabled)');
+    const allChecked = [...cbs].every(c => c.checked);
+    cbs.forEach(cb => { cb.checked = !allChecked; });
+    _updateSelectAll();
+  };
+}
+
+function openRecv(woId, contact, eta, woStatus, aspName) {
   activeRecvWo = woId;
 
   /* Reset strip */
@@ -2031,38 +2330,31 @@ function openRecv(woId, contact, eta, woStatus) {
 
   /* Reset form fields */
   document.getElementById('recv-datetime').value        = '';
-  document.getElementById('recv-closed-datetime').value = '';
   document.getElementById('awb-number').value           = '';
-  document.getElementById('recv-notes').value           = '';
-  document.getElementById('awb-file').value             = '';
-  document.getElementById('awb-file-name').textContent  = '';
-  document.getElementById('awb-file-chosen').style.display  = 'none';
+  _clearAwbFile();
   document.getElementById('awb-compare-hint').style.display = 'none';
+  _resetAwbWoList();
 
-  /* Reset custom dropdown to default */
-  const list    = document.getElementById('recv-issue-list');
-  const display = document.getElementById('recv-issue-display');
-  list.querySelectorAll('.dd-option').forEach(o => o.classList.remove('active'));
-  list.querySelector('.dd-default').classList.add('active');
-  display.textContent = '— WO Closed (no issue) —';
-  display.classList.remove('has-selection');
-  document.getElementById('recv-issue-status').value = 'WO Closed';
+  /* Reset no-AWB section */
+  document.getElementById('no-awb-section').style.display  = 'none';
+  document.getElementById('no-awb-list-body').innerHTML    = '<div class="no-awb-loading">Loading…</div>';
+  document.getElementById('no-awb-count').textContent      = '';
 
   /* Clear parts list */
   const partsList = document.getElementById('recv-parts-list');
   const qtyPill   = document.getElementById('recv-parts-qty');
   partsList.style.display = 'none';
-  /* Remove old part rows but keep the header div */
   partsList.querySelectorAll('.wo-strip-part-row').forEach(r => r.remove());
 
   openModal('modal-received');
 
-  /* Fetch parts for this WO */
+  /* Fetch parts for this WO to prefill AWB hint */
   fetch(`/asp/api/wo-parts/${woId}`)
     .then(r => r.ok ? r.json() : null)
     .then(data => {
-      if (!data || !data.parts || !data.parts.length) return;
-      const parts = data.parts;
+      if (!data || !data.length) return;
+      const parts = data.filter(p => !(p.wo_product_status || '').toLowerCase().includes('cancel'));
+      if (!parts.length) return;
       partsList.style.display = 'block';
       qtyPill.textContent = parts.length + (parts.length === 1 ? ' part' : ' parts');
       let awbValues = new Set();
@@ -2072,27 +2364,151 @@ function openRecv(woId, contact, eta, woStatus) {
         const awbHtml = p.awb
           ? `<span class="wo-strip-part-awb">AWB: ${esc(p.awb)}</span>`
           : `<span class="wo-strip-part-noawb">No AWB on record</span>`;
-        row.innerHTML = `<span class="wo-strip-part-pn">${esc(p.part_number||'—')}</span><span class="wo-strip-part-desc">${esc(p.part_description||'')}</span>${awbHtml}`;
+        row.innerHTML = `<span class="wo-strip-part-pn">${esc(p.product||'—')}</span><span class="wo-strip-part-desc">${esc(p.description||'')}</span>${awbHtml}`;
         partsList.appendChild(row);
         if (p.awb) awbValues.add(p.awb.trim());
       });
+      /* Pre-fill AWB field and trigger lookup if a single AWB found */
       if (awbValues.size === 1) {
-        document.getElementById('awb-db-value').textContent = [...awbValues][0];
+        const foundAwb = [...awbValues][0];
+        document.getElementById('awb-db-value').textContent = foundAwb;
         document.getElementById('awb-compare-hint').style.display = 'flex';
+        document.getElementById('awb-number').value = foundAwb;
+        _triggerAwbLookup(foundAwb);
       }
     })
     .catch(() => {});
+
+  /* Fetch open WOs for the same ASP that are still missing an AWB */
+  if (aspName) {
+    fetch(`/asp/api/wo-no-awb?customer=${encodeURIComponent(aspName)}`)
+      .then(r => r.ok ? r.json() : [])
+      .then(rows => _renderNoAwbList(rows, woId))
+      .catch(() => { document.getElementById('no-awb-section').style.display = 'none'; });
+  }
+}
+
+function _renderNoAwbList(rows, currentWoId) {
+  const section = document.getElementById('no-awb-section');
+  const body    = document.getElementById('no-awb-list-body');
+  const pill    = document.getElementById('no-awb-count');
+  const allBtn  = document.getElementById('no-awb-select-all');
+
+  /* Group rows by work_order_id (query may return one row per part line) */
+  const byWo = {};
+  rows.forEach(r => {
+    const id = String(r.work_order_id);
+    if (!byWo[id]) byWo[id] = { ...r, parts: [] };
+    const pn = r.product || '';
+    if (pn && !byWo[id].parts.includes(pn)) byWo[id].parts.push(pn);
+  });
+
+  /* Sort: current WO always first */
+  const woList = Object.values(byWo).sort((a, b) => {
+    const aIs = String(a.work_order_id) === String(currentWoId);
+    const bIs = String(b.work_order_id) === String(currentWoId);
+    return aIs ? -1 : bIs ? 1 : 0;
+  });
+
+  /* Hide section if no WOs found */
+  if (!woList.length) {
+    section.style.display = 'none';
+    return;
+  }
+
+  pill.textContent = `${woList.length} WO${woList.length !== 1 ? 's' : ''}`;
+  section.style.display = 'block';
+
+  body.innerHTML = woList.map(w => {
+    const id        = String(w.work_order_id);
+    const isCurrent = id === String(currentWoId);
+    const partStr   = w.parts.slice(0, 2).join(', ');
+    const moreCount = Math.max(0, w.parts.length - 2);
+    return `<label class="no-awb-item${isCurrent ? ' is-current' : ''}">
+      <input type="checkbox" class="no-awb-cb" data-wo="${esc(id)}" ${isCurrent ? 'checked disabled' : ''} />
+      <div class="no-awb-item-body">
+        <div class="no-awb-item-top">
+          <span class="no-awb-item-id">${esc(id)}</span>
+          ${isCurrent ? '<span class="no-awb-item-current">current WO</span>' : ''}
+          ${statusBadge(w.work_order_status)}
+        </div>
+        <div class="no-awb-item-meta">
+          <span>${esc(w.contact_name || '—')}</span>
+          ${partStr ? `<span style="color:#8c959f"> · ${esc(partStr)}${moreCount ? ` +${moreCount} more` : ''}</span>` : ''}
+        </div>
+      </div>
+    </label>`;
+  }).join('');
+
+  /* Select-all toggle — excludes the locked current-WO checkbox */
+  function _updateNoAwbSelectAll() {
+    const cbs = body.querySelectorAll('.no-awb-cb:not(:disabled)');
+    allBtn.textContent = cbs.length && [...cbs].every(c => c.checked) ? 'Deselect all' : 'Select all';
+  }
+  body.querySelectorAll('.no-awb-cb:not(:disabled)').forEach(cb =>
+    cb.addEventListener('change', _updateNoAwbSelectAll));
+  _updateNoAwbSelectAll();
+  allBtn.onclick = () => {
+    const cbs = body.querySelectorAll('.no-awb-cb:not(:disabled)');
+    const allChecked = [...cbs].every(c => c.checked);
+    cbs.forEach(cb => { cb.checked = !allChecked; });
+    _updateNoAwbSelectAll();
+  };
+}
+
+function _triggerAwbLookup(awb) {
+  if (!awb) { _resetAwbWoList(); return; }
+  document.getElementById('awb-wo-list-wrap').style.display = 'block';
+  document.getElementById('awb-wo-list-body').innerHTML =
+    '<div class="awb-wo-list-loading">Looking up AWB…</div>';
+  fetch(`/asp/api/wos-by-awb?awb=${encodeURIComponent(awb)}`)
+    .then(r => r.ok ? r.json() : [])
+    .then(rows => _renderAwbWoList(rows, activeRecvWo))
+    .catch(() => { document.getElementById('awb-wo-list-wrap').style.display = 'none'; });
+}
+
+/* AWB text input — debounced lookup */
+document.getElementById('awb-number').addEventListener('input', function() {
+  clearTimeout(_awbLookupTimer);
+  const val = this.value.trim();
+  if (!val) { _resetAwbWoList(); return; }
+  _awbLookupTimer = setTimeout(() => _triggerAwbLookup(val), 500);
+});
+
+function _clearAwbFile() {
+  const input  = document.getElementById('awb-file');
+  const chosen = document.getElementById('awb-file-chosen');
+  const preview    = document.getElementById('awb-img-preview');
+  const previewImg = document.getElementById('awb-img-preview-src');
+  input.value = '';
+  document.getElementById('awb-file-name').textContent = '';
+  chosen.style.display   = 'none';
+  preview.style.display  = 'none';
+  previewImg.src         = '';
+  input.closest('label').classList.remove('has-file');
 }
 
 document.getElementById('awb-file').addEventListener('change', function() {
-  const chosen = document.getElementById('awb-file-chosen');
+  const chosen     = document.getElementById('awb-file-chosen');
+  const preview    = document.getElementById('awb-img-preview');
+  const previewImg = document.getElementById('awb-img-preview-src');
+  const zone       = this.closest('label');
   if (this.files[0]) {
     document.getElementById('awb-file-name').textContent = this.files[0].name;
     chosen.style.display = 'flex';
+    zone.classList.add('has-file');
+    const reader = new FileReader();
+    reader.onload = e => {
+      previewImg.src = e.target.result;
+      preview.style.display = 'block';
+    };
+    reader.readAsDataURL(this.files[0]);
   } else {
-    chosen.style.display = 'none';
+    _clearAwbFile();
   }
 });
+
+document.getElementById('awb-file-remove').addEventListener('click', _clearAwbFile);
 
 document.getElementById('btn-confirm-received').addEventListener('click', () => {
   if (!document.getElementById('recv-datetime').value) {
@@ -2104,12 +2520,40 @@ document.getElementById('btn-confirm-received').addEventListener('click', () => 
   if (!document.getElementById('awb-file').files[0]) {
     toast('Please upload the AWB document.', 'err'); return;
   }
-  if (!document.getElementById('recv-closed-datetime').value) {
+  /* Collect checked WO IDs from AWB list + no-AWB extra list, deduplicated */
+  const fromAwb   = [...document.querySelectorAll('#awb-wo-list-body .awb-wo-cb:checked')].map(cb => cb.dataset.wo);
+  const fromNoAwb = [...document.querySelectorAll('#no-awb-list-body .no-awb-cb:checked')].map(cb => cb.dataset.wo);
+  const allIds    = [...new Set([...fromAwb, ...fromNoAwb])];
+  const woIds     = allIds.length ? allIds : [String(activeRecvWo)];
+  /* TODO: POST to /asp/api/part-received once backend is ready */
+  const label = woIds.length === 1
+    ? `WO ${woIds[0]}`
+    : `${woIds.length} WOs (${woIds.join(', ')})`;
+  toast(`${label} — receipt confirmed ✓`, 'ok');
+  closeModal('modal-received');
+});
+
+/* WO SLA Follow-Up modal (shared by CCI & Onsite) */
+let activeWoSlaWo = null;
+function openWoSla(woId, contact, woStatus, source) {
+  activeWoSlaWo = woId;
+  document.getElementById('wosla-wo-num').textContent        = woId;
+  document.getElementById('wosla-contact').textContent       = contact || '—';
+  document.getElementById('wosla-wo-status-badge').innerHTML = woStatus ? statusBadge(woStatus) : '';
+  document.getElementById('wo-sla-subtitle').textContent     = (source === 'onsite' ? 'Onsite' : 'CCI') + ' — WO SLA Follow-Up';
+  document.getElementById('wosla-closed-datetime').value     = '';
+  document.getElementById('wosla-notes').value               = '';
+  woslaIssueDd.reset();
+  openModal('modal-wo-sla');
+}
+
+document.getElementById('btn-confirm-wo-sla').addEventListener('click', () => {
+  if (!document.getElementById('wosla-closed-datetime').value) {
     toast('Please enter the Date & Time WO# Closed.', 'err'); return;
   }
-  /* TODO: POST to /asp/api/part-received once backend is ready */
-  toast(`WO ${activeRecvWo} — receipt confirmed ✓`, 'ok');
-  closeModal('modal-received');
+  /* TODO: POST to backend once ready */
+  toast(`WO ${activeWoSlaWo} — SLA follow-up submitted ✓`, 'ok');
+  closeModal('modal-wo-sla');
 });
 
 /* Part Return modal */
@@ -2144,34 +2588,79 @@ document.getElementById('btn-confirm-return').addEventListener('click', () => {
 let activeRsWo = null;
 function openReschedule(woId, contact, status) {
   activeRsWo = woId;
-  document.getElementById('rs-wo-num').textContent    = woId;
-  document.getElementById('rs-contact').textContent   = contact || '—';
-  document.getElementById('rs-status').textContent    = status || '—';
-  document.getElementById('rs-by').value              = '';
-  document.getElementById('rs-date').value = '';
-  document.getElementById('rs-reason-asp').value      = '';
-  document.getElementById('rs-reason-customer').value = '';
-  document.getElementById('rs-section-asp').style.display      = 'none';
-  document.getElementById('rs-section-customer').style.display = 'none';
-  document.getElementById('rs-evidence-file').value            = '';
-  document.getElementById('rs-evidence-name').textContent      = 'No file chosen';
+  document.getElementById('rs-wo-num').textContent           = woId;
+  document.getElementById('rs-contact').textContent          = contact || '—';
+  document.getElementById('rs-wo-status-badge').innerHTML    = status ? statusBadge(status) : '';
+  document.getElementById('rs-date').value                   = '';
+  document.getElementById('rs-evidence-file').value          = '';
+  document.getElementById('rs-evidence-name').textContent    = '';
+  document.getElementById('rs-evidence-chosen').style.display = 'none';
+  rsByDd.reset();
   openModal('modal-reschedule');
 }
-document.getElementById('rs-by').addEventListener('change', function() {
-  document.getElementById('rs-section-asp').style.display      = this.value === 'ASP Defer'      ? 'block' : 'none';
-  document.getElementById('rs-section-customer').style.display = this.value === 'Customer Defer' ? 'block' : 'none';
-});
+
+/* ── Custom dropdown — Reschedule by / Reason ── */
+const rsByDd = (function() {
+  const dd      = document.getElementById('rs-by-dd');
+  const trigger = document.getElementById('rs-by-trigger');
+  const list    = document.getElementById('rs-by-list');
+  const display = document.getElementById('rs-by-display');
+  const hidden  = document.getElementById('rs-by-value');
+  const hiddenType = document.getElementById('rs-by-type');
+
+  function openDd()  { dd.classList.add('open'); }
+  function closeDd() { dd.classList.remove('open'); }
+
+  trigger.addEventListener('click', () => dd.classList.contains('open') ? closeDd() : openDd());
+  trigger.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dd.classList.contains('open') ? closeDd() : openDd(); }
+    if (e.key === 'Escape') closeDd();
+  });
+  document.addEventListener('click', e => { if (!dd.contains(e.target)) closeDd(); });
+
+  list.querySelectorAll('.dd-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      list.querySelectorAll('.dd-option').forEach(o => o.classList.remove('active'));
+      opt.classList.add('active');
+      const val = opt.dataset.value;
+      const by  = opt.dataset.by;
+      display.textContent = val ? `[${by}] ${val}` : opt.textContent.trim();
+      display.classList.toggle('has-selection', !!val);
+      hidden.value     = val;
+      hiddenType.value = by;
+      closeDd();
+    });
+  });
+
+  return {
+    reset() {
+      list.querySelectorAll('.dd-option').forEach(o => o.classList.remove('active'));
+      list.querySelector('.dd-default').classList.add('active');
+      display.textContent = '— Select defer type & reason —';
+      display.classList.remove('has-selection');
+      hidden.value     = '';
+      hiddenType.value = '';
+    }
+  };
+})();
+
 document.getElementById('rs-evidence-file').addEventListener('change', function() {
-  document.getElementById('rs-evidence-name').textContent = this.files[0] ? this.files[0].name : 'No file chosen';
+  const chosen = document.getElementById('rs-evidence-chosen');
+  if (this.files[0]) {
+    document.getElementById('rs-evidence-name').textContent = this.files[0].name;
+    chosen.style.display = 'flex';
+  } else {
+    chosen.style.display = 'none';
+  }
 });
 document.getElementById('btn-confirm-reschedule').addEventListener('click', () => {
-  const by     = document.getElementById('rs-by').value;
-  const dt = document.getElementById('rs-date').value;
-  if (!by) { toast('Please select Reschedule by Customer or ASP.', 'err'); return; }
-  if (!dt) { toast('Please select a new appointment date.', 'err'); return; }
-  if (by === 'ASP Defer' && !document.getElementById('rs-reason-asp').value) { toast('Please select the ASP Defer reason.', 'err'); return; }
-  if (by === 'Customer Defer' && !document.getElementById('rs-reason-customer').value) { toast('Please select the Customer Defer reason.', 'err'); return; }
-  toast(`WO ${activeRsWo} — rescheduled (${by}) to ${dt.replace('T',' ')} ✓`, 'ok');
+  const reason = document.getElementById('rs-by-value').value;
+  const by     = document.getElementById('rs-by-type').value;
+  const dt     = document.getElementById('rs-date').value;
+  if (!reason) { toast('Please select a defer type and reason.', 'err'); return; }
+  if (!dt)     { toast('Please select a new appointment date.', 'err'); return; }
+  if (!document.getElementById('rs-evidence-file').files[0]) { toast('Please upload the chat screenshot evidence.', 'err'); return; }
+  toast(`WO ${activeRsWo} — rescheduled (${by}: ${reason}) to ${dt.replace('T',' ')} ✓`, 'ok');
   closeModal('modal-reschedule');
 });
 </script>

@@ -104,9 +104,10 @@ def api_cci_followup():
     from app.services.database.queries import get_asp_cci_followup_page
     per_page = min(_int_arg("per_page", 25), 100)
     return jsonify(get_asp_cci_followup_page(
-        search    = request.args.get("q", "").strip(),
-        page      = _int_arg("page", 1),
-        page_size = per_page,
+        search         = request.args.get("q", "").strip(),
+        followup_state = request.args.get("followup_state", "").strip(),
+        page           = _int_arg("page", 1),
+        page_size      = per_page,
     ))
 
 
@@ -132,6 +133,39 @@ def api_reschedule():
         page      = _int_arg("page", 1),
         page_size = per_page,
     ))
+
+
+@asp_bp.route("/asp/api/onsite-followup", methods=["GET"])
+def api_onsite_followup():
+    """Onsite Follow-Up tab — all Onsite WOs with computed followup_state."""
+    from app.services.database.queries import get_asp_onsite_followup_page
+    per_page = min(_int_arg("per_page", 25), 100)
+    return jsonify(get_asp_onsite_followup_page(
+        search         = request.args.get("q", "").strip(),
+        followup_state = request.args.get("followup_state", "").strip(),
+        page           = _int_arg("page", 1),
+        page_size      = per_page,
+    ))
+
+
+@asp_bp.route("/asp/api/wos-by-awb", methods=["GET"])
+def api_wos_by_awb():
+    """Return all WOs sharing the given AWB number."""
+    from app.services.database.queries import get_wos_by_awb
+    awb = request.args.get("awb", "").strip()
+    if not awb:
+        return jsonify([])
+    return jsonify(get_wos_by_awb(awb))
+
+
+@asp_bp.route("/asp/api/wo-no-awb", methods=["GET"])
+def api_wo_no_awb():
+    """Return open WOs for a given ASP (customer name) that have part lines with no AWB."""
+    from app.services.database.queries import get_wo_no_awb_by_asp
+    customer = request.args.get("customer", "").strip()
+    if not customer:
+        return jsonify([])
+    return jsonify(get_wo_no_awb_by_asp(customer))
 
 
 @asp_bp.route("/asp/api/wo-detail/<int:work_order_id>", methods=["GET"])

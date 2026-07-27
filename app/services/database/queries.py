@@ -389,20 +389,30 @@ _CCI_FOLLOWUP_COLS = """
     customer, work_order_status, case_status
 """
 
-def get_asp_cci_followup_page(search: str = "", page: int = 1, page_size: int = 25) -> dict:
+def get_asp_cci_followup_page(
+    search: str = "",
+    followup_state: str = "",
+    page: int = 1,
+    page_size: int = 25,
+) -> dict:
     """
-    CCI Follow-Up tab — all CCI / Carry-In WOs, any status.
+    CCI Follow-Up tab — all CCI / Carry-In WOs, excluding cancelled.
     Adds a computed `followup_state` per row:
         confirm_receipt  — part in transit/hold, ETA not yet passed
         part_sla         — part in transit/hold, ETA already passed
         wo_sla           — part received, WO still open
         input_dc         — WO closed, needs DC / pickup
+
+    When `followup_state` is given, only rows matching that computed state
+    are returned (filtering happens in Python after state computation so
+    pagination counts are accurate per-state).
     """
     import datetime
     conn   = get_db()
     params: list = []
     wheres: list[str] = [
-        "(LOWER(work_order_type) LIKE '%carry%' OR LOWER(work_order_type) LIKE '%cci%')"
+        "(LOWER(work_order_type) LIKE '%carry%' OR LOWER(work_order_type) LIKE '%cci%')",
+        "LOWER(COALESCE(work_order_status,'')) NOT LIKE '%cancel%'",
     ]
 
     if search:
@@ -417,41 +427,59 @@ def get_asp_cci_followup_page(search: str = "", page: int = 1, page_size: int = 
         params.extend([term, term, term, term, term])
 
     where_sql = "WHERE " + " AND ".join(wheres)
-    total  = conn.execute(f"SELECT COUNT(*) FROM wo_summary {where_sql}", params).fetchone()[0]
-    pages  = max(1, -(-total // page_size))
-    offset = (max(1, page) - 1) * page_size
-
-    rows = conn.execute(f"""
-        SELECT {_CCI_FOLLOWUP_COLS}
-        FROM wo_summary
-        {where_sql}
-        ORDER BY created_on DESC
-        LIMIT ? OFFSET ?
-    """, params + [page_size, offset]).fetchall()
-
     today = datetime.date.today().isoformat()
 
     def _followup_state(r: dict) -> str:
         status = (r.get("work_order_status") or "").lower()
         eta    = (r.get("committed_delivery_date") or "")[:10]
-        is_closed    = any(k in status for k in ("closed","completed","repair done","rma","returned","pickup"))
-        is_cancelled = "cancel" in status
-        is_transit   = "transit" in status or "part" in status
+        is_closed  = any(k in status for k in ("closed","completed","repair done","rma","returned","pickup"))
+        is_transit = "transit" in status or "part" in status
 
-        if is_cancelled:
-            return "cancelled"
         if is_closed:
             return "input_dc"
         if is_transit:
             return "part_sla" if (eta and eta < today) else "confirm_receipt"
-        # open, not transit — part already received, WO not yet closed
         return "wo_sla"
 
-    result_rows = []
-    for r in rows:
-        row = dict(r)
-        row["followup_state"] = _followup_state(row)
-        result_rows.append(row)
+    if followup_state:
+        # Fetch all non-cancelled rows for this search, compute states,
+        # filter to the requested state, then paginate in Python.
+        all_rows = conn.execute(f"""
+            SELECT {_CCI_FOLLOWUP_COLS}
+            FROM wo_summary
+            {where_sql}
+            ORDER BY created_on DESC
+        """, params).fetchall()
+
+        filtered = [
+            dict(r) for r in all_rows
+            if _followup_state(dict(r)) == followup_state
+        ]
+        for row in filtered:
+            row["followup_state"] = followup_state
+
+        total  = len(filtered)
+        pages  = max(1, -(-total // page_size))
+        offset = (max(1, page) - 1) * page_size
+        result_rows = filtered[offset: offset + page_size]
+    else:
+        total  = conn.execute(f"SELECT COUNT(*) FROM wo_summary {where_sql}", params).fetchone()[0]
+        pages  = max(1, -(-total // page_size))
+        offset = (max(1, page) - 1) * page_size
+
+        rows = conn.execute(f"""
+            SELECT {_CCI_FOLLOWUP_COLS}
+            FROM wo_summary
+            {where_sql}
+            ORDER BY created_on DESC
+            LIMIT ? OFFSET ?
+        """, params + [page_size, offset]).fetchall()
+
+        result_rows = []
+        for r in rows:
+            row = dict(r)
+            row["followup_state"] = _followup_state(row)
+            result_rows.append(row)
 
     return {"rows": result_rows, "total": total, "page": page, "pages": pages}
 
@@ -462,7 +490,148 @@ def get_asp_part_return_page(search: str = "", page: int = 1, page_size: int = 2
     return _paged_query(tab_where, search, page, page_size)
 
 
+# WOs by AWB — all WOs sharing a given AWB that are still open/transit/part-hold
+def get_wos_by_awb(awb: str) -> list[dict]:
+    """Return all WOs that have a part line matching the given AWB, including
+    their WO number, status, contact, and part details. Used by the Part
+    Received confirmation form to allow bulk confirmation across WOs."""
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT DISTINCT
+            s.work_order_id, s.contact_name, s.customer,
+            s.work_order_status, s.work_order_type,
+            s.committed_delivery_date,
+            p.product, p.description, p.wo_product_status, p.awb
+        FROM wo_summary s
+        JOIN wo_product_detail p USING (work_order_id)
+        WHERE TRIM(p.awb) = ?
+          AND LOWER(COALESCE(s.work_order_status,'')) NOT LIKE '%cancel%'
+        ORDER BY s.work_order_id ASC
+    """, (awb.strip(),)).fetchall()
+    return [dict(r) for r in rows]
+
+
+# WOs with no AWB — open WOs for a given ASP where at least one part line has no AWB set
+def get_wo_no_awb_by_asp(customer: str) -> list[dict]:
+    """Return open WOs belonging to the given ASP (customer) that have at
+    least one non-cancelled part line with a NULL or blank AWB, and whose
+    WO status is still open (not closed / completed / cancelled)."""
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT DISTINCT
+            s.work_order_id, s.contact_name, s.customer,
+            s.work_order_status, s.work_order_type,
+            s.committed_delivery_date,
+            p.product, p.description, p.wo_product_status
+        FROM wo_summary s
+        JOIN wo_product_detail p USING (work_order_id)
+        WHERE LOWER(TRIM(s.customer)) = LOWER(TRIM(?))
+          AND (TRIM(COALESCE(p.awb,'')) = '')
+          AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
+          AND LOWER(COALESCE(s.work_order_status,'')) NOT IN (
+              'closed','completed','cancelled','canceled',
+              'rma in progress',
+              'unit returned to customer /awaiting for parts rma',
+              'repair completed','ready for pickup'
+          )
+          AND LOWER(COALESCE(s.work_order_status,'')) NOT LIKE '%cancel%'
+        ORDER BY s.work_order_id ASC
+    """, (customer.strip(),)).fetchall()
+    return [dict(r) for r in rows]
+
+
 # WO Reschedule — open, non-closed, non-cancelled WOs
 def get_asp_reschedule_page(search: str = "", page: int = 1, page_size: int = 25) -> dict:
     tab_where = _OPEN_WHERE
     return _paged_query(tab_where, search, page, page_size)
+
+
+# Onsite Follow-Up — all Onsite WOs (excluding cancelled) with a computed follow-up state
+def get_asp_onsite_followup_page(
+    search: str = "",
+    followup_state: str = "",
+    page: int = 1,
+    page_size: int = 25,
+) -> dict:
+    """
+    Onsite Follow-Up tab — all Onsite WOs, excluding cancelled.
+    Computed followup_state per row:
+        wo_reschedule  — open WO, not yet closed, needs scheduling attention
+        part_sla       — part in transit/hold and ETA already passed
+        wo_sla         — part in transit/hold and ETA not yet passed (or no ETA)
+        input_dc       — WO closed / completed, needs DC number input
+    """
+    import datetime
+    conn   = get_db()
+    params: list = []
+    wheres: list[str] = [
+        "LOWER(work_order_type) LIKE '%onsite%'",
+        "LOWER(COALESCE(work_order_status,'')) NOT LIKE '%cancel%'",
+    ]
+
+    if search:
+        term = f"%{search.lower()}%"
+        wheres.append("""(
+            CAST(work_order_id AS TEXT) LIKE ?
+            OR LOWER(serial_number)     LIKE ?
+            OR LOWER(contact_name)      LIKE ?
+            OR LOWER(customer)          LIKE ?
+            OR LOWER(case_desc)         LIKE ?
+        )""")
+        params.extend([term, term, term, term, term])
+
+    where_sql = "WHERE " + " AND ".join(wheres)
+    today = datetime.date.today().isoformat()
+
+    def _followup_state(r: dict) -> str:
+        status = (r.get("work_order_status") or "").lower()
+        eta    = (r.get("committed_delivery_date") or "")[:10]
+        is_closed  = any(k in status for k in ("closed", "completed", "repair done",
+                                                "rma", "returned", "pickup"))
+        is_transit = "transit" in status or "part" in status
+
+        if is_closed:
+            return "input_dc"
+        if is_transit:
+            return "part_sla" if (eta and eta < today) else "wo_sla"
+        return "wo_reschedule"
+
+    if followup_state:
+        all_rows = conn.execute(f"""
+            SELECT {_CCI_FOLLOWUP_COLS}
+            FROM wo_summary
+            {where_sql}
+            ORDER BY created_on DESC
+        """, params).fetchall()
+
+        filtered = [
+            dict(r) for r in all_rows
+            if _followup_state(dict(r)) == followup_state
+        ]
+        for row in filtered:
+            row["followup_state"] = followup_state
+
+        total  = len(filtered)
+        pages  = max(1, -(-total // page_size))
+        offset = (max(1, page) - 1) * page_size
+        result_rows = filtered[offset: offset + page_size]
+    else:
+        total  = conn.execute(f"SELECT COUNT(*) FROM wo_summary {where_sql}", params).fetchone()[0]
+        pages  = max(1, -(-total // page_size))
+        offset = (max(1, page) - 1) * page_size
+
+        rows = conn.execute(f"""
+            SELECT {_CCI_FOLLOWUP_COLS}
+            FROM wo_summary
+            {where_sql}
+            ORDER BY created_on DESC
+            LIMIT ? OFFSET ?
+        """, params + [page_size, offset]).fetchall()
+
+        result_rows = []
+        for r in rows:
+            row = dict(r)
+            row["followup_state"] = _followup_state(row)
+            result_rows.append(row)
+
+    return {"rows": result_rows, "total": total, "page": page, "pages": pages}

@@ -781,7 +781,13 @@ function renderParts(parts, woId) {
     ${title}
     <div style="font-size:13px;color:#8c959f;font-style:italic;padding:4px 0 8px">No part order lines found for this WO.</div>
   </div>`;
-  const cards = parts.map((p, i) => {
+  /* Sort: cancelled lines last, preserving original order within each group */
+  const sorted = [
+    ...parts.filter(p => !(p.wo_product_status || '').toLowerCase().includes('cancel')),
+    ...parts.filter(p =>  (p.wo_product_status || '').toLowerCase().includes('cancel')),
+  ];
+
+  const cards = sorted.map((p, i) => {
     const retFlag = p.return_flag === 'Y'
       ? '<span class="badge badge-part-hold">Return</span>'
       : (p.return_flag === 'N' ? '<span class="badge badge-default">No Return</span>' : '<span style="color:#8c959f">—</span>');
