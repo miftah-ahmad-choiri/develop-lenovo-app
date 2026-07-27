@@ -98,6 +98,18 @@ def api_part_received():
     ))
 
 
+@asp_bp.route("/asp/api/cci-followup", methods=["GET"])
+def api_cci_followup():
+    """CCI Follow-Up tab — all Carry-In WOs with computed followup_state."""
+    from app.services.database.queries import get_asp_cci_followup_page
+    per_page = min(_int_arg("per_page", 25), 100)
+    return jsonify(get_asp_cci_followup_page(
+        search    = request.args.get("q", "").strip(),
+        page      = _int_arg("page", 1),
+        page_size = per_page,
+    ))
+
+
 @asp_bp.route("/asp/api/part-return", methods=["GET"])
 def api_part_return():
     """Part Return tab — closed / completed WOs."""

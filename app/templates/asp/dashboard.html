@@ -16,9 +16,29 @@
   /* ── Tab bar ────────────────────────────────────────────────────── */
   .tab-bar { display: flex; border-bottom: 2px solid #e5e7eb; margin-bottom: 24px; gap: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .tab-bar::-webkit-scrollbar { display: none; }
-  .tab-btn { padding: 10px 18px; font-size: 13px; font-weight: 600; color: #57606a; background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -2px; cursor: pointer; transition: color 0.15s, border-color 0.15s; white-space: nowrap; font-family: inherit; flex-shrink: 0; }
+  .tab-btn { padding: 10px 18px; font-size: 13px; font-weight: 600; color: #57606a; background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -2px; cursor: pointer; transition: color 0.15s, border-color 0.15s; white-space: nowrap; font-family: inherit; flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; }
   .tab-btn.active { color: #3b82d4; border-bottom-color: #3b82d4; }
   .tab-btn:hover:not(.active) { color: #1f2328; }
+  .tab-badge { background: #dc2626; color: #fff; border-radius: 10px; padding: 1px 7px; font-size: 10px; font-weight: 800; line-height: 1.6; }
+  /* Follow-up state badges */
+  .fu-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 12px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .fu-confirm  { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+  .fu-part-sla { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+  .fu-wo-sla   { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+  .fu-input-dc { background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; }
+  .fu-cancelled{ background: #f3f4f6; color: #6b7280; border: 1px solid #e5e7eb; }
+  /* CCI sub-tab pills */
+  .subtab-bar { display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap; }
+  .subtab-pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1.5px solid transparent; background: #f7f8fa; color: #57606a; border-color: #e5e7eb; font-family: inherit; transition: background .12s, color .12s; white-space: nowrap; }
+  .subtab-pill:hover { background: #e5e7eb; color: #1f2328; }
+  .subtab-pill.active { background: #1f2328; color: #fff; border-color: #1f2328; }
+  .subtab-pill.sactive-confirm  { background: #eff6ff; color: #1e40af; border-color: #3b82d4; }
+  .subtab-pill.sactive-part-sla { background: #fee2e2; color: #b91c1c; border-color: #dc2626; }
+  .subtab-pill.sactive-wo-sla   { background: #fef3c7; color: #92400e; border-color: #d97706; }
+  .subtab-pill.sactive-input-dc { background: #ede9fe; color: #6d28d9; border-color: #7c5cd8; }
+  .subtab-sep { color: #d1d5db; font-size: 13px; margin: 0 2px; }
+  /* CCI toolbar override — search right, count right */
+  .cci-toolbar { padding: 10px 16px; display: flex; align-items: center; justify-content: flex-end; gap: 10px; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap; }
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
 
@@ -56,7 +76,7 @@
   .badge-s-transit       { background: #ede9fe; color: #6d28d9; }
   .badge-s-part-hold     { background: #fce7f3; color: #9d174d; }
   .badge-s-part-req      { background: #fef3c7; color: #92400e; }
-  .badge-s-part-delivered{ background: #ffedd5; color: #c2410c; }
+  .badge-s-part-delivered{ background: #dcfce7; color: #15803d; }
   .badge-s-cust-hold     { background: #ffe4e6; color: #be123c; }
   .badge-s-in-repair     { background: #dbeafe; color: #1d4ed8; }
   .badge-s-tech-assigned { background: #fef3c7; color: #b45309; }
@@ -159,30 +179,85 @@
   .modal-loading { padding: 48px; text-align: center; color: #57606a; font-size: 13px; }
 
   /* Action modals (Part Received / Part Return / Reschedule) */
-  .modal.narrow { max-width: 480px; }
-  .modal.narrow .modal-body { padding: 20px; }
-  .mf-group { margin-bottom: 16px; }
-  .mf-group label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 5px; }
-  .mf-group label .req { color: #dc2626; margin-left: 2px; }
-  .mf-group input, .mf-group select, .mf-group textarea { width: 100%; padding: 8px 10px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 13px; font-family: inherit; color: #1f2328; box-sizing: border-box; }
-  .mf-group input:focus, .mf-group select:focus, .mf-group textarea:focus { outline: none; border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,.1); }
-  .mf-group textarea { resize: vertical; min-height: 76px; }
-  .mf-group select { appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2357606a' d='M1 1l5 5 5-5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; }
-  .file-upload-zone { border: 2px dashed #d0d7de; border-radius: 6px; padding: 14px; text-align: center; cursor: pointer; color: #3b82d4; font-weight: 600; font-size: 13px; transition: border-color 0.15s; }
+  .modal.narrow { max-width: 520px; }
+  .modal.narrow .modal-body { padding: 0; }
+  .mf-group { margin-bottom: 14px; }
+  .mf-group .mf-label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 5px; color: #374151; }
+  .mf-group .mf-label .req { color: #dc2626; margin-left: 2px; }
+  .mf-group .mf-label .opt { font-weight: 400; color: #8c959f; }
+  .mf-group input, .mf-group textarea { width: 100%; padding: 9px 11px; border: 1px solid #d0d7de; border-radius: 7px; font-size: 13px; font-family: inherit; color: #1f2328; box-sizing: border-box; }
+  .mf-group input:focus, .mf-group textarea:focus { outline: none; border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,.12); }
+  .mf-group textarea { resize: vertical; min-height: 72px; }
+  .field-hint { font-size: 11px; color: #8c959f; margin-top: 5px; line-height: 1.5; }
+  /* AWB upload zone — full width */
+  .awb-upload-zone { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; width: 100%; padding: 14px 12px; border: 2px dashed #3b82d4; border-radius: 7px; background: #f0f7ff; color: #3b82d4; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer; text-align: center; transition: background .15s, border-color .15s; box-sizing: border-box; }
+  .awb-upload-zone:hover { background: #dbeafe; border-color: #2563b0; color: #2563b0; }
+  .awb-upload-zone input { display: none; }
+  .awb-upload-zone .upload-sub { font-size: 11px; font-weight: 400; color: #57606a; }
+  .file-upload-zone { border: 2px dashed #d0d7de; border-radius: 7px; padding: 14px; text-align: center; cursor: pointer; color: #3b82d4; font-weight: 600; font-size: 13px; transition: border-color 0.15s; }
   .file-upload-zone:hover { border-color: #3b82d4; background: #f0f5ff; }
   .file-upload-zone input { display: none; }
   .file-upload-name { font-size: 11px; color: #57606a; margin-top: 5px; }
-  .modal-footer { padding: 14px 20px; border-top: 1px solid #e5e7eb; display: flex; gap: 8px; justify-content: flex-end; }
-  .wo-strip { background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; }
-  .wo-strip-num { font-weight: 700; font-size: 14px; }
-  .wo-strip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 12px; margin-top: 6px; font-size: 12px; }
-  .wo-strip-grid span { color: #57606a; }
-  .wo-strip-grid strong { color: #1f2328; }
+  .file-chosen { margin-top: 6px; font-size: 11px; color: #15803d; display: flex; align-items: center; gap: 5px; font-weight: 600; }
+  .file-chosen svg { flex-shrink: 0; }
+  .modal-footer { padding: 14px 20px; border-top: 1px solid #e5e7eb; display: flex; gap: 8px; justify-content: space-between; align-items: center; }
+  .modal-footer-hint { font-size: 11px; color: #8c959f; }
+  .modal-footer-hint strong { color: #dc2626; }
+  .modal-footer-btns { display: flex; gap: 8px; }
+  /* WO context strip */
+  .wo-strip { background: linear-gradient(to right,#f7f8fa,#fafbfc); border-bottom: 1px solid #e5e7eb; padding: 12px 20px; }
+  .wo-strip-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .wo-strip-num { font-weight: 800; font-size: 15px; font-family: ui-monospace, monospace; color: #1f2328; }
+  .wo-strip-sep { color: #d1d5db; }
+  .wo-strip-meta-row { display: flex; align-items: center; gap: 6px; margin-top: 3px; flex-wrap: wrap; }
+  .wo-strip-meta { font-size: 12px; color: #57606a; }
+  .wo-strip-meta strong { color: #1f2328; font-family: ui-monospace, monospace; font-size: 12px; }
+  .wo-strip-parts { margin-top: 10px; border-top: 1px solid #e5e7eb; padding-top: 8px; }
+  .wo-strip-parts-header { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #8c959f; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; }
+  .wo-strip-qty-pill { background: #3b82d4; color: #fff; border-radius: 10px; padding: 1px 8px; font-size: 10px; font-weight: 800; }
+  .wo-strip-part-row { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 6px; background: #fff; border: 1px solid #e5e7eb; margin-bottom: 4px; flex-wrap: wrap; }
+  .wo-strip-part-row:last-child { margin-bottom: 0; }
+  .wo-strip-part-pn  { font-family: ui-monospace, monospace; font-weight: 700; font-size: 11px; color: #1f2328; background: #f0f2f5; padding: 2px 6px; border-radius: 4px; }
+  .wo-strip-part-desc { color: #57606a; font-size: 11px; flex: 1; min-width: 60px; }
+  .wo-strip-part-awb { font-family: ui-monospace, monospace; font-size: 11px; color: #3b82d4; font-weight: 700; background: #eff6ff; border: 1px solid #bfdbfe; padding: 1px 6px; border-radius: 4px; }
+  .wo-strip-part-noawb { font-size: 11px; color: #8c959f; font-style: italic; }
+  /* Modal header icon */
+  .modal-hdr-icon { width: 36px; height: 36px; border-radius: 9px; background: #eff6ff; border: 1px solid #bfdbfe; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  /* Form section dividers */
+  .mf-section { padding: 16px 20px; border-bottom: 1px solid #f0f2f5; }
+  .mf-section:last-child { border-bottom: none; }
+  .mf-section.conditional { background: #fafbfc; }
+  .mf-section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #8c959f; margin-bottom: 14px; display: flex; align-items: center; gap: 7px; }
+  .mf-section-label .sec-num { width: 18px; height: 18px; border-radius: 50%; background: #3b82d4; color: #fff; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; letter-spacing: 0; }
+  .mf-section-label::after { content: ''; flex: 1; height: 1px; background: #e5e7eb; }
+  /* AWB comparison hint */
+  .awb-compare-hint { margin-top: 8px; padding: 8px 11px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 7px; font-size: 11px; color: #92400e; display: flex; align-items: flex-start; gap: 7px; line-height: 1.55; }
+  .awb-compare-hint svg { flex-shrink: 0; margin-top: 1px; }
+  .awb-db-value { font-family: ui-monospace, monospace; font-weight: 700; color: #1e40af; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 4px; padding: 1px 6px; font-size: 11px; }
+  /* Custom dropdown */
+  .custom-dd { position: relative; }
+  .custom-dd-trigger { width: 100%; padding: 9px 32px 9px 11px; border: 1px solid #d0d7de; border-radius: 7px; font-size: 13px; font-family: inherit; color: #1f2328; background: #fff; display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; box-sizing: border-box; }
+  .custom-dd-trigger:focus { outline: none; border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,.12); }
+  .custom-dd-trigger .dd-arrow { color: #57606a; flex-shrink: 0; transition: transform .15s; }
+  .custom-dd-trigger .dd-val { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #57606a; font-style: italic; }
+  .custom-dd-trigger .dd-val.has-selection { font-style: normal; color: #1f2328; }
+  .custom-dd.open .dd-arrow { transform: rotate(180deg); }
+  .custom-dd-list { display: none; position: absolute; bottom: calc(100% + 4px); left: 0; right: 0; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; box-shadow: 0 -4px 24px rgba(0,0,0,0.12); z-index: 300; overflow: hidden; max-height: 280px; overflow-y: auto; }
+  .custom-dd.open .custom-dd-list { display: block; }
+  .dd-group-label { padding: 7px 12px 4px; font-size: 11px; font-weight: 800; color: #1f2328; background: #fff; border-top: 1px solid #f0f2f5; letter-spacing: .01em; }
+  .dd-group-label:first-child { border-top: none; }
+  .dd-option { padding: 7px 12px 7px 22px; font-size: 13px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #1f2328; }
+  .dd-option.dd-default { padding-left: 12px; color: #57606a; font-style: italic; border-bottom: 1px solid #f0f2f5; }
+  .dd-option.part-problem   { color: #d97706; }
+  .dd-option.repair-issue   { color: #d97706; }
+  .dd-option.administrative { color: #d97706; }
+  .dd-option:hover { background: #eff6ff; color: #1f2328; font-style: normal; }
+  .dd-option.active { background: #3b82d4; color: #fff; font-style: normal; font-weight: 600; }
 
   /* ── WO Detail — hero banner ────────────────────────────────────── */
   .wo-hero { padding: 20px 22px 16px; background: #f7f8fa; border-bottom: 1px solid #e5e7eb; }
   .wo-hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-  .wo-hero-id { font-size: 22px; font-weight: 800; color: #1f2328; font-family: ui-monospace, monospace; letter-spacing: -0.02em; }
+  .wo-hero-id { font-size: 22px; font-weight: 700; color: #1f2328; font-family: "IBM Plex Serif", serif; letter-spacing: -0.02em; }
   .wo-hero-sn { font-size: 12px; color: #57606a; margin-top: 2px; }
   .wo-hero-sn strong { color: #1f2328; font-family: ui-monospace, monospace; }
   .wo-hero-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
@@ -319,34 +394,38 @@
 
 <!-- Stat cards -->
 <div class="stat-row">
-<div class="stat-card blue"  data-goto="tab-all">
+<div class="stat-card blue"  data-goto="tab-all" data-filter-status="" style="cursor:pointer">
   <div class="sc-label">Total WO</div>
-  <div class="sc-value">{{ total }}</div>
+  <div class="sc-value">{{ total | thousands }}</div>
 </div>
-<div class="stat-card amber" data-goto="tab-all">
+<div class="stat-card amber" data-goto="tab-all" data-filter-status="open" style="cursor:pointer">
   <div class="sc-label">Open / Active</div>
-  <div class="sc-value">{{ total_open }}</div>
+  <div class="sc-value">{{ total_open | thousands }}</div>
 </div>
-<div class="stat-card green" data-goto="tab-all">
+<div class="stat-card green" data-goto="tab-all" data-filter-status="closed" style="cursor:pointer">
   <div class="sc-label">Closed / Completed</div>
-  <div class="sc-value">{{ total_closed }}</div>
+  <div class="sc-value">{{ total_closed | thousands }}</div>
 </div>
-<div class="stat-card red"   data-goto="tab-part-received">
+<div class="stat-card red"   data-goto="tab-all" data-filter-status="part_hold" style="cursor:pointer">
   <div class="sc-label">Part Hold</div>
-  <div class="sc-value">{{ total_part_hold }}</div>
+  <div class="sc-value">{{ total_part_hold | thousands }}</div>
 </div>
-<div class="stat-card blue"  data-goto="tab-part-received">
+<div class="stat-card blue"  data-goto="tab-all" data-filter-status="transit" style="cursor:pointer">
   <div class="sc-label">Part in Transit</div>
-  <div class="sc-value">{{ total_part_transit | default(0) }}</div>
+  <div class="sc-value">{{ total_part_transit | default(0) | thousands }}</div>
 </div>
 </div>
 
 <!-- Tab bar -->
 <div class="tab-bar">
   <button class="tab-btn active" data-tab="tab-all">All WO</button>
-  <button class="tab-btn" data-tab="tab-reschedule">WO Reschedule</button>
+  <button class="tab-btn" data-tab="tab-cci-followup">
+    CCI Follow-Up
+    <span class="tab-badge" id="tab-cci-badge" style="display:none"></span>
+  </button>
   <button class="tab-btn" data-tab="tab-part-received">Part Received</button>
   <button class="tab-btn" data-tab="tab-part-return">Part Return</button>
+  <button class="tab-btn" data-tab="tab-reschedule">WO Reschedule</button>
 </div>
 
 <!-- ── TAB: All WO ──────────────────────────────────────────────────────── -->
@@ -396,6 +475,52 @@
     </div>
     <div id="empty-all" class="empty-state" style="display:none">No records found.</div>
     <div class="pagination" id="pg-all"></div>
+  </div>
+</div>
+
+<!-- ── TAB: CCI Follow-Up ───────────────────────────────────────────────── -->
+<div class="tab-panel" id="tab-cci-followup">
+  <div class="table-card">
+    <!-- Sub-tab pills -->
+    <div class="subtab-bar" id="cci-subtab-bar">
+      <button class="subtab-pill active" data-state="">All Follow-Up States</button>
+      <span class="subtab-sep">|</span>
+      <button class="subtab-pill" data-state="confirm_receipt">
+        <span class="fu-badge fu-confirm" style="padding:1px 6px;font-size:10px">●</span>
+        Confirm Receipt
+      </button>
+      <button class="subtab-pill" data-state="part_sla">
+        <span class="fu-badge fu-part-sla" style="padding:1px 6px;font-size:10px">▲</span>
+        Part SLA Overdue
+      </button>
+      <button class="subtab-pill" data-state="wo_sla">
+        <span class="fu-badge fu-wo-sla" style="padding:1px 6px;font-size:10px">●</span>
+        WO SLA Follow-Up
+      </button>
+      <button class="subtab-pill" data-state="input_dc">
+        <span class="fu-badge fu-input-dc" style="padding:1px 6px;font-size:10px">●</span>
+        Input DC Number
+      </button>
+    </div>
+    <!-- Toolbar: search + count on the right -->
+    <div class="cci-toolbar">
+      <input type="search" id="search-cci" placeholder="Search WO, serial, contact, cust…" autocomplete="off" style="width:260px;padding:7px 11px;border:1px solid #d0d7de;border-radius:6px;font-size:13px;font-family:inherit;" />
+      <span class="toolbar-count" id="count-cci"></span>
+    </div>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr>
+          <th style="width:40px;text-align:center">#</th>
+          <th>Created On</th><th>WO Number</th>
+          <th>WO Type</th><th>Case</th>
+          <th>WO Status</th><th>Follow-Up State</th>
+          <th>Contact Name</th><th>ASP</th><th>Action</th>
+        </tr></thead>
+        <tbody id="tbody-cci"><tr><td colspan="10" class="loading-state">Loading…</td></tr></tbody>
+      </table>
+    </div>
+    <div id="empty-cci" class="empty-state" style="display:none">No CCI WOs found.</div>
+    <div class="pagination" id="pg-cci"></div>
   </div>
 </div>
 
@@ -483,54 +608,147 @@
 <!-- ── Part Received Confirmation Modal ─────────────────────────────────── -->
 <div class="modal-overlay" id="modal-received">
   <div class="modal narrow">
-    <div class="modal-header">
-      <div>
-        <div class="modal-title">Part Received Confirmation</div>
-        <div class="modal-subtitle" id="recv-sub">CCI — Parts in Transit</div>
+
+    <!-- Header -->
+    <div class="modal-header" style="padding:14px 20px 12px;border-bottom:1px solid #e5e7eb;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="modal-hdr-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82d4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path d="M16 3H8L6 7h12l-2-4z"/></svg>
+        </div>
+        <div>
+          <div class="modal-title" style="font-weight:700">Part Received Confirmation</div>
+          <div class="modal-subtitle">CCI — Parts in Transit</div>
+        </div>
       </div>
       <button class="modal-close" data-close="modal-received">×</button>
     </div>
+
     <div class="modal-body">
+
+      <!-- WO context strip -->
       <div class="wo-strip">
-        <div class="wo-strip-num" id="recv-wo-num">—</div>
-        <div class="wo-strip-grid">
-          <div><span>Contact: </span><strong id="recv-contact">—</strong></div>
-          <div><span>Committed Delivery: </span><strong id="recv-eta">—</strong></div>
+        <div class="wo-strip-top">
+          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8c959f">WO#</span>
+          <span class="wo-strip-num" id="recv-wo-num">—</span>
+          <span id="recv-wo-status-badge"></span>
+        </div>
+        <div class="wo-strip-meta-row">
+          <span class="wo-strip-meta" id="recv-contact">—</span>
+          <span class="wo-strip-sep">·</span>
+          <span class="wo-strip-meta">Committed <strong id="recv-eta">—</strong></span>
+        </div>
+        <!-- Parts list (populated by JS) -->
+        <div class="wo-strip-parts" id="recv-parts-list" style="display:none">
+          <div class="wo-strip-parts-header">
+            Parts on this WO
+            <span class="wo-strip-qty-pill" id="recv-parts-qty"></span>
+          </div>
         </div>
       </div>
-      <div class="mf-group">
-        <label>Upload AWB (Air Waybill) <span class="req">*</span></label>
-        <label class="file-upload-zone" for="awb-file">
-          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 4px;display:block"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 12V4m0 0L8 8m4-4l4 4"/></svg>
-          Click to upload AWB document or image
-          <input type="file" id="awb-file" accept=".pdf,.png,.jpg,.jpeg" />
-        </label>
-        <div class="file-upload-name" id="awb-file-name">No file chosen</div>
+
+      <!-- SECTION 1 — Receipt Details -->
+      <div class="mf-section">
+        <div class="mf-section-label">
+          <span class="sec-num">1</span>
+          Receipt Details
+        </div>
+
+        <div class="mf-group">
+          <span class="mf-label">Date &amp; Time ASP Received Part <span class="req">*</span></span>
+          <input type="datetime-local" id="recv-datetime" />
+        </div>
+
+        <div class="mf-group">
+          <span class="mf-label">AWB Number <span class="req">*</span></span>
+          <input type="text" id="awb-number" placeholder="Enter AWB number from courier label" autocomplete="off" />
+          <div class="awb-compare-hint" id="awb-compare-hint" style="display:none">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span>AWB on record: <span class="awb-db-value" id="awb-db-value">—</span> — verify your physical AWB matches before confirming.</span>
+          </div>
+        </div>
+
+        <div class="mf-group" style="margin-bottom:0">
+          <span class="mf-label">AWB Document <span class="req">*</span></span>
+          <label class="awb-upload-zone" for="awb-file">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Click to upload AWB document
+            <span class="upload-sub">PNG, JPG — max 5 MB</span>
+            <input type="file" id="awb-file" accept=".png,.jpg,.jpeg" />
+          </label>
+          <div class="file-chosen" id="awb-file-chosen" style="display:none">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <span id="awb-file-name"></span>
+          </div>
+        </div>
       </div>
-      <div class="mf-group">
-        <label>Received Date &amp; Time <span class="req">*</span></label>
-        <input type="datetime-local" id="recv-datetime" />
+
+      <!-- SECTION 2 — WO Closing Date -->
+      <div class="mf-section">
+        <div class="mf-section-label">
+          <span class="sec-num" style="background:#16a34a">2</span>
+          WO Closing Date
+        </div>
+
+        <div class="mf-group" style="margin-bottom:0">
+          <span class="mf-label">Date &amp; Time WO# Closed <span class="req">*</span></span>
+          <input type="datetime-local" id="recv-closed-datetime" />
+        </div>
       </div>
-      <hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0 14px" />
-      <div class="mf-group">
-        <label>Escalation Reason <span style="font-weight:400;color:#57606a">(optional)</span></label>
-        <select id="recv-escalation">
-          <option value="">— No issue / Normal receipt —</option>
-          <option value="Wrong Part Received">Wrong Part Received</option>
-          <option value="DOA">DOA (Dead on Arrival)</option>
-          <option value="Wrong Route">Wrong Route</option>
-          <option value="Incomplete">Incomplete (Missing items)</option>
-        </select>
+
+      <!-- SECTION 3 — Issue -->
+      <div class="mf-section conditional">
+        <div class="mf-section-label">
+          <span class="sec-num" style="background:#d97706">3</span>
+          Issue
+          <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px;color:#8c959f">— only if WO have issue or problem</span>
+        </div>
+
+        <div class="mf-group">
+          <span class="mf-label">Issue / Status</span>
+          <!-- Custom dropdown -->
+          <div class="custom-dd" id="recv-issue-dd">
+            <div class="custom-dd-trigger" tabindex="0" id="recv-issue-trigger">
+              <span class="dd-val" id="recv-issue-display">— WO Closed (no issue) —</span>
+              <svg class="dd-arrow" width="12" height="8" viewBox="0 0 12 8" fill="none"><path fill="#57606a" d="M1 1l5 5 5-5"/></svg>
+            </div>
+            <div class="custom-dd-list" id="recv-issue-list">
+              <div class="dd-option dd-default active" data-value="WO Closed">— WO Closed (no issue) —</div>
+              <div class="dd-group-label">Part Problem</div>
+              <div class="dd-option part-problem" data-value="Wrong Part Received">Wrong Part Received</div>
+              <div class="dd-option part-problem" data-value="DOA">DOA — Part Dead on Arrival</div>
+              <div class="dd-option part-problem" data-value="Incomplete Shipment">Incomplete Shipment (missing items)</div>
+              <div class="dd-option part-problem" data-value="Wrong Route">Wrong Route / Delivered to wrong ASP</div>
+              <div class="dd-group-label">Repair Issue</div>
+              <div class="dd-option repair-issue" data-value="Need Additional Part">Need Additional Part</div>
+              <div class="dd-option repair-issue" data-value="Technical Issue - Need Running Test">Technical Issue — Need Running Test</div>
+              <div class="dd-option repair-issue" data-value="Technical Issue - Need Escalation">Technical Issue — Need Escalation</div>
+              <div class="dd-group-label">Administrative</div>
+              <div class="dd-option administrative" data-value="ASP Issue - Late Repair">ASP Issue — Late Repair</div>
+              <div class="dd-option administrative" data-value="Machine at Customer">Machine Still at Customer</div>
+              <div class="dd-option administrative" data-value="WO Cancelled">WO Cancelled / Duplicate</div>
+              <div class="dd-option administrative" data-value="MSD Issue">MSD Issue — System not updated</div>
+            </div>
+          </div>
+          <input type="hidden" id="recv-issue-status" value="WO Closed" />
+        </div>
+
+        <div class="mf-group" style="margin-bottom:0">
+          <span class="mf-label">Notes <span class="opt">(optional)</span></span>
+          <textarea id="recv-notes" placeholder="Additional notes or context…"></textarea>
+        </div>
       </div>
-      <div class="mf-group" id="recv-esc-note-group" style="display:none">
-        <label>Escalation Notes <span class="req">*</span></label>
-        <textarea id="recv-esc-note" placeholder="Describe the issue…"></textarea>
-      </div>
-    </div>
+
+    </div><!-- /.modal-body -->
+
     <div class="modal-footer">
-      <button class="btn btn-ghost" data-close="modal-received">Cancel</button>
-      <button class="btn btn-danger" id="btn-escalate-only" style="display:none">Escalate Only</button>
-      <button class="btn btn-primary" id="btn-confirm-received">Confirm Receipt</button>
+      <div class="modal-footer-hint"><strong>*</strong> required fields</div>
+      <div class="modal-footer-btns">
+        <button class="btn btn-ghost" data-close="modal-received">Cancel</button>
+        <button class="btn btn-primary" id="btn-confirm-received">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Confirm Receipt
+        </button>
+      </div>
     </div>
   </div>
 </div>
@@ -674,7 +892,8 @@ function esc(s) {
   return String(s == null ? '' : s)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-function fmt(s) { return s ? String(s).slice(0,16).replace('T',' ') : '—'; }
+function isSentinel(s) { return s && String(s).slice(0, 4) === '2099'; }
+function fmt(s) { return (s && !isSentinel(s)) ? String(s).slice(0,16).replace('T',' ') : '—'; }
 
 function statusBadge(s) {
   if (!s) return '<span class="badge badge-s-default">—</span>';
@@ -862,7 +1081,7 @@ function heroChipClass(s) {
 
 /* fmtShort: "23 Jul\n10:17" for timeline nodes */
 function fmtShort(s) {
-  if (!s) return null;
+  if (!s || isSentinel(s)) return null;
   const d = new Date(String(s).replace(' ', 'T'));
   if (isNaN(d)) return s.slice(0, 16).replace('T', ' ');
   const day  = d.getDate().toString().padStart(2, '0');
@@ -949,13 +1168,13 @@ function renderHero(d) {
   const rrVal   = d.repeat_repair || '—';
   const rrIsYes = (d.repeat_repair || '').toLowerCase() === 'yes';
   const bar1Items = [
-    d.work_order_type      ? { l: 'Type',       v: d.work_order_type,                                    cls: 'gray'   } : null,
-    {                        l: 'Repeat Repair', v: rrIsYes ? (d.repeat_repair_reason || d.repeat_repair) : rrVal,
+    d.work_order_type      ? { l: 'Type:',       v: d.work_order_type,                                    cls: 'gray'   } : null,
+    {                        l: 'Repeat Repair:', v: rrIsYes ? (d.repeat_repair_reason || d.repeat_repair) : rrVal,
                                                                                                            cls: rrIsYes ? 'red' : 'green' },
     d.work_order_priority && d.work_order_priority.toLowerCase() !== 'normal'
-      ?                      { l: 'Priority',   v: d.work_order_priority,                                 cls: 'red'    } : null,
-    d.premier_service      ? { l: 'Premier',    v: d.premier_service,                                     cls: 'purple' } : null,
-    d.order_type           ? { l: 'Order Type', v: d.order_type,                                          cls: 'gray'   } : null,
+      ?                      { l: 'Priority:',   v: d.work_order_priority,                                 cls: 'red'    } : null,
+    d.premier_service      ? { l: 'Premier:',    v: d.premier_service,                                     cls: 'purple' } : null,
+    d.order_type           ? { l: 'Order Type:', v: d.order_type,                                          cls: 'gray'   } : null,
   ].filter(Boolean);
   const renderBar = items => `<div class="wo-info-bar">
     ${items.map(i => `<div class="wo-info-item">
@@ -963,7 +1182,7 @@ function renderHero(d) {
       <span class="wo-info-val ${i.cls}">${esc(i.v)}</span>
     </div>`).join('')}
   </div>`;
-  const hasContact = d.contact_name || d.mobile_phone || d.primary_email || d.address || d.city;
+  const hasContact = d.contact_name || d.mobile_phone || d.primary_email || d.address || d.company_name;
   const hasAsp     = d.customer || d.labor_vendor_related || d.technician_id;
   const customerCard = (hasContact || hasAsp) ? `
     <div class="wo-customer-wrap">
@@ -971,44 +1190,49 @@ function renderHero(d) {
       <div class="wo-customer-box">
         <div class="wo-customer-col">
           ${d.contact_name ? `<div class="wo-customer-name">${esc(d.contact_name)}</div>` : ''}
-          ${d.mobile_phone  ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Mobile Phone</span><span class="wo-customer-val">${esc(d.mobile_phone)}</span></div>` : ''}
-          ${d.primary_email ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Email</span><span class="wo-customer-val">${esc(d.primary_email)}</span></div>` : ''}
+          ${d.mobile_phone  ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Mobile Phone:</span><span class="wo-customer-val">${esc(d.mobile_phone)}</span></div>` : ''}
+          ${d.primary_email ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Email:</span><span class="wo-customer-val">${esc(d.primary_email)}</span></div>` : ''}
         </div>
         <div class="wo-customer-col">
           ${d.contact_name ? `<div class="wo-customer-name" style="visibility:hidden">—</div>` : ''}
-          ${d.city    ? `<div class="wo-customer-row"><span class="wo-customer-lbl">City</span><span class="wo-customer-val">${esc(d.city)}</span></div>` : ''}
-          ${d.address ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Address</span><span class="wo-customer-val">${esc(d.address)}</span></div>` : ''}
+          ${d.company_name ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Company:</span><span class="wo-customer-val">${esc(d.company_name)}</span></div>` : ''}
+          ${d.address ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Address:</span><span class="wo-customer-val">${esc(d.address)}</span></div>` : ''}
         </div>
       </div>` : ''}
       ${hasAsp ? `
       <div class="wo-customer-box asp">
         <div class="wo-customer-col">
           ${d.customer             ? `<div class="wo-customer-asp">${esc(d.customer)}</div>` : ''}
-          ${d.labor_vendor_related ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Vendor ID</span><span class="wo-customer-val">${esc(d.labor_vendor_related)}</span></div>` : ''}
-          ${d.technician_id        ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Technician</span><span class="wo-customer-val">${esc(d.technician_id)}</span></div>` : ''}
+          ${d.labor_vendor_related ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Vendor ID:</span><span class="wo-customer-val">${esc(d.labor_vendor_related)}</span></div>` : ''}
+          ${d.technician_id        ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Technician:</span><span class="wo-customer-val">${esc(d.technician_id)}</span></div>` : ''}
         </div>
       </div>` : ''}
     </div>` : '';
   return `<div class="wo-hero">
     <!-- Row 1: WO ID + WO Status badge + Closing Code pill inline -->
     <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;">
-      <div class="wo-hero-id"><span style="color:#8c959f">WO</span> ${esc(String(d.work_order_id))}</div>
+      <div class="wo-hero-id"><span style="color:#8c959f">WO#</span> ${esc(String(d.work_order_id))}</div>
       ${statusBadge(d.work_order_status)}
       ${d.closing_code ? closingCodePill(d.closing_code) : ''}
     </div>
-    <!-- Row 2: Serial No. · CASE number · Case Status inline -->
-    <div class="wo-hero-sn" style="margin-top:6px;display:flex;flex-wrap:wrap;align-items:center;gap:0 4px;">
-      ${d.serial_number  ? `<span style="font-size:10px;font-weight:600;color:#8c959f;margin-right:2px">Serial No.</span><strong style="color:#1f2328;font-family:ui-monospace,monospace;margin-right:10px">${esc(d.serial_number)}</strong>` : ''}
-      ${d.case_number    ? `<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;margin-right:2px">CASE</span><span style="font-family:ui-monospace,monospace;color:#1f2328;font-weight:700;margin-right:10px">${esc(d.case_number)}</span>` : ''}
-      ${d.case_status    ? `<span style="margin-left:2px">${caseStatusPill(d.case_status)}</span>` : ''}
-    </div>
-    <!-- Row 3: MTM · Product Description -->
-    <div class="wo-hero-sn" style="margin-top:3px;display:flex;flex-wrap:wrap;align-items:center;gap:0 4px;">
-      ${d.product_id_mtm      ? `<span style="font-size:10px;font-weight:600;color:#8c959f;margin-right:2px">MTM</span><strong style="color:#1f2328;font-family:ui-monospace,monospace;margin-right:10px">${esc(d.product_id_mtm)}</strong>` : ''}
-      ${d.product_description ? `<span style="font-size:10px;font-weight:600;color:#8c959f;margin-right:2px">Product</span><strong style="color:#1f2328;font-family:ui-monospace,monospace">${esc(d.product_description)}</strong>` : ''}
+    <!-- Row 2 + 3: SN/CASE and MTM/PRODUCT in aligned grid columns -->
+    <div style="margin-top:6px;display:grid;grid-template-columns:200px 1fr;row-gap:4px;align-items:center;">
+      <div style="display:flex;align-items:center;gap:4px;min-width:0">
+        ${d.serial_number ? `<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;white-space:nowrap">SN:</span><strong style="color:#1f2328;font-family:ui-monospace,monospace;white-space:nowrap">${esc(d.serial_number)}</strong>` : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-width:0">
+        ${d.case_number ? `<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;white-space:nowrap">CASE#</span><span style="font-family:ui-monospace,monospace;color:#1f2328;font-weight:700;white-space:nowrap">${esc(d.case_number)}</span>` : ''}
+        ${d.case_status ? caseStatusPill(d.case_status) : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;min-width:0">
+        ${d.product_id_mtm ? `<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;white-space:nowrap">MTM:</span><strong style="color:#1f2328;font-family:ui-monospace,monospace;white-space:nowrap">${esc(d.product_id_mtm)}</strong>` : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-width:0">
+        ${d.product_description ? `<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;white-space:nowrap">PRODUCT:</span><strong style="color:#1f2328;font-family:ui-monospace,monospace">${esc(d.product_description)}</strong>` : ''}
+      </div>
     </div>
     <!-- Case description -->
-    ${d.case_desc ? `<div style="margin-top:10px;font-size:12px;color:#57606a;background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:8px 12px;"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;margin-right:8px">Case</span>${esc(d.case_desc)}</div>` : ''}
+    ${d.case_desc ? `<div style="margin-top:10px;font-size:12px;color:#57606a;background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:8px 12px;"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;margin-right:8px">Case Title:</span>${esc(d.case_desc)}</div>` : ''}
     ${customerCard}
     ${bar1Items.length ? renderBar(bar1Items) : ''}
   </div>`;
@@ -1027,25 +1251,26 @@ function renderTimeline(d, parts) {
   const activePart = (parts && parts.find(p => !isCancelled(p))) || (parts && parts[0]) || null;
   const activePartIdx = activePart ? parts.indexOf(activePart) : -1;
 
-  const partOrderDate   = activePart ? activePart.order_date         : null;
-  const partPickupDate  = activePart ? activePart.ship_pickup_time    : null;
-  const partPodDate     = activePart ? activePart.ship_pou_pod_time   : null;
+  const partOrderDate   = activePart ? (activePart.order_date        || activePart.acceptance_date  || null) : null;
+  const partPickupDate  = activePart ? (activePart.ship_pickup_time   || activePart.shipment_date    || null) : null;
+  const partPodDate     = activePart ? (activePart.ship_pou_pod_time  || activePart.delivery_date    || null) : null;
 
   /* true when the WO is closed/completed — forces onsite nodes to done */
   const isWoClosed = !!(d.completion_date || d.closing_date);
 
   /* Define timeline nodes in order */
+  const nd = v => (isSentinel(v) ? null : v);
   const nodes = [
-    { label: 'Case\nCreated',        date: d.created_on },
-    { label: 'Released',             date: d.release_date },
-    { label: 'Part Order',           date: partOrderDate },
-    { label: 'Part Pickup',          date: partPickupDate },
-    { label: 'Part Received\n(POD)', date: partPodDate },
-    { label: 'Orig. Onsite',         date: d.original_committed_onsite_date },
-    { label: 'Defer Date',           date: d.customer_defer_date, optional: true },
-    { label: 'Actual\nOnsite',       date: d.actual_committed_onsite_date },
-    { label: 'Completion',           date: d.completion_date },
-    { label: 'Closed',               date: d.closing_date },
+    { label: 'Case\nCreated',        date: nd(d.created_on) },
+    { label: 'Released',             date: nd(d.release_date) },
+    { label: 'Part Order',           date: nd(partOrderDate) },
+    { label: 'Part Pickup',          date: nd(partPickupDate) },
+    { label: 'Part Received\n(POD)', date: nd(partPodDate) },
+    { label: 'Orig. Onsite',         date: nd(d.original_committed_onsite_date) },
+    { label: 'Defer Date',           date: nd(d.customer_defer_date), optional: true },
+    { label: 'Actual\nOnsite',       date: nd(d.actual_committed_onsite_date) },
+    { label: 'Completion',           date: nd(d.completion_date) },
+    { label: 'Closed',               date: nd(d.closing_date) },
   ];
 
   /* Determine "progress" — the last node index that has a real date */
@@ -1181,10 +1406,10 @@ function renderParts(parts, woId) {
         <div class="part-card-field"><div class="pcf-label">SOID</div><div class="pcf-value mono">${esc(p.soid || '—')}</div></div>
         <div class="part-card-field"><div class="pcf-label">AWB</div><div class="pcf-value mono">${esc(p.awb || '—')}</div></div>
         <div class="part-card-field"><div class="pcf-label">SLA</div><div class="pcf-value">${esc(p.sla || '—')}</div></div>
-        <div class="part-card-field"><div class="pcf-label">Order Date</div><div class="pcf-value">${fmt(p.order_date) || '—'}</div></div>
-        <div class="part-card-field"><div class="pcf-label">Pickup Date</div><div class="pcf-value">${fmt(p.ship_pickup_time) || '—'}</div></div>
+        <div class="part-card-field"><div class="pcf-label">Order Date</div><div class="pcf-value">${fmt(p.order_date || p.acceptance_date) || '—'}</div></div>
+        <div class="part-card-field"><div class="pcf-label">Pickup Date</div><div class="pcf-value">${fmt(p.ship_pickup_time || p.shipment_date) || '—'}</div></div>
         ${(()=>{
-          const pod     = p.ship_pou_pod_time;
+          const pod     = p.ship_pou_pod_time || p.delivery_date;
           const eta     = p.target;
           const etaFmt  = fmt(eta);
           if (pod || !eta) {
@@ -1197,7 +1422,7 @@ function renderParts(parts, woId) {
             : `<div><span class="eta-pill pending">Awaiting</span></div>`;
           return `<div class="part-card-field ${cls}"><div class="pcf-label">Target ETA</div><div class="pcf-value">${etaFmt || '—'}</div>${pill}</div>`;
         })()}
-        <div class="part-card-field"><div class="pcf-label">Part Received (POD)</div><div class="pcf-value">${fmt(p.ship_pou_pod_time) || '—'}</div></div>
+        <div class="part-card-field"><div class="pcf-label">Part Received (POD)</div><div class="pcf-value">${fmt(p.ship_pou_pod_time || p.delivery_date) || '—'}</div></div>
       </div>
     </div>`;
   }).join('');
@@ -1481,7 +1706,140 @@ document.getElementById('filter-type-all').addEventListener('change',         lo
 document.getElementById('filter-case-status-all').addEventListener('change',  loadAllWo);
 
 /* ═══════════════════════════════════════════════════════════════
-   TAB 2 — Part Received
+   TAB 2 — CCI Follow-Up
+═══════════════════════════════════════════════════════════════ */
+/* ── CCI helpers ── */
+function fuBadge(state) {
+  const map = {
+    confirm_receipt: ['fu-badge fu-confirm',  '● Confirm Receipt'],
+    part_sla:        ['fu-badge fu-part-sla', '▲ Part SLA Overdue'],
+    wo_sla:          ['fu-badge fu-wo-sla',   '● WO SLA Follow-Up'],
+    input_dc:        ['fu-badge fu-input-dc', '● Input DC Number'],
+    cancelled:       ['fu-badge fu-cancelled','— Cancelled'],
+  };
+  const [cls, label] = map[state] || ['fu-badge fu-cancelled', state || '—'];
+  return `<span class="${cls}">${label}</span>`;
+}
+
+function fuActionBtn(r) {
+  const s = r.followup_state;
+  if (s === 'confirm_receipt')
+    return `<button class="btn btn-primary btn-sm" data-action="cci-recv" data-wo="${esc(r.work_order_id)}" data-contact="${esc(r.contact_name||'')}" data-eta="${esc(r.committed_delivery_date||'')}" data-status="${esc(r.work_order_status||'')}">Confirm Receipt</button>`;
+  if (s === 'part_sla')
+    return `<button class="btn btn-danger btn-sm" data-action="cci-part-sla" data-wo="${esc(r.work_order_id)}" data-contact="${esc(r.contact_name||'')}" data-eta="${esc(r.committed_delivery_date||'')}">Part Follow-Up</button>`;
+  if (s === 'wo_sla')
+    return `<button class="btn btn-amber btn-sm" data-action="cci-wo-sla" data-wo="${esc(r.work_order_id)}" data-contact="${esc(r.contact_name||'')}">WO Follow-Up</button>`;
+  if (s === 'input_dc')
+    return `<button class="btn btn-purple btn-sm" data-action="cci-dc" data-wo="${esc(r.work_order_id)}" data-contact="${esc(r.contact_name||'')}">Input DC</button>`;
+  return '—';
+}
+
+/* Build a row's <td> cells in the correct column order */
+function _cciRowCells(r, i) {
+  return [
+    `<td style="text-align:center;color:#8c959f;font-size:12px">${i + 1}</td>`,
+    `<td>${fmt(r.created_on)}</td>`,
+    `<td><button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button></td>`,
+    `<td>${esc(r.work_order_type||'—')}</td>`,
+    `<td><span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span></td>`,
+    `<td>${statusBadge(r.work_order_status)}</td>`,
+    `<td>${fuBadge(r.followup_state)}</td>`,
+    `<td>${esc(r.contact_name||'—')}</td>`,
+    `<td>${esc(r.customer||'—')}</td>`,
+    `<td>${fuActionBtn(r)}</td>`,
+  ].join('');
+}
+
+function _cciBindRows(tbody) {
+  tbody.querySelectorAll('.wo-link').forEach(b =>
+    b.addEventListener('click', () => openDetail(b.dataset.wo)));
+  tbody.querySelectorAll('[data-action="cci-recv"]').forEach(b =>
+    b.addEventListener('click', () => openRecv(b.dataset.wo, b.dataset.contact, b.dataset.eta, b.dataset.status)));
+  tbody.querySelectorAll('[data-action="cci-part-sla"]').forEach(b =>
+    b.addEventListener('click', () => toast(`Part SLA Follow-Up for WO ${b.dataset.wo} — form coming soon`, 'err')));
+  tbody.querySelectorAll('[data-action="cci-wo-sla"]').forEach(b =>
+    b.addEventListener('click', () => toast(`WO SLA Follow-Up for WO ${b.dataset.wo} — form coming soon`, 'err')));
+  tbody.querySelectorAll('[data-action="cci-dc"]').forEach(b =>
+    b.addEventListener('click', () => toast(`Input DC for WO ${b.dataset.wo} — form coming soon`, 'err')));
+}
+
+let _cciAllRows    = [];
+let _cciActiveState = '';   /* current sub-tab filter */
+
+const cciTable = makeTabTable({
+  apiUrl:  '/asp/api/cci-followup',
+  tbodyId: 'tbody-cci', emptyId: 'empty-cci', pgId: 'pg-cci', cntId: 'count-cci',
+  colsFn: () => [
+    { key: 'created_on',        render: r => fmt(r.created_on) },
+    { key: 'work_order_id',     render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
+    { key: 'work_order_type',   render: r => esc(r.work_order_type||'—') },
+    { key: 'case_desc',         render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
+    { key: 'work_order_status', render: r => statusBadge(r.work_order_status) },
+    { key: 'followup_state',    render: r => fuBadge(r.followup_state) },
+    { key: 'contact_name',      render: r => esc(r.contact_name||'—') },
+    { key: 'customer',          render: r => esc(r.customer||'—') },
+  ],
+  actionsFn: r => fuActionBtn(r),
+  onBind: rows => {
+    _cciAllRows = rows;
+    /* Red tab badge — actionable count */
+    const actionable = rows.filter(r => r.followup_state !== 'cancelled').length;
+    const badge = document.getElementById('tab-cci-badge');
+    badge.textContent  = actionable;
+    badge.style.display = actionable > 0 ? 'inline-block' : 'none';
+    _cciBindRows(document.getElementById('tbody-cci'));
+    /* Apply active sub-tab filter if one is set */
+    if (_cciActiveState) _cciRenderFiltered(_cciActiveState);
+  },
+});
+
+/* Re-render tbody with client-side filter */
+function _cciRenderFiltered(state) {
+  const tbody  = document.getElementById('tbody-cci');
+  const empty  = document.getElementById('empty-cci');
+  const count  = document.getElementById('count-cci');
+  const source = state ? _cciAllRows.filter(r => r.followup_state === state) : _cciAllRows;
+  if (!source.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    count.textContent = '0 records';
+    return;
+  }
+  empty.style.display = 'none';
+  count.textContent   = source.length + ' record' + (source.length !== 1 ? 's' : '');
+  tbody.innerHTML     = source.map((r, i) => `<tr>${_cciRowCells(r, i)}</tr>`).join('');
+  _cciBindRows(tbody);
+}
+
+/* Sub-tab pill clicks */
+document.querySelectorAll('#cci-subtab-bar .subtab-pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    document.querySelectorAll('#cci-subtab-bar .subtab-pill').forEach(p => {
+      p.classList.remove('active','sactive-confirm','sactive-part-sla','sactive-wo-sla','sactive-input-dc');
+    });
+    const state = pill.dataset.state;
+    _cciActiveState = state;
+    const activeClass = {
+      confirm_receipt: 'sactive-confirm',
+      part_sla:        'sactive-part-sla',
+      wo_sla:          'sactive-wo-sla',
+      input_dc:        'sactive-input-dc',
+    }[state] || 'active';
+    pill.classList.add(activeClass);
+    _cciRenderFiltered(state);
+  });
+});
+
+let cciTimer = null;
+document.getElementById('search-cci').addEventListener('input', () => {
+  clearTimeout(cciTimer);
+  cciTimer = setTimeout(() => {
+    cciTable.load({ q: document.getElementById('search-cci').value.trim() });
+  }, 350);
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   TAB 3 — Part Received
 ═══════════════════════════════════════════════════════════════ */
 const recvTable = makeTabTable({
   apiUrl: '/asp/api/part-received',
@@ -1498,15 +1856,12 @@ const recvTable = makeTabTable({
     { key: 'customer',       render: r => esc(r.customer||'—') },
   ],
   actionsFn: r => `
-    <button class="btn btn-primary btn-sm" data-action="confirm-recv" data-wo="${esc(r.work_order_id)}" data-contact="${esc(r.contact_name||'')}" data-eta="${esc(r.committed_delivery_date||'')}">Confirm Receipt</button>
-    <button class="btn btn-danger  btn-sm" data-action="escalate-recv" data-wo="${esc(r.work_order_id)}" data-contact="${esc(r.contact_name||'')}" data-eta="${esc(r.committed_delivery_date||'')}">Escalate</button>`,
+    <button class="btn btn-primary btn-sm" data-action="confirm-recv" data-wo="${esc(r.work_order_id)}" data-contact="${esc(r.contact_name||'')}" data-eta="${esc(r.committed_delivery_date||'')}" data-status="${esc(r.work_order_status||'')}">Confirm Receipt</button>`,
   onBind: rows => {
     document.querySelectorAll('#tbody-recv .wo-link').forEach(b =>
       b.addEventListener('click', () => openDetail(b.dataset.wo)));
     document.querySelectorAll('#tbody-recv [data-action="confirm-recv"]').forEach(b =>
-      b.addEventListener('click', () => openRecv(b.dataset.wo, b.dataset.contact, b.dataset.eta, false)));
-    document.querySelectorAll('#tbody-recv [data-action="escalate-recv"]').forEach(b =>
-      b.addEventListener('click', () => openRecv(b.dataset.wo, b.dataset.contact, b.dataset.eta, true)));
+      b.addEventListener('click', () => openRecv(b.dataset.wo, b.dataset.contact, b.dataset.eta, b.dataset.status)));
   },
 });
 
@@ -1583,9 +1938,10 @@ document.getElementById('search-rs').addEventListener('input', () => {
 /* ═══════════════════════════════════════════════════════════════
    TAB SWITCHING — load data lazily on first activation
 ═══════════════════════════════════════════════════════════════ */
-const tabLoaded = { 'tab-all': false, 'tab-part-received': false, 'tab-part-return': false, 'tab-reschedule': false };
+const tabLoaded = { 'tab-all': false, 'tab-cci-followup': false, 'tab-part-received': false, 'tab-part-return': false, 'tab-reschedule': false };
 const tabLoaders = {
   'tab-all':           () => loadAllWo(),
+  'tab-cci-followup':  () => cciTable.load({}),
   'tab-part-received': () => recvTable.load({}),
   'tab-part-return':   () => retTable.load({}),
   'tab-reschedule':    () => rsTable.load({}),
@@ -1598,11 +1954,25 @@ function switchTab(id) {
 }
 
 document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
-document.querySelectorAll('[data-goto]').forEach(c => c.addEventListener('click', () => switchTab(c.dataset.goto)));
+document.querySelectorAll('[data-goto]').forEach(c => c.addEventListener('click', () => {
+  const hasFilter = 'filterStatus' in c.dataset;
+  if (hasFilter) {
+    document.getElementById('filter-status-all').value      = c.dataset.filterStatus;
+    document.getElementById('search-all').value             = '';
+    document.getElementById('filter-type-all').value        = '';
+    document.getElementById('filter-case-status-all').value = '';
+  }
+  const tabId = c.dataset.goto;
+  if (hasFilter && tabId === 'tab-all') {
+    /* Force reload even if tab was already loaded */
+    tabLoaded['tab-all'] = false;
+  }
+  switchTab(tabId);
+}));
 
 /* ── URL param: ?tab= ── */
 (function () {
-  const map = { 'all':'tab-all', 'part-received':'tab-part-received', 'part-return':'tab-part-return', 'reschedule':'tab-reschedule' };
+  const map = { 'all':'tab-all', 'cci-followup':'tab-cci-followup', 'part-received':'tab-part-received', 'part-return':'tab-part-return', 'reschedule':'tab-reschedule' };
   const p   = new URLSearchParams(location.search).get('tab');
   const id  = (p && map[p]) || 'tab-all';
   switchTab(id);
@@ -1617,41 +1987,128 @@ document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click
 document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) closeModal(o.id); }));
 document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(o => o.classList.remove('open')); });
 
+/* ── Custom dropdown — Issue / Status ── */
+(function() {
+  const dd      = document.getElementById('recv-issue-dd');
+  const trigger = document.getElementById('recv-issue-trigger');
+  const list    = document.getElementById('recv-issue-list');
+  const display = document.getElementById('recv-issue-display');
+  const hidden  = document.getElementById('recv-issue-status');
+
+  function openDd()  { dd.classList.add('open'); }
+  function closeDd() { dd.classList.remove('open'); }
+
+  trigger.addEventListener('click', () => dd.classList.contains('open') ? closeDd() : openDd());
+  trigger.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dd.classList.contains('open') ? closeDd() : openDd(); }
+    if (e.key === 'Escape') closeDd();
+  });
+  document.addEventListener('click', e => { if (!dd.contains(e.target)) closeDd(); });
+
+  list.querySelectorAll('.dd-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      list.querySelectorAll('.dd-option').forEach(o => o.classList.remove('active'));
+      opt.classList.add('active');
+      const val = opt.dataset.value;
+      display.textContent = opt.textContent;
+      display.classList.toggle('has-selection', val !== 'WO Closed');
+      hidden.value = val;
+      closeDd();
+    });
+  });
+})();
+
 /* Part Received modal */
 let activeRecvWo = null;
-function openRecv(woId, contact, eta, escalateMode) {
+function openRecv(woId, contact, eta, woStatus) {
   activeRecvWo = woId;
-  document.getElementById('recv-sub').textContent       = escalateMode ? 'Escalate Issue' : 'CCI — Parts in Transit';
+
+  /* Reset strip */
   document.getElementById('recv-wo-num').textContent    = woId;
   document.getElementById('recv-contact').textContent   = contact || '—';
   document.getElementById('recv-eta').textContent       = fmt(eta);
+  document.getElementById('recv-wo-status-badge').innerHTML = woStatus ? statusBadge(woStatus) : '';
+
+  /* Reset form fields */
   document.getElementById('recv-datetime').value        = '';
-  document.getElementById('recv-escalation').value      = '';
-  document.getElementById('recv-esc-note').value        = '';
-  document.getElementById('awb-file-name').textContent  = 'No file chosen';
-  document.getElementById('recv-esc-note-group').style.display = 'none';
-  document.getElementById('btn-escalate-only').style.display   = escalateMode ? 'inline-flex' : 'none';
+  document.getElementById('recv-closed-datetime').value = '';
+  document.getElementById('awb-number').value           = '';
+  document.getElementById('recv-notes').value           = '';
+  document.getElementById('awb-file').value             = '';
+  document.getElementById('awb-file-name').textContent  = '';
+  document.getElementById('awb-file-chosen').style.display  = 'none';
+  document.getElementById('awb-compare-hint').style.display = 'none';
+
+  /* Reset custom dropdown to default */
+  const list    = document.getElementById('recv-issue-list');
+  const display = document.getElementById('recv-issue-display');
+  list.querySelectorAll('.dd-option').forEach(o => o.classList.remove('active'));
+  list.querySelector('.dd-default').classList.add('active');
+  display.textContent = '— WO Closed (no issue) —';
+  display.classList.remove('has-selection');
+  document.getElementById('recv-issue-status').value = 'WO Closed';
+
+  /* Clear parts list */
+  const partsList = document.getElementById('recv-parts-list');
+  const qtyPill   = document.getElementById('recv-parts-qty');
+  partsList.style.display = 'none';
+  /* Remove old part rows but keep the header div */
+  partsList.querySelectorAll('.wo-strip-part-row').forEach(r => r.remove());
+
   openModal('modal-received');
+
+  /* Fetch parts for this WO */
+  fetch(`/asp/api/wo-parts/${woId}`)
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (!data || !data.parts || !data.parts.length) return;
+      const parts = data.parts;
+      partsList.style.display = 'block';
+      qtyPill.textContent = parts.length + (parts.length === 1 ? ' part' : ' parts');
+      let awbValues = new Set();
+      parts.forEach(p => {
+        const row = document.createElement('div');
+        row.className = 'wo-strip-part-row';
+        const awbHtml = p.awb
+          ? `<span class="wo-strip-part-awb">AWB: ${esc(p.awb)}</span>`
+          : `<span class="wo-strip-part-noawb">No AWB on record</span>`;
+        row.innerHTML = `<span class="wo-strip-part-pn">${esc(p.part_number||'—')}</span><span class="wo-strip-part-desc">${esc(p.part_description||'')}</span>${awbHtml}`;
+        partsList.appendChild(row);
+        if (p.awb) awbValues.add(p.awb.trim());
+      });
+      if (awbValues.size === 1) {
+        document.getElementById('awb-db-value').textContent = [...awbValues][0];
+        document.getElementById('awb-compare-hint').style.display = 'flex';
+      }
+    })
+    .catch(() => {});
 }
-document.getElementById('recv-escalation').addEventListener('change', function() {
-  document.getElementById('recv-esc-note-group').style.display = this.value ? 'block' : 'none';
-  document.getElementById('btn-escalate-only').style.display   = this.value ? 'inline-flex' : 'none';
-});
+
 document.getElementById('awb-file').addEventListener('change', function() {
-  document.getElementById('awb-file-name').textContent = this.files[0] ? this.files[0].name : 'No file chosen';
+  const chosen = document.getElementById('awb-file-chosen');
+  if (this.files[0]) {
+    document.getElementById('awb-file-name').textContent = this.files[0].name;
+    chosen.style.display = 'flex';
+  } else {
+    chosen.style.display = 'none';
+  }
 });
+
 document.getElementById('btn-confirm-received').addEventListener('click', () => {
-  if (!document.getElementById('recv-datetime').value) { toast('Please enter the received date & time.', 'err'); return; }
-  const esc_ = document.getElementById('recv-escalation').value;
-  if (esc_ && !document.getElementById('recv-esc-note').value.trim()) { toast('Please describe the escalation issue.', 'err'); return; }
-  toast(`WO ${activeRecvWo} — receipt confirmed${esc_ ? ' + escalated: ' + esc_ : ' ✓'}`, esc_ ? 'err' : 'ok');
-  closeModal('modal-received');
-});
-document.getElementById('btn-escalate-only').addEventListener('click', () => {
-  const esc_ = document.getElementById('recv-escalation').value;
-  if (!esc_) { toast('Please select an escalation reason.', 'err'); return; }
-  if (!document.getElementById('recv-esc-note').value.trim()) { toast('Please describe the issue.', 'err'); return; }
-  toast(`WO ${activeRecvWo} — escalated: ${esc_}`, 'err');
+  if (!document.getElementById('recv-datetime').value) {
+    toast('Please enter the Date & Time ASP Received Part.', 'err'); return;
+  }
+  if (!document.getElementById('awb-number').value.trim()) {
+    toast('Please enter the AWB number.', 'err'); return;
+  }
+  if (!document.getElementById('awb-file').files[0]) {
+    toast('Please upload the AWB document.', 'err'); return;
+  }
+  if (!document.getElementById('recv-closed-datetime').value) {
+    toast('Please enter the Date & Time WO# Closed.', 'err'); return;
+  }
+  /* TODO: POST to /asp/api/part-received once backend is ready */
+  toast(`WO ${activeRecvWo} — receipt confirmed ✓`, 'ok');
   closeModal('modal-received');
 });
 
@@ -1663,7 +2120,7 @@ function openReturn(woId, contact, onsite) {
   document.getElementById('ret-contact').textContent = contact || '—';
   document.getElementById('ret-onsite').textContent  = fmt(onsite);
   document.getElementById('ret-dc').value            = '';
-  document.getElementById('ret-date').value          = '';
+  document.getElementById('ret-date').value = '';
   document.getElementById('ret-issue').value         = '';
   document.getElementById('ret-issue-note').value    = '';
   document.getElementById('ret-issue-note-group').style.display = 'none';
@@ -1691,7 +2148,7 @@ function openReschedule(woId, contact, status) {
   document.getElementById('rs-contact').textContent   = contact || '—';
   document.getElementById('rs-status').textContent    = status || '—';
   document.getElementById('rs-by').value              = '';
-  document.getElementById('rs-date').value            = '';
+  document.getElementById('rs-date').value = '';
   document.getElementById('rs-reason-asp').value      = '';
   document.getElementById('rs-reason-customer').value = '';
   document.getElementById('rs-section-asp').style.display      = 'none';
@@ -1708,7 +2165,7 @@ document.getElementById('rs-evidence-file').addEventListener('change', function(
   document.getElementById('rs-evidence-name').textContent = this.files[0] ? this.files[0].name : 'No file chosen';
 });
 document.getElementById('btn-confirm-reschedule').addEventListener('click', () => {
-  const by = document.getElementById('rs-by').value;
+  const by     = document.getElementById('rs-by').value;
   const dt = document.getElementById('rs-date').value;
   if (!by) { toast('Please select Reschedule by Customer or ASP.', 'err'); return; }
   if (!dt) { toast('Please select a new appointment date.', 'err'); return; }

@@ -36,6 +36,15 @@ def create_app():
         click.echo(f"  wo_product_detail (MSD)  : {counts['wo_product_from_msd']:,} rows")
         click.echo(f"  wo_product_detail (Ship) : {counts['wo_product_from_shipment']:,} rows processed")
 
+    # ── Template filters ───────────────────────────────────────────────────────
+    @app.template_filter("thousands")
+    def thousands_filter(value):
+        """Format an integer with dot-separated thousands: 21855 → 21.855"""
+        try:
+            return f"{int(value):,}".replace(",", ".")
+        except (ValueError, TypeError):
+            return value
+
     # Register blueprints
     app.register_blueprint(excel_upload_bp)  # legacy: /upload-excel (kept for backward compat)
     app.register_blueprint(asp_bp)           # /asp/*

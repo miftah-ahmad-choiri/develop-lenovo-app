@@ -58,7 +58,7 @@
   .badge-s-transit       { background: #ede9fe; color: #6d28d9; }
   .badge-s-part-hold     { background: #fce7f3; color: #9d174d; }
   .badge-s-part-req      { background: #fef3c7; color: #92400e; }
-  .badge-s-part-delivered{ background: #ffedd5; color: #c2410c; }
+  .badge-s-part-delivered{ background: #dcfce7; color: #15803d; }
   .badge-s-cust-hold     { background: #ffe4e6; color: #be123c; }
   .badge-s-in-repair     { background: #dbeafe; color: #1d4ed8; }
   .badge-s-tech-assigned { background: #fef3c7; color: #b45309; }
@@ -133,7 +133,7 @@
   /* ── WO Detail — hero banner ─────────────────────────────────── */
   .wo-hero { padding: 20px 22px 16px; background: #f7f8fa; border-bottom: 1px solid #e5e7eb; }
   .wo-hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-  .wo-hero-id { font-size: 22px; font-weight: 800; color: #1f2328; font-family: ui-monospace, monospace; letter-spacing: -0.02em; }
+  .wo-hero-id { font-size: 22px; font-weight: 700; color: #1f2328; font-family: "IBM Plex Serif", serif; letter-spacing: -0.02em; }
   .wo-hero-sn { font-size: 12px; color: #57606a; margin-top: 2px; }
   .wo-hero-sn strong { color: #1f2328; font-family: ui-monospace, monospace; }
   .wo-hero-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
@@ -247,25 +247,25 @@
 
 <!-- Stat cards — live counts from wo_summary -->
 <div class="stat-row">
-  <div class="stat-card blue">
+  <div class="stat-card blue" data-filter-status="" style="cursor:pointer">
     <div class="sc-label">Total WO</div>
-    <div class="sc-value">{{ total | default(0) | int }}</div>
+    <div class="sc-value">{{ total | default(0) | int | thousands }}</div>
   </div>
-  <div class="stat-card amber">
+  <div class="stat-card amber" data-filter-status="open" style="cursor:pointer">
     <div class="sc-label">Open / Active</div>
-    <div class="sc-value">{{ open | default(0) | int }}</div>
+    <div class="sc-value">{{ open | default(0) | int | thousands }}</div>
   </div>
-  <div class="stat-card red">
+  <div class="stat-card red" data-filter-status="part_hold" style="cursor:pointer">
     <div class="sc-label">Part Hold</div>
-    <div class="sc-value">{{ part_hold | default(0) | int }}</div>
+    <div class="sc-value">{{ part_hold | default(0) | int | thousands }}</div>
   </div>
-  <div class="stat-card blue">
+  <div class="stat-card blue" data-filter-status="transit" style="cursor:pointer">
     <div class="sc-label">Part in Transit</div>
-    <div class="sc-value">{{ part_transit | default(0) | int }}</div>
+    <div class="sc-value">{{ part_transit | default(0) | int | thousands }}</div>
   </div>
-  <div class="stat-card green">
+  <div class="stat-card green" data-filter-status="closed" style="cursor:pointer">
     <div class="sc-label">Closed / Completed</div>
-    <div class="sc-value">{{ closed | default(0) | int }}</div>
+    <div class="sc-value">{{ closed | default(0) | int | thousands }}</div>
   </div>
 </div>
 
@@ -395,8 +395,9 @@ function esc(s) {
   return String(s == null ? '' : s)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+function isSentinel(s) { return s && String(s).slice(0, 4) === '2099'; }
 function fmt(s) {
-  if (!s) return '—';
+  if (!s || isSentinel(s)) return '—';
   const d = String(s).slice(0, 16).replace('T', ' ');
   return d || '—';
 }
@@ -564,6 +565,18 @@ document.getElementById('wo-filter-status').addEventListener('change',      () =
 document.getElementById('wo-filter-type').addEventListener('change',         () => loadPage(1));
 document.getElementById('wo-filter-case-status').addEventListener('change',  () => loadPage(1));
 
+/* Stat card → filter shortcut */
+document.querySelectorAll('.stat-row .stat-card[data-filter-status]').forEach(card => {
+  card.addEventListener('click', () => {
+    document.getElementById('wo-filter-status').value      = card.dataset.filterStatus;
+    document.getElementById('wo-search').value             = '';
+    document.getElementById('wo-filter-type').value        = '';
+    document.getElementById('wo-filter-case-status').value = '';
+    loadPage(1);
+    document.querySelector('.table-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
+
 /* Initial load */
 loadPage(1);
 
@@ -603,7 +616,7 @@ function heroChipClass(s) {
 }
 
 function fmtShort(s) {
-  if (!s) return null;
+  if (!s || isSentinel(s)) return null;
   const d = new Date(String(s).replace(' ', 'T'));
   if (isNaN(d)) return s.slice(0, 16).replace('T', ' ');
   const day = d.getDate().toString().padStart(2, '0');
@@ -687,13 +700,13 @@ function renderHero(d) {
   const rrVal   = d.repeat_repair || '—';
   const rrIsYes = (d.repeat_repair || '').toLowerCase() === 'yes';
   const bar1Items = [
-    d.work_order_type      ? { l: 'Type',       v: d.work_order_type,                                    cls: 'gray'   } : null,
-    {                        l: 'Repeat Repair', v: rrIsYes ? (d.repeat_repair_reason || d.repeat_repair) : rrVal,
-                                                                                                           cls: rrIsYes ? 'red' : 'green' },
+    d.work_order_type      ? { l: 'Type:',       v: d.work_order_type,                                    cls: 'gray'   } : null,
+    {                        l: 'Repeat Repair:', v: rrIsYes ? (d.repeat_repair_reason || d.repeat_repair) : rrVal,
+                                                                                                            cls: rrIsYes ? 'red' : 'green' },
     d.work_order_priority && d.work_order_priority.toLowerCase() !== 'normal'
-      ?                      { l: 'Priority',   v: d.work_order_priority,                                 cls: 'red'    } : null,
-    d.premier_service      ? { l: 'Premier',    v: d.premier_service,                                     cls: 'purple' } : null,
-    d.order_type           ? { l: 'Order Type', v: d.order_type,                                          cls: 'gray'   } : null,
+      ?                      { l: 'Priority:',   v: d.work_order_priority,                                 cls: 'red'    } : null,
+    d.premier_service      ? { l: 'Premier:',    v: d.premier_service,                                     cls: 'purple' } : null,
+    d.order_type           ? { l: 'Order Type:', v: d.order_type,                                          cls: 'gray'   } : null,
   ].filter(Boolean);
   const renderBar = items => `<div class="wo-info-bar">
     ${items.map(i => `<div class="wo-info-item">
@@ -701,7 +714,7 @@ function renderHero(d) {
       <span class="wo-info-val ${i.cls}">${esc(i.v)}</span>
     </div>`).join('')}
   </div>`;
-  const hasContact = d.contact_name || d.mobile_phone || d.primary_email || d.address || d.city;
+  const hasContact = d.contact_name || d.mobile_phone || d.primary_email || d.address || d.company_name;
   const hasAsp     = d.customer || d.labor_vendor_related || d.technician_id;
   const customerCard = (hasContact || hasAsp) ? `
     <div class="wo-customer-wrap">
@@ -709,44 +722,49 @@ function renderHero(d) {
       <div class="wo-customer-box">
         <div class="wo-customer-col">
           ${d.contact_name ? `<div class="wo-customer-name">${esc(d.contact_name)}</div>` : ''}
-          ${d.mobile_phone  ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Mobile Phone</span><span class="wo-customer-val">${esc(d.mobile_phone)}</span></div>` : ''}
-          ${d.primary_email ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Email</span><span class="wo-customer-val">${esc(d.primary_email)}</span></div>` : ''}
+          ${d.mobile_phone  ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Mobile Phone:</span><span class="wo-customer-val">${esc(d.mobile_phone)}</span></div>` : ''}
+          ${d.primary_email ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Email:</span><span class="wo-customer-val">${esc(d.primary_email)}</span></div>` : ''}
         </div>
         <div class="wo-customer-col">
           ${d.contact_name ? `<div class="wo-customer-name" style="visibility:hidden">—</div>` : ''}
-          ${d.city    ? `<div class="wo-customer-row"><span class="wo-customer-lbl">City</span><span class="wo-customer-val">${esc(d.city)}</span></div>` : ''}
-          ${d.address ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Address</span><span class="wo-customer-val">${esc(d.address)}</span></div>` : ''}
+          ${d.company_name ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Company:</span><span class="wo-customer-val">${esc(d.company_name)}</span></div>` : ''}
+          ${d.address ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Address:</span><span class="wo-customer-val">${esc(d.address)}</span></div>` : ''}
         </div>
       </div>` : ''}
       ${hasAsp ? `
       <div class="wo-customer-box asp">
         <div class="wo-customer-col">
           ${d.customer             ? `<div class="wo-customer-asp">${esc(d.customer)}</div>` : ''}
-          ${d.labor_vendor_related ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Vendor ID</span><span class="wo-customer-val">${esc(d.labor_vendor_related)}</span></div>` : ''}
-          ${d.technician_id        ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Technician</span><span class="wo-customer-val">${esc(d.technician_id)}</span></div>` : ''}
+          ${d.labor_vendor_related ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Vendor ID:</span><span class="wo-customer-val">${esc(d.labor_vendor_related)}</span></div>` : ''}
+          ${d.technician_id        ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Technician:</span><span class="wo-customer-val">${esc(d.technician_id)}</span></div>` : ''}
         </div>
       </div>` : ''}
     </div>` : '';
   return `<div class="wo-hero">
     <!-- Row 1: WO ID + WO Status badge + Closing Code pill inline -->
     <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;">
-      <div class="wo-hero-id"><span style="color:#8c959f">WO</span> ${esc(String(d.work_order_id))}</div>
+      <div class="wo-hero-id"><span style="color:#8c959f">WO#</span> ${esc(String(d.work_order_id))}</div>
       ${statusBadge(d.work_order_status)}
       ${d.closing_code ? closingCodePill(d.closing_code) : ''}
     </div>
-    <!-- Row 2: Serial No. · CASE number · Case Status inline -->
-    <div class="wo-hero-sn" style="margin-top:6px;display:flex;flex-wrap:wrap;align-items:center;gap:0 4px;">
-      ${d.serial_number  ? `<span style="font-size:10px;font-weight:600;color:#8c959f;margin-right:2px">Serial No.</span><strong style="color:#1f2328;font-family:ui-monospace,monospace;margin-right:10px">${esc(d.serial_number)}</strong>` : ''}
-      ${d.case_number    ? `<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;margin-right:2px">CASE</span><span style="font-family:ui-monospace,monospace;color:#1f2328;font-weight:700;margin-right:10px">${esc(d.case_number)}</span>` : ''}
-      ${d.case_status    ? `<span style="margin-left:2px">${caseStatusPill(d.case_status)}</span>` : ''}
-    </div>
-    <!-- Row 3: MTM · Product Description -->
-    <div class="wo-hero-sn" style="margin-top:3px;display:flex;flex-wrap:wrap;align-items:center;gap:0 4px;">
-      ${d.product_id_mtm      ? `<span style="font-size:10px;font-weight:600;color:#8c959f;margin-right:2px">MTM</span><strong style="color:#1f2328;font-family:ui-monospace,monospace;margin-right:10px">${esc(d.product_id_mtm)}</strong>` : ''}
-      ${d.product_description ? `<span style="font-size:10px;font-weight:600;color:#8c959f;margin-right:2px">Product</span><strong style="color:#1f2328;font-family:ui-monospace,monospace">${esc(d.product_description)}</strong>` : ''}
+    <!-- Row 2 + 3: SN/CASE and MTM/PRODUCT in aligned grid columns -->
+    <div style="margin-top:6px;display:grid;grid-template-columns:200px 1fr;row-gap:4px;align-items:center;">
+      <div style="display:flex;align-items:center;gap:4px;min-width:0">
+        ${d.serial_number ? `<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;white-space:nowrap">SN:</span><strong style="color:#1f2328;font-family:ui-monospace,monospace;white-space:nowrap">${esc(d.serial_number)}</strong>` : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-width:0">
+        ${d.case_number ? `<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;white-space:nowrap">CASE#</span><span style="font-family:ui-monospace,monospace;color:#1f2328;font-weight:700;white-space:nowrap">${esc(d.case_number)}</span>` : ''}
+        ${d.case_status ? caseStatusPill(d.case_status) : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;min-width:0">
+        ${d.product_id_mtm ? `<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;white-space:nowrap">MTM:</span><strong style="color:#1f2328;font-family:ui-monospace,monospace;white-space:nowrap">${esc(d.product_id_mtm)}</strong>` : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-width:0">
+        ${d.product_description ? `<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;white-space:nowrap">PRODUCT:</span><strong style="color:#1f2328;font-family:ui-monospace,monospace">${esc(d.product_description)}</strong>` : ''}
+      </div>
     </div>
     <!-- Case description -->
-    ${d.case_desc ? `<div style="margin-top:10px;font-size:12px;color:#57606a;background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:8px 12px;"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;margin-right:8px">Case</span>${esc(d.case_desc)}</div>` : ''}
+    ${d.case_desc ? `<div style="margin-top:10px;font-size:12px;color:#57606a;background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:8px 12px;"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;margin-right:8px">Case Title:</span>${esc(d.case_desc)}</div>` : ''}
     ${customerCard}
     ${bar1Items.length ? renderBar(bar1Items) : ''}
   </div>`;
@@ -757,22 +775,23 @@ function renderTimeline(d, parts) {
   const isCancelled = p => { const s = (p.wo_product_status || '').toLowerCase(); return s.includes('cancel'); };
   const activePart    = (parts && parts.find(p => !isCancelled(p))) || (parts && parts[0]) || null;
   const activePartIdx = activePart ? parts.indexOf(activePart) : -1;
-  const partOrderDate  = activePart ? activePart.order_date        : null;
-  const partPickupDate = activePart ? activePart.ship_pickup_time  : null;
-  const partPodDate    = activePart ? activePart.ship_pou_pod_time : null;
+  const partOrderDate  = activePart ? (activePart.order_date       || activePart.acceptance_date || null) : null;
+  const partPickupDate = activePart ? (activePart.ship_pickup_time  || activePart.shipment_date   || null) : null;
+  const partPodDate    = activePart ? (activePart.ship_pou_pod_time || activePart.delivery_date   || null) : null;
   /* true when the WO is closed/completed — forces onsite nodes to done */
   const isWoClosed = !!(d.completion_date || d.closing_date);
+  const nd = v => (isSentinel(v) ? null : v);
   const nodes = [
-    { label: 'Case\nCreated',        date: d.created_on },
-    { label: 'Released',             date: d.release_date },
-    { label: 'Part Order',           date: partOrderDate },
-    { label: 'Part Pickup',          date: partPickupDate },
-    { label: 'Part Received\n(POD)', date: partPodDate },
-    { label: 'Orig. Onsite',         date: d.original_committed_onsite_date },
-    { label: 'Defer Date',           date: d.customer_defer_date, optional: true },
-    { label: 'Actual\nOnsite',       date: d.actual_committed_onsite_date },
-    { label: 'Completion',           date: d.completion_date },
-    { label: 'Closed',               date: d.closing_date },
+    { label: 'Case\nCreated',        date: nd(d.created_on) },
+    { label: 'Released',             date: nd(d.release_date) },
+    { label: 'Part Order',           date: nd(partOrderDate) },
+    { label: 'Part Pickup',          date: nd(partPickupDate) },
+    { label: 'Part Received\n(POD)', date: nd(partPodDate) },
+    { label: 'Orig. Onsite',         date: nd(d.original_committed_onsite_date) },
+    { label: 'Defer Date',           date: nd(d.customer_defer_date), optional: true },
+    { label: 'Actual\nOnsite',       date: nd(d.actual_committed_onsite_date) },
+    { label: 'Completion',           date: nd(d.completion_date) },
+    { label: 'Closed',               date: nd(d.closing_date) },
   ];
   let lastDoneIdx = -1;
   nodes.forEach((n, i) => { if (n.date) lastDoneIdx = i; });
@@ -887,10 +906,10 @@ function renderParts(parts, woId) {
         <div class="part-card-field"><div class="pcf-label">SOID</div><div class="pcf-value mono">${esc(p.soid || '—')}</div></div>
         <div class="part-card-field"><div class="pcf-label">AWB</div><div class="pcf-value mono">${esc(p.awb || '—')}</div></div>
         <div class="part-card-field"><div class="pcf-label">SLA</div><div class="pcf-value">${esc(p.sla || '—')}</div></div>
-        <div class="part-card-field"><div class="pcf-label">Order Date</div><div class="pcf-value">${fmt(p.order_date) || '—'}</div></div>
-        <div class="part-card-field"><div class="pcf-label">Pickup Date</div><div class="pcf-value">${fmt(p.ship_pickup_time) || '—'}</div></div>
+        <div class="part-card-field"><div class="pcf-label">Order Date</div><div class="pcf-value">${fmt(p.order_date || p.acceptance_date) || '—'}</div></div>
+        <div class="part-card-field"><div class="pcf-label">Pickup Date</div><div class="pcf-value">${fmt(p.ship_pickup_time || p.shipment_date) || '—'}</div></div>
         ${(()=>{
-          const pod     = p.ship_pou_pod_time;
+          const pod     = p.ship_pou_pod_time || p.delivery_date;
           const eta     = p.target;
           const etaFmt  = fmt(eta);
           if (pod || !eta) {
@@ -903,7 +922,7 @@ function renderParts(parts, woId) {
             : `<div><span class="eta-pill pending">Awaiting</span></div>`;
           return `<div class="part-card-field ${cls}"><div class="pcf-label">Target ETA</div><div class="pcf-value">${etaFmt || '—'}</div>${pill}</div>`;
         })()}
-        <div class="part-card-field"><div class="pcf-label">Part Received (POD)</div><div class="pcf-value">${fmt(p.ship_pou_pod_time) || '—'}</div></div>
+        <div class="part-card-field"><div class="pcf-label">Part Received (POD)</div><div class="pcf-value">${fmt(p.ship_pou_pod_time || p.delivery_date) || '—'}</div></div>
       </div>
     </div>`;
   }).join('');

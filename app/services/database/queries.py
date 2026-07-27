@@ -381,6 +381,81 @@ def get_asp_part_received_page(search: str = "", page: int = 1, page_size: int =
     return _paged_query(tab_where, search, page, page_size)
 
 
+# CCI Follow-Up — all CCI (Carry-In) WOs with a computed follow-up state
+_CCI_FOLLOWUP_COLS = """
+    work_order_id, serial_number, created_on,
+    committed_delivery_date, actual_committed_onsite_date,
+    case_desc, work_order_type, contact_name,
+    customer, work_order_status, case_status
+"""
+
+def get_asp_cci_followup_page(search: str = "", page: int = 1, page_size: int = 25) -> dict:
+    """
+    CCI Follow-Up tab — all CCI / Carry-In WOs, any status.
+    Adds a computed `followup_state` per row:
+        confirm_receipt  — part in transit/hold, ETA not yet passed
+        part_sla         — part in transit/hold, ETA already passed
+        wo_sla           — part received, WO still open
+        input_dc         — WO closed, needs DC / pickup
+    """
+    import datetime
+    conn   = get_db()
+    params: list = []
+    wheres: list[str] = [
+        "(LOWER(work_order_type) LIKE '%carry%' OR LOWER(work_order_type) LIKE '%cci%')"
+    ]
+
+    if search:
+        term = f"%{search.lower()}%"
+        wheres.append("""(
+            CAST(work_order_id AS TEXT) LIKE ?
+            OR LOWER(serial_number)     LIKE ?
+            OR LOWER(contact_name)      LIKE ?
+            OR LOWER(customer)          LIKE ?
+            OR LOWER(case_desc)         LIKE ?
+        )""")
+        params.extend([term, term, term, term, term])
+
+    where_sql = "WHERE " + " AND ".join(wheres)
+    total  = conn.execute(f"SELECT COUNT(*) FROM wo_summary {where_sql}", params).fetchone()[0]
+    pages  = max(1, -(-total // page_size))
+    offset = (max(1, page) - 1) * page_size
+
+    rows = conn.execute(f"""
+        SELECT {_CCI_FOLLOWUP_COLS}
+        FROM wo_summary
+        {where_sql}
+        ORDER BY created_on DESC
+        LIMIT ? OFFSET ?
+    """, params + [page_size, offset]).fetchall()
+
+    today = datetime.date.today().isoformat()
+
+    def _followup_state(r: dict) -> str:
+        status = (r.get("work_order_status") or "").lower()
+        eta    = (r.get("committed_delivery_date") or "")[:10]
+        is_closed    = any(k in status for k in ("closed","completed","repair done","rma","returned","pickup"))
+        is_cancelled = "cancel" in status
+        is_transit   = "transit" in status or "part" in status
+
+        if is_cancelled:
+            return "cancelled"
+        if is_closed:
+            return "input_dc"
+        if is_transit:
+            return "part_sla" if (eta and eta < today) else "confirm_receipt"
+        # open, not transit — part already received, WO not yet closed
+        return "wo_sla"
+
+    result_rows = []
+    for r in rows:
+        row = dict(r)
+        row["followup_state"] = _followup_state(row)
+        result_rows.append(row)
+
+    return {"rows": result_rows, "total": total, "page": page, "pages": pages}
+
+
 # Part Return — closed WOs (the full closed group, parts to be returned)
 def get_asp_part_return_page(search: str = "", page: int = 1, page_size: int = 25) -> dict:
     tab_where = _CLOSED_WHERE
