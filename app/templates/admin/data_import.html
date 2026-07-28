@@ -515,6 +515,7 @@
     var allRows       = data.all_rows || [];
     var isShipment    = (categoryKey === 'SHIPMENT');
     var isPartOnHold  = (categoryKey === 'PARTONHOLD');
+    var isGtaap       = (categoryKey === 'GTAAP');
 
     // Stat card labels per category
     var impactedLabel, skippedLabel;
@@ -524,6 +525,9 @@
     } else if (isShipment) {
       impactedLabel = 'Rows missing shipment data';
       skippedLabel  = 'Fully filled (skip)';
+    } else if (isGtaap) {
+      impactedLabel = 'DC# Rows to Write';
+      skippedLabel  = 'No DC# / Already up-to-date (skip)';
     } else {
       impactedLabel = 'New Rows (INSERT)';
       skippedLabel  = 'Existing Rows (UPDATE)';
@@ -536,6 +540,9 @@
       subDesc = 'Rows shown are <strong>On Hold &mdash; Part Hold</strong> lines whose SOID matches <code>wo_product_detail</code> and whose ETA can fill an empty <code>target</code> or is newer than the current value.';
     } else if (isShipment) {
       subDesc = 'Rows shown are those whose Work Order ID matches <code>wo_summary</code>, where the DB has NULL for at least one of <code>ship_pn</code>, <code>awb</code>, or <code>ship_pou_pod_time</code>, <strong>and</strong> the Excel file has a real value for that column.';
+    } else if (isGtaap) {
+      subDesc = 'Rows shown are GTAAP lines whose SOID exists in <code>wo_product_detail</code> and whose <code>dc_number</code> is currently <strong>NULL or 0</strong>. ' +
+                'A real DC# from Excel will be inserted where available; rows with <em>Return Flag = N</em> and no DC# will be marked <strong>0</strong>.';
     } else {
       subDesc = 'Rows already present will be updated; new rows will be inserted.';
     }
@@ -570,6 +577,11 @@
       noteText = '<strong>Note:</strong> Only rows where <code>wo_product_status = \'On Hold - Part Hold\'</code> in the database are eligible. The <code>ETA</code> column from the Backlog Report File is written to <code>wo_product_detail.target</code> when the DB value is empty <em>or</em> the Excel date is strictly newer than what is already stored.';
     } else if (isShipment) {
       noteText = '<strong>Note:</strong> A row is included only when the DB has <code>NULL</code> for at least one of <code>ship_pn</code>, <code>awb</code>, or <code>ship_pou_pod_time</code> <em>and</em> the uploaded Excel provides a real (non-empty) value for that same column. Rows where the Excel value is also empty are excluded — there is nothing to update.';
+    } else if (isGtaap) {
+      noteText = '<strong>Note:</strong> Eligible rows are those whose <code>dc_number</code> is <code>NULL</code> or <code>0</code>. ' +
+                 'Pass 1 writes the real DC# from Excel (overwrites <code>0</code> too). ' +
+                 'Pass 2 writes <code>0</code> for rows still empty where <em>Return Flag = N/No</em>. ' +
+                 'Any row whose <code>dc_number</code> already holds a real value is never touched.';
     } else {
       noteText = '<strong>Note:</strong> Only rows whose Work Order ID already exists in <code>wo_summary</code> are written to <code>wo_product_detail</code>. Rows referencing an unknown Work Order ID are skipped.';
     }
@@ -581,6 +593,8 @@
         zeroMsg = '<strong>No rows to update.</strong> All matched On Hold &mdash; Part Hold lines already have an up-to-date <code>target</code> value, or there are no matching SOIDs in the database.';
       } else if (isShipment) {
         zeroMsg = '<strong>No rows to update.</strong> All matched Excel rows already have <code>ship_pn</code>, <code>awb</code>, and <code>ship_pou_pod_time</code> populated in the database.';
+      } else if (isGtaap) {
+        zeroMsg = '<strong>No DC# rows to update.</strong> All matched SOIDs already have a real <code>dc_number</code> (not NULL or 0), or no eligible rows were found in the Excel file.';
       } else {
         zeroMsg = '<strong>No new rows to insert.</strong> All ' + totalRows + ' Excel rows already exist in the database (they will be updated in-place).';
       }
@@ -596,7 +610,10 @@
         '<div style="overflow-x:auto;max-height:340px;overflow-y:auto;margin-bottom:16px;border:1px solid #e5e7eb;border-radius:6px;">' +
           '<table class="modal-preview-table" style="margin-bottom:0;">' +
             '<thead style="position:sticky;top:0;z-index:1;background:#f0f2f5;"><tr>' +
-              cols.map(function(c) { return '<th>' + esc(c) + '</th>'; }).join('') +
+              cols.map(function(c) {
+                var isInsert = isGtaap && c === 'DC# (will be inserted)';
+                return '<th style="' + (isInsert ? 'background:#dcfce7;color:#15803d;font-weight:700;' : '') + '">' + esc(c) + '</th>';
+              }).join('') +
             '</tr></thead>' +
             '<tbody>' +
               (allRows.length === 0
@@ -605,7 +622,11 @@
                     return '<tr>' +
                       cols.map(function(c) {
                         var v = row[c] !== undefined ? row[c] : '';
-                        return '<td title="' + esc(v) + '">' + esc(v) + '</td>';
+                        var isInsert = isGtaap && c === 'DC# (will be inserted)';
+                        var style = isInsert
+                          ? 'background:#f0fdf4;color:#15803d;font-weight:600;'
+                          : '';
+                        return '<td style="' + style + '" title="' + esc(v) + '">' + esc(v) + '</td>';
                       }).join('') +
                     '</tr>';
                   }).join('')

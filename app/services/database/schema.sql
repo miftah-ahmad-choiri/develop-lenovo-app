@@ -110,7 +110,8 @@ CREATE TABLE IF NOT EXISTS wo_product_detail (
     awb                 TEXT,                         -- airwaybill number
     sla                 TEXT,                         -- NBD / 2BD etc.
     target              TEXT,                         -- SLA deadline (from Shipment file)
-    eta_parthold_backlog TEXT                         -- SO ETA from Backlog Report File (On Hold - Part Hold only)
+    eta_parthold_backlog TEXT,                        -- SO ETA from Backlog Report File (On Hold - Part Hold only)
+    dc_number            TEXT                         -- DC# from GTAAP Report (Resolv), mapped by SOID
 );
 
 -- Index for lookup by work_order_id (most common query pattern)

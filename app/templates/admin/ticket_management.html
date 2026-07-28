@@ -788,6 +788,11 @@ function renderParts(parts, woId) {
   ];
 
   const cards = sorted.map((p, i) => {
+    const _dc = p.dc_number != null ? String(p.dc_number).trim() : '';
+    const dcBadge = (_dc && _dc !== '0')
+      ? `<span style="font-size:11px;font-weight:600;color:#3b82d4;white-space:nowrap">(DC# ${esc(_dc)})</span>`
+      : '';
+
     const retFlag = p.return_flag === 'Y'
       ? '<span class="badge badge-part-hold">Return</span>'
       : (p.return_flag === 'N' ? '<span class="badge badge-default">No Return</span>' : '<span style="color:#8c959f">—</span>');
@@ -806,7 +811,7 @@ function renderParts(parts, woId) {
         <div style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">
           ${etaWh}
           ${partStatusBadge(p.wo_product_status)}
-          ${retFlag}
+          ${retFlag}${dcBadge}
         </div>
       </div>
       <div class="part-card-body">

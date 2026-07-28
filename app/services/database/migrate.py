@@ -33,6 +33,7 @@ def run_migrations(app: Flask) -> None:
         _migrate_wo_product_detail_cascade(conn)
         _migrate_wo_details_add_product_description(conn)
         _migrate_wo_product_detail_add_eta_parthold(conn)
+        _migrate_wo_product_detail_add_dc_number(conn)
     finally:
         conn.close()
 
@@ -135,5 +136,22 @@ def _migrate_wo_details_add_product_description(conn: sqlite3.Connection) -> Non
     if "product_description" not in existing:
         conn.execute(
             "ALTER TABLE wo_details ADD COLUMN product_description TEXT"
+        )
+        conn.commit()
+
+
+def _migrate_wo_product_detail_add_dc_number(conn: sqlite3.Connection) -> None:
+    """Add dc_number column to wo_product_detail if it does not exist.
+
+    Populated by the GTAAP Report upsert — maps SOID → DC# from the
+    Resolv GTAAP export file.
+    """
+    existing = {
+        row[1]
+        for row in conn.execute("PRAGMA table_info(wo_product_detail)").fetchall()
+    }
+    if "dc_number" not in existing:
+        conn.execute(
+            "ALTER TABLE wo_product_detail ADD COLUMN dc_number TEXT"
         )
         conn.commit()

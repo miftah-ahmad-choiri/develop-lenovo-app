@@ -25,22 +25,29 @@
   .fu-badge-btn { cursor: pointer; font-family: inherit; transition: filter .12s, transform .1s; }
   .fu-badge-btn:hover { filter: brightness(.92); transform: translateY(-1px); }
   .fu-badge-btn:active { transform: translateY(0); filter: brightness(.85); }
-  .fu-confirm    { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
-  .fu-part-sla   { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
-  .fu-wo-sla     { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
-  .fu-input-dc   { background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; }
-  .fu-reschedule { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
-  .fu-cancelled  { background: #f3f4f6; color: #6b7280; border: 1px solid #e5e7eb; }
+  .fu-confirm        { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+  .fu-part-sla       { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+  .fu-wo-sla         { background: #fef3c7; color: #92400e; border: 1px solid #d97706; }
+  .fu-input-dc       { background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; }
+  .fu-reschedule     { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+  .fu-report-problem { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
+  .fu-cancelled      { background: #f3f4f6; color: #6b7280; border: 1px solid #e5e7eb; }
+  .fu-in-prepare     { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+  .fu-in-delivery    { background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; }
+  .fu-in-repair      { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+  .fu-return-part    { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
   /* CCI sub-tab pills */
   .subtab-bar { display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap; }
   .subtab-pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1.5px solid transparent; background: #f7f8fa; color: #57606a; border-color: #e5e7eb; font-family: inherit; transition: background .12s, color .12s; white-space: nowrap; }
   .subtab-pill:hover { background: #e5e7eb; color: #1f2328; }
   .subtab-pill.active { background: #1f2328; color: #fff; border-color: #1f2328; }
-  .subtab-pill.sactive-confirm    { background: #eff6ff; color: #1e40af; border-color: #3b82d4; }
-  .subtab-pill.sactive-part-sla   { background: #fee2e2; color: #b91c1c; border-color: #dc2626; }
-  .subtab-pill.sactive-wo-sla     { background: #fef3c7; color: #92400e; border-color: #d97706; }
-  .subtab-pill.sactive-input-dc   { background: #ede9fe; color: #6d28d9; border-color: #7c5cd8; }
-  .subtab-pill.sactive-reschedule { background: #eff6ff; color: #1e40af; border-color: #3b82d4; }
+  .subtab-pill.sactive-confirm        { background: #eff6ff; color: #1e40af; border-color: #3b82d4; }
+  .subtab-pill.sactive-part-sla       { background: #fee2e2; color: #b91c1c; border-color: #dc2626; }
+  .subtab-pill.sactive-wo-sla         { background: #fef3c7; color: #92400e; border-color: #d97706; }
+  .subtab-pill.sactive-report-problem { background: #fef2f2; color: #b91c1c; border-color: #ef4444; }
+  .subtab-pill.sactive-input-dc       { background: #ede9fe; color: #6d28d9; border-color: #7c5cd8; }
+  .subtab-pill.sactive-reschedule     { background: #eff6ff; color: #1e40af; border-color: #3b82d4; }
+  .subtab-pill.sactive-return-part    { background: #dcfce7; color: #15803d; border-color: #22c55e; }
   .subtab-sep { color: #d1d5db; font-size: 13px; margin: 0 2px; }
   /* CCI toolbar — merged into subtab-bar row */
   .subtab-bar { justify-content: space-between; }
@@ -110,6 +117,10 @@
   .btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; font-size: 12px; font-weight: 600; border-radius: 5px; border: 1px solid transparent; cursor: pointer; white-space: nowrap; font-family: inherit; transition: background 0.12s; }
   .btn-primary { background: #3b82d4; color: #fff; border-color: #3b82d4; }
   .btn-primary:hover { background: #2563b0; }
+  .btn-primary-outline { background: #fff; color: #3b82d4; border-color: #3b82d4; }
+  .btn-primary-outline:hover { background: #eff6ff; }
+  .btn-receipt-pill { background: #eff6ff; color: #1e40af; border: 1.5px solid #3b82d4; border-radius: 20px; }
+  .btn-receipt-pill:hover { background: #dbeafe; }
   .btn-danger  { background: #dc2626; color: #fff; border-color: #dc2626; }
   .btn-danger:hover  { background: #b91c1c; }
   .btn-ghost   { background: #f7f8fa; color: #1f2328; border-color: #d0d7de; }
@@ -487,13 +498,21 @@
 <!-- Tab bar -->
 <div class="tab-bar">
   <button class="tab-btn active" data-tab="tab-all">All WO</button>
-  <button class="tab-btn" data-tab="tab-cci-followup">
-    CCI Follow-Up
-    <span class="tab-badge" id="tab-cci-badge" style="display:none"></span>
+  <button class="tab-btn" data-tab="tab-in-prepare">
+    📋 In-Prepare
+    <span class="tab-badge" id="tab-in-prepare-badge" style="display:none"></span>
   </button>
-  <button class="tab-btn" data-tab="tab-onsite-followup">
-    Onsite Follow-Up
-    <span class="tab-badge" id="tab-onsite-badge" style="display:none"></span>
+  <button class="tab-btn" data-tab="tab-in-delivery">
+    🚚 In-Delivery
+    <span class="tab-badge" id="tab-in-delivery-badge" style="display:none"></span>
+  </button>
+  <button class="tab-btn" data-tab="tab-in-repair">
+    🔧 In-Repair
+    <span class="tab-badge" id="tab-in-repair-badge" style="display:none"></span>
+  </button>
+  <button class="tab-btn" data-tab="tab-return-part">
+    📦 Return Part
+    <span class="tab-badge" id="tab-return-part-badge" style="display:none"></span>
   </button>
 </div>
 
@@ -548,98 +567,263 @@
 </div>
 
 <!-- ── TAB: CCI Follow-Up ───────────────────────────────────────────────── -->
-<div class="tab-panel" id="tab-cci-followup">
+<!-- ── TAB: In-Prepare Follow-Up ────────────────────────────────────────── -->
+<div class="tab-panel" id="tab-in-prepare">
   <div class="table-card">
-    <!-- Sub-tab pills -->
-    <div class="subtab-bar" id="cci-subtab-bar">
-      <div class="subtab-bar-left">
-        <button class="subtab-pill active" data-state="">All Follow-Up States</button>
-        <span class="subtab-sep">|</span>
-        <button class="subtab-pill" data-state="confirm_receipt">
-          <span class="fu-badge fu-confirm" style="padding:1px 6px;font-size:10px">📬</span>
-          Confirm Receipt
-        </button>
-        <button class="subtab-pill" data-state="part_sla">
-          <span class="fu-badge fu-part-sla" style="padding:1px 6px;font-size:10px">⚠️</span>
-          Part SLA Overdue
-        </button>
-        <button class="subtab-pill" data-state="wo_sla">
-          <span class="fu-badge fu-wo-sla" style="padding:1px 6px;font-size:10px">🔔</span>
-          WO SLA Follow-Up
-        </button>
-        <button class="subtab-pill" data-state="input_dc">
-          <span class="fu-badge fu-input-dc" style="padding:1px 6px;font-size:10px">🔢</span>
-          Input DC Number
-        </button>
-      </div>
-      <div class="subtab-bar-right">
-        <input type="search" id="search-cci" placeholder="Search WO, serial, contact, cust…" autocomplete="off" style="width:260px;padding:7px 11px;border:1px solid #d0d7de;border-radius:6px;font-size:13px;font-family:inherit;" />
-        <span class="toolbar-count" id="count-cci"></span>
-      </div>
+    <div class="table-toolbar">
+      <input type="search" id="search-in-prepare" placeholder="Search WO, serial, contact, customer…" autocomplete="off" />
+      <span class="toolbar-count" id="count-in-prepare"></span>
     </div>
-    <!-- Toolbar hidden — search + count are now inline in the subtab-bar -->
-    <div class="cci-toolbar"></div>
     <div class="table-scroll">
       <table class="data-table">
         <thead><tr>
           <th style="width:40px;text-align:center">#</th>
           <th>Created On</th><th>WO Number</th>
-          <th>Follow-Up State</th><th>WO Type</th><th>Case</th>
-          <th>WO Status</th>
+          <th>WO Type</th><th>Case</th><th>WO Status</th>
+          <th>Part</th><th>Order Date</th><th>ETA Arrived on WH</th>
           <th>Contact Name</th><th>ASP</th>
         </tr></thead>
-        <tbody id="tbody-cci"><tr><td colspan="9" class="loading-state">Loading…</td></tr></tbody>
+        <tbody id="tbody-in-prepare"><tr><td colspan="11" class="loading-state">Loading…</td></tr></tbody>
       </table>
     </div>
-    <div id="empty-cci" class="empty-state" style="display:none">No CCI WOs found.</div>
-    <div class="pagination" id="pg-cci"></div>
+    <div id="empty-in-prepare" class="empty-state" style="display:none">No in-prepare WOs found.</div>
+    <div class="pagination" id="pg-in-prepare"></div>
   </div>
 </div>
 
-<!-- ── TAB: Onsite Follow-Up ────────────────────────────────────────────── -->
-<div class="tab-panel" id="tab-onsite-followup">
+<!-- ── TAB: In-Delivery Follow-Up ───────────────────────────────────────── -->
+<div class="tab-panel" id="tab-in-delivery">
   <div class="table-card">
-    <!-- Sub-tab pills -->
-    <div class="subtab-bar" id="onsite-subtab-bar">
-      <div class="subtab-bar-left">
-        <button class="subtab-pill active" data-state="">All Follow-Up States</button>
-        <span class="subtab-sep">|</span>
-        <button class="subtab-pill" data-state="wo_reschedule">
-          <span class="fu-badge fu-reschedule" style="padding:1px 6px;font-size:10px">📅</span>
-          WO Reschedule
-        </button>
-        <button class="subtab-pill" data-state="part_sla">
-          <span class="fu-badge fu-part-sla" style="padding:1px 6px;font-size:10px">⚠️</span>
-          Part SLA Overdue
-        </button>
-        <button class="subtab-pill" data-state="wo_sla">
-          <span class="fu-badge fu-wo-sla" style="padding:1px 6px;font-size:10px">🔔</span>
-          WO SLA Follow-Up
-        </button>
-        <button class="subtab-pill" data-state="input_dc">
-          <span class="fu-badge fu-input-dc" style="padding:1px 6px;font-size:10px">🔢</span>
-          Input DC Number
-        </button>
-      </div>
-      <div class="subtab-bar-right">
-        <input type="search" id="search-onsite" placeholder="Search WO, serial, contact, cust…" autocomplete="off" style="width:260px;padding:7px 11px;border:1px solid #d0d7de;border-radius:6px;font-size:13px;font-family:inherit;" />
-        <span class="toolbar-count" id="count-onsite"></span>
-      </div>
+    <div class="table-toolbar">
+      <input type="search" id="search-in-delivery" placeholder="Search WO, serial, contact, customer…" autocomplete="off" />
+      <span class="toolbar-count" id="count-in-delivery"></span>
     </div>
     <div class="table-scroll">
       <table class="data-table">
         <thead><tr>
           <th style="width:40px;text-align:center">#</th>
           <th>Created On</th><th>WO Number</th>
-          <th>Follow-Up State</th><th>WO Type</th><th>Case</th>
-          <th>WO Status</th>
+          <th>Follow-Up State</th>
+          <th>WO Type</th><th>Case</th><th>WO Status</th>
+          <th>Part</th><th>AWB</th><th>Shipped On</th><th>ETA</th>
           <th>Contact Name</th><th>ASP</th>
         </tr></thead>
-        <tbody id="tbody-onsite"><tr><td colspan="9" class="loading-state">Loading…</td></tr></tbody>
+        <tbody id="tbody-in-delivery"><tr><td colspan="13" class="loading-state">Loading…</td></tr></tbody>
       </table>
     </div>
-    <div id="empty-onsite" class="empty-state" style="display:none">No Onsite WOs found.</div>
-    <div class="pagination" id="pg-onsite"></div>
+    <div id="empty-in-delivery" class="empty-state" style="display:none">No in-delivery WOs found.</div>
+    <div class="pagination" id="pg-in-delivery"></div>
+  </div>
+</div>
+
+<!-- ── TAB: In-Repair Follow-Up ─────────────────────────────────────────── -->
+<div class="tab-panel" id="tab-in-repair">
+  <div class="table-card">
+    <div class="table-toolbar">
+      <input type="search" id="search-in-repair" placeholder="Search WO, serial, contact, customer…" autocomplete="off" />
+      <span class="toolbar-count" id="count-in-repair"></span>
+    </div>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr>
+          <th style="width:40px;text-align:center">#</th>
+          <th>Created On</th><th>WO Number</th>
+          <th>Follow-Up State</th>
+          <th>SLA Breach Alert</th>
+          <th>WO Type</th><th>Case</th><th>WO Status</th>
+          <th>Part</th><th>AWB</th><th>POD / Received On</th>
+          <th>Contact Name</th><th>ASP</th>
+        </tr></thead>
+        <tbody id="tbody-in-repair"><tr><td colspan="13" class="loading-state">Loading…</td></tr></tbody>
+      </table>
+    </div>
+    <div id="empty-in-repair" class="empty-state" style="display:none">No in-repair WOs found.</div>
+    <div class="pagination" id="pg-in-repair"></div>
+  </div>
+</div>
+
+<!-- ── TAB: Return Part Follow-Up ───────────────────────────────────────── -->
+<div class="tab-panel" id="tab-return-part">
+  <div class="table-card">
+    <div class="table-toolbar">
+      <input type="search" id="search-return-part" placeholder="Search WO, serial, contact, customer…" autocomplete="off" />
+      <span class="toolbar-count" id="count-return-part"></span>
+    </div>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr>
+          <th style="width:40px;text-align:center">#</th>
+          <th>Created On</th><th>WO Number</th>
+          <th>Follow-Up State</th>
+          <th>WO Type</th><th>Case</th><th>WO Status</th>
+          <th>Committed Delivery</th><th>Actual Committed</th>
+          <th>Contact Name</th><th>ASP</th>
+        </tr></thead>
+        <tbody id="tbody-return-part"><tr><td colspan="11" class="loading-state">Loading…</td></tr></tbody>
+      </table>
+    </div>
+    <div id="empty-return-part" class="empty-state" style="display:none">No return-part WOs found.</div>
+    <div class="pagination" id="pg-return-part"></div>
+  </div>
+</div>
+
+<!-- ── Input DC Number Modal ────────────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-input-dc">
+  <div class="modal narrow">
+
+    <!-- Header -->
+    <div class="modal-header" style="padding:14px 20px 12px;border-bottom:1px solid #e5e7eb;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="modal-hdr-icon" style="background:#ede9fe;border-color:#ddd6fe;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c5cd8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3H8L6 7h12l-2-4z"/><path d="M12 12v4M10 14h4"/></svg>
+        </div>
+        <div>
+          <div class="modal-title" style="font-weight:700">Input DC Number</div>
+          <div class="modal-subtitle">Return Part — record the DC number from Resolv</div>
+        </div>
+      </div>
+      <button class="modal-close" data-close="modal-input-dc">×</button>
+    </div>
+
+    <div class="modal-body">
+
+      <!-- WO context strip -->
+      <div class="wo-strip">
+        <div class="wo-strip-top">
+          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8c959f">WO#</span>
+          <span class="wo-strip-num" id="idc-wo-num">—</span>
+          <span id="idc-wo-status-badge"></span>
+        </div>
+        <div class="wo-strip-meta-row">
+          <span class="wo-strip-meta" id="idc-contact">—</span>
+        </div>
+        <!-- Parts list (populated by JS) -->
+        <div class="wo-strip-parts" id="idc-parts-list" style="display:none">
+          <div class="wo-strip-parts-header">
+            Parts on this WO
+            <span class="wo-strip-qty-pill" id="idc-parts-qty"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 1 — Instruction -->
+      <div class="mf-section" style="background:#fffbeb;border-left:3px solid #f59e0b;">
+        <div style="display:flex;align-items:flex-start;gap:10px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:4px">How to get the DC Number</div>
+            <ol style="font-size:12px;color:#78350f;margin:0;padding-left:18px;line-height:1.8">
+              <li>Open the <strong>Resolv App</strong> on your device.</li>
+              <li>Go to <strong>Part Return</strong> → find this WO number.</li>
+              <li>Tap <strong>Request Pickup</strong> to generate the DC number.</li>
+              <li>Once the DC number is generated, enter it below.</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 2 — DC Number input -->
+      <div class="mf-section">
+        <div class="mf-section-label">
+          <span class="sec-num" style="background:#7c5cd8">1</span>
+          DC Number
+        </div>
+        <div class="mf-group" style="margin-bottom:0">
+          <span class="mf-label">DC Number <span class="req">*</span></span>
+          <input type="text" id="idc-number" placeholder="e.g. 19127" autocomplete="off"
+                 style="font-family:ui-monospace,monospace;letter-spacing:.04em;font-size:14px" />
+          <div style="font-size:11px;color:#8c959f;margin-top:5px">Enter the DC number exactly as shown in Resolv.</div>
+        </div>
+      </div>
+
+    </div><!-- /.modal-body -->
+
+    <div class="modal-footer">
+      <div class="modal-footer-hint"><strong>*</strong> required fields</div>
+      <div class="modal-footer-btns">
+        <button class="btn btn-ghost" data-close="modal-input-dc">Cancel</button>
+        <button class="btn btn-purple" id="btn-confirm-input-dc">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Submit DC Number
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Onsite Part Received Modal ───────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-onsite-recv">
+  <div class="modal narrow">
+
+    <!-- Header -->
+    <div class="modal-header" style="padding:14px 20px 12px;border-bottom:1px solid #e5e7eb;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="modal-hdr-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82d4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path d="M16 3H8L6 7h12l-2-4z"/></svg>
+        </div>
+        <div>
+          <div class="modal-title" style="font-weight:700">Part Received</div>
+          <div class="modal-subtitle">Onsite — confirm part arrival date</div>
+        </div>
+      </div>
+      <button class="modal-close" data-close="modal-onsite-recv">×</button>
+    </div>
+
+    <div class="modal-body">
+
+      <!-- WO context strip -->
+      <div class="wo-strip">
+        <div class="wo-strip-top">
+          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8c959f">WO#</span>
+          <span class="wo-strip-num" id="onsite-recv-wo-num">—</span>
+          <span id="onsite-recv-wo-status-badge"></span>
+        </div>
+        <div class="wo-strip-meta-row">
+          <span class="wo-strip-meta" id="onsite-recv-contact">—</span>
+        </div>
+      </div>
+
+      <!-- Form — arrival date only -->
+      <div class="mf-section" id="onsite-recv-form-section">
+        <div class="mf-section-label">
+          <span class="sec-num">1</span>
+          Arrival Details
+        </div>
+        <div class="mf-group" style="margin-bottom:0">
+          <span class="mf-label">Date &amp; Time Part Arrived <span class="req">*</span></span>
+          <input type="datetime-local" id="onsite-recv-datetime" />
+        </div>
+      </div>
+
+      <!-- Post-submit prompt — reschedule or exit -->
+      <div id="onsite-recv-prompt" style="display:none;padding:20px 20px 24px">
+        <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:18px">
+          <div style="width:44px;height:44px;border-radius:50%;background:#dcfce7;border:2px solid #86efac;display:flex;align-items:center;justify-content:center;margin-bottom:12px">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div style="font-size:14px;font-weight:700;color:#1f2328;margin-bottom:5px">Part arrival recorded</div>
+          <div style="font-size:12px;color:#57606a;text-align:center">Does the customer need to reschedule the onsite visit?</div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px">
+          <button class="btn btn-ghost" id="btn-onsite-recv-prompt-exit">Exit</button>
+          <button id="btn-onsite-recv-prompt-reschedule" style="display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;border:1.5px solid #3b82d4;background:#fff;color:#1e40af;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap;transition:background .12s">
+            📅 Reschedule WO
+          </button>
+        </div>
+      </div>
+
+    </div><!-- /.modal-body -->
+
+    <div class="modal-footer" id="onsite-recv-footer">
+      <div class="modal-footer-hint"><strong>*</strong> required fields</div>
+      <div class="modal-footer-btns">
+        <button class="btn btn-ghost" data-close="modal-onsite-recv">Cancel</button>
+        <button class="btn btn-primary" id="btn-confirm-onsite-recv">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Submit
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -844,6 +1028,138 @@
   </div>
 </div>
 
+<!-- ── Part SLA Overdue Modal ───────────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-part-sla">
+  <div class="modal narrow">
+
+    <!-- Header -->
+    <div class="modal-header" style="padding:14px 20px 12px;border-bottom:1px solid #e5e7eb;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="modal-hdr-icon" style="background:#fff1f2;border-color:#fecdd3;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <div>
+          <div class="modal-title" style="font-weight:700">Part SLA Overdue</div>
+          <div class="modal-subtitle" id="part-sla-subtitle">Part delivery ETA has passed — follow up required</div>
+        </div>
+      </div>
+      <button class="modal-close" data-close="modal-part-sla">×</button>
+    </div>
+
+    <div class="modal-body">
+
+      <!-- WO context strip -->
+      <div class="wo-strip">
+        <div class="wo-strip-top">
+          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8c959f">WO#</span>
+          <span class="wo-strip-num" id="psla-wo-num">—</span>
+          <span id="psla-wo-status-badge"></span>
+        </div>
+        <div class="wo-strip-meta-row">
+          <span class="wo-strip-meta" id="psla-contact">—</span>
+        </div>
+        <!-- Parts list (populated by JS) -->
+        <div class="wo-strip-parts" id="psla-parts-list" style="display:none">
+          <div class="wo-strip-parts-header">
+            Parts on this WO
+            <span class="wo-strip-qty-pill" id="psla-parts-qty"></span>
+          </div>
+        </div>
+        <div id="psla-parts-loading" style="display:none;font-size:12px;color:#8c959f;padding:6px 2px 0">Loading parts…</div>
+      </div>
+
+      <!-- SECTION 1 — Part Delivery Status -->
+      <div class="mf-section">
+        <div class="mf-section-label">
+          <span class="sec-num" style="background:#dc2626">1</span>
+          Part Delivery Status
+        </div>
+
+        <div class="mf-group" style="margin-bottom:0">
+          <span class="mf-label">Current Part Whereabouts <span class="req">*</span></span>
+          <div class="custom-dd" id="psla-status-dd">
+            <div class="custom-dd-trigger" tabindex="0" id="psla-status-trigger">
+              <span class="dd-val" id="psla-status-display">— Select current part status —</span>
+              <svg class="dd-arrow" width="12" height="8" viewBox="0 0 12 8" fill="none"><path fill="#57606a" d="M1 1l5 5 5-5"/></svg>
+            </div>
+            <div class="custom-dd-list" id="psla-status-list" style="bottom:auto;top:calc(100% + 4px);box-shadow:0 4px 24px rgba(0,0,0,0.12);">
+              <div class="dd-option dd-default active" data-value="">— Select current part status —</div>
+              <div class="dd-group-label">Part Arrived</div>
+              <div class="dd-option" data-value="part_arrived">✅ Part has been arrived</div>
+              <div class="dd-group-label">Still In Transit</div>
+              <div class="dd-option" data-value="In Transit - Courier Not Yet Delivered">In transit — courier not yet delivered</div>
+              <div class="dd-option" data-value="In Transit - Delayed by Courier">In transit — delayed by courier</div>
+              <div class="dd-option" data-value="Delivered to Wrong Address">Delivered to wrong address / wrong ASP</div>
+              <div class="dd-group-label">Arrived with Problem</div>
+              <div class="dd-option" data-value="Wrong Part Received">Part arrived — wrong part received</div>
+              <div class="dd-option" data-value="DOA - Dead on Arrival">Part arrived — DOA (Dead on Arrival)</div>
+              <div class="dd-option" data-value="Incomplete Shipment">Part arrived — incomplete shipment</div>
+              <div class="dd-group-label">Not Yet Shipped</div>
+              <div class="dd-option" data-value="Part Not Yet Shipped by Lenovo">Part not yet shipped by Lenovo</div>
+              <div class="dd-option" data-value="Part On Hold at Warehouse">Part on hold at warehouse</div>
+            </div>
+          </div>
+          <input type="hidden" id="psla-status-value" value="" />
+
+          <!-- Arrival date — shown only when "part_arrived" is selected AND source is onsite -->
+          <div id="psla-arrived-date-group" style="display:none;margin-top:14px">
+            <span class="mf-label">Part Arrival Date &amp; Time <span class="req">*</span></span>
+            <input type="datetime-local" id="psla-arrived-date" />
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 2 — Shipment Details -->
+      <div class="mf-section" id="psla-section-shipment">
+        <div class="mf-section-label">
+          <span class="sec-num" style="background:#d97706">2</span>
+          Shipment Details
+        </div>
+
+        <div class="mf-group" style="margin-bottom:0">
+          <span class="mf-label" id="psla-new-eta-label">New Expected Delivery Date <span class="req">*</span></span>
+          <input type="date" id="psla-new-eta" />
+          <div id="psla-arrived-hint" style="display:none;margin-top:6px;padding:8px 11px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;font-size:11px;color:#15803d;">
+            Part has arrived — click <strong>Confirm Receipt</strong> to record the arrival date and AWB photo.
+          </div>
+        </div>
+      </div>
+
+      <!-- Post-submit prompt — reschedule or exit (Onsite + part_arrived only) -->
+      <div id="psla-reschedule-prompt" style="display:none;padding:20px 20px 24px">
+        <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:18px">
+          <div style="width:44px;height:44px;border-radius:50%;background:#dcfce7;border:2px solid #86efac;display:flex;align-items:center;justify-content:center;margin-bottom:12px">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div style="font-size:14px;font-weight:700;color:#1f2328;margin-bottom:5px">Part SLA submitted</div>
+          <div style="font-size:12px;color:#57606a;text-align:center">The part has arrived. Does the customer need to reschedule the onsite visit?</div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px">
+          <button class="btn btn-ghost" id="btn-psla-prompt-exit">Exit</button>
+          <button id="btn-psla-prompt-reschedule" style="display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;border:1.5px solid #3b82d4;background:#fff;color:#1e40af;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap;transition:background .12s">
+            📅 Reschedule WO
+          </button>
+        </div>
+      </div>
+
+    </div><!-- /.modal-body -->
+
+    <div class="modal-footer" id="psla-modal-footer">
+      <div class="modal-footer-hint"><strong>*</strong> required fields</div>
+      <div class="modal-footer-btns">
+        <button class="btn btn-ghost" data-close="modal-part-sla">Cancel</button>
+        <button class="btn btn-receipt-pill" id="btn-psla-confirm-receipt" style="display:none">
+          📬 Confirm Receipt
+        </button>
+        <button class="btn btn-danger" id="btn-confirm-part-sla">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Submit
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ── WO Reschedule Modal ──────────────────────────────────────────────── -->
 <div class="modal-overlay" id="modal-reschedule">
   <div class="modal narrow">
@@ -939,6 +1255,12 @@
           <div class="file-chosen" id="rs-evidence-chosen" style="display:none">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             <span id="rs-evidence-name"></span>
+            <button type="button" class="file-chosen-remove" id="rs-evidence-remove" title="Remove image">
+              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div class="awb-img-preview" id="rs-evidence-preview">
+            <img id="rs-evidence-preview-src" src="" alt="Evidence preview" />
           </div>
         </div>
       </div>
@@ -1284,6 +1606,32 @@ function openDetail(woId) {
   ])
     .then(([d, parts, relatedSerial, ticketHistory]) => {
       if (d.error) { body.innerHTML = `<div style="padding:24px;color:#dc2626">${esc(d.error)}</div>`; return; }
+      /* Inject part-level shipping/POD flags from the LATEST part order only,
+         matching the SQL logic: latest non-cancelled line with an order_date,
+         selected by highest soid. */
+      const activeParts = (parts || []).filter(p =>
+        !(p.wo_product_status || '').toLowerCase().includes('cancel') &&
+        ((p.order_date && String(p.order_date).trim()) ||
+         (p.acceptance_date && String(p.acceptance_date).trim()))
+      );
+      /* Find the line with the highest soid (mirrors ORDER BY soid DESC LIMIT 1) */
+      const latestOrderPart = activeParts.reduce(
+        (best, p) => (!best || (p.soid > best.soid) ? p : best), null
+      );
+      d.part_shipped = latestOrderPart && (
+        (latestOrderPart.ship_pickup_time && String(latestOrderPart.ship_pickup_time).trim()) ||
+        (latestOrderPart.shipment_date    && String(latestOrderPart.shipment_date).trim())
+      ) ? 1 : 0;
+      d.part_pod = latestOrderPart && (
+        (latestOrderPart.ship_pou_pod_time && String(latestOrderPart.ship_pou_pod_time).trim()) ||
+        (latestOrderPart.delivery_date     && String(latestOrderPart.delivery_date).trim())
+      ) ? 1 : 0;
+      /* has a real (non-cancelled, ordered) part line at all */
+      d.part_has_order = latestOrderPart ? 1 : 0;
+      /* dc_number filled = non-null and non-empty (including '0' sentinel = filled) */
+      const _dcRaw = latestOrderPart && latestOrderPart.dc_number != null
+        ? String(latestOrderPart.dc_number).trim() : '';
+      d.part_dc_filled = _dcRaw !== '' ? 1 : 0;
       body.innerHTML =
         renderHero(d) +
         `<div class="detail-body-inner">` +
@@ -1294,7 +1642,27 @@ function openDetail(woId) {
           renderDetailBody(d) +
         `</div>`;
       initCollapsibles();
-      _cciBindRows(body);
+      /* Wire all hero action buttons */
+      body.querySelectorAll('.wo-link').forEach(b =>
+        b.addEventListener('click', () => openDetail(b.dataset.wo)));
+      body.querySelectorAll('[data-action="cci-recv"]').forEach(b =>
+        b.addEventListener('click', () => openRecv(b.dataset.wo, b.dataset.contact, b.dataset.eta, b.dataset.status, b.dataset.customer)));
+      body.querySelectorAll('[data-action="cci-part-sla"]').forEach(b =>
+        b.addEventListener('click', () => openPartSla(b.dataset.wo, b.dataset.contact, b.dataset.eta, b.dataset.awb, b.dataset.status, b.dataset.customer, 'cci')));
+      body.querySelectorAll('[data-action="cci-wo-sla"]').forEach(b =>
+        b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.contact, b.dataset.status, 'cci')));
+      body.querySelectorAll('[data-action="cci-report-problem"]').forEach(b =>
+        b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.contact, b.dataset.status, 'cci')));
+      body.querySelectorAll('[data-action="onsite-reschedule"]').forEach(b =>
+        b.addEventListener('click', () => openReschedule(b.dataset.wo, b.dataset.contact, b.dataset.status)));
+      body.querySelectorAll('[data-action="onsite-part-sla"]').forEach(b =>
+        b.addEventListener('click', () => openPartSla(b.dataset.wo, b.dataset.contact, b.dataset.eta, b.dataset.awb, b.dataset.status, b.dataset.customer, 'onsite')));
+      body.querySelectorAll('[data-action="onsite-wo-sla"]').forEach(b =>
+        b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.contact, b.dataset.status, 'onsite')));
+      body.querySelectorAll('[data-action="onsite-report-problem"]').forEach(b =>
+        b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.contact, b.dataset.status, 'onsite')));
+      body.querySelectorAll('[data-action="return-dc"]').forEach(b =>
+        b.addEventListener('click', () => openInputDc(b.dataset.wo, b.dataset.contact, b.dataset.status)));
     })
     .catch(() => { body.innerHTML = '<div style="padding:24px;color:#dc2626">Failed to load detail.</div>'; });
 }
@@ -1350,16 +1718,33 @@ function _cciHeroBtns(d) {
   const type = (d.work_order_type || '').toLowerCase();
   if (!type.includes('carry') && !type.includes('cci')) return '';
 
-  const status  = (d.work_order_status || '').toLowerCase();
-  const eta     = (d.committed_delivery_date || '').slice(0, 10);
-  const today   = new Date().toISOString().slice(0, 10);
-  const isClosed  = ['closed','completed','repair done','rma','returned','pickup'].some(k => status.includes(k));
-  const isTransit = status.includes('transit') || status.includes('part');
+  const eta         = (d.committed_delivery_date || '').slice(0, 10);
+  const today       = new Date().toISOString().slice(0, 10);
+  const deliveryRaw = d.actual_committed_onsite_date || '';
+  const compDate    = d.completion_date || '';
+  const closeDate   = d.closing_date   || '';
+  const isClosed    = !!(compDate || closeDate);
+  // part_shipped / part_pod / part_has_order / part_dc_filled: injected onto d from parts array
+  // in openDetail(), or present directly when row came from the follow-up list API.
+  const partShipped  = !!(d.part_shipped);
+  const partPod      = !!(d.part_pod);
+  const partHasOrder = !!(d.part_has_order);
+  const partDcFilled = !!(d.part_dc_filled);
 
   let state;
-  if (isClosed)        state = 'input_dc';
-  else if (isTransit)  state = (eta && eta < today) ? 'part_sla' : 'confirm_receipt';
-  else                 state = 'wo_sla';
+  if (partShipped && !partPod) {
+    // part shipped but NOT yet POD'd — prioritise over input_dc
+    state = (eta && eta < today) ? 'part_sla' : 'confirm_receipt';
+  } else if (partPod && !isClosed) {
+    // part received and WO still open — check WO completion SLA
+    const elapsedH = (deliveryRaw && !isSentinel(deliveryRaw))
+      ? (Date.now() - new Date(String(deliveryRaw).replace(' ','T'))) / 3600000
+      : 0;
+    state = elapsedH > 24 ? 'report_problem' : 'wo_sla';
+  } else {
+    // no part order / all cancelled, dc_number already filled, or not yet shipped — no actionable CCI button
+    return '';
+  }
 
   const wo      = esc(String(d.work_order_id));
   const contact = esc(d.contact_name || '');
@@ -1371,11 +1756,11 @@ function _cciHeroBtns(d) {
   if (state === 'confirm_receipt')
     btns.push(`<button class="fu-badge fu-confirm fu-badge-btn" data-action="cci-recv" data-wo="${wo}" data-contact="${contact}" data-eta="${etaEsc}" data-status="${stEsc}" data-customer="${custEsc}">📬 Confirm Receipt</button>`);
   if (state === 'part_sla')
-    btns.push(`<button class="fu-badge fu-part-sla fu-badge-btn" data-action="cci-part-sla" data-wo="${wo}" data-contact="${contact}" data-eta="${etaEsc}">⚠️ Part SLA Overdue</button>`);
+    btns.push(`<button class="fu-badge fu-part-sla fu-badge-btn" data-action="cci-part-sla" data-wo="${wo}" data-contact="${contact}" data-eta="${etaEsc}" data-awb="${esc(d.part_awb||'')}" data-status="${stEsc}" data-customer="${custEsc}">⚠️ Part SLA Overdue</button>`);
   if (state === 'wo_sla')
     btns.push(`<button class="fu-badge fu-wo-sla fu-badge-btn" data-action="cci-wo-sla" data-wo="${wo}" data-contact="${contact}" data-status="${stEsc}">🔔 WO SLA Follow-Up</button>`);
-  if (state === 'input_dc')
-    btns.push(`<button class="fu-badge fu-input-dc fu-badge-btn" data-action="cci-dc" data-wo="${wo}" data-contact="${contact}">🔢 Input DC Number</button>`);
+  if (state === 'report_problem')
+    btns.push(`<button class="fu-badge fu-report-problem fu-badge-btn" data-action="cci-report-problem" data-wo="${wo}" data-contact="${contact}" data-status="${stEsc}">🚨 Report Problem</button>`);
 
   return btns.join('');
 }
@@ -1386,33 +1771,70 @@ function _onsiteHeroBtns(d) {
   const type = (d.work_order_type || '').toLowerCase();
   if (!type.includes('onsite')) return '';
 
-  const status  = (d.work_order_status || '').toLowerCase();
-  const eta     = (d.committed_delivery_date || '').slice(0, 10);
-  const today   = new Date().toISOString().slice(0, 10);
-  const isClosed  = ['closed','completed','repair done','rma','returned','pickup'].some(k => status.includes(k));
-  const isTransit = status.includes('transit') || status.includes('part');
+  const deliveryRaw = d.actual_committed_onsite_date || '';
+  const compDate    = d.completion_date || '';
+  const closeDate   = d.closing_date   || '';
+  const isClosed     = !!(compDate || closeDate);
+  // part_shipped / part_pod / part_dc_filled: injected onto d from parts array
+  // in openDetail(), or present directly when row came from the follow-up list API.
+  // part_shipped is null  → no active part line at all (treated as false)
+  // part_shipped is 0/1   → order exists; 1 = shipment date filled
+  const partShipped  = !!(d.part_shipped);
+  const partPod      = !!(d.part_pod);
+  const partDcFilled = !!(d.part_dc_filled);
+
+  const eta   = (d.committed_delivery_date || '').slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10);
 
   let state;
-  if (isClosed)        state = 'input_dc';
-  else if (isTransit)  state = (eta && eta < today) ? 'part_sla' : 'wo_sla';
-  else                 state = 'wo_reschedule';
+  if (partShipped && !partPod) {
+    // Part shipped but NOT yet POD'd (regardless of WO open/closed):
+    //   ETA already passed → part_sla; ETA not yet passed → wo_reschedule
+    //   (mirrors _cciHeroBtns — isClosed is not a gate here)
+    state = (eta && eta < today) ? 'part_sla' : 'wo_reschedule';
+  } else if (partPod && !isClosed) {
+    // part received (POD filled) and WO still open — check WO completion SLA
+    const elapsedH = (deliveryRaw && !isSentinel(deliveryRaw))
+      ? (Date.now() - new Date(String(deliveryRaw).replace(' ','T'))) / 3600000
+      : 0;
+    state = elapsedH > 90 ? 'report_problem' : 'wo_sla';
+  } else {
+    // no part shipped, WO closed, etc. — no actionable button
+    return '';
+  }
 
   const wo      = esc(String(d.work_order_id));
   const contact = esc(d.contact_name || '');
-  const etaEsc  = esc(d.committed_delivery_date || '');
   const stEsc   = esc(d.work_order_status || '');
 
+  const etaEsc = esc(d.committed_delivery_date || '');
   const btns = [];
   if (state === 'wo_reschedule')
     btns.push(`<button class="fu-badge fu-reschedule fu-badge-btn" data-action="onsite-reschedule" data-wo="${wo}" data-contact="${contact}" data-status="${stEsc}">📅 WO Reschedule</button>`);
   if (state === 'part_sla')
-    btns.push(`<button class="fu-badge fu-part-sla fu-badge-btn" data-action="onsite-part-sla" data-wo="${wo}" data-contact="${contact}" data-eta="${etaEsc}">⚠️ Part SLA Overdue</button>`);
+    btns.push(`<button class="fu-badge fu-part-sla fu-badge-btn" data-action="onsite-part-sla" data-wo="${wo}" data-contact="${contact}" data-eta="${etaEsc}" data-awb="${esc(d.part_awb||'')}" data-status="${stEsc}" data-customer="${esc(d.customer||'')}">⚠️ Part SLA Overdue</button>`);
+  if (state === 'wo_sla' || state === 'report_problem')
+    btns.push(`<button class="fu-badge fu-reschedule fu-badge-btn" data-action="onsite-reschedule" data-wo="${wo}" data-contact="${contact}" data-status="${stEsc}">📅 WO Reschedule</button>`);
   if (state === 'wo_sla')
     btns.push(`<button class="fu-badge fu-wo-sla fu-badge-btn" data-action="onsite-wo-sla" data-wo="${wo}" data-contact="${contact}" data-status="${stEsc}">🔔 WO SLA Follow-Up</button>`);
-  if (state === 'input_dc')
-    btns.push(`<button class="fu-badge fu-input-dc fu-badge-btn" data-action="onsite-dc" data-wo="${wo}" data-contact="${contact}">🔢 Input DC Number</button>`);
+  if (state === 'report_problem')
+    btns.push(`<button class="fu-badge fu-report-problem fu-badge-btn" data-action="onsite-report-problem" data-wo="${wo}" data-contact="${contact}" data-status="${stEsc}">🚨 Report Problem</button>`);
 
   return btns.join('');
+}
+
+/* Returns HTML for Return Part action button, or '' if DC# already filled or no part order. */
+function _returnHeroBtns(d) {
+  const compDate = d.completion_date || '';
+  const closeDate = d.closing_date   || '';
+  const isClosed  = !!(compDate || closeDate);
+  if (!isClosed)            return '';
+  if (!d.part_has_order)    return '';
+  if (d.part_dc_filled)     return '';
+  const wo      = esc(String(d.work_order_id));
+  const contact = esc(d.contact_name || '');
+  const status  = esc(d.work_order_status || '');
+  return `<button class="fu-badge fu-input-dc fu-badge-btn" data-action="return-dc" data-wo="${wo}" data-contact="${contact}" data-status="${status}">🔢 Input DC Number</button>`;
 }
 
 function renderHero(d) {
@@ -1459,7 +1881,7 @@ function renderHero(d) {
         </div>
       </div>` : ''}
     </div>` : '';
-  const heroBtns = _cciHeroBtns(d) || _onsiteHeroBtns(d);
+  const heroBtns = _cciHeroBtns(d) + _onsiteHeroBtns(d) + _returnHeroBtns(d);
   return `<div class="wo-hero">
     <!-- Row 1: WO ID + WO Status badge + Closing Code pill | Follow-Up buttons right-aligned -->
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
@@ -1497,18 +1919,39 @@ function renderHero(d) {
 function renderTimeline(d, parts) {
   const now = Date.now();
 
-  /* Pick the first non-cancelled part line for date data; fall back to
-     line 1 only if every line is cancelled or there are no parts. */
   const isCancelled = p => {
     const s = (p.wo_product_status || '').toLowerCase();
     return s.includes('cancel');
   };
-  const activePart = (parts && parts.find(p => !isCancelled(p))) || (parts && parts[0]) || null;
-  const activePartIdx = activePart ? parts.indexOf(activePart) : -1;
 
-  const partOrderDate   = activePart ? (activePart.order_date        || activePart.acceptance_date  || null) : null;
-  const partPickupDate  = activePart ? (activePart.ship_pickup_time   || activePart.shipment_date    || null) : null;
-  const partPodDate     = activePart ? (activePart.ship_pou_pod_time  || activePart.delivery_date    || null) : null;
+  /* Collect non-cancelled part lines; fall back to all lines only when
+     every line is cancelled or there are no parts at all. */
+  const activeParts = (parts && parts.filter(p => !isCancelled(p)).length > 0)
+    ? parts.filter(p => !isCancelled(p))
+    : (parts || []);
+
+  /* Find the part line with the LATEST order_date (or acceptance_date).
+     When multiple lines share the same latest order_date (e.g. a batch
+     placed the same second) prefer the one with more date fields filled in.
+     This represents the most recently placed part order for the WO. */
+  const toTs = v => {
+    if (!v || isSentinel(v)) return -Infinity;
+    const t = new Date(String(v).replace(' ', 'T')).getTime();
+    return isNaN(t) ? -Infinity : t;
+  };
+  let latestPart = activeParts[0] || null;
+  let latestOrderTs = latestPart ? toTs(latestPart.order_date || latestPart.acceptance_date) : -Infinity;
+  for (const p of activeParts) {
+    const ts = toTs(p.order_date || p.acceptance_date);
+    if (ts > latestOrderTs) { latestOrderTs = ts; latestPart = p; }
+  }
+
+  /* For the footnote — index of the chosen part in the original list */
+  const activePartIdx = latestPart ? parts.indexOf(latestPart) : -1;
+
+  const partOrderDate  = latestPart ? (latestPart.order_date       || latestPart.acceptance_date || null) : null;
+  const partPickupDate = latestPart ? (latestPart.ship_pickup_time  || latestPart.shipment_date   || null) : null;
+  const partPodDate    = latestPart ? (latestPart.ship_pou_pod_time || latestPart.delivery_date   || null) : null;
 
   /* true when the WO is closed/completed — forces onsite nodes to done */
   const isWoClosed = !!(d.completion_date || d.closing_date);
@@ -1591,7 +2034,7 @@ function renderTimeline(d, parts) {
     <div class="tl-wrap">
       <div class="tl-scroll"><div class="tl-track">${nodeHtml}</div></div>
     </div>
-    ${parts.length > 1 ? `<div style="font-size:11px;color:#8c959f;margin-top:8px">* Part dates shown for line #${activePartIdx + 1}${isCancelled(parts[0]) ? ' (skipping cancelled lines)' : ''}. See Part Order History for all lines.</div>` : ''}
+    ${parts.length > 1 ? `<div style="font-size:11px;color:#8c959f;margin-top:8px">* Part dates shown for line #${activePartIdx + 1} (latest part order). See Part Order History for all lines.</div>` : ''}
   </div>`;
 }
 
@@ -1640,6 +2083,11 @@ function renderParts(parts, woId) {
   const cancelledRows = parts.filter(p =>  (p.wo_product_status || '').toLowerCase().includes('cancel'));
 
   function buildCard(p, i, isCancelledCard) {
+    const _dc = p.dc_number != null ? String(p.dc_number).trim() : '';
+    const dcBadge = (_dc && _dc !== '0')
+      ? `<span style="font-size:11px;font-weight:600;color:#3b82d4;white-space:nowrap">(DC# ${esc(_dc)})</span>`
+      : '';
+
     const retFlag = p.return_flag === 'Y'
       ? '<span class="badge badge-part-hold">Return</span>'
       : (p.return_flag === 'N' ? '<span class="badge badge-default">No Return</span>' : '<span style="color:#8c959f">—</span>');
@@ -1658,7 +2106,7 @@ function renderParts(parts, woId) {
         <div style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">
           ${etaWh}
           ${partStatusBadge(p.wo_product_status)}
-          ${retFlag}
+          ${retFlag}${dcBadge}
         </div>
       </div>
       <div class="part-card-body">
@@ -1974,193 +2422,237 @@ document.getElementById('filter-type-all').addEventListener('change',         lo
 document.getElementById('filter-case-status-all').addEventListener('change',  loadAllWo);
 
 /* ═══════════════════════════════════════════════════════════════
-   TAB 2 — CCI Follow-Up
+   TAB: In-Prepare Follow-Up
 ═══════════════════════════════════════════════════════════════ */
-/* ── CCI helpers ── */
-function fuBadge(r) {
-  const s = r.followup_state;
-  const map = {
-    confirm_receipt: ['fu-badge fu-confirm fu-badge-btn',  '📬 Confirm Receipt',  'cci-recv',     `data-contact="${esc(r.contact_name||'')}" data-eta="${esc(r.committed_delivery_date||'')}" data-status="${esc(r.work_order_status||'')}" data-customer="${esc(r.customer||'')}"`],
-    part_sla:        ['fu-badge fu-part-sla fu-badge-btn', '⚠️ Part SLA Overdue', 'cci-part-sla', `data-contact="${esc(r.contact_name||'')}" data-eta="${esc(r.committed_delivery_date||'')}"`],
-    wo_sla:          ['fu-badge fu-wo-sla fu-badge-btn',   '🔔 WO SLA Follow-Up', 'cci-wo-sla',   `data-contact="${esc(r.contact_name||'')}" data-status="${esc(r.work_order_status||'')}"`],
-    input_dc:        ['fu-badge fu-input-dc fu-badge-btn', '🔢 Input DC Number',  'cci-dc',       `data-contact="${esc(r.contact_name||'')}"`],
-  };
-  const [cls, label, action, extras] = map[s] || ['fu-badge fu-input-dc', s || '—', '', ''];
-  if (!action) return `<span class="${cls}">${label}</span>`;
-  return `<button class="${cls}" data-action="${action}" data-wo="${esc(r.work_order_id)}" ${extras}>${label}</button>`;
-}
-
-function _cciBindRows(tbody) {
-  tbody.querySelectorAll('.wo-link').forEach(b =>
-    b.addEventListener('click', () => openDetail(b.dataset.wo)));
-  /* CCI actions */
-  tbody.querySelectorAll('[data-action="cci-recv"]').forEach(b =>
-    b.addEventListener('click', () => openRecv(b.dataset.wo, b.dataset.contact, b.dataset.eta, b.dataset.status, b.dataset.customer)));
-  tbody.querySelectorAll('[data-action="cci-part-sla"]').forEach(b =>
-    b.addEventListener('click', () => toast(`Part SLA Follow-Up for WO ${b.dataset.wo} — form coming soon`, 'err')));
-  tbody.querySelectorAll('[data-action="cci-wo-sla"]').forEach(b =>
-    b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.contact, b.dataset.status, 'cci')));
-  tbody.querySelectorAll('[data-action="cci-dc"]').forEach(b =>
-    b.addEventListener('click', () => toast(`Input DC for WO ${b.dataset.wo} — form coming soon`, 'err')));
-  /* Onsite actions */
-  tbody.querySelectorAll('[data-action="onsite-reschedule"]').forEach(b =>
-    b.addEventListener('click', () => openReschedule(b.dataset.wo, b.dataset.contact, b.dataset.status)));
-  tbody.querySelectorAll('[data-action="onsite-part-sla"]').forEach(b =>
-    b.addEventListener('click', () => toast(`Part SLA Follow-Up for WO ${b.dataset.wo} — form coming soon`, 'err')));
-  tbody.querySelectorAll('[data-action="onsite-wo-sla"]').forEach(b =>
-    b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.contact, b.dataset.status, 'onsite')));
-  tbody.querySelectorAll('[data-action="onsite-dc"]').forEach(b =>
-    b.addEventListener('click', () => toast(`Input DC for WO ${b.dataset.wo} — form coming soon`, 'err')));
-}
-
-let _cciActiveState = '';   /* current sub-tab filter */
-
-const cciTable = makeTabTable({
-  apiUrl:  '/asp/api/cci-followup',
-  tbodyId: 'tbody-cci', emptyId: 'empty-cci', pgId: 'pg-cci', cntId: 'count-cci',
+const inPrepareTable = makeTabTable({
+  apiUrl:  '/asp/api/in-prepare',
+  tbodyId: 'tbody-in-prepare', emptyId: 'empty-in-prepare',
+  pgId: 'pg-in-prepare', cntId: 'count-in-prepare',
   colsFn: () => [
     { key: 'created_on',        render: r => fmt(r.created_on) },
     { key: 'work_order_id',     render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
-    { key: 'followup_state',    render: r => fuBadge(r) },
     { key: 'work_order_type',   render: r => esc(r.work_order_type||'—') },
     { key: 'case_desc',         render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
     { key: 'work_order_status', render: r => statusBadge(r.work_order_status) },
+    { key: 'part_product',      render: r => `<span title="${esc(r.part_description||'')}" style="font-size:11px;color:#57606a">${esc(r.part_product||'—')}</span>` },
+    { key: 'part_order_date',   render: r => fmt(r.part_order_date || r.part_acceptance_date) },
+    { key: 'part_eta_wh',       render: r => {
+        if (!r.part_eta_wh || isSentinel(r.part_eta_wh)) return '—';
+        const etaDate = r.part_eta_wh.slice(0,10);
+        const today   = new Date().toISOString().slice(0,10);
+        const overdue = etaDate < today;
+        return `<span style="font-weight:700;color:${overdue?'#b91c1c':'#92400e'}">${esc(r.part_eta_wh.slice(0,10))}</span>${overdue?' <span style="font-size:10px;font-weight:700;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:1px 6px">OVERDUE</span>':''}`;
+      }
+    },
     { key: 'contact_name',      render: r => esc(r.contact_name||'—') },
     { key: 'customer',          render: r => esc(r.customer||'—') },
   ],
   onBind: rows => {
-    /* Red tab badge — actionable count from the total returned by API */
-    const badge = document.getElementById('tab-cci-badge');
-    const cnt   = parseInt(document.getElementById('count-cci').textContent, 10) || rows.length;
+    const badge = document.getElementById('tab-in-prepare-badge');
+    const cnt   = parseInt(document.getElementById('count-in-prepare').textContent, 10) || rows.length;
     badge.textContent   = cnt;
     badge.style.display = cnt > 0 ? 'inline-block' : 'none';
-    _cciBindRows(document.getElementById('tbody-cci'));
+    document.getElementById('tbody-in-prepare').querySelectorAll('.wo-link').forEach(b =>
+      b.addEventListener('click', () => openDetail(b.dataset.wo)));
   },
 });
 
-/* Sub-tab pill clicks — fire server-side load with followup_state param */
-document.querySelectorAll('#cci-subtab-bar .subtab-pill').forEach(pill => {
-  pill.addEventListener('click', () => {
-    document.querySelectorAll('#cci-subtab-bar .subtab-pill').forEach(p => {
-      p.classList.remove('active','sactive-confirm','sactive-part-sla','sactive-wo-sla','sactive-input-dc');
-    });
-    const state = pill.dataset.state;
-    _cciActiveState = state;
-    const activeClass = {
-      confirm_receipt: 'sactive-confirm',
-      part_sla:        'sactive-part-sla',
-      wo_sla:          'sactive-wo-sla',
-      input_dc:        'sactive-input-dc',
-    }[state] || 'active';
-    pill.classList.add(activeClass);
-    const params = { q: document.getElementById('search-cci').value.trim() };
-    if (state) params.followup_state = state;
-    cciTable.load(params);
-  });
-});
-
-let cciTimer = null;
-document.getElementById('search-cci').addEventListener('input', () => {
-  clearTimeout(cciTimer);
-  cciTimer = setTimeout(() => {
-    const params = { q: document.getElementById('search-cci').value.trim() };
-    if (_cciActiveState) params.followup_state = _cciActiveState;
-    cciTable.load(params);
+let inPrepareTimer = null;
+document.getElementById('search-in-prepare').addEventListener('input', () => {
+  clearTimeout(inPrepareTimer);
+  inPrepareTimer = setTimeout(() => {
+    inPrepareTable.load({ q: document.getElementById('search-in-prepare').value.trim() });
   }, 350);
 });
 
 /* ═══════════════════════════════════════════════════════════════
-   TAB 3 — Onsite Follow-Up
+   TAB: In-Delivery Follow-Up
 ═══════════════════════════════════════════════════════════════ */
-function onsiteFuBadge(r) {
-  const s = r.followup_state;
-  const map = {
-    wo_reschedule: ['fu-badge fu-reschedule fu-badge-btn', '📅 WO Reschedule',    'onsite-reschedule', `data-contact="${esc(r.contact_name||'')}" data-status="${esc(r.work_order_status||'')}"`],
-    part_sla:      ['fu-badge fu-part-sla fu-badge-btn', '⚠️ Part SLA Overdue',  'onsite-part-sla',   `data-contact="${esc(r.contact_name||'')}" data-eta="${esc(r.committed_delivery_date||'')}"`],
-    wo_sla:        ['fu-badge fu-wo-sla fu-badge-btn',   '🔔 WO SLA Follow-Up',  'onsite-wo-sla',     `data-contact="${esc(r.contact_name||'')}" data-status="${esc(r.work_order_status||'')}"`],
-    input_dc:      ['fu-badge fu-input-dc fu-badge-btn', '🔢 Input DC Number',   'onsite-dc',         `data-contact="${esc(r.contact_name||'')}"`],
-  };
-  const [cls, label, action, extras] = map[s] || ['fu-badge fu-wo-sla', s || '—', '', ''];
-  if (!action) return `<span class="${cls}">${label}</span>`;
-  return `<button class="${cls}" data-action="${action}" data-wo="${esc(r.work_order_id)}" ${extras}>${label}</button>`;
+/* Follow-Up State badge for In-Delivery rows.
+   Every row by definition has part shipped but not POD'd, so the only
+   two possible states are confirm_receipt (ETA not yet passed) and
+   part_sla (ETA already passed). */
+function inDeliveryFuBadge(r) {
+  const wo      = esc(r.work_order_id);
+  const contact = esc(r.contact_name    || '');
+  const eta     = esc(r.committed_delivery_date || '');
+  const awb     = esc(r.part_awb        || '');
+  const status  = esc(r.work_order_status || '');
+  const cust    = esc(r.customer         || '');
+
+  const etaDate = (r.committed_delivery_date || '').slice(0, 10);
+  const today   = new Date().toISOString().slice(0, 10);
+  const overdue = etaDate && etaDate < today;
+  const isOnsite = (r.work_order_type || '').toLowerCase().includes('onsite');
+  const woType   = esc(isOnsite ? 'onsite' : 'cci');
+
+  if (overdue)
+    return `<button class="fu-badge fu-part-sla fu-badge-btn" data-action="in-delivery-part-sla" data-wo="${wo}" data-contact="${contact}" data-eta="${eta}" data-awb="${awb}" data-status="${status}" data-customer="${cust}" data-wo-type="${woType}">⚠️ Part SLA Overdue</button>`;
+  if (isOnsite)
+    return `<button class="fu-badge fu-confirm fu-badge-btn" data-action="in-delivery-onsite-recv" data-wo="${wo}" data-contact="${contact}" data-status="${status}">📬 Part Received</button>`;
+  return `<button class="fu-badge fu-confirm fu-badge-btn" data-action="in-delivery-recv" data-wo="${wo}" data-contact="${contact}" data-eta="${eta}" data-status="${status}" data-customer="${cust}">📬 Confirm Receipt</button>`;
 }
 
-function _onsiteBindRows(tbody) {
-  tbody.querySelectorAll('.wo-link').forEach(b =>
-    b.addEventListener('click', () => openDetail(b.dataset.wo)));
-  tbody.querySelectorAll('[data-action="onsite-reschedule"]').forEach(b =>
-    b.addEventListener('click', () => openReschedule(b.dataset.wo, b.dataset.contact, b.dataset.status)));
-  tbody.querySelectorAll('[data-action="onsite-part-sla"]').forEach(b =>
-    b.addEventListener('click', () => toast(`Part SLA Follow-Up for WO ${b.dataset.wo} — form coming soon`, 'err')));
-  tbody.querySelectorAll('[data-action="onsite-wo-sla"]').forEach(b =>
-    b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.contact, b.dataset.status, 'onsite')));
-  tbody.querySelectorAll('[data-action="onsite-dc"]').forEach(b =>
-    b.addEventListener('click', () => toast(`Input DC for WO ${b.dataset.wo} — form coming soon`, 'err')));
-}
-
-let _onsiteActiveState = '';
-
-const onsiteTable = makeTabTable({
-  apiUrl:  '/asp/api/onsite-followup',
-  tbodyId: 'tbody-onsite', emptyId: 'empty-onsite', pgId: 'pg-onsite', cntId: 'count-onsite',
+const inDeliveryTable = makeTabTable({
+  apiUrl:  '/asp/api/in-delivery',
+  tbodyId: 'tbody-in-delivery', emptyId: 'empty-in-delivery',
+  pgId: 'pg-in-delivery', cntId: 'count-in-delivery',
   colsFn: () => [
     { key: 'created_on',        render: r => fmt(r.created_on) },
     { key: 'work_order_id',     render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
-    { key: 'followup_state',    render: r => onsiteFuBadge(r) },
+    { key: 'followup_state',    render: r => inDeliveryFuBadge(r) },
     { key: 'work_order_type',   render: r => esc(r.work_order_type||'—') },
     { key: 'case_desc',         render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
     { key: 'work_order_status', render: r => statusBadge(r.work_order_status) },
+    { key: 'part_description',  render: r => `<span title="${esc(r.part_description||'')}" style="font-size:11px;color:#57606a">${esc(r.part_product||'—')}</span>` },
+    { key: 'part_awb',          render: r => r.part_awb ? `<span style="font-family:monospace;font-size:11px;color:#3b82d4;font-weight:700">${esc(r.part_awb)}</span>` : '<span style="color:#8c959f;font-style:italic">—</span>' },
+    { key: 'ship_pickup_time',  render: r => fmt(r.ship_pickup_time || r.shipment_date) },
+    { key: 'part_eta',          render: r => {
+        if (!r.part_eta || isSentinel(r.part_eta)) return '—';
+        const etaDate = r.part_eta.slice(0,10);
+        const today   = new Date().toISOString().slice(0,10);
+        const overdue = etaDate < today;
+        return `<span style="font-weight:700;color:${overdue?'#b91c1c':'#92400e'}">${esc(r.part_eta.slice(0,10))}</span>${overdue?'<span style="margin-left:5px;font-size:10px;font-weight:700;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:1px 6px">OVERDUE</span>':''}`;
+      }
+    },
     { key: 'contact_name',      render: r => esc(r.contact_name||'—') },
     { key: 'customer',          render: r => esc(r.customer||'—') },
   ],
   onBind: rows => {
-    const badge = document.getElementById('tab-onsite-badge');
-    const cnt   = parseInt(document.getElementById('count-onsite').textContent, 10) || rows.length;
+    const badge = document.getElementById('tab-in-delivery-badge');
+    const cnt   = parseInt(document.getElementById('count-in-delivery').textContent, 10) || rows.length;
     badge.textContent   = cnt;
     badge.style.display = cnt > 0 ? 'inline-block' : 'none';
-    _onsiteBindRows(document.getElementById('tbody-onsite'));
+    const tbody = document.getElementById('tbody-in-delivery');
+    tbody.querySelectorAll('.wo-link').forEach(b =>
+      b.addEventListener('click', () => openDetail(b.dataset.wo)));
+    tbody.querySelectorAll('[data-action="in-delivery-recv"]').forEach(b =>
+      b.addEventListener('click', () => openRecv(b.dataset.wo, b.dataset.contact, b.dataset.eta, b.dataset.status, b.dataset.customer)));
+    tbody.querySelectorAll('[data-action="in-delivery-onsite-recv"]').forEach(b =>
+      b.addEventListener('click', () => openOnsiteRecv(b.dataset.wo, b.dataset.contact, b.dataset.status)));
+    tbody.querySelectorAll('[data-action="in-delivery-part-sla"]').forEach(b =>
+      b.addEventListener('click', () => openPartSla(b.dataset.wo, b.dataset.contact, b.dataset.eta, b.dataset.awb, b.dataset.status, b.dataset.customer, b.dataset.woType || 'cci')));
   },
 });
 
-/* Sub-tab pill clicks */
-document.querySelectorAll('#onsite-subtab-bar .subtab-pill').forEach(pill => {
-  pill.addEventListener('click', () => {
-    document.querySelectorAll('#onsite-subtab-bar .subtab-pill').forEach(p => {
-      p.classList.remove('active','sactive-confirm','sactive-part-sla','sactive-wo-sla','sactive-input-dc','sactive-reschedule');
-    });
-    const state = pill.dataset.state;
-    _onsiteActiveState = state;
-    const activeClass = {
-      wo_reschedule: 'sactive-reschedule',
-      part_sla:      'sactive-part-sla',
-      wo_sla:        'sactive-confirm',
-      input_dc:      'sactive-input-dc',
-    }[state] || 'active';
-    pill.classList.add(activeClass);
-    const params = { q: document.getElementById('search-onsite').value.trim() };
-    if (state) params.followup_state = state;
-    onsiteTable.load(params);
-  });
+let inDeliveryTimer = null;
+document.getElementById('search-in-delivery').addEventListener('input', () => {
+  clearTimeout(inDeliveryTimer);
+  inDeliveryTimer = setTimeout(() => {
+    inDeliveryTable.load({ q: document.getElementById('search-in-delivery').value.trim() });
+  }, 350);
 });
 
-let onsiteTimer = null;
-document.getElementById('search-onsite').addEventListener('input', () => {
-  clearTimeout(onsiteTimer);
-  onsiteTimer = setTimeout(() => {
-    const params = { q: document.getElementById('search-onsite').value.trim() };
-    if (_onsiteActiveState) params.followup_state = _onsiteActiveState;
-    onsiteTable.load(params);
+/* ═══════════════════════════════════════════════════════════════
+   TAB: In-Repair Follow-Up
+═══════════════════════════════════════════════════════════════ */
+const inRepairTable = makeTabTable({
+  apiUrl:  '/asp/api/in-repair',
+  tbodyId: 'tbody-in-repair', emptyId: 'empty-in-repair',
+  pgId: 'pg-in-repair', cntId: 'count-in-repair',
+  colsFn: () => [
+    { key: 'created_on',        render: r => fmt(r.created_on) },
+    { key: 'work_order_id',     render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
+    { key: '_followup_state',   render: r => {
+      const isOnsite = (r.work_order_type || '').toLowerCase().includes('onsite');
+      if (!isOnsite) return '<span style="color:#8c959f;font-style:italic">—</span>';
+      const wo      = esc(r.work_order_id);
+      const contact = esc(r.contact_name || '');
+      const status  = esc(r.work_order_status || '');
+      return `<button class="fu-badge fu-reschedule fu-badge-btn" data-action="onsite-reschedule" data-wo="${wo}" data-contact="${contact}" data-status="${status}">📅 WO Reschedule</button>`;
+    }},
+    { key: '_sla_breach',       render: r => {
+      const wo      = esc(r.work_order_id);
+      const contact = esc(r.contact_name || '');
+      const status  = esc(r.work_order_status || '');
+      return `<button class="fu-badge fu-wo-sla fu-badge-btn" data-action="in-repair-wo-sla" data-wo="${wo}" data-contact="${contact}" data-status="${status}">🔔 WO SLA Follow-Up</button>`;
+    }},
+    { key: 'work_order_type',   render: r => esc(r.work_order_type||'—') },
+    { key: 'case_desc',         render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
+    { key: 'work_order_status', render: r => statusBadge(r.work_order_status) },
+    { key: 'part_description',  render: r => `<span title="${esc(r.part_description||'')}" style="font-size:11px;color:#57606a">${esc(r.part_product||'—')}</span>` },
+    { key: 'part_awb',          render: r => r.part_awb ? `<span style="font-family:monospace;font-size:11px;color:#3b82d4;font-weight:700">${esc(r.part_awb)}</span>` : '<span style="color:#8c959f;font-style:italic">—</span>' },
+    { key: 'ship_pou_pod_time', render: r => fmt(r.ship_pou_pod_time || r.part_delivery_date) },
+    { key: 'contact_name',      render: r => esc(r.contact_name||'—') },
+    { key: 'customer',          render: r => esc(r.customer||'—') },
+  ],
+  onBind: rows => {
+    const badge = document.getElementById('tab-in-repair-badge');
+    const cnt   = parseInt(document.getElementById('count-in-repair').textContent, 10) || rows.length;
+    badge.textContent   = cnt;
+    badge.style.display = cnt > 0 ? 'inline-block' : 'none';
+    const tbody = document.getElementById('tbody-in-repair');
+    tbody.querySelectorAll('.wo-link').forEach(b =>
+      b.addEventListener('click', () => openDetail(b.dataset.wo)));
+    tbody.querySelectorAll('[data-action="onsite-reschedule"]').forEach(b =>
+      b.addEventListener('click', () => openReschedule(b.dataset.wo, b.dataset.contact, b.dataset.status)));
+    tbody.querySelectorAll('[data-action="in-repair-wo-sla"]').forEach(b =>
+      b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.contact, b.dataset.status, 'in-repair')));
+  },
+});
+
+let inRepairTimer = null;
+document.getElementById('search-in-repair').addEventListener('input', () => {
+  clearTimeout(inRepairTimer);
+  inRepairTimer = setTimeout(() => {
+    inRepairTable.load({ q: document.getElementById('search-in-repair').value.trim() });
+  }, 350);
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   TAB: Return Part Follow-Up
+═══════════════════════════════════════════════════════════════ */
+const returnPartTable = makeTabTable({
+  apiUrl:  '/asp/api/return-part',
+  tbodyId: 'tbody-return-part', emptyId: 'empty-return-part',
+  pgId: 'pg-return-part', cntId: 'count-return-part',
+  colsFn: () => [
+    { key: 'created_on',                  render: r => fmt(r.created_on) },
+    { key: 'work_order_id',               render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
+    { key: 'followup_state',              render: r => `<button class="fu-badge fu-input-dc fu-badge-btn" data-action="return-dc" data-wo="${esc(r.work_order_id)}" data-contact="${esc(r.contact_name||'')}">🔢 Input DC Number</button>` },
+    { key: 'work_order_type',             render: r => esc(r.work_order_type||'—') },
+    { key: 'case_desc',                   render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
+    { key: 'work_order_status',           render: r => statusBadge(r.work_order_status) },
+    { key: 'committed_delivery_date',     render: r => fmt(r.committed_delivery_date) },
+    { key: 'actual_committed_onsite_date',render: r => fmt(r.actual_committed_onsite_date) },
+    { key: 'contact_name',                render: r => esc(r.contact_name||'—') },
+    { key: 'customer',                    render: r => esc(r.customer||'—') },
+  ],
+  onBind: rows => {
+    const badge = document.getElementById('tab-return-part-badge');
+    const cnt   = parseInt(document.getElementById('count-return-part').textContent, 10) || rows.length;
+    badge.textContent   = cnt;
+    badge.style.display = cnt > 0 ? 'inline-block' : 'none';
+    const tbody = document.getElementById('tbody-return-part');
+    tbody.querySelectorAll('.wo-link').forEach(b =>
+      b.addEventListener('click', () => openDetail(b.dataset.wo)));
+    tbody.querySelectorAll('[data-action="return-dc"]').forEach(b =>
+      b.addEventListener('click', () => openInputDc(b.dataset.wo, b.dataset.contact, '')));
+  },
+});
+
+let returnPartTimer = null;
+document.getElementById('search-return-part').addEventListener('input', () => {
+  clearTimeout(returnPartTimer);
+  returnPartTimer = setTimeout(() => {
+    returnPartTable.load({ q: document.getElementById('search-return-part').value.trim(), followup_state: 'input_dc' });
   }, 350);
 });
 
 /* ═══════════════════════════════════════════════════════════════
    TAB SWITCHING — load data lazily on first activation
 ═══════════════════════════════════════════════════════════════ */
-const tabLoaded = { 'tab-all': false, 'tab-cci-followup': false, 'tab-onsite-followup': false };
+const tabLoaded = {
+  'tab-all': false,
+  'tab-in-prepare': false,
+  'tab-in-delivery': false, 'tab-in-repair': false, 'tab-return-part': false,
+};
 const tabLoaders = {
   'tab-all':            () => loadAllWo(),
-  'tab-cci-followup':   () => cciTable.load({}),
-  'tab-onsite-followup':() => onsiteTable.load({}),
+  'tab-in-prepare':     () => inPrepareTable.load({}),
+  'tab-in-delivery':    () => inDeliveryTable.load({}),
+  'tab-in-repair':      () => inRepairTable.load({}),
+  'tab-return-part':    () => returnPartTable.load({ followup_state: 'input_dc' }),
 };
 
 function switchTab(id) {
@@ -2188,7 +2680,11 @@ document.querySelectorAll('[data-goto]').forEach(c => c.addEventListener('click'
 
 /* ── URL param: ?tab= ── */
 (function () {
-  const map = { 'all':'tab-all', 'cci-followup':'tab-cci-followup', 'onsite-followup':'tab-onsite-followup' };
+  const map = {
+    'all':'tab-all',
+    'in-prepare':'tab-in-prepare',
+    'in-delivery':'tab-in-delivery', 'in-repair':'tab-in-repair', 'return-part':'tab-return-part',
+  };
   const p   = new URLSearchParams(location.search).get('tab');
   const id  = (p && map[p]) || 'tab-all';
   switchTab(id);
@@ -2318,6 +2814,92 @@ function _renderAwbWoList(rows, primaryWoId) {
     _updateSelectAll();
   };
 }
+
+/* ── Input DC Number modal ── */
+let activeIdcWo = null;
+
+function openInputDc(woId, contact, woStatus) {
+  activeIdcWo = woId;
+  document.getElementById('idc-wo-num').textContent        = woId;
+  document.getElementById('idc-contact').textContent       = contact  || '—';
+  document.getElementById('idc-wo-status-badge').innerHTML = woStatus ? statusBadge(woStatus) : '';
+  document.getElementById('idc-number').value              = '';
+
+  /* Reset parts list */
+  const idcPartsList = document.getElementById('idc-parts-list');
+  const idcPartsQty  = document.getElementById('idc-parts-qty');
+  idcPartsList.style.display = 'none';
+  idcPartsList.querySelectorAll('.wo-strip-part-row').forEach(r => r.remove());
+
+  openModal('modal-input-dc');
+  setTimeout(() => document.getElementById('idc-number').focus(), 120);
+
+  /* Fetch parts for this WO */
+  fetch(`/asp/api/wo-parts/${woId}`)
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (!data || !data.length) return;
+      const parts = data.filter(p => !(p.wo_product_status || '').toLowerCase().includes('cancel'));
+      if (!parts.length) return;
+      idcPartsList.style.display = 'block';
+      idcPartsQty.textContent = parts.length + (parts.length === 1 ? ' part' : ' parts');
+      parts.forEach(p => {
+        const row = document.createElement('div');
+        row.className = 'wo-strip-part-row';
+        const awbHtml = p.awb
+          ? `<span class="wo-strip-part-awb">AWB: ${esc(p.awb)}</span>`
+          : `<span class="wo-strip-part-noawb">No AWB on record</span>`;
+        row.innerHTML = `<span class="wo-strip-part-pn">${esc(p.product||'—')}</span><span class="wo-strip-part-desc">${esc(p.description||'')}</span>${awbHtml}`;
+        idcPartsList.appendChild(row);
+      });
+    })
+    .catch(() => {});
+}
+
+document.getElementById('btn-confirm-input-dc').addEventListener('click', () => {
+  const dc = document.getElementById('idc-number').value.trim();
+  if (!dc) { toast('Please enter the DC Number.', 'err'); return; }
+  /* TODO: POST to backend once ready */
+  toast(`WO ${activeIdcWo} — DC Number ${dc} recorded ✓`, 'ok');
+  closeModal('modal-input-dc');
+});
+
+/* ── Onsite Part Received — lightweight modal ── */
+let activeOnsiteRecvWo = null, activeOnsiteRecvContact = '', activeOnsiteRecvStatus = '';
+
+function openOnsiteRecv(woId, contact, woStatus) {
+  activeOnsiteRecvWo      = woId;
+  activeOnsiteRecvContact = contact  || '';
+  activeOnsiteRecvStatus  = woStatus || '';
+  document.getElementById('onsite-recv-wo-num').textContent        = woId;
+  document.getElementById('onsite-recv-contact').textContent       = contact || '—';
+  document.getElementById('onsite-recv-wo-status-badge').innerHTML = woStatus ? statusBadge(woStatus) : '';
+  document.getElementById('onsite-recv-datetime').value            = '';
+  /* Show form, hide prompt */
+  document.getElementById('onsite-recv-form-section').style.display = '';
+  document.getElementById('onsite-recv-prompt').style.display       = 'none';
+  document.getElementById('onsite-recv-footer').style.display       = '';
+  openModal('modal-onsite-recv');
+}
+
+document.getElementById('btn-confirm-onsite-recv').addEventListener('click', () => {
+  const dt = document.getElementById('onsite-recv-datetime').value;
+  if (!dt) { toast('Please enter the part arrival date and time.', 'err'); return; }
+  /* TODO: POST to backend once ready */
+  document.getElementById('onsite-recv-form-section').style.display = 'none';
+  document.getElementById('onsite-recv-footer').style.display       = 'none';
+  document.getElementById('onsite-recv-prompt').style.display       = '';
+});
+
+document.getElementById('btn-onsite-recv-prompt-exit').addEventListener('click', () => {
+  closeModal('modal-onsite-recv');
+  toast(`WO ${activeOnsiteRecvWo} — part arrival recorded ✓`, 'ok');
+});
+
+document.getElementById('btn-onsite-recv-prompt-reschedule').addEventListener('click', () => {
+  closeModal('modal-onsite-recv');
+  openReschedule(activeOnsiteRecvWo, activeOnsiteRecvContact, activeOnsiteRecvStatus);
+});
 
 function openRecv(woId, contact, eta, woStatus, aspName) {
   activeRecvWo = woId;
@@ -2540,7 +3122,7 @@ function openWoSla(woId, contact, woStatus, source) {
   document.getElementById('wosla-wo-num').textContent        = woId;
   document.getElementById('wosla-contact').textContent       = contact || '—';
   document.getElementById('wosla-wo-status-badge').innerHTML = woStatus ? statusBadge(woStatus) : '';
-  document.getElementById('wo-sla-subtitle').textContent     = (source === 'onsite' ? 'Onsite' : 'CCI') + ' — WO SLA Follow-Up';
+  document.getElementById('wo-sla-subtitle').textContent     = (source === 'onsite' ? 'Onsite' : source === 'in-repair' ? 'In-Repair' : 'CCI') + ' — WO SLA Follow-Up';
   document.getElementById('wosla-closed-datetime').value     = '';
   document.getElementById('wosla-notes').value               = '';
   woslaIssueDd.reset();
@@ -2584,17 +3166,213 @@ document.getElementById('btn-confirm-return').addEventListener('click', () => {
   closeModal('modal-return');
 });
 
-/* Reschedule modal */
+/* ── Part SLA Overdue modal ── */
+let activePslaWo = null;
+
+let activePslaEta      = '';
+let activePslaWoStatus = '';
+let activePslaCustomer = '';
+let activePslaContact  = '';
+let activePslaSource   = '';
+
+function openPartSla(woId, contact, eta, awb, woStatus, customer, source) {
+  activePslaWo       = woId;
+  activePslaEta      = eta      || '';
+  activePslaWoStatus = woStatus || '';
+  activePslaCustomer = customer || '';
+  activePslaContact  = contact  || '';
+  activePslaSource   = source   || '';
+  document.getElementById('psla-wo-num').textContent        = woId;
+  document.getElementById('psla-contact').textContent       = contact || '—';
+  document.getElementById('psla-wo-status-badge').innerHTML = woStatus ? statusBadge(woStatus) : '';
+  document.getElementById('psla-new-eta').value    = '';
+  document.getElementById('psla-arrived-date').value = '';
+  pslaStatusDd.reset();
+
+  /* Always show the form sections and footer; hide the post-submit prompt */
+  document.getElementById('psla-section-shipment').style.display  = '';
+  document.getElementById('psla-arrived-date-group').style.display = 'none';
+  document.getElementById('psla-reschedule-prompt').style.display  = 'none';
+  document.getElementById('psla-modal-footer').style.display       = '';
+
+  /* Reset parts list */
+  const partsList    = document.getElementById('psla-parts-list');
+  const partsLoading = document.getElementById('psla-parts-loading');
+  const qtyPill      = document.getElementById('psla-parts-qty');
+  partsList.querySelectorAll('.wo-strip-part-row').forEach(r => r.remove());
+  partsList.style.display    = 'none';
+  partsLoading.style.display = 'block';
+
+  openModal('modal-part-sla');
+
+  /* Fetch parts for this WO */
+  fetch(`/asp/api/wo-parts/${woId}`)
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      partsLoading.style.display = 'none';
+      if (!data || !data.length) return;
+      const parts = data.filter(p => !(p.wo_product_status || '').toLowerCase().includes('cancel'));
+      if (!parts.length) return;
+      qtyPill.textContent = parts.length + (parts.length === 1 ? ' PART' : ' PARTS');
+      parts.forEach(p => {
+        const row = document.createElement('div');
+        row.className = 'wo-strip-part-row';
+        const awbHtml = p.awb
+          ? `<span class="wo-strip-part-awb">AWB: ${esc(p.awb)}</span>`
+          : `<span class="wo-strip-part-noawb">No AWB on record</span>`;
+        row.innerHTML = `<span class="wo-strip-part-pn">${esc(p.product||'—')}</span><span class="wo-strip-part-desc">${esc(p.description||'')}</span>${awbHtml}`;
+        partsList.appendChild(row);
+      });
+      partsList.style.display = 'block';
+    })
+    .catch(() => { partsLoading.style.display = 'none'; });
+}
+
+/* ── Custom dropdown — Current Part Whereabouts ── */
+const pslaStatusDd = (function() {
+  const dd      = document.getElementById('psla-status-dd');
+  const trigger = document.getElementById('psla-status-trigger');
+  const list    = document.getElementById('psla-status-list');
+  const display = document.getElementById('psla-status-display');
+  const hidden  = document.getElementById('psla-status-value');
+
+  trigger.addEventListener('click', () => dd.classList.toggle('open'));
+  trigger.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dd.classList.toggle('open'); }
+    if (e.key === 'Escape') dd.classList.remove('open');
+  });
+  document.addEventListener('click', e => { if (!dd.contains(e.target)) dd.classList.remove('open'); });
+
+  function _applyArrivedState(val) {
+    const etaInput        = document.getElementById('psla-new-eta');
+    const etaLabel        = document.getElementById('psla-new-eta-label');
+    const arrivedHint     = document.getElementById('psla-arrived-hint');
+    const arrivedDateGrp  = document.getElementById('psla-arrived-date-group');
+    const shipmentSection = document.getElementById('psla-section-shipment');
+    const btnReceipt      = document.getElementById('btn-psla-confirm-receipt');
+    const btnSubmit       = document.getElementById('btn-confirm-part-sla');
+    const isArrived       = val === 'part_arrived';
+    const isOnsite        = activePslaSource === 'onsite';
+
+    if (isArrived && isOnsite) {
+      /* Onsite + arrived: show arrival date field, hide shipment section,
+         keep the red Submit button visible (no Confirm Receipt needed) */
+      arrivedDateGrp.style.display  = '';
+      shipmentSection.style.display = 'none';
+      arrivedHint.style.display     = 'none';
+      btnReceipt.style.display      = 'none';
+      btnSubmit.style.display       = '';
+    } else if (isArrived) {
+      /* CCI + arrived: existing behaviour — grey ETA, show arrived hint,
+         swap Submit for Confirm Receipt */
+      arrivedDateGrp.style.display  = 'none';
+      shipmentSection.style.display = '';
+      if (isArrived) etaInput.value = '';
+      etaInput.disabled         = true;
+      etaInput.style.opacity    = '0.4';
+      etaInput.style.cursor     = 'not-allowed';
+      etaInput.style.background = '#f7f8fa';
+      etaLabel.innerHTML        = 'New Expected Delivery Date <span style="font-size:10px;color:#8c959f;font-weight:400">(not required — part arrived)</span>';
+      arrivedHint.style.display = 'block';
+      btnReceipt.style.display  = '';
+      btnSubmit.style.display   = 'none';
+    } else {
+      /* Not arrived: restore all defaults */
+      arrivedDateGrp.style.display  = 'none';
+      shipmentSection.style.display = '';
+      etaInput.disabled         = false;
+      etaInput.style.opacity    = '';
+      etaInput.style.cursor     = '';
+      etaInput.style.background = '';
+      etaLabel.innerHTML        = 'New Expected Delivery Date <span class="req">*</span>';
+      arrivedHint.style.display = 'none';
+      btnReceipt.style.display  = 'none';
+      btnSubmit.style.display   = '';
+    }
+  }
+
+  list.querySelectorAll('.dd-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      list.querySelectorAll('.dd-option').forEach(o => o.classList.remove('active'));
+      opt.classList.add('active');
+      const val = opt.dataset.value;
+      display.textContent = val ? opt.textContent.trim() : opt.textContent.trim();
+      display.classList.toggle('has-selection', !!val);
+      hidden.value = val;
+      dd.classList.remove('open');
+      _applyArrivedState(val);
+    });
+  });
+
+  return {
+    reset() {
+      list.querySelectorAll('.dd-option').forEach(o => o.classList.remove('active'));
+      list.querySelector('.dd-default').classList.add('active');
+      display.textContent = '— Select current part status —';
+      display.classList.remove('has-selection');
+      hidden.value = '';
+      _applyArrivedState('');
+    }
+  };
+})();
+
+document.getElementById('btn-psla-confirm-receipt').addEventListener('click', () => {
+  if (activePslaSource === 'onsite') {
+    /* Onsite — no receipt form needed, confirm directly */
+    toast(`WO ${activePslaWo} — part receipt confirmed ✓`, 'ok');
+    closeModal('modal-part-sla');
+  } else {
+    /* CCI — open the full Part Received confirmation form */
+    closeModal('modal-part-sla');
+    openRecv(activePslaWo, activePslaContact, activePslaEta, activePslaWoStatus, activePslaCustomer);
+  }
+});
+
+document.getElementById('btn-confirm-part-sla').addEventListener('click', () => {
+  const status     = document.getElementById('psla-status-value').value;
+  const newEta     = document.getElementById('psla-new-eta').value;
+  const isOnsite   = activePslaSource === 'onsite';
+  const isArrived  = status === 'part_arrived';
+
+  if (!status) { toast('Please select the current part whereabouts.', 'err'); return; }
+
+  if (isArrived && isOnsite) {
+    /* Onsite + arrived: require arrival date, then show reschedule prompt */
+    const arrivalDt = document.getElementById('psla-arrived-date').value;
+    if (!arrivalDt) { toast('Please enter the part arrival date and time.', 'err'); return; }
+    /* TODO: POST to backend once ready */
+    /* Swap modal content to the post-submit prompt */
+    document.getElementById('psla-section-shipment').style.display  = 'none';
+    document.getElementById('psla-arrived-date-group').style.display = 'none';
+    document.getElementById('psla-modal-footer').style.display       = 'none';
+    document.getElementById('psla-reschedule-prompt').style.display  = '';
+  } else {
+    /* All other cases: require new ETA date */
+    if (!newEta) { toast('Please enter a new expected delivery date.', 'err'); return; }
+    /* TODO: POST to backend once ready */
+    toast(`WO ${activePslaWo} — Part SLA follow-up submitted ✓`, 'ok');
+    closeModal('modal-part-sla');
+  }
+});
+
+document.getElementById('btn-psla-prompt-exit').addEventListener('click', () => {
+  closeModal('modal-part-sla');
+  toast(`WO ${activePslaWo} — Part SLA submitted ✓`, 'ok');
+});
+
+document.getElementById('btn-psla-prompt-reschedule').addEventListener('click', () => {
+  closeModal('modal-part-sla');
+  openReschedule(activePslaWo, activePslaContact, activePslaWoStatus);
+});
+
 let activeRsWo = null;
 function openReschedule(woId, contact, status) {
   activeRsWo = woId;
   document.getElementById('rs-wo-num').textContent           = woId;
   document.getElementById('rs-contact').textContent          = contact || '—';
   document.getElementById('rs-wo-status-badge').innerHTML    = status ? statusBadge(status) : '';
-  document.getElementById('rs-date').value                   = '';
-  document.getElementById('rs-evidence-file').value          = '';
-  document.getElementById('rs-evidence-name').textContent    = '';
-  document.getElementById('rs-evidence-chosen').style.display = 'none';
+  document.getElementById('rs-date').value                    = '';
+  _clearRsEvidence();
   rsByDd.reset();
   openModal('modal-reschedule');
 }
@@ -2644,21 +3422,58 @@ const rsByDd = (function() {
   };
 })();
 
-document.getElementById('rs-evidence-file').addEventListener('change', function() {
-  const chosen = document.getElementById('rs-evidence-chosen');
+function _clearRsEvidence() {
+  const input      = document.getElementById('rs-evidence-file');
+  const chosen     = document.getElementById('rs-evidence-chosen');
+  const preview    = document.getElementById('rs-evidence-preview');
+  const previewImg = document.getElementById('rs-evidence-preview-src');
+  /* Replace the input element so re-selecting the same file fires 'change' */
+  const newInput = input.cloneNode(false);
+  input.parentNode.replaceChild(newInput, input);
+  newInput.addEventListener('change', _onRsEvidenceChange);
+  document.getElementById('rs-evidence-name').textContent = '';
+  chosen.style.display   = 'none';
+  preview.style.display  = 'none';
+  previewImg.src         = '';
+  newInput.closest('label').classList.remove('has-file');
+}
+
+function _onRsEvidenceChange() {
+  const chosen     = document.getElementById('rs-evidence-chosen');
+  const preview    = document.getElementById('rs-evidence-preview');
+  const previewImg = document.getElementById('rs-evidence-preview-src');
+  const zone       = this.closest('label');
   if (this.files[0]) {
     document.getElementById('rs-evidence-name').textContent = this.files[0].name;
     chosen.style.display = 'flex';
+    zone.classList.add('has-file');
+    const f = this.files[0];
+    if (f.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        previewImg.src = e.target.result;
+        preview.style.display = 'block';
+      };
+      reader.readAsDataURL(f);
+    } else {
+      preview.style.display = 'none';
+      previewImg.src = '';
+    }
   } else {
-    chosen.style.display = 'none';
+    _clearRsEvidence();
   }
-});
+}
+
+document.getElementById('rs-evidence-file').addEventListener('change', _onRsEvidenceChange);
+document.getElementById('rs-evidence-remove').addEventListener('click', _clearRsEvidence);
 document.getElementById('btn-confirm-reschedule').addEventListener('click', () => {
   const reason = document.getElementById('rs-by-value').value;
   const by     = document.getElementById('rs-by-type').value;
   const dt     = document.getElementById('rs-date').value;
   if (!reason) { toast('Please select a defer type and reason.', 'err'); return; }
   if (!dt)     { toast('Please select a new appointment date.', 'err'); return; }
+  // Compare local datetime-local value against local now (avoids UTC-offset false rejections)
+  if (new Date(dt) < new Date()) { toast('New appointment date must be in the future.', 'err'); return; }
   if (!document.getElementById('rs-evidence-file').files[0]) { toast('Please upload the chat screenshot evidence.', 'err'); return; }
   toast(`WO ${activeRsWo} — rescheduled (${by}: ${reason}) to ${dt.replace('T',' ')} ✓`, 'ok');
   closeModal('modal-reschedule');

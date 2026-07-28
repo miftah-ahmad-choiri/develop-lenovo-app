@@ -573,6 +573,90 @@ def data_import_upsert_preview(category_key: str):
                     if (soid_col in df.columns and eta_col in df.columns) \
                     else pd.DataFrame()
 
+            elif category_key == "GTAAP":
+                # Impacted rows = Excel rows where:
+                #   1. SOID exists in wo_product_detail, AND
+                #   2. DB dc_number IS NULL or '0' (eligible to be filled), AND
+                #   3. Excel DC# is non-null  (pass 1 — real value)
+                #      OR return_flag is N/No  (pass 2 — sentinel '0')
+                import math as _math
+
+                db_dc = {
+                    r[0]: r[1]  # soid → dc_number (None when empty)
+                    for r in db_conn.execute(
+                        "SELECT soid, dc_number FROM wo_product_detail"
+                    ).fetchall()
+                }
+
+                soid_col       = "SOID"
+                dc_col         = "DC#"
+                rf_col         = "Return Flag"
+                dc_insert_col  = "DC# (will be inserted)"
+                date_col       = "Tanggal Pengiriman Suku Cadang"
+                preview_cols = [
+                    soid_col, "WO#", "Status",
+                    dc_insert_col,
+                    rf_col,
+                    "Nomor Suku Cadang", "Deskripsi Suku Cadang",
+                    "Nama Penyedia Layanan", date_col,
+                ]
+
+                def _has_dc_val(v) -> bool:
+                    if v is None:
+                        return False
+                    if isinstance(v, float) and _math.isnan(v):
+                        return False
+                    s = str(v).strip()
+                    return s not in ("", "nan", "nat", "none", "null", "NaT")
+
+                def _dc_eligible(current) -> bool:
+                    """DB value is eligible to be overwritten."""
+                    return current is None or str(current).strip() == "0"
+
+                def _dc_to_str(v):
+                    """Normalise whole-number floats: 17731.0 → '17731'."""
+                    if not _has_dc_val(v):
+                        return ""
+                    try:
+                        f = float(v)
+                        if f == int(f):
+                            return str(int(f))
+                    except (ValueError, TypeError):
+                        pass
+                    return str(v).strip()
+
+                _no_return = {"n", "no"}
+
+                def _is_new_dc(row):
+                    soid = _safe_int(row.get(soid_col))
+                    if soid is None or soid not in db_dc:
+                        return False
+                    # Only rows whose DB value is eligible (NULL or '0')
+                    if not _dc_eligible(db_dc[soid]):
+                        return False
+                    dc_val = row.get(dc_col)
+                    if _has_dc_val(dc_val):
+                        return True   # pass 1: real DC# to write
+                    # pass 2: no real DC# but return_flag is N → will write '0'
+                    return_flag = str(row.get(rf_col) or "").strip().lower()
+                    return return_flag in _no_return
+
+                def _preview_dc(row):
+                    """Value that will actually be written — real DC# or '0'."""
+                    dc_val = row.get(dc_col)
+                    if _has_dc_val(dc_val):
+                        return _dc_to_str(dc_val)
+                    return_flag = str(row.get(rf_col) or "").strip().lower()
+                    if return_flag in _no_return:
+                        return "0"
+                    return ""
+
+                if soid_col in df.columns and dc_col in df.columns:
+                    new_df = df[df.apply(_is_new_dc, axis=1)].copy()
+                    new_df[dc_insert_col] = new_df.apply(_preview_dc, axis=1)
+                else:
+                    new_df = pd.DataFrame()
+
             else:
                 return jsonify({"ok": False, "error": "Category has no DB preview support."})
 
@@ -599,6 +683,9 @@ def data_import_upsert_preview(category_key: str):
                 })
             return rows_out
 
+        # Use new_df columns for GTAAP because it carries the synthetic
+        # "DC# (will be inserted)" column that does not exist in the raw df.
+        _preview_col_source = new_df if (not new_df.empty and category_key == "GTAAP") else df
         return jsonify({
             "ok":               True,
             "category_key":     category_key,
@@ -606,7 +693,7 @@ def data_import_upsert_preview(category_key: str):
             "impacted_count":   impacted_count,
             "total_excel_rows": len(df),
             "date_col":         date_col,
-            "preview_cols":     [c for c in preview_cols if c in df.columns],
+            "preview_cols":     [c for c in preview_cols if c in _preview_col_source.columns],
             "all_rows":         _all_rows_sorted(new_df),
         })
 

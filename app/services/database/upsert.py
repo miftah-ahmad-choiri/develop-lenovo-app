@@ -35,7 +35,7 @@ from app.services.database.seed import _to_iso, _safe_int, _safe_str, _build_soi
 
 # ── Category keys that map to DB tables ──────────────────────────────────────
 # Any key NOT in this set is silently skipped (no DB tables for it yet).
-_DB_CATEGORIES = {"WOID", "SOID", "SHIPMENT", "PARTONHOLD"}
+_DB_CATEGORIES = {"WOID", "SOID", "SHIPMENT", "PARTONHOLD", "GTAAP"}
 
 
 # ── upsert helpers ────────────────────────────────────────────────────────────
@@ -350,6 +350,97 @@ def upsert_eta_parthold_from_backlog(df: pd.DataFrame, conn: sqlite3.Connection)
     return len(updates)
 
 
+def upsert_dc_from_gtaap(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
+    """
+    Update the ``dc_number`` column on wo_product_detail using the GTAAP Report.
+
+    Two-pass write strategy
+    -----------------------
+    Pass 1 — fill real DC# values from Excel:
+        Eligible rows: db dc_number IS NULL  OR  db dc_number = '0'
+        Source: Excel DC# column (non-empty rows only)
+        Action: write the normalised DC# string ("17731" not "17731.0")
+
+    Pass 2 — backfill '0' sentinel for no-return rows:
+        Eligible rows: db dc_number IS NULL after pass 1,
+                       AND the GTAAP row has Return Flag = 'No' / 'N' / 'NO'
+        Action: write '0' to signal "no DC# expected (non-returnable part)"
+
+    A dc_number that already holds a real value (anything other than NULL/'0')
+    is never overwritten.
+
+    Returns the total number of rows updated across both passes.
+    """
+    import math as _math
+
+    def _has_dc(v) -> bool:
+        if v is None:
+            return False
+        if isinstance(v, float) and _math.isnan(v):
+            return False
+        s = str(v).strip()
+        return s not in ("", "nan", "nat", "none", "null", "NaT")
+
+    def _dc_eligible(current: str | None) -> bool:
+        """True when the current DB value should be overwritten."""
+        return current is None or current.strip() == "0"
+
+    def _normalise_dc(dc_val) -> str:
+        """Normalise whole-number floats: 17731.0 → '17731'."""
+        try:
+            f = float(dc_val)
+            if f == int(f):
+                return str(int(f))
+        except (ValueError, TypeError):
+            pass
+        return str(dc_val).strip()
+
+    # Fetch current dc_number state for all rows, keyed by soid
+    db_dc = {
+        r[0]: r[1]  # soid → dc_number (may be None)
+        for r in conn.execute(
+            "SELECT soid, dc_number FROM wo_product_detail"
+        ).fetchall()
+    }
+
+    update_sql = "UPDATE wo_product_detail SET dc_number = ? WHERE soid = ?"
+    updates: list[tuple] = []
+
+    # ── Pass 1: write real DC# values from Excel ─────────────────────────────
+    for _, r in df.iterrows():
+        soid = _safe_int(r.get("SOID"))
+        if soid is None or soid not in db_dc:
+            continue
+        if not _dc_eligible(db_dc[soid]):
+            continue
+
+        dc_val = r.get("DC#")
+        if not _has_dc(dc_val):
+            continue
+
+        dc_str = _normalise_dc(dc_val)
+        updates.append((dc_str, soid))
+        db_dc[soid] = dc_str  # keep in-memory state current for pass 2
+
+    # ── Pass 2: backfill '0' for non-returnable rows still empty ─────────────
+    _no_return = {"n", "no"}
+    for _, r in df.iterrows():
+        soid = _safe_int(r.get("SOID"))
+        if soid is None or soid not in db_dc:
+            continue
+        # Only rows that are still NULL after pass 1
+        if db_dc[soid] is not None:
+            continue
+        return_flag = str(r.get("Return Flag") or "").strip().lower()
+        if return_flag in _no_return:
+            updates.append(("0", soid))
+            db_dc[soid] = "0"
+
+    conn.executemany(update_sql, updates)
+    conn.commit()
+    return len(updates)
+
+
 # ── public dispatcher ─────────────────────────────────────────────────────────
 
 def _purge_orphan_product_rows(conn: sqlite3.Connection) -> int:
@@ -426,6 +517,9 @@ def dispatch_upsert(category_key: str, filepath: str, conn: sqlite3.Connection) 
         n_rows = upsert_wo_product_from_shipment(df, conn)
     elif key == "PARTONHOLD":
         n_rows = upsert_eta_parthold_from_backlog(df, conn)
+        return n_rows  # no orphan purge needed for this category
+    elif key == "GTAAP":
+        n_rows = upsert_dc_from_gtaap(df, conn)
         return n_rows  # no orphan purge needed for this category
     else:
         return 0  # unreachable, but satisfies type checkers

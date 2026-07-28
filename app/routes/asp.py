@@ -206,3 +206,52 @@ def api_wo_ticket_history(work_order_id: int):
         return jsonify({"case_number": None, "current_wo_id": work_order_id, "rows": []})
     rows = get_wo_by_case_number(detail["case_number"])
     return jsonify({"case_number": detail["case_number"], "current_wo_id": work_order_id, "rows": rows})
+
+
+@asp_bp.route("/asp/api/in-prepare", methods=["GET"])
+def api_in_prepare():
+    """In-Prepare Follow-Up — WOs with part ordered but not yet shipped."""
+    from app.services.database.queries import get_asp_in_prepare_page
+    per_page = min(_int_arg("per_page", 25), 100)
+    return jsonify(get_asp_in_prepare_page(
+        search    = request.args.get("q", "").strip(),
+        page      = _int_arg("page", 1),
+        page_size = per_page,
+    ))
+
+
+@asp_bp.route("/asp/api/in-delivery", methods=["GET"])
+def api_in_delivery():
+    """In-Delivery Follow-Up — WOs with part shipped but not yet POD'd."""
+    from app.services.database.queries import get_asp_in_delivery_page
+    per_page = min(_int_arg("per_page", 25), 100)
+    return jsonify(get_asp_in_delivery_page(
+        search    = request.args.get("q", "").strip(),
+        page      = _int_arg("page", 1),
+        page_size = per_page,
+    ))
+
+
+@asp_bp.route("/asp/api/in-repair", methods=["GET"])
+def api_in_repair():
+    """In-Repair Follow-Up — WOs with part POD'd but WO still open."""
+    from app.services.database.queries import get_asp_in_repair_page
+    per_page = min(_int_arg("per_page", 25), 100)
+    return jsonify(get_asp_in_repair_page(
+        search    = request.args.get("q", "").strip(),
+        page      = _int_arg("page", 1),
+        page_size = per_page,
+    ))
+
+
+@asp_bp.route("/asp/api/return-part", methods=["GET"])
+def api_return_part():
+    """Return Part Follow-Up — closed/completed WOs with computed input_dc / return_part state."""
+    from app.services.database.queries import get_asp_part_return_page
+    per_page = min(_int_arg("per_page", 25), 100)
+    return jsonify(get_asp_part_return_page(
+        search         = request.args.get("q", "").strip(),
+        followup_state = request.args.get("followup_state", "").strip(),
+        page           = _int_arg("page", 1),
+        page_size      = per_page,
+    ))
