@@ -1,4 +1,6 @@
-from flask import Blueprint, render_template, request, jsonify
+import os
+from datetime import datetime
+from flask import Blueprint, render_template, request, jsonify, send_file, current_app
 from app.services.database.queries import get_wo_summary_stats
 
 asp_bp = Blueprint("asp", __name__)
@@ -255,3 +257,101 @@ def api_return_part():
         page           = _int_arg("page", 1),
         page_size      = per_page,
     ))
+
+
+@asp_bp.route("/asp/api/return-part/export", methods=["GET"])
+def api_return_part_export():
+    """Export all Return Part Follow-Up rows (input_dc only) to an xlsx file,
+    save it under files/report/, and stream it back as a download."""
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from app.services.database.queries import get_asp_part_return_page
+
+    # Fetch every matching row (no pagination)
+    result = get_asp_part_return_page(
+        search         = request.args.get("q", "").strip(),
+        followup_state = "input_dc",
+        page           = 1,
+        page_size      = 9999,
+    )
+    rows = result.get("rows", [])
+
+    # ── Build workbook ────────────────────────────────────────────────────────
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Return Part - Input DC"
+
+    headers = [
+        "No.", "Created On", "WO Number", "WO Type", "Case",
+        "WO Status", "Committed Delivery", "Actual Committed",
+        "Contact Name", "ASP",
+    ]
+    col_keys = [
+        None, "created_on", "work_order_id", "work_order_type", "case_desc",
+        "work_order_status", "committed_delivery_date", "actual_committed_onsite_date",
+        "contact_name", "customer",
+    ]
+    col_widths = [6, 18, 16, 14, 32, 22, 20, 20, 22, 28]
+
+    # Header style
+    hdr_fill   = PatternFill("solid", fgColor="1F2328")
+    hdr_font   = Font(bold=True, color="FFFFFF", size=11)
+    hdr_align  = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    thin_side  = Side(style="thin", color="E5E7EB")
+    thin_border = Border(left=thin_side, right=thin_side, bottom=thin_side, top=thin_side)
+
+    for ci, (h, w) in enumerate(zip(headers, col_widths), start=1):
+        cell = ws.cell(row=1, column=ci, value=h)
+        cell.fill    = hdr_fill
+        cell.font    = hdr_font
+        cell.alignment = hdr_align
+        cell.border  = thin_border
+        ws.column_dimensions[cell.column_letter].width = w
+
+    ws.row_dimensions[1].height = 22
+
+    # Row styles
+    even_fill = PatternFill("solid", fgColor="F7F8FA")
+    data_font  = Font(size=11)
+    data_align = Alignment(vertical="center")
+
+    def _fmt_date(val):
+        if not val:
+            return ""
+        s = str(val).strip()
+        return s[:10] if len(s) >= 10 else s
+
+    for ri, r in enumerate(rows, start=2):
+        fill = even_fill if ri % 2 == 0 else PatternFill()
+        for ci, key in enumerate(col_keys, start=1):
+            if key is None:
+                value = ri - 1
+            elif key in ("created_on", "committed_delivery_date", "actual_committed_onsite_date"):
+                value = _fmt_date(r.get(key, ""))
+            else:
+                value = r.get(key) or ""
+            cell = ws.cell(row=ri, column=ci, value=value)
+            cell.font      = data_font
+            cell.alignment = data_align
+            cell.border    = thin_border
+            if fill.fill_type:
+                cell.fill = fill
+        ws.row_dimensions[ri].height = 18
+
+    # Freeze header row
+    ws.freeze_panes = "A2"
+
+    # ── Save to files/report/ ─────────────────────────────────────────────────
+    report_dir = current_app.config["REPORT_DIR"]
+    os.makedirs(report_dir, exist_ok=True)
+    timestamp  = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename   = f"Return_Part_InputDC_{timestamp}.xlsx"
+    filepath   = os.path.join(report_dir, filename)
+    wb.save(filepath)
+
+    return send_file(
+        filepath,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )

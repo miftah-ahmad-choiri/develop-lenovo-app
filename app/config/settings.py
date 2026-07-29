@@ -29,6 +29,9 @@ class Config:
     EXCELS_DIR  = os.path.join(_ROOT, "files", "download", "excel")
     EXCEL_PATH  = os.path.join(_ROOT, "files", "download", "excel", "df_combined_final_report.xlsx")
 
+    # ── Reports (exported xlsx files kept on disk) ──────────────────────────────
+    REPORT_DIR  = os.path.join(_ROOT, "files", "report")
+
     # ── SQLite database ────────────────────────────────────────────────────────
     DATABASE_PATH = os.path.join(_ROOT, "files", "lenovo_asp.db")
 

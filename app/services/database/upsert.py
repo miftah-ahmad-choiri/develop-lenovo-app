@@ -45,11 +45,127 @@ def upsert_wo_summary_and_details(df: pd.DataFrame, conn: sqlite3.Connection) ->
     Upsert rows from a WOID upload (Work Order Advanced Find View) into both
     wo_summary and wo_details tables.
 
-    The WOID upload file contains columns for both tables in one sheet.
-    Uses INSERT OR REPLACE so existing rows are fully overwritten with fresh data.
+    Smart-diff filter — a row is written only when ANY of these conditions hold:
+      1. work_order_id does not exist in wo_summary or wo_details (NEW row).
+      2. Any date column in Excel is strictly later than the value already in
+         the DB, or the DB value is NULL and Excel supplies a real value.
+      3. Any of the five tracked status columns has a different value in Excel
+         vs the DB: Work Order Status, Case Status, Closing Code,
+         Repeat Repair Reason, WO Cancellation Reason.
+
+    Rows that pass the filter are written with INSERT OR REPLACE, which
+    fully overwrites all columns for that work_order_id.
 
     Returns the number of WO rows processed.
     """
+    import math as _math
+    from datetime import datetime as _dt
+
+    # ── DB column maps ────────────────────────────────────────────────────────
+    _date_cols = {
+        "Created On":                       ("wo_summary", "created_on"),
+        "Committed Delivery Date":          ("wo_summary", "committed_delivery_date"),
+        "Actual Committed Onsite Date":     ("wo_summary", "actual_committed_onsite_date"),
+        "Release Date":                     ("wo_details", "release_date"),
+        "Original Committed Onsite Date":   ("wo_details", "original_committed_onsite_date"),
+        "Customer Defer Date":              ("wo_details", "customer_defer_date"),
+        "Completion Date":                  ("wo_details", "completion_date"),
+        "Closing Date":                     ("wo_details", "closing_date"),
+    }
+    _status_cols = {
+        "Work Order Status":          ("wo_summary", "work_order_status"),
+        "Case Status (Case) (Case)":  ("wo_summary", "case_status"),
+        "Closing Code":               ("wo_details", "closing_code"),
+        "Repeat Repair Reason":       ("wo_details", "repeat_repair_reason"),
+        "WO Cancellation Reason":     ("wo_details", "wo_cancellation_reason"),
+    }
+
+    # ── load current DB state (one pass, keyed by work_order_id) ─────────────
+    db_summary = {
+        r[0]: {
+            "created_on":                   r[1],
+            "committed_delivery_date":      r[2],
+            "actual_committed_onsite_date": r[3],
+            "work_order_status":            r[4],
+            "case_status":                  r[5],
+        }
+        for r in conn.execute(
+            "SELECT work_order_id, created_on, committed_delivery_date, "
+            "actual_committed_onsite_date, work_order_status, case_status "
+            "FROM wo_summary"
+        ).fetchall()
+    }
+    db_details = {
+        r[0]: {
+            "release_date":                   r[1],
+            "original_committed_onsite_date": r[2],
+            "customer_defer_date":            r[3],
+            "completion_date":                r[4],
+            "closing_date":                   r[5],
+            "closing_code":                   r[6],
+            "repeat_repair_reason":           r[7],
+            "wo_cancellation_reason":         r[8],
+        }
+        for r in conn.execute(
+            "SELECT work_order_id, release_date, original_committed_onsite_date, "
+            "customer_defer_date, completion_date, closing_date, "
+            "closing_code, repeat_repair_reason, wo_cancellation_reason "
+            "FROM wo_details"
+        ).fetchall()
+    }
+
+    # ── diff helpers ──────────────────────────────────────────────────────────
+    def _has_val(v) -> bool:
+        if v is None:
+            return False
+        if isinstance(v, float) and _math.isnan(v):
+            return False
+        s = str(v).strip()
+        return s not in ("", "nan", "nat", "none", "null", "NaT")
+
+    def _date_iso(v):
+        """Return YYYY-MM-DD string or None."""
+        if not _has_val(v):
+            return None
+        raw = _to_iso(v)
+        return raw[:10] if raw else None
+
+    def _date_newer(excel_val, db_str) -> bool:
+        ex = _date_iso(excel_val)
+        if ex is None:
+            return False
+        if db_str is None:
+            return True
+        try:
+            return _dt.fromisoformat(ex) > _dt.fromisoformat(db_str[:10])
+        except (ValueError, TypeError):
+            return False
+
+    def _status_changed(excel_val, db_val) -> bool:
+        ex_s = str(excel_val).strip() if _has_val(excel_val) else ""
+        db_s = str(db_val).strip()    if db_val is not None else ""
+        return ex_s != db_s
+
+    def _qualifies(wo_id: int, row) -> bool:
+        """Return True when this Excel row should be upserted."""
+        # Rule 1 — brand new WO
+        if wo_id not in db_summary or wo_id not in db_details:
+            return True
+        s_row = db_summary[wo_id]
+        d_row = db_details[wo_id]
+        # Rule 2 — any date column is newer in Excel
+        for excel_col, (tbl, db_col) in _date_cols.items():
+            db_val = (s_row if tbl == "wo_summary" else d_row).get(db_col)
+            if _date_newer(row.get(excel_col), db_val):
+                return True
+        # Rule 3 — any status column changed
+        for excel_col, (tbl, db_col) in _status_cols.items():
+            db_val = (s_row if tbl == "wo_summary" else d_row).get(db_col)
+            if _status_changed(row.get(excel_col), db_val):
+                return True
+        return False
+
+    # ── SQL statements ────────────────────────────────────────────────────────
     summary_sql = """
         INSERT OR REPLACE INTO wo_summary (
             work_order_id, serial_number, created_on,
@@ -85,6 +201,9 @@ def upsert_wo_summary_and_details(df: pd.DataFrame, conn: sqlite3.Connection) ->
     for _, r in df.iterrows():
         wo_id = _safe_int(r.get("Work Order ID"))
         if wo_id is None:
+            continue
+        # Smart-diff gate — skip rows with no qualifying change
+        if not _qualifies(wo_id, r):
             continue
 
         summary_rows.append((

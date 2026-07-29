@@ -144,6 +144,41 @@
   .empty-state { padding: 44px; text-align: center; color: #57606a; font-size: 13px; }
   .empty-state svg { display: block; margin: 0 auto 12px; color: #d0d7de; }
 
+  /* ── Active Open WOs card ─────────────────────────────────────────────────── */
+  .active-wo-card {
+    background: #fff; border: 1px solid #fde68a; border-radius: 10px;
+    overflow: hidden; margin-top: 20px;
+  }
+  .active-wo-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px; border-bottom: 1px solid #fde68a;
+    background: #fffbeb;
+  }
+  .active-wo-header-left { display: flex; align-items: center; gap: 10px; }
+  .active-wo-header h2 { font-size: 15px; font-weight: 700; color: #92400e; margin: 0; }
+  .active-wo-badge {
+    font-size: 11px; font-weight: 700; background: #fef3c7;
+    border: 1px solid #fde68a; border-radius: 12px;
+    padding: 2px 10px; color: #92400e;
+  }
+  .active-wo-sub { font-size: 12px; color: #92400e; padding: 8px 20px 10px; background: #fffbeb; border-bottom: 1px solid #fde68a; }
+  .active-wo-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .active-wo-table thead { background: #fef3c7; }
+  .active-wo-table th {
+    padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 700;
+    color: #92400e; text-transform: uppercase; letter-spacing: 0.04em;
+    border-bottom: 1px solid #fde68a; white-space: nowrap;
+  }
+  .active-wo-table td { padding: 9px 16px; border-bottom: 1px solid #fef9c3; vertical-align: middle; }
+  .active-wo-table tr:last-child td { border-bottom: none; }
+  .active-wo-table tbody tr:hover { background: #fffbeb; }
+  .active-wo-info {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 20px; background: #eff6ff;
+    border-top: 1px solid #bfdbfe; font-size: 12px; color: #1e40af;
+  }
+  .active-wo-empty { padding: 40px; text-align: center; color: #57606a; font-size: 13px; }
+
   /* ── Upsert Confirmation Modal ───────────────────────────────────────────── */
   .modal-backdrop {
     display: none; position: fixed; inset: 0;
@@ -428,6 +463,102 @@
     </div>
   </form>
 </div>
+
+<!-- ── Active Open WOs (persistent, server-rendered) ─────────────────────── -->
+<div class="active-wo-card">
+  <div class="active-wo-header">
+    <div class="active-wo-header-left">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#b45309"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <h2>Active Open Work Orders</h2>
+      <span class="active-wo-badge">{{ active_open_wos | length }} WO{{ 's' if active_open_wos | length != 1 }}</span>
+    </div>
+  </div>
+  <div class="active-wo-sub">
+    Work Orders with no <strong>Completion Date</strong> or <strong>Closing Date</strong> in the database,
+    excluding cancelled statuses. These WOs may need to be exported from MSD and upserted to stay current.
+  </div>
+
+  {% if active_open_wos %}
+    <table class="active-wo-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Work Order ID</th>
+          <th>Serial Number</th>
+          <th>Created On</th>
+          <th>Work Order Status</th>
+          <th>Case Status</th>
+          <th>Completion Date</th>
+          <th>Closing Date</th>
+          <th>Closing Code</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for wo in active_open_wos %}
+        <tr>
+          <td><span style="font-size:11px;color:#9ca3af;">{{ loop.index }}</span></td>
+          <td><span style="font-weight:600;font-size:12px;color:#1f2328;">{{ wo.work_order_id }}</span></td>
+          <td><span style="font-size:12px;color:#57606a;">{{ wo.serial_number or '—' }}</span></td>
+          <td><span style="font-size:12px;color:#57606a;">{{ (wo.created_on or '')[:10] or '—' }}</span></td>
+          <td>
+            {% if wo.work_order_status %}
+              <span style="font-size:12px;font-weight:600;color:#1f2328;">{{ wo.work_order_status }}</span>
+            {% else %}
+              <span style="font-size:12px;color:#9ca3af;">—</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if wo.case_status %}
+              <span style="font-size:12px;color:#57606a;">{{ wo.case_status }}</span>
+            {% else %}
+              <span style="font-size:12px;color:#9ca3af;">—</span>
+            {% endif %}
+          </td>
+          <td><span style="font-size:12px;color:#9ca3af;">—</span></td>
+          <td><span style="font-size:12px;color:#9ca3af;">—</span></td>
+          <td>
+            {% if wo.closing_code %}
+              <span style="font-size:12px;color:#57606a;">{{ wo.closing_code }}</span>
+            {% else %}
+              <span style="font-size:12px;color:#9ca3af;">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div class="active-wo-info">
+      <svg style="flex-shrink:0;margin-top:1px;" width="14" height="14" viewBox="0 0 24 24"
+           fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <span>
+        <strong>Action required:</strong>
+        {{ active_open_wos | length }} Work Order{{ 's' if active_open_wos | length != 1 }}
+        above {{ 'are' if active_open_wos | length != 1 else 'is' }} still open in the database.
+        Please <strong>download the latest Work Order Advanced Find View (Active WO) from MSD</strong>
+        for the Work Order IDs listed, then upload and upsert that file to keep these records current.
+      </span>
+    </div>
+  {% else %}
+    <div class="active-wo-empty">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#d0d7de"
+           stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+        <polyline points="22 4 12 14.01 9 11.01"/>
+      </svg>
+      <p style="margin:0;font-weight:600;color:#57606a;">All Work Orders are closed.</p>
+      <p style="margin:4px 0 0;font-size:12px;color:#9ca3af;">No open WOs found in the database.</p>
+    </div>
+  {% endif %}
+</div>
 {% endblock %}
 
 {% block extra_scripts %}
@@ -478,27 +609,6 @@
     var modalBox = document.getElementById('upsert-modal-box');
 
     if (!data.ok) {
-      // For WOID the preview is intentionally not implemented yet — show a
-      // notice but still allow the user to proceed with the upsert directly.
-      if (categoryKey === 'WOID') {
-        modalBox.innerHTML =
-          '<div class="modal-title">' +
-            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>' +
-            'Confirm Upsert &mdash; ' + esc(filename) +
-          '</div>' +
-          '<div class="modal-note" style="margin-bottom:12px;">' +
-            '<strong>Note:</strong> Impact preview for Work Order Advance Find View is not set up yet. ' +
-            'The upsert will still run and update <code>wo_summary</code>, <code>wo_details</code> (including <code>product_description</code>) with all rows from the uploaded file.' +
-          '</div>' +
-          '<div class="modal-footer">' +
-            '<button class="modal-btn-cancel" onclick="closeUpsertModal()">Cancel</button>' +
-            '<button class="modal-btn-confirm" onclick="confirmUpsert(\'' + esc(categoryKey) + '\')">' +
-              '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>' +
-              'Confirm Upsert' +
-            '</button>' +
-          '</div>';
-        return;
-      }
       modalBox.innerHTML =
         '<div class="modal-title">Confirm Upsert</div>' +
         '<div class="modal-error">' + esc(data.error || 'Unknown error.') + '</div>' +
@@ -513,13 +623,21 @@
     var dateCol       = data.date_col || 'Date';
     var cols          = data.preview_cols || [];
     var allRows       = data.all_rows || [];
+    var isWoid        = (categoryKey === 'WOID');
+    var isSoid        = (categoryKey === 'SOID');
     var isShipment    = (categoryKey === 'SHIPMENT');
     var isPartOnHold  = (categoryKey === 'PARTONHOLD');
     var isGtaap       = (categoryKey === 'GTAAP');
 
     // Stat card labels per category
     var impactedLabel, skippedLabel;
-    if (isPartOnHold) {
+    if (isWoid) {
+      impactedLabel = 'Rows to Upsert (new / changed)';
+      skippedLabel  = 'No Change (skip)';
+    } else if (isSoid) {
+      impactedLabel = 'Rows to Upsert (new / updated)';
+      skippedLabel  = 'No Change (skip)';
+    } else if (isPartOnHold) {
       impactedLabel = 'Target Rows to Update';
       skippedLabel  = 'No Update Needed (skip)';
     } else if (isShipment) {
@@ -536,10 +654,19 @@
 
     // Modal sub-description
     var subDesc;
-    if (isPartOnHold) {
+    if (isWoid) {
+      subDesc = 'Rows shown are Work Orders that qualify for upsert into <code>wo_summary</code> and <code>wo_details</code>. ' +
+                'A row qualifies when it is <strong>new</strong> (WO ID not in DB), any <strong>date column is newer</strong> than the DB value, ' +
+                'or any of the tracked <strong>status columns</strong> (Work Order Status, Case Status, Closing Code, Repeat Repair Reason, WO Cancellation Reason) has changed.';
+    } else if (isSoid) {
+      subDesc = 'Rows shown are Work Order Product lines whose Work Order ID matches <code>wo_summary</code> and that qualify for upsert into <code>wo_product_detail</code>. ' +
+                'A row qualifies when the <strong>SOID is new</strong>, any of <strong>Acceptance Date / Shipment Date / Delivery Date</strong> in Excel is strictly later than the DB value (or the DB value is NULL), ' +
+                'or <strong>Work Order Product Status</strong> has changed. The <em>Upsert Reason</em> column shows exactly why each row was selected.';
+    } else if (isPartOnHold) {
       subDesc = 'Rows shown are <strong>On Hold &mdash; Part Hold</strong> lines whose SOID matches <code>wo_product_detail</code> and whose ETA can fill an empty <code>target</code> or is newer than the current value.';
     } else if (isShipment) {
-      subDesc = 'Rows shown are those whose Work Order ID matches <code>wo_summary</code>, where the DB has NULL for at least one of <code>ship_pn</code>, <code>awb</code>, or <code>ship_pou_pod_time</code>, <strong>and</strong> the Excel file has a real value for that column.';
+      subDesc = 'Rows shown are shipment lines whose Work Order ID matches <code>wo_summary</code> and where the DB currently has <code>NULL</code> for at least one of <code>ship_pn</code>, <code>awb</code>, or <code>ship_pou_pod_time</code> — and the Excel file has a real value to fill it. ' +
+                'The <em>Upsert Reason</em> column shows exactly which field(s) will be written.';
     } else if (isGtaap) {
       subDesc = 'Rows shown are GTAAP lines whose SOID exists in <code>wo_product_detail</code> and whose <code>dc_number</code> is currently <strong>NULL or 0</strong>. ' +
                 'A real DC# from Excel will be inserted where available; rows with <em>Return Flag = N</em> and no DC# will be marked <strong>0</strong>.';
@@ -573,10 +700,27 @@
 
     // Note about filtering
     var noteText;
-    if (isPartOnHold) {
+    if (isWoid) {
+      noteText = '<strong>Upsert conditions (any one is sufficient):</strong> ' +
+                 '(1) Work Order ID is <em>new</em> — not yet in <code>wo_summary</code> or <code>wo_details</code>. ' +
+                 '(2) A date column (Created On, Committed Delivery Date, Actual Committed Onsite Date, Release Date, ' +
+                 'Original Committed Onsite Date, Customer Defer Date, Completion Date, Closing Date) is <em>strictly later</em> than the DB value, or the DB value is currently <code>NULL</code>. ' +
+                 '(3) A status column (Work Order Status, Case Status, Closing Code, Repeat Repair Reason, WO Cancellation Reason) has a <em>different</em> value from the DB. ' +
+                 'All rows that pass are fully overwritten in both <code>wo_summary</code> and <code>wo_details</code>.';
+    } else if (isSoid) {
+      noteText = '<strong>Upsert conditions (any one is sufficient):</strong> ' +
+                 '(1) SOID (Work Order + Line Order) does not yet exist in <code>wo_product_detail</code>. ' +
+                 '(2) <em>Acceptance Date</em>, <em>Shipment Date</em>, or <em>Delivery Date</em> in Excel is <em>strictly later</em> than the DB value, or the DB value is currently <code>NULL</code> and Excel has a real date. ' +
+                 '(3) <em>Work Order Product Status</em> has a different value from what is stored in the DB. ' +
+                 'All rows that pass are fully upserted into <code>wo_product_detail</code> (MSD columns only — shipment columns are never overwritten by this operation).';
+    } else if (isPartOnHold) {
       noteText = '<strong>Note:</strong> Only rows where <code>wo_product_status = \'On Hold - Part Hold\'</code> in the database are eligible. The <code>ETA</code> column from the Backlog Report File is written to <code>wo_product_detail.target</code> when the DB value is empty <em>or</em> the Excel date is strictly newer than what is already stored.';
     } else if (isShipment) {
-      noteText = '<strong>Note:</strong> A row is included only when the DB has <code>NULL</code> for at least one of <code>ship_pn</code>, <code>awb</code>, or <code>ship_pou_pod_time</code> <em>and</em> the uploaded Excel provides a real (non-empty) value for that same column. Rows where the Excel value is also empty are excluded — there is nothing to update.';
+      noteText = '<strong>Upsert conditions (any one is sufficient):</strong> ' +
+                 '(1) <em>Ship PN</em> is <code>NULL</code> in the DB and Excel provides a real value → tagged <strong>New Ship PN</strong>. ' +
+                 '(2) <em>AWB</em> is <code>NULL</code> in the DB and Excel provides a real value → tagged <strong>New AWB</strong>. ' +
+                 '(3) <em>Ship POU POD Time</em> is <code>NULL</code> in the DB and Excel provides a real value → tagged <strong>New Ship POU POD Time</strong>. ' +
+                 'Rows where all three DB columns are already filled are excluded — there is nothing new to write.';
     } else if (isGtaap) {
       noteText = '<strong>Note:</strong> Eligible rows are those whose <code>dc_number</code> is <code>NULL</code> or <code>0</code>. ' +
                  'Pass 1 writes the real DC# from Excel (overwrites <code>0</code> too). ' +
@@ -589,7 +733,11 @@
 
     if (impactedCount === 0) {
       var zeroMsg;
-      if (isPartOnHold) {
+      if (isWoid) {
+        zeroMsg = '<strong>No rows to upsert.</strong> All ' + totalRows + ' Work Orders in the Excel file already match the database — no new WOs, no updated dates, and no status column changes were detected.';
+      } else if (isSoid) {
+        zeroMsg = '<strong>No rows to upsert.</strong> All ' + totalRows + ' Work Order Product lines already match the database — no new SOIDs, no newer dates (Acceptance / Shipment / Delivery), and no Work Order Product Status changes were detected.';
+      } else if (isPartOnHold) {
         zeroMsg = '<strong>No rows to update.</strong> All matched On Hold &mdash; Part Hold lines already have an up-to-date <code>target</code> value, or there are no matching SOIDs in the database.';
       } else if (isShipment) {
         zeroMsg = '<strong>No rows to update.</strong> All matched Excel rows already have <code>ship_pn</code>, <code>awb</code>, and <code>ship_pou_pod_time</code> populated in the database.';
@@ -611,8 +759,14 @@
           '<table class="modal-preview-table" style="margin-bottom:0;">' +
             '<thead style="position:sticky;top:0;z-index:1;background:#f0f2f5;"><tr>' +
               cols.map(function(c) {
-                var isInsert = isGtaap && c === 'DC# (will be inserted)';
-                return '<th style="' + (isInsert ? 'background:#dcfce7;color:#15803d;font-weight:700;' : '') + '">' + esc(c) + '</th>';
+                var isInsert   = isGtaap && c === 'DC# (will be inserted)';
+                var isReason   = (isSoid || isShipment) && c === 'Upsert Reason';
+                var thStyle = isInsert
+                  ? 'background:#dcfce7;color:#15803d;font-weight:700;'
+                  : isReason
+                    ? 'background:#eff6ff;color:#1d4ed8;font-weight:700;min-width:220px;white-space:nowrap;'
+                    : '';
+                return '<th style="' + thStyle + '">' + esc(c) + '</th>';
               }).join('') +
             '</tr></thead>' +
             '<tbody>' +
@@ -623,9 +777,12 @@
                       cols.map(function(c) {
                         var v = row[c] !== undefined ? row[c] : '';
                         var isInsert = isGtaap && c === 'DC# (will be inserted)';
+                        var isReason = (isSoid || isShipment) && c === 'Upsert Reason';
                         var style = isInsert
                           ? 'background:#f0fdf4;color:#15803d;font-weight:600;'
-                          : '';
+                          : isReason
+                            ? 'background:#eff6ff;color:#1d4ed8;font-weight:600;min-width:220px;white-space:nowrap;'
+                            : '';
                         return '<td style="' + style + '" title="' + esc(v) + '">' + esc(v) + '</td>';
                       }).join('') +
                     '</tr>';
@@ -634,6 +791,86 @@
             '</tbody>' +
           '</table>' +
         '</div>';
+    }
+
+    // ── Active WOs not in this Excel (WOID only) ─────────────────────────────
+    if (isWoid) {
+      var activeRows  = data.active_wo_not_in_excel || [];
+      var activeCols  = data.active_wo_cols || [];
+      var activeCount = activeRows.length;
+
+      html += '<hr class="modal-divider">';
+
+      // Section header — always visible, no toggle
+      html +=
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
+          '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2.5" ' +
+               'stroke-linecap="round" stroke-linejoin="round">' +
+            '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>' +
+            '<line x1="12" y1="16" x2="12.01" y2="16"/>' +
+          '</svg>' +
+          '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#92400e;">' +
+            'Active WOs not in this Excel' +
+            (activeCount > 0 ? ' <span style=\'background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:10px;padding:1px 8px;font-size:10px;\'>' + activeCount + '</span>' : '') +
+          '</span>' +
+        '</div>';
+
+      // Explanation note
+      html +=
+        '<div style="font-size:12px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;' +
+             'border-radius:6px;padding:8px 12px;margin-bottom:8px;">' +
+          'Work Orders that are <strong>open in the database</strong> (no completion date or closing date, ' +
+          'not cancelled) but are <strong>absent from the uploaded Excel file</strong>. ' +
+          'They will <em>not</em> be updated by this upsert &mdash; cancelled statuses are excluded.' +
+        '</div>';
+
+      if (activeCount === 0) {
+        html +=
+          '<div style="padding:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;' +
+               'font-size:13px;color:#15803d;margin-bottom:8px;">' +
+            '<strong>All active (open) Work Orders are included in this Excel file.</strong> No gaps found.' +
+          '</div>';
+      } else {
+        // Table
+        html +=
+          '<div style="overflow-x:auto;max-height:260px;overflow-y:auto;border:1px solid #fde68a;' +
+               'border-radius:6px;margin-bottom:10px;">' +
+            '<table class="modal-preview-table" style="margin-bottom:0;">' +
+              '<thead style="position:sticky;top:0;z-index:1;background:#fef3c7;"><tr>' +
+                activeCols.map(function(c) {
+                  return '<th style="color:#92400e;">' + esc(c) + '</th>';
+                }).join('') +
+              '</tr></thead>' +
+              '<tbody>' +
+                activeRows.map(function(row) {
+                  return '<tr>' +
+                    activeCols.map(function(c) {
+                      var v = row[c] !== undefined ? row[c] : '';
+                      return '<td title="' + esc(v) + '">' + esc(v) + '</td>';
+                    }).join('') +
+                  '</tr>';
+                }).join('') +
+              '</tbody>' +
+            '</table>' +
+          '</div>';
+
+        // Info alert — action required
+        html +=
+          '<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;' +
+               'background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;margin-bottom:4px;">' +
+            '<svg style="flex-shrink:0;margin-top:1px;" width="15" height="15" viewBox="0 0 24 24" fill="none" ' +
+                 'stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
+              '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>' +
+              '<line x1="12" y1="16" x2="12.01" y2="16"/>' +
+            '</svg>' +
+            '<div style="font-size:12px;color:#1e40af;">' +
+              '<strong>Action required:</strong> The ' + activeCount + ' Work Order' + (activeCount !== 1 ? 's' : '') + ' listed above ' +
+              'are still recorded as open in the database but were not exported in this file. ' +
+              'Please <strong>download the latest Work Order Advanced Find View (Active WO) from MSD</strong> ' +
+              'for the Work Order IDs shown above, then upload and upsert that file to bring these records up to date.' +
+            '</div>' +
+          '</div>';
+      }
     }
 
     // Footer buttons

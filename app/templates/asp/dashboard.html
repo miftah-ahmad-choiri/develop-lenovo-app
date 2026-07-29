@@ -29,7 +29,7 @@
   .fu-part-sla       { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
   .fu-wo-sla         { background: #fef3c7; color: #92400e; border: 1px solid #d97706; }
   .fu-input-dc       { background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; }
-  .fu-reschedule     { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+  .fu-reschedule     { background: #f0fdfa; color: #0f766e; border: 1px solid #99f6e4; }
   .fu-report-problem { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
   .fu-cancelled      { background: #f3f4f6; color: #6b7280; border: 1px solid #e5e7eb; }
   .fu-in-prepare     { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
@@ -46,7 +46,7 @@
   .subtab-pill.sactive-wo-sla         { background: #fef3c7; color: #92400e; border-color: #d97706; }
   .subtab-pill.sactive-report-problem { background: #fef2f2; color: #b91c1c; border-color: #ef4444; }
   .subtab-pill.sactive-input-dc       { background: #ede9fe; color: #6d28d9; border-color: #7c5cd8; }
-  .subtab-pill.sactive-reschedule     { background: #eff6ff; color: #1e40af; border-color: #3b82d4; }
+  .subtab-pill.sactive-reschedule     { background: #f0fdfa; color: #0f766e; border-color: #14b8a6; }
   .subtab-pill.sactive-return-part    { background: #dcfce7; color: #15803d; border-color: #22c55e; }
   .subtab-sep { color: #d1d5db; font-size: 13px; margin: 0 2px; }
   /* CCI toolbar — merged into subtab-bar row */
@@ -65,6 +65,10 @@
   .filter-select { padding: 7px 28px 7px 10px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 13px; font-family: inherit; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2357606a' d='M1 1l5 5 5-5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; background-color: #fff; color: #1f2328; }
   .filter-select:focus { outline: none; border-color: #3b82d4; }
   .toolbar-count { font-size: 12px; color: #57606a; white-space: nowrap; }
+  .btn-export-xlsx { display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; border-radius: 6px; font-size: 12px; font-weight: 600; color: #166534; background: #dcfce7; border: 1px solid #86efac; cursor: pointer; font-family: inherit; transition: filter .12s; white-space: nowrap; }
+  .btn-export-xlsx:hover { filter: brightness(.93); }
+  .btn-export-xlsx:active { filter: brightness(.85); }
+  .btn-export-xlsx:disabled { opacity: .55; cursor: not-allowed; }
   .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .data-table thead { background: #f7f8fa; }
@@ -399,18 +403,20 @@
   .awb-wo-list-header { padding: 7px 12px; background: #f7f8fa; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .awb-wo-list-title { font-size: 11px; font-weight: 700; color: #57606a; text-transform: uppercase; letter-spacing: .04em; }
   .awb-wo-list-hint  { font-size: 11px; color: #8c959f; }
-  .awb-wo-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 12px; border-bottom: 1px solid #f0f2f5; background: #fff; cursor: pointer; transition: background .1s; }
+  .awb-wo-item { padding: 8px 12px; border-bottom: 1px solid #f0f2f5; background: #fff; }
   .awb-wo-item:last-child { border-bottom: none; }
-  .awb-wo-item:hover { background: #f7f8fa; }
-  .awb-wo-item.is-primary { background: #f0f7ff; }
-  .awb-wo-item.is-primary:hover { background: #e8f2ff; }
-  .awb-wo-item input[type="checkbox"] { margin-top: 2px; flex-shrink: 0; width: 15px; height: 15px; accent-color: #3b82d4; cursor: pointer; }
-  .awb-wo-item input[type="checkbox"]:disabled { opacity: 0.6; cursor: default; }
-  .awb-wo-item-body { flex: 1; min-width: 0; }
-  .awb-wo-item-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .awb-wo-item.is-primary { background: #fffbeb; border-left: 3px solid #f59e0b; padding-left: 9px; }
+  .awb-wo-item-body { min-width: 0; }
+  .awb-wo-item-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
   .awb-wo-item-id { font-family: ui-monospace, monospace; font-size: 12px; font-weight: 700; color: #1f2328; }
-  .awb-wo-item-primary-tag { font-size: 10px; font-weight: 700; background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; border-radius: 8px; padding: 1px 6px; white-space: nowrap; }
+  .awb-wo-item.is-primary .awb-wo-item-id { color: #92400e; }
+  .awb-wo-item-primary-tag { font-size: 10px; font-weight: 700; background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; border-radius: 8px; padding: 1px 6px; white-space: nowrap; }
   .awb-wo-item-meta { font-size: 11px; color: #57606a; margin-top: 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .awb-wo-part-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; cursor: pointer; }
+  .awb-wo-part-row:hover { background: #f7f8fa; margin: 0 -12px; padding: 3px 12px; }
+  .awb-wo-part-row input[type="checkbox"] { flex-shrink: 0; width: 14px; height: 14px; accent-color: #3b82d4; cursor: pointer; margin: 0; }
+  .awb-wo-part-soid { font-family: ui-monospace, monospace; font-size: 11px; font-weight: 700; color: #3b82d4; white-space: nowrap; }
+  .awb-wo-part-desc { font-size: 11px; color: #57606a; flex: 1; min-width: 0; }
   .awb-wo-list-loading { padding: 12px; text-align: center; font-size: 12px; color: #8c959f; }
   .awb-wo-select-all { font-size: 11px; font-weight: 600; color: #3b82d4; cursor: pointer; background: none; border: none; font-family: inherit; padding: 0; }
   .awb-wo-select-all:hover { color: #1d4ed8; text-decoration: underline; }
@@ -421,17 +427,20 @@
   .no-awb-list-header { padding: 7px 12px; background: #fffbeb; border-bottom: 1px solid #fde68a; display: flex; align-items: center; gap: 8px; }
   .no-awb-list-title { font-size: 11px; font-weight: 700; color: #92400e; text-transform: uppercase; letter-spacing: .04em; flex: 1; }
   .no-awb-count-pill { font-size: 10px; font-weight: 700; background: #fef3c7; color: #92400e; border: 1px solid #fde68a; border-radius: 10px; padding: 1px 7px; white-space: nowrap; }
-  .no-awb-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 12px; border-bottom: 1px solid #f0f2f5; background: #fff; cursor: pointer; transition: background .1s; }
+  .no-awb-item { padding: 8px 12px; border-bottom: 1px solid #f0f2f5; background: #fff; }
   .no-awb-item:last-child { border-bottom: none; }
-  .no-awb-item:hover { background: #f7f8fa; }
-  .no-awb-item.is-current { background: #f0f7ff; }
-  .no-awb-item.is-current:hover { background: #e8f2ff; }
-  .no-awb-item input[type="checkbox"] { margin-top: 2px; flex-shrink: 0; width: 15px; height: 15px; accent-color: #f59e0b; cursor: pointer; }
-  .no-awb-item-body { flex: 1; min-width: 0; }
-  .no-awb-item-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .no-awb-item.is-current { background: #fffbeb; border-left: 3px solid #f59e0b; padding-left: 9px; }
+  .no-awb-item-body { min-width: 0; }
+  .no-awb-item-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
   .no-awb-item-id { font-family: ui-monospace, monospace; font-size: 12px; font-weight: 700; color: #1f2328; }
+  .no-awb-item.is-current .no-awb-item-id { color: #92400e; }
   .no-awb-item-meta { font-size: 11px; color: #57606a; margin-top: 2px; }
-  .no-awb-item-current { font-size: 10px; font-weight: 700; background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; border-radius: 8px; padding: 1px 6px; white-space: nowrap; }
+  .no-awb-part-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; cursor: pointer; }
+  .no-awb-part-row:hover { background: #f7f8fa; margin: 0 -12px; padding: 3px 12px; }
+  .no-awb-part-row input[type="checkbox"] { flex-shrink: 0; width: 14px; height: 14px; accent-color: #f59e0b; cursor: pointer; margin: 0; }
+  .no-awb-part-soid { font-family: ui-monospace, monospace; font-size: 11px; font-weight: 700; color: #3b82d4; white-space: nowrap; }
+  .no-awb-part-desc { font-size: 11px; color: #57606a; flex: 1; min-width: 0; }
+  .no-awb-item-current { font-size: 10px; font-weight: 700; background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; border-radius: 8px; padding: 1px 6px; white-space: nowrap; }
   .no-awb-empty { padding: 10px 12px; font-size: 12px; color: #8c959f; font-style: italic; }
   .no-awb-loading { padding: 12px; text-align: center; font-size: 12px; color: #8c959f; }
   .no-awb-select-all { font-size: 11px; font-weight: 600; color: #b45309; cursor: pointer; background: none; border: none; font-family: inherit; padding: 0; }
@@ -648,6 +657,10 @@
     <div class="table-toolbar">
       <input type="search" id="search-return-part" placeholder="Search WO, serial, contact, customer…" autocomplete="off" />
       <span class="toolbar-count" id="count-return-part"></span>
+      <button class="btn-export-xlsx" id="btn-export-return-part" title="Export all rows to Excel">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Export Excel
+      </button>
     </div>
     <div class="table-scroll">
       <table class="data-table">
@@ -751,19 +764,19 @@
   </div>
 </div>
 
-<!-- ── Onsite Part Received Modal ───────────────────────────────────────── -->
+<!-- ── Set Onsite Schedule Modal ─────────────────────────────────────────── -->
 <div class="modal-overlay" id="modal-onsite-recv">
   <div class="modal narrow">
 
     <!-- Header -->
     <div class="modal-header" style="padding:14px 20px 12px;border-bottom:1px solid #e5e7eb;justify-content:space-between;">
       <div style="display:flex;align-items:center;gap:10px;">
-        <div class="modal-hdr-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82d4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path d="M16 3H8L6 7h12l-2-4z"/></svg>
+        <div class="modal-hdr-icon" style="background:#eff6ff;border-color:#bfdbfe;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82d4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
         </div>
         <div>
-          <div class="modal-title" style="font-weight:700">Part Received</div>
-          <div class="modal-subtitle">Onsite — confirm part arrival date</div>
+          <div class="modal-title" style="font-weight:700">Set Onsite Schedule</div>
+          <div class="modal-subtitle">Onsite — record part arrival &amp; schedule the visit</div>
         </div>
       </div>
       <button class="modal-close" data-close="modal-onsite-recv">×</button>
@@ -783,7 +796,7 @@
         </div>
       </div>
 
-      <!-- Form — arrival date only -->
+      <!-- SECTION 1 — Arrival Details -->
       <div class="mf-section" id="onsite-recv-form-section">
         <div class="mf-section-label">
           <span class="sec-num">1</span>
@@ -795,20 +808,76 @@
         </div>
       </div>
 
-      <!-- Post-submit prompt — reschedule or exit -->
-      <div id="onsite-recv-prompt" style="display:none;padding:20px 20px 24px">
-        <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:18px">
-          <div style="width:44px;height:44px;border-radius:50%;background:#dcfce7;border:2px solid #86efac;display:flex;align-items:center;justify-content:center;margin-bottom:12px">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-          <div style="font-size:14px;font-weight:700;color:#1f2328;margin-bottom:5px">Part arrival recorded</div>
-          <div style="font-size:12px;color:#57606a;text-align:center">Does the customer need to reschedule the onsite visit?</div>
+      <!-- SECTION 2 — Defer Details -->
+      <div class="mf-section">
+        <div class="mf-section-label">
+          <span class="sec-num">2</span>
+          Defer Details
         </div>
-        <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px">
-          <button class="btn btn-ghost" id="btn-onsite-recv-prompt-exit">Exit</button>
-          <button id="btn-onsite-recv-prompt-reschedule" style="display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;border:1.5px solid #3b82d4;background:#fff;color:#1e40af;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap;transition:background .12s">
-            📅 Reschedule WO
-          </button>
+
+        <div class="mf-group" style="margin-bottom:14px">
+          <span class="mf-label">Reschedule by / Reason <span class="req">*</span></span>
+          <div class="custom-dd" id="or-by-dd">
+            <div class="custom-dd-trigger" tabindex="0" id="or-by-trigger">
+              <span class="dd-val" id="or-by-display">— Select defer type &amp; reason —</span>
+              <svg class="dd-arrow" width="12" height="8" viewBox="0 0 12 8" fill="none"><path fill="#57606a" d="M1 1l5 5 5-5"/></svg>
+            </div>
+            <div class="custom-dd-list" id="or-by-list" style="bottom:auto;top:calc(100% + 4px);box-shadow:0 4px 24px rgba(0,0,0,0.12);">
+              <div class="dd-option dd-default active" data-value="" data-by="">— Select defer type &amp; reason —</div>
+              <div class="dd-group-label">ASP Defer</div>
+              <div class="dd-option" data-value="Teknisi Overload" data-by="ASP Defer">Teknisi Overload</div>
+              <div class="dd-option" data-value="Teknisi Sakit" data-by="ASP Defer">Teknisi Sakit</div>
+              <div class="dd-option" data-value="Teknisi masih handle customer lain" data-by="ASP Defer">Teknisi masih handle customer lain</div>
+              <div class="dd-group-label">Customer Defer</div>
+              <div class="dd-option" data-value="Customer Sibuk" data-by="Customer Defer">Customer Sibuk</div>
+              <div class="dd-option" data-value="Customer tidak bisa dihubungi" data-by="Customer Defer">Customer tidak bisa dihubungi</div>
+              <div class="dd-option" data-value="Customer tidak ada dirumah" data-by="Customer Defer">Customer tidak ada dirumah</div>
+              <div class="dd-option" data-value="Customer tidak ada dikantor" data-by="Customer Defer">Customer tidak ada dikantor</div>
+              <div class="dd-option" data-value="Customer cuti" data-by="Customer Defer">Customer cuti</div>
+              <div class="dd-option" data-value="Customer diluar kota" data-by="Customer Defer">Customer diluar kota</div>
+              <div class="dd-option" data-value="Customer keluar negeri" data-by="Customer Defer">Customer keluar negeri</div>
+              <div class="dd-option" data-value="Customer request di weekend" data-by="Customer Defer">Customer request di weekend</div>
+              <div class="dd-option" data-value="Customer request tanggal tertentu" data-by="Customer Defer">Customer request tanggal tertentu</div>
+              <div class="dd-option" data-value="Customer sakit" data-by="Customer Defer">Customer sakit</div>
+              <div class="dd-option" data-value="Unit masih digunakan oleh customer" data-by="Customer Defer">Unit masih digunakan oleh customer</div>
+              <div class="dd-option" data-value="Unit customer belum sampai (tersedia)" data-by="Customer Defer">Unit customer belum sampai (tersedia)</div>
+            </div>
+          </div>
+          <input type="hidden" id="or-by-value" value="" />
+          <input type="hidden" id="or-by-type" value="" />
+        </div>
+
+        <div class="mf-group" style="margin-bottom:0">
+          <span class="mf-label">New Appointment Date <span class="req">*</span></span>
+          <input type="datetime-local" id="or-rs-date" />
+        </div>
+      </div>
+
+      <!-- SECTION 3 — Chat Evidence -->
+      <div class="mf-section">
+        <div class="mf-section-label">
+          <span class="sec-num" style="background:#d97706">3</span>
+          Chat Evidence with Customer
+        </div>
+
+        <div class="mf-group" style="margin-bottom:0">
+          <span class="mf-label">Upload Chat Screenshot <span class="req">*</span></span>
+          <label class="awb-upload-zone" for="or-evidence-file">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Click to upload chat screenshot or evidence
+            <span class="upload-sub">PNG, JPG, PDF — max 5 MB</span>
+            <input type="file" id="or-evidence-file" accept=".png,.jpg,.jpeg,.pdf,.webp" />
+          </label>
+          <div class="file-chosen" id="or-evidence-chosen" style="display:none">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <span id="or-evidence-name"></span>
+            <button type="button" class="file-chosen-remove" id="or-evidence-remove" title="Remove file">
+              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div class="awb-img-preview" id="or-evidence-preview">
+            <img id="or-evidence-preview-src" src="" alt="Evidence preview" />
+          </div>
         </div>
       </div>
 
@@ -820,7 +889,7 @@
         <button class="btn btn-ghost" data-close="modal-onsite-recv">Cancel</button>
         <button class="btn btn-primary" id="btn-confirm-onsite-recv">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          Submit
+          Set Onsite Schedule
         </button>
       </div>
     </div>
@@ -1622,16 +1691,19 @@ function openDetail(woId) {
         (latestOrderPart.ship_pickup_time && String(latestOrderPart.ship_pickup_time).trim()) ||
         (latestOrderPart.shipment_date    && String(latestOrderPart.shipment_date).trim())
       ) ? 1 : 0;
-      d.part_pod = latestOrderPart && (
-        (latestOrderPart.ship_pou_pod_time && String(latestOrderPart.ship_pou_pod_time).trim()) ||
-        (latestOrderPart.delivery_date     && String(latestOrderPart.delivery_date).trim())
-      ) ? 1 : 0;
+      const _podRaw = latestOrderPart
+        ? (String(latestOrderPart.ship_pou_pod_time || '').trim() || String(latestOrderPart.delivery_date || '').trim())
+        : '';
+      d.part_pod     = _podRaw ? 1 : 0;
+      d.part_pod_raw = _podRaw || '';   /* actual timestamp for SLA elapsed calculation */
       /* has a real (non-cancelled, ordered) part line at all */
       d.part_has_order = latestOrderPart ? 1 : 0;
       /* dc_number filled = non-null and non-empty (including '0' sentinel = filled) */
       const _dcRaw = latestOrderPart && latestOrderPart.dc_number != null
         ? String(latestOrderPart.dc_number).trim() : '';
       d.part_dc_filled = _dcRaw !== '' ? 1 : 0;
+      /* any non-cancelled ordered part line has return_flag = 'Y' */
+      d.part_return_flag_y = activeParts.some(p => (p.return_flag || '').toUpperCase() === 'Y') ? 1 : 0;
       body.innerHTML =
         renderHero(d) +
         `<div class="detail-body-inner">` +
@@ -1720,7 +1792,6 @@ function _cciHeroBtns(d) {
 
   const eta         = (d.committed_delivery_date || '').slice(0, 10);
   const today       = new Date().toISOString().slice(0, 10);
-  const deliveryRaw = d.actual_committed_onsite_date || '';
   const compDate    = d.completion_date || '';
   const closeDate   = d.closing_date   || '';
   const isClosed    = !!(compDate || closeDate);
@@ -1736,10 +1807,10 @@ function _cciHeroBtns(d) {
     // part shipped but NOT yet POD'd — prioritise over input_dc
     state = (eta && eta < today) ? 'part_sla' : 'confirm_receipt';
   } else if (partPod && !isClosed) {
-    // part received and WO still open — check WO completion SLA
-    const elapsedH = (deliveryRaw && !isSentinel(deliveryRaw))
-      ? (Date.now() - new Date(String(deliveryRaw).replace(' ','T'))) / 3600000
-      : 0;
+    // part received and WO still open — check WO completion SLA (1 day = 24 h for Carry-In/CCI)
+    const podRaw   = d.part_pod_raw || String(d.ship_pou_pod_time || d.part_delivery_date || '').trim();
+    const podMs    = podRaw ? new Date(String(podRaw).replace(' ', 'T')).getTime() : 0;
+    const elapsedH = (podMs && !isNaN(podMs)) ? (Date.now() - podMs) / 3600000 : 0;
     state = elapsedH > 24 ? 'report_problem' : 'wo_sla';
   } else {
     // no part order / all cancelled, dc_number already filled, or not yet shipped — no actionable CCI button
@@ -1757,10 +1828,8 @@ function _cciHeroBtns(d) {
     btns.push(`<button class="fu-badge fu-confirm fu-badge-btn" data-action="cci-recv" data-wo="${wo}" data-contact="${contact}" data-eta="${etaEsc}" data-status="${stEsc}" data-customer="${custEsc}">📬 Confirm Receipt</button>`);
   if (state === 'part_sla')
     btns.push(`<button class="fu-badge fu-part-sla fu-badge-btn" data-action="cci-part-sla" data-wo="${wo}" data-contact="${contact}" data-eta="${etaEsc}" data-awb="${esc(d.part_awb||'')}" data-status="${stEsc}" data-customer="${custEsc}">⚠️ Part SLA Overdue</button>`);
-  if (state === 'wo_sla')
-    btns.push(`<button class="fu-badge fu-wo-sla fu-badge-btn" data-action="cci-wo-sla" data-wo="${wo}" data-contact="${contact}" data-status="${stEsc}">🔔 WO SLA Follow-Up</button>`);
   if (state === 'report_problem')
-    btns.push(`<button class="fu-badge fu-report-problem fu-badge-btn" data-action="cci-report-problem" data-wo="${wo}" data-contact="${contact}" data-status="${stEsc}">🚨 Report Problem</button>`);
+    btns.push(`<button class="fu-badge fu-wo-sla fu-badge-btn" data-action="cci-wo-sla" data-wo="${wo}" data-contact="${contact}" data-status="${stEsc}">🔔 WO SLA Follow-Up</button>`);
 
   return btns.join('');
 }
@@ -1771,7 +1840,6 @@ function _onsiteHeroBtns(d) {
   const type = (d.work_order_type || '').toLowerCase();
   if (!type.includes('onsite')) return '';
 
-  const deliveryRaw = d.actual_committed_onsite_date || '';
   const compDate    = d.completion_date || '';
   const closeDate   = d.closing_date   || '';
   const isClosed     = !!(compDate || closeDate);
@@ -1793,11 +1861,11 @@ function _onsiteHeroBtns(d) {
     //   (mirrors _cciHeroBtns — isClosed is not a gate here)
     state = (eta && eta < today) ? 'part_sla' : 'wo_reschedule';
   } else if (partPod && !isClosed) {
-    // part received (POD filled) and WO still open — check WO completion SLA
-    const elapsedH = (deliveryRaw && !isSentinel(deliveryRaw))
-      ? (Date.now() - new Date(String(deliveryRaw).replace(' ','T'))) / 3600000
-      : 0;
-    state = elapsedH > 90 ? 'report_problem' : 'wo_sla';
+    // part received (POD filled) and WO still open — check WO completion SLA (4 days = 96 h for Onsite)
+    const podRaw   = d.part_pod_raw || String(d.ship_pou_pod_time || d.part_delivery_date || '').trim();
+    const podMs    = podRaw ? new Date(String(podRaw).replace(' ', 'T')).getTime() : 0;
+    const elapsedH = (podMs && !isNaN(podMs)) ? (Date.now() - podMs) / 3600000 : 0;
+    state = elapsedH > 96 ? 'report_problem' : 'wo_sla';
   } else {
     // no part shipped, WO closed, etc. — no actionable button
     return '';
@@ -1815,10 +1883,8 @@ function _onsiteHeroBtns(d) {
     btns.push(`<button class="fu-badge fu-part-sla fu-badge-btn" data-action="onsite-part-sla" data-wo="${wo}" data-contact="${contact}" data-eta="${etaEsc}" data-awb="${esc(d.part_awb||'')}" data-status="${stEsc}" data-customer="${esc(d.customer||'')}">⚠️ Part SLA Overdue</button>`);
   if (state === 'wo_sla' || state === 'report_problem')
     btns.push(`<button class="fu-badge fu-reschedule fu-badge-btn" data-action="onsite-reschedule" data-wo="${wo}" data-contact="${contact}" data-status="${stEsc}">📅 WO Reschedule</button>`);
-  if (state === 'wo_sla')
-    btns.push(`<button class="fu-badge fu-wo-sla fu-badge-btn" data-action="onsite-wo-sla" data-wo="${wo}" data-contact="${contact}" data-status="${stEsc}">🔔 WO SLA Follow-Up</button>`);
   if (state === 'report_problem')
-    btns.push(`<button class="fu-badge fu-report-problem fu-badge-btn" data-action="onsite-report-problem" data-wo="${wo}" data-contact="${contact}" data-status="${stEsc}">🚨 Report Problem</button>`);
+    btns.push(`<button class="fu-badge fu-wo-sla fu-badge-btn" data-action="onsite-wo-sla" data-wo="${wo}" data-contact="${contact}" data-status="${stEsc}">🔔 WO SLA Follow-Up</button>`);
 
   return btns.join('');
 }
@@ -1831,6 +1897,7 @@ function _returnHeroBtns(d) {
   if (!isClosed)            return '';
   if (!d.part_has_order)    return '';
   if (d.part_dc_filled)     return '';
+  if (!d.part_return_flag_y) return '';
   const wo      = esc(String(d.work_order_id));
   const contact = esc(d.contact_name || '');
   const status  = esc(d.work_order_status || '');
@@ -2489,7 +2556,7 @@ function inDeliveryFuBadge(r) {
   if (overdue)
     return `<button class="fu-badge fu-part-sla fu-badge-btn" data-action="in-delivery-part-sla" data-wo="${wo}" data-contact="${contact}" data-eta="${eta}" data-awb="${awb}" data-status="${status}" data-customer="${cust}" data-wo-type="${woType}">⚠️ Part SLA Overdue</button>`;
   if (isOnsite)
-    return `<button class="fu-badge fu-confirm fu-badge-btn" data-action="in-delivery-onsite-recv" data-wo="${wo}" data-contact="${contact}" data-status="${status}">📬 Part Received</button>`;
+    return `<button class="fu-badge fu-reschedule fu-badge-btn" data-action="in-delivery-onsite-recv" data-wo="${wo}" data-contact="${contact}" data-status="${status}">📅 Set Onsite Schedule</button>`;
   return `<button class="fu-badge fu-confirm fu-badge-btn" data-action="in-delivery-recv" data-wo="${wo}" data-contact="${contact}" data-eta="${eta}" data-status="${status}" data-customer="${cust}">📬 Confirm Receipt</button>`;
 }
 
@@ -2562,6 +2629,18 @@ const inRepairTable = makeTabTable({
       return `<button class="fu-badge fu-reschedule fu-badge-btn" data-action="onsite-reschedule" data-wo="${wo}" data-contact="${contact}" data-status="${status}">📅 WO Reschedule</button>`;
     }},
     { key: '_sla_breach',       render: r => {
+      /* Only fire when WO is still open (no close/completion date) */
+      if (r.completion_date || r.closing_date) return '<span style="color:#8c959f;font-style:italic">—</span>';
+      /* Need a POD/delivery timestamp to measure from */
+      const podRaw = r.ship_pou_pod_time || r.part_delivery_date || '';
+      if (!podRaw) return '<span style="color:#8c959f;font-style:italic">—</span>';
+      const podMs = new Date(String(podRaw).replace(' ', 'T')).getTime();
+      if (isNaN(podMs)) return '<span style="color:#8c959f;font-style:italic">—</span>';
+      const elapsedH = (Date.now() - podMs) / 3600000;
+      /* Threshold: Onsite → 4 days (96 h), Carry-In → 1 day (24 h) */
+      const type = (r.work_order_type || '').toLowerCase();
+      const thresholdH = type.includes('onsite') ? 96 : 24;
+      if (elapsedH < thresholdH) return '<span style="color:#8c959f;font-style:italic">—</span>';
       const wo      = esc(r.work_order_id);
       const contact = esc(r.contact_name || '');
       const status  = esc(r.work_order_status || '');
@@ -2609,7 +2688,7 @@ const returnPartTable = makeTabTable({
   colsFn: () => [
     { key: 'created_on',                  render: r => fmt(r.created_on) },
     { key: 'work_order_id',               render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
-    { key: 'followup_state',              render: r => `<button class="fu-badge fu-input-dc fu-badge-btn" data-action="return-dc" data-wo="${esc(r.work_order_id)}" data-contact="${esc(r.contact_name||'')}">🔢 Input DC Number</button>` },
+    { key: 'followup_state',              render: r => r.part_return_flag_y ? `<button class="fu-badge fu-input-dc fu-badge-btn" data-action="return-dc" data-wo="${esc(r.work_order_id)}" data-contact="${esc(r.contact_name||'')}">🔢 Input DC Number</button>` : '' },
     { key: 'work_order_type',             render: r => esc(r.work_order_type||'—') },
     { key: 'case_desc',                   render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
     { key: 'work_order_status',           render: r => statusBadge(r.work_order_status) },
@@ -2637,6 +2716,34 @@ document.getElementById('search-return-part').addEventListener('input', () => {
   returnPartTimer = setTimeout(() => {
     returnPartTable.load({ q: document.getElementById('search-return-part').value.trim(), followup_state: 'input_dc' });
   }, 350);
+});
+
+document.getElementById('btn-export-return-part').addEventListener('click', function () {
+  const btn = this;
+  btn.disabled = true;
+  btn.textContent = 'Exporting…';
+  const q = document.getElementById('search-return-part').value.trim();
+  const url = '/asp/api/return-part/export' + (q ? '?q=' + encodeURIComponent(q) : '');
+  fetch(url)
+    .then(res => {
+      if (!res.ok) throw new Error('Export failed');
+      const cd = res.headers.get('Content-Disposition') || '';
+      const match = cd.match(/filename[^;=\n]*=(?:(['"])(.+?)\1|([^;\n]*))/);
+      const name = (match && (match[2] || match[3])) || 'Return_Part_InputDC.xlsx';
+      return res.blob().then(blob => ({ blob, name }));
+    })
+    .then(({ blob, name }) => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    })
+    .catch(() => toast('Export failed. Please try again.', 'err'))
+    .finally(() => {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Export Excel';
+    });
 });
 
 /* ═══════════════════════════════════════════════════════════════
@@ -2759,12 +2866,12 @@ function _renderAwbWoList(rows, primaryWoId) {
     return;
   }
 
-  /* Group rows by work_order_id to deduplicate parts */
+  /* Group rows by work_order_id, preserving each part line */
   const byWo = {};
   rows.forEach(r => {
     const id = String(r.work_order_id);
-    if (!byWo[id]) byWo[id] = { ...r, parts: [] };
-    byWo[id].parts.push(r.description || r.product || '');
+    if (!byWo[id]) byWo[id] = { ...r, partLines: [] };
+    byWo[id].partLines.push({ soid: r.soid != null ? String(r.soid) : '', desc: r.description || '', status: r.wo_product_status || '' });
   });
 
   /* Sort: current WO always first */
@@ -2776,39 +2883,38 @@ function _renderAwbWoList(rows, primaryWoId) {
   body.innerHTML = woList.map(w => {
     const id        = String(w.work_order_id);
     const isPrimary = id === String(primaryWoId);
-    const partStr   = [...new Set(w.parts)].slice(0, 2).join(', ');
-    const moreCount = Math.max(0, new Set(w.parts).size - 2);
-    return `<label class="awb-wo-item${isPrimary ? ' is-primary' : ''}">
-      <input type="checkbox" class="awb-wo-cb" data-wo="${esc(id)}" ${isPrimary ? 'checked disabled' : ''} />
+    const partsHtml = w.partLines.map(p => `
+      <label class="awb-wo-part-row">
+        <input type="checkbox" class="awb-wo-cb" data-wo="${esc(id)}" />
+        <span class="awb-wo-part-soid">${esc(p.soid || '—')}</span>
+        <span class="awb-wo-part-desc">${esc(p.desc || '—')}</span>
+        ${partStatusBadge(p.status)}
+      </label>`).join('');
+    return `<div class="awb-wo-item${isPrimary ? ' is-primary' : ''}">
       <div class="awb-wo-item-body">
         <div class="awb-wo-item-top">
           <span class="awb-wo-item-id">${esc(id)}</span>
           ${isPrimary ? '<span class="awb-wo-item-primary-tag">current WO</span>' : ''}
           ${statusBadge(w.work_order_status)}
         </div>
-        <div class="awb-wo-item-meta">
-          <span>${esc(w.contact_name || '—')}</span>
-          ${w.committed_delivery_date && !isSentinel(w.committed_delivery_date)
-            ? `<span>· ETA ${fmt(w.committed_delivery_date)}</span>` : ''}
-          ${partStr ? `<span style="color:#8c959f">· ${esc(partStr)}${moreCount ? ` +${moreCount} more` : ''}</span>` : ''}
-        </div>
+        ${partsHtml}
       </div>
-    </label>`;
+    </div>`;
   }).join('');
 
   document.getElementById('awb-wo-list-wrap').style.display = 'block';
 
-  /* Select-all toggle — excludes the locked current-WO checkbox */
+  /* Select-all toggle */
   const allBtn = document.getElementById('awb-select-all');
   function _updateSelectAll() {
-    const cbs = body.querySelectorAll('.awb-wo-cb:not(:disabled)');
+    const cbs = body.querySelectorAll('.awb-wo-cb');
     allBtn.textContent = cbs.length && [...cbs].every(c => c.checked) ? 'Deselect all' : 'Select all';
   }
-  body.querySelectorAll('.awb-wo-cb:not(:disabled)').forEach(cb =>
+  body.querySelectorAll('.awb-wo-cb').forEach(cb =>
     cb.addEventListener('change', _updateSelectAll));
   _updateSelectAll();
   allBtn.onclick = () => {
-    const cbs        = body.querySelectorAll('.awb-wo-cb:not(:disabled)');
+    const cbs        = body.querySelectorAll('.awb-wo-cb');
     const allChecked = [...cbs].every(c => c.checked);
     cbs.forEach(cb => { cb.checked = !allChecked; });
     _updateSelectAll();
@@ -2864,8 +2970,91 @@ document.getElementById('btn-confirm-input-dc').addEventListener('click', () => 
   closeModal('modal-input-dc');
 });
 
-/* ── Onsite Part Received — lightweight modal ── */
+/* ── Set Onsite Schedule modal ── */
 let activeOnsiteRecvWo = null, activeOnsiteRecvContact = '', activeOnsiteRecvStatus = '';
+
+/* Custom dropdown for the inline defer reason (or-by-dd) */
+const orByDd = (function() {
+  const dd         = document.getElementById('or-by-dd');
+  const trigger    = document.getElementById('or-by-trigger');
+  const list       = document.getElementById('or-by-list');
+  const display    = document.getElementById('or-by-display');
+  const hidden     = document.getElementById('or-by-value');
+  const hiddenType = document.getElementById('or-by-type');
+
+  function openDd()  { dd.classList.add('open'); }
+  function closeDd() { dd.classList.remove('open'); }
+
+  trigger.addEventListener('click', () => dd.classList.contains('open') ? closeDd() : openDd());
+  trigger.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dd.classList.contains('open') ? closeDd() : openDd(); }
+    if (e.key === 'Escape') closeDd();
+  });
+  document.addEventListener('click', e => { if (!dd.contains(e.target)) closeDd(); });
+
+  list.querySelectorAll('.dd-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      list.querySelectorAll('.dd-option').forEach(o => o.classList.remove('active'));
+      opt.classList.add('active');
+      const val = opt.dataset.value;
+      const by  = opt.dataset.by;
+      display.textContent = val ? `[${by}] ${val}` : opt.textContent.trim();
+      display.classList.toggle('has-selection', !!val);
+      hidden.value     = val;
+      hiddenType.value = by;
+      closeDd();
+    });
+  });
+
+  return {
+    reset() {
+      list.querySelectorAll('.dd-option').forEach(o => o.classList.remove('active'));
+      list.querySelector('.dd-default').classList.add('active');
+      display.textContent = '— Select defer type & reason —';
+      display.classList.remove('has-selection');
+      hidden.value     = '';
+      hiddenType.value = '';
+    }
+  };
+})();
+
+function _clearOrEvidence() {
+  const input      = document.getElementById('or-evidence-file');
+  const chosen     = document.getElementById('or-evidence-chosen');
+  const preview    = document.getElementById('or-evidence-preview');
+  const previewImg = document.getElementById('or-evidence-preview-src');
+  const newInput   = input.cloneNode(false);
+  input.parentNode.replaceChild(newInput, input);
+  newInput.addEventListener('change', _onOrEvidenceChange);
+  chosen.style.display  = 'none';
+  preview.style.display = 'none';
+  previewImg.src = '';
+  document.getElementById('or-evidence-name').textContent = '';
+}
+
+function _onOrEvidenceChange() {
+  const f          = this.files && this.files[0];
+  const chosen     = document.getElementById('or-evidence-chosen');
+  const preview    = document.getElementById('or-evidence-preview');
+  const previewImg = document.getElementById('or-evidence-preview-src');
+  if (f) {
+    chosen.style.display = 'flex';
+    document.getElementById('or-evidence-name').textContent = f.name;
+    if (f.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = e => { previewImg.src = e.target.result; preview.style.display = 'block'; };
+      reader.readAsDataURL(f);
+    } else {
+      preview.style.display = 'none';
+      previewImg.src = '';
+    }
+  } else {
+    _clearOrEvidence();
+  }
+}
+
+document.getElementById('or-evidence-file').addEventListener('change', _onOrEvidenceChange);
+document.getElementById('or-evidence-remove').addEventListener('click', _clearOrEvidence);
 
 function openOnsiteRecv(woId, contact, woStatus) {
   activeOnsiteRecvWo      = woId;
@@ -2875,30 +3064,26 @@ function openOnsiteRecv(woId, contact, woStatus) {
   document.getElementById('onsite-recv-contact').textContent       = contact || '—';
   document.getElementById('onsite-recv-wo-status-badge').innerHTML = woStatus ? statusBadge(woStatus) : '';
   document.getElementById('onsite-recv-datetime').value            = '';
-  /* Show form, hide prompt */
-  document.getElementById('onsite-recv-form-section').style.display = '';
-  document.getElementById('onsite-recv-prompt').style.display       = 'none';
-  document.getElementById('onsite-recv-footer').style.display       = '';
+  document.getElementById('or-rs-date').value                      = '';
+  orByDd.reset();
+  _clearOrEvidence();
   openModal('modal-onsite-recv');
 }
 
 document.getElementById('btn-confirm-onsite-recv').addEventListener('click', () => {
-  const dt = document.getElementById('onsite-recv-datetime').value;
-  if (!dt) { toast('Please enter the part arrival date and time.', 'err'); return; }
+  const dt     = document.getElementById('onsite-recv-datetime').value;
+  const reason = document.getElementById('or-by-value').value;
+  const rsDate = document.getElementById('or-rs-date').value;
+  const file   = document.getElementById('or-evidence-file').files && document.getElementById('or-evidence-file').files[0];
+  if (!dt)     { toast('Please enter the part arrival date and time.', 'err'); return; }
+  if (!reason) { toast('Please select a defer type and reason.', 'err'); return; }
+  if (!rsDate) { toast('Please select a new appointment date.', 'err'); return; }
+  if (new Date(rsDate) < new Date()) { toast('New appointment date must be in the future.', 'err'); return; }
+  if (!file)   { toast('Please upload the chat screenshot evidence.', 'err'); return; }
   /* TODO: POST to backend once ready */
-  document.getElementById('onsite-recv-form-section').style.display = 'none';
-  document.getElementById('onsite-recv-footer').style.display       = 'none';
-  document.getElementById('onsite-recv-prompt').style.display       = '';
-});
-
-document.getElementById('btn-onsite-recv-prompt-exit').addEventListener('click', () => {
+  const by = document.getElementById('or-by-type').value;
+  toast(`WO ${activeOnsiteRecvWo} — onsite schedule set (${by}: ${reason}) → ${rsDate.replace('T',' ')} ✓`, 'ok');
   closeModal('modal-onsite-recv');
-  toast(`WO ${activeOnsiteRecvWo} — part arrival recorded ✓`, 'ok');
-});
-
-document.getElementById('btn-onsite-recv-prompt-reschedule').addEventListener('click', () => {
-  closeModal('modal-onsite-recv');
-  openReschedule(activeOnsiteRecvWo, activeOnsiteRecvContact, activeOnsiteRecvStatus);
 });
 
 function openRecv(woId, contact, eta, woStatus, aspName) {
@@ -2976,13 +3161,12 @@ function _renderNoAwbList(rows, currentWoId) {
   const pill    = document.getElementById('no-awb-count');
   const allBtn  = document.getElementById('no-awb-select-all');
 
-  /* Group rows by work_order_id (query may return one row per part line) */
+  /* Group rows by work_order_id, preserving each part line */
   const byWo = {};
   rows.forEach(r => {
     const id = String(r.work_order_id);
-    if (!byWo[id]) byWo[id] = { ...r, parts: [] };
-    const pn = r.product || '';
-    if (pn && !byWo[id].parts.includes(pn)) byWo[id].parts.push(pn);
+    if (!byWo[id]) byWo[id] = { ...r, partLines: [] };
+    byWo[id].partLines.push({ soid: r.soid != null ? String(r.soid) : '', desc: r.description || '', status: r.wo_product_status || '' });
   });
 
   /* Sort: current WO always first */
@@ -3004,34 +3188,35 @@ function _renderNoAwbList(rows, currentWoId) {
   body.innerHTML = woList.map(w => {
     const id        = String(w.work_order_id);
     const isCurrent = id === String(currentWoId);
-    const partStr   = w.parts.slice(0, 2).join(', ');
-    const moreCount = Math.max(0, w.parts.length - 2);
-    return `<label class="no-awb-item${isCurrent ? ' is-current' : ''}">
-      <input type="checkbox" class="no-awb-cb" data-wo="${esc(id)}" ${isCurrent ? 'checked disabled' : ''} />
+    const partsHtml = w.partLines.map(p => `
+      <label class="no-awb-part-row">
+        <input type="checkbox" class="no-awb-cb" data-wo="${esc(id)}" />
+        <span class="no-awb-part-soid">${esc(p.soid || '—')}</span>
+        <span class="no-awb-part-desc">${esc(p.desc || '—')}</span>
+        ${partStatusBadge(p.status)}
+      </label>`).join('');
+    return `<div class="no-awb-item${isCurrent ? ' is-current' : ''}">
       <div class="no-awb-item-body">
         <div class="no-awb-item-top">
           <span class="no-awb-item-id">${esc(id)}</span>
           ${isCurrent ? '<span class="no-awb-item-current">current WO</span>' : ''}
           ${statusBadge(w.work_order_status)}
         </div>
-        <div class="no-awb-item-meta">
-          <span>${esc(w.contact_name || '—')}</span>
-          ${partStr ? `<span style="color:#8c959f"> · ${esc(partStr)}${moreCount ? ` +${moreCount} more` : ''}</span>` : ''}
-        </div>
+        ${partsHtml}
       </div>
-    </label>`;
+    </div>`;
   }).join('');
 
-  /* Select-all toggle — excludes the locked current-WO checkbox */
+  /* Select-all toggle */
   function _updateNoAwbSelectAll() {
-    const cbs = body.querySelectorAll('.no-awb-cb:not(:disabled)');
+    const cbs = body.querySelectorAll('.no-awb-cb');
     allBtn.textContent = cbs.length && [...cbs].every(c => c.checked) ? 'Deselect all' : 'Select all';
   }
-  body.querySelectorAll('.no-awb-cb:not(:disabled)').forEach(cb =>
+  body.querySelectorAll('.no-awb-cb').forEach(cb =>
     cb.addEventListener('change', _updateNoAwbSelectAll));
   _updateNoAwbSelectAll();
   allBtn.onclick = () => {
-    const cbs = body.querySelectorAll('.no-awb-cb:not(:disabled)');
+    const cbs = body.querySelectorAll('.no-awb-cb');
     const allChecked = [...cbs].every(c => c.checked);
     cbs.forEach(cb => { cb.checked = !allChecked; });
     _updateNoAwbSelectAll();

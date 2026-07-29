@@ -583,7 +583,14 @@ def get_asp_part_return_page(
          WHERE p.work_order_id = s.work_order_id
            AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
            AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != ''
-         LIMIT 1) AS part_has_order
+         LIMIT 1) AS part_has_order,
+        (SELECT 1
+         FROM wo_product_detail p
+         WHERE p.work_order_id = s.work_order_id
+           AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
+           AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != ''
+           AND UPPER(TRIM(COALESCE(p.return_flag,''))) = 'Y'
+         LIMIT 1) AS part_return_flag_y
     """
 
     wheres = [_CLOSED_WHERE]
@@ -601,7 +608,7 @@ def get_asp_part_return_page(
     where_sql = "WHERE " + " AND ".join(wheres)
 
     def _state(r: dict) -> str:
-        if r.get("part_has_order") and not r.get("part_dc_filled"):
+        if r.get("part_has_order") and not r.get("part_dc_filled") and r.get("part_return_flag_y"):
             return "input_dc"
         return "return_part"
 
@@ -641,7 +648,7 @@ def get_wos_by_awb(awb: str) -> list[dict]:
             s.work_order_id, s.contact_name, s.customer,
             s.work_order_status, s.work_order_type,
             s.committed_delivery_date,
-            p.product, p.description, p.wo_product_status, p.awb
+            p.soid, p.product, p.description, p.wo_product_status, p.awb
         FROM wo_summary s
         JOIN wo_product_detail p USING (work_order_id)
         WHERE TRIM(p.awb) = ?
@@ -662,7 +669,7 @@ def get_wo_no_awb_by_asp(customer: str) -> list[dict]:
             s.work_order_id, s.contact_name, s.customer,
             s.work_order_status, s.work_order_type,
             s.committed_delivery_date,
-            p.product, p.description, p.wo_product_status
+            p.soid, p.product, p.description, p.wo_product_status
         FROM wo_summary s
         JOIN wo_product_detail p USING (work_order_id)
         WHERE LOWER(TRIM(s.customer)) = LOWER(TRIM(?))

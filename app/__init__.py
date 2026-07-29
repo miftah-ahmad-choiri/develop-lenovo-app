@@ -16,6 +16,7 @@ def create_app():
     os.makedirs(app.config["EXCEL_UPLOAD_FOLDER"], exist_ok=True)  # files/upload/excel/
     os.makedirs(app.config["EXCELS_DIR"],          exist_ok=True)  # files/download/excel/
     os.makedirs(app.config["UPLOAD_META_FOLDER"],  exist_ok=True)  # app/templates/admin/upload_meta/
+    os.makedirs(app.config["REPORT_DIR"],          exist_ok=True)  # files/report/
 
     # ── Database setup ─────────────────────────────────────────────────────────
     from app.services.database.migrate import run_migrations
