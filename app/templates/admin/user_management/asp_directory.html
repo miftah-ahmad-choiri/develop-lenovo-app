@@ -10,6 +10,90 @@
 
   /* ── toolbar ── */
   .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  .btn-create {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; font-size: 13px; font-weight: 600;
+    background: #3b82d4; color: #fff; border: none; border-radius: 6px;
+    cursor: pointer; font-family: inherit; white-space: nowrap;
+  }
+  .btn-create:hover { background: #2563b0; }
+
+  /* ── create modal ── */
+  .create-modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45); z-index: 960;
+    align-items: flex-start; justify-content: center;
+    overflow-y: auto; padding: 32px 16px;
+  }
+  .create-modal-overlay.open { display: flex; }
+  .create-modal-box {
+    background: #fff; border-radius: 10px; width: 680px; max-width: 98vw;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.2);
+    display: flex; flex-direction: column; margin: auto;
+  }
+  .create-modal-header {
+    padding: 16px 22px 14px; border-bottom: 1px solid #e5e7eb;
+    display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+  }
+  .create-modal-header h2 { font-size: 16px; font-weight: 700; margin: 0; }
+  .create-modal-header p  { font-size: 12px; color: #57606a; margin: 3px 0 0; }
+  .create-modal-body { padding: 20px 22px; }
+  .create-modal-footer {
+    padding: 14px 22px; border-top: 1px solid #e5e7eb;
+    display: flex; gap: 10px; justify-content: flex-end; flex-shrink: 0;
+  }
+  .create-section { margin-bottom: 22px; }
+  .create-section:last-child { margin-bottom: 0; }
+  .create-section-title {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.07em; color: #57606a;
+    margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid #e5e7eb;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .create-section-title .sec-icon-sm {
+    width: 22px; height: 22px; border-radius: 5px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .create-section-title .sec-icon-sm.account-icon  { background: #eff6ff; color: #3b82d4; }
+  .create-section-title .sec-icon-sm.identity-icon { background: #f0fdf4; color: #16a34a; }
+  .create-section-title .sec-icon-sm.location-icon { background: #fff7ed; color: #ea580c; }
+  .create-section-title .sec-icon-sm.ops-icon      { background: #fdf4ff; color: #9333ea; }
+  .create-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .create-form-grid.full { grid-template-columns: 1fr; }
+  .create-field { display: flex; flex-direction: column; gap: 4px; }
+  .create-field label {
+    font-size: 11px; font-weight: 700; color: #57606a;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .create-field label .req { color: #b91c1c; margin-left: 2px; }
+  .create-field input,
+  .create-field select,
+  .create-field textarea {
+    padding: 7px 10px; font-size: 13px; border: 1px solid #d0d7de;
+    border-radius: 6px; font-family: inherit; background: #fff; color: #1f2328;
+    outline: none; transition: border-color 0.15s;
+  }
+  .create-field input:focus,
+  .create-field select:focus,
+  .create-field textarea:focus { border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,0.1); }
+  .create-field textarea { resize: vertical; min-height: 64px; }
+  .create-field input.mono-input { font-family: "IBM Plex Mono", monospace; font-size: 12px; }
+  .create-field input.field-error { border-color: #b91c1c; }
+  .field-error-msg { font-size: 11px; color: #b91c1c; margin-top: 2px; display: none; }
+  .field-error-msg.visible { display: block; }
+  .btn-create-save {
+    padding: 8px 20px; font-size: 13px; font-weight: 600;
+    background: #3b82d4; color: #fff; border: none; border-radius: 6px;
+    cursor: pointer; font-family: inherit;
+  }
+  .btn-create-save:hover { background: #2563b0; }
+  .btn-create-cancel {
+    padding: 8px 16px; font-size: 13px; font-weight: 600;
+    background: #fff; color: #57606a; border: 1px solid #d0d7de;
+    border-radius: 6px; cursor: pointer; font-family: inherit;
+  }
+  .btn-create-cancel:hover { background: #f0f2f5; }
+  @media (max-width: 600px) { .create-form-grid { grid-template-columns: 1fr; } }
   .toolbar-search {
     flex: 1; min-width: 200px; max-width: 340px;
     padding: 7px 12px; font-size: 13px;
@@ -345,6 +429,10 @@
 
 <!-- toolbar -->
 <div class="toolbar">
+  <button class="btn-create" id="btn-open-create">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    New ASP
+  </button>
   <input
     type="text"
     id="search-input"
@@ -548,6 +636,169 @@
 
     </div><!-- /modal-body -->
   </div><!-- /modal-box -->
+</div>
+
+<!-- ── create ASP modal ── -->
+<div class="create-modal-overlay" id="create-modal-overlay">
+  <div class="create-modal-box">
+
+    <div class="create-modal-header">
+      <div>
+        <h2>New ASP</h2>
+        <p>Create a new Authorized Service Provider account and record.</p>
+      </div>
+      <button class="modal-close" id="create-modal-close" title="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="create-modal-body">
+      <form id="create-form" method="POST" action="/admin/users/asp-directory/create" novalidate>
+
+        <!-- Account -->
+        <div class="create-section">
+          <div class="create-section-title">
+            <span class="sec-icon-sm account-icon">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </span>
+            Account
+          </div>
+          <div class="create-form-grid">
+            <div class="create-field">
+              <label>Username <span class="req">*</span></label>
+              <input type="text" name="username" id="c-username" class="mono-input" autocomplete="off" required />
+              <span class="field-error-msg" id="err-username">Username is required.</span>
+            </div>
+            <div class="create-field">
+              <label>Password</label>
+              <input type="text" name="password" id="c-password" autocomplete="off" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Identity -->
+        <div class="create-section">
+          <div class="create-section-title">
+            <span class="sec-icon-sm identity-icon">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3H8"/><path d="M12 3v4"/></svg>
+            </span>
+            Identity
+          </div>
+          <div class="create-form-grid">
+            <div class="create-field">
+              <label>Service Provider</label>
+              <input type="text" name="service_provider" id="c-service_provider" />
+            </div>
+            <div class="create-field">
+              <label>Parent Group</label>
+              <input type="text" name="parent_group" id="c-parent_group" />
+            </div>
+            <div class="create-field">
+              <label>ASP Name (Customer Partner)</label>
+              <input type="text" name="customer_partner" id="c-customer_partner" />
+            </div>
+            <div class="create-field">
+              <label>Store Name</label>
+              <input type="text" name="store_name" id="c-store_name" />
+            </div>
+            <div class="create-field">
+              <label>ASP ID (Labor Vendor Related) <span class="req">*</span></label>
+              <input type="text" name="labor_vendor_related" id="c-labor_vendor_related" class="mono-input" required />
+              <span class="field-error-msg" id="err-labor_vendor_related">ASP ID is required.</span>
+            </div>
+            <div class="create-field">
+              <label>Vendor Code</label>
+              <input type="text" name="vendor_code" id="c-vendor_code" class="mono-input" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Location -->
+        <div class="create-section">
+          <div class="create-section-title">
+            <span class="sec-icon-sm location-icon">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            </span>
+            Location
+          </div>
+          <div class="create-form-grid">
+            <div class="create-field">
+              <label>Kota</label>
+              <input type="text" name="kota" id="c-kota" />
+            </div>
+            <div class="create-field">
+              <label>Island</label>
+              <input type="text" name="island" id="c-island" />
+            </div>
+            <div class="create-field">
+              <label>Phone Number</label>
+              <input type="text" name="phone_number" id="c-phone_number" />
+            </div>
+            <div class="create-field">
+              <label>Lat / Long</label>
+              <input type="text" name="lat_long" id="c-lat_long" class="mono-input" placeholder="e.g. -6.200000, 106.816666" />
+            </div>
+          </div>
+          <div class="create-form-grid full" style="margin-top:14px">
+            <div class="create-field">
+              <label>Address</label>
+              <textarea name="address" id="c-address"></textarea>
+            </div>
+            <div class="create-field">
+              <label>Google Maps Link</label>
+              <input type="text" name="link_map" id="c-link_map" placeholder="https://maps.google.com/…" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Operations -->
+        <div class="create-section">
+          <div class="create-section-title">
+            <span class="sec-icon-sm ops-icon">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </span>
+            Operations
+          </div>
+          <div class="create-form-grid">
+            <div class="create-field">
+              <label>Operational Status</label>
+              <select name="operational_status" id="c-operational_status">
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
+            <div class="create-field">
+              <label>Future Status</label>
+              <select name="future_status" id="c-future_status">
+                <option value="continue">continue</option>
+                <option value="stop">stop</option>
+              </select>
+            </div>
+            <div class="create-field">
+              <label>Operation Support</label>
+              <input type="text" name="operation_support" id="c-operation_support" />
+            </div>
+          </div>
+          <div class="create-form-grid full" style="margin-top:14px">
+            <div class="create-field">
+              <label>Working Hours</label>
+              <textarea name="working_hours" id="c-working_hours" placeholder="e.g. Mon–Fri 08:00–17:00"></textarea>
+            </div>
+          </div>
+        </div>
+
+      </form>
+    </div><!-- /create-modal-body -->
+
+    <div class="create-modal-footer">
+      <button class="btn-create-cancel" id="create-cancel-btn">Cancel</button>
+      <button class="btn-create-save" id="create-save-btn">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:5px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Create ASP
+      </button>
+    </div>
+
+  </div>
 </div>
 
 <!-- ── drawer overlay ── -->
@@ -988,8 +1239,55 @@
 
   function submitForm() { document.getElementById('edit-form').submit(); }
 
+  /* ── create modal ── */
+  function openCreateModal() {
+    document.getElementById('create-form').reset();
+    document.querySelectorAll('.field-error-msg').forEach(function(el) { el.classList.remove('visible'); });
+    document.querySelectorAll('.create-field input, .create-field textarea').forEach(function(el) { el.classList.remove('field-error'); });
+    document.getElementById('create-modal-overlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+    document.getElementById('c-username').focus();
+  }
+
+  function closeCreateModal() {
+    document.getElementById('create-modal-overlay').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  function submitCreateForm() {
+    var username = document.getElementById('c-username').value.trim();
+    var lvr      = document.getElementById('c-labor_vendor_related').value.trim();
+    var ok = true;
+
+    if (!username) {
+      document.getElementById('err-username').classList.add('visible');
+      document.getElementById('c-username').classList.add('field-error');
+      ok = false;
+    } else {
+      document.getElementById('err-username').classList.remove('visible');
+      document.getElementById('c-username').classList.remove('field-error');
+    }
+
+    if (!lvr) {
+      document.getElementById('err-labor_vendor_related').classList.add('visible');
+      document.getElementById('c-labor_vendor_related').classList.add('field-error');
+      ok = false;
+    } else {
+      document.getElementById('err-labor_vendor_related').classList.remove('visible');
+      document.getElementById('c-labor_vendor_related').classList.remove('field-error');
+    }
+
+    if (ok) document.getElementById('create-form').submit();
+  }
+
   /* ── wire up on DOM ready ── */
   document.addEventListener('DOMContentLoaded', function () {
+
+    // Create button
+    document.getElementById('btn-open-create').addEventListener('click', openCreateModal);
+    document.getElementById('create-modal-close').addEventListener('click', closeCreateModal);
+    document.getElementById('create-cancel-btn').addEventListener('click', closeCreateModal);
+    document.getElementById('create-save-btn').addEventListener('click', submitCreateForm);
 
     // Edit buttons in table
     document.querySelectorAll('.btn-edit').forEach(function (btn) {
@@ -1048,7 +1346,7 @@
       });
     });
 
-    // Escape key
+    // Escape key (intentionally does NOT close the create modal — use Cancel/×)
     document.addEventListener('keydown', function(e) {
       if (e.key !== 'Escape') return;
       if (document.getElementById('detail-overlay').classList.contains('open')) closeDetailModal();

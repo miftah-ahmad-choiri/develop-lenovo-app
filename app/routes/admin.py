@@ -1287,6 +1287,41 @@ def asp_directory_edit(asp_id):
     return redirect(url_for("admin.asp_directory"))
 
 
+@admin_bp.route("/admin/users/asp-directory/create", methods=["POST"])
+def asp_directory_create():
+    fields = [
+        "username", "password", "vendor_code", "service_provider",
+        "parent_group", "labor_vendor_related", "customer_partner",
+        "store_name", "kota", "address", "lat_long", "link_map",
+        "phone_number", "island", "working_hours", "operational_status",
+        "future_status", "operation_support",
+    ]
+    values = {f: request.form.get(f, "").strip() or None for f in fields}
+
+    # Require username and labor_vendor_related
+    if not values.get("username") or not values.get("labor_vendor_related"):
+        flash("Username and ASP ID are required to create a new ASP.", "danger")
+        return redirect(url_for("admin.asp_directory"))
+
+    cols   = ", ".join(fields)
+    placeholders = ", ".join("?" for _ in fields)
+    params = [values[f] for f in fields]
+
+    db_path = current_app.config["DATABASE_PATH"]
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute(
+            f"INSERT INTO asp_details ({cols}) VALUES ({placeholders})", params
+        )
+        conn.commit()
+        flash(f"ASP \"{values['username']}\" created successfully.", "success")
+    except sqlite3.IntegrityError:
+        flash(f"Username \"{values['username']}\" already exists in asp_details.", "danger")
+    finally:
+        conn.close()
+    return redirect(url_for("admin.asp_directory"))
+
+
 # ── System Archive ───────────────────────────────────────────────────────────
 
 @admin_bp.route("/admin/archive", methods=["GET"])
