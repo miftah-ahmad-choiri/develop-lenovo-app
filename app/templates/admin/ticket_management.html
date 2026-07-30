@@ -187,6 +187,15 @@
 
   /* ── WO Detail — part cards ──────────────────────────────────── */
   .part-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
+  .part-card.cancelled { background: #fafafa; border-color: #e5e7eb; opacity: 0.7; }
+  .part-card.cancelled .part-card-hdr { background: #f3f4f6; }
+  .part-card.cancelled .part-card-pn  { text-decoration: line-through; color: #8c959f; }
+  .part-card.cancelled .part-card-desc { color: #adb5bd; }
+  .part-card.cancelled .part-card-field { background: #fafafa; }
+  .part-card.cancelled .pcf-value { color: #8c959f; }
+  .parts-cancelled-divider { display: flex; align-items: center; gap: 8px; margin: 14px 0 10px; }
+  .parts-cancelled-divider span { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #8c959f; white-space: nowrap; }
+  .parts-cancelled-divider::before, .parts-cancelled-divider::after { content: ''; flex: 1; height: 1px; background: #e5e7eb; }
   .part-card-hdr { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #f7f8fa; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap; }
   .part-card-num  { font-size: 11px; font-weight: 700; color: #8c959f; flex-shrink: 0; }
   .part-card-pn   { font-size: 12px; font-weight: 700; font-family: ui-monospace, monospace; color: #1f2328; }
@@ -642,11 +651,13 @@ function renderHero(d) {
       </div>` : ''}
     </div>` : '';
   return `<div class="wo-hero">
-    <!-- Row 1: WO ID + WO Status badge + Closing Code pill inline -->
-    <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;">
-      <div class="wo-hero-id"><span style="color:#8c959f">WO#</span> ${esc(String(d.work_order_id))}</div>
-      ${statusBadge(d.work_order_status)}
-      ${d.closing_code ? closingCodePill(d.closing_code) : ''}
+    <!-- Row 1: WO ID + WO Status badge + Closing Code pill left; right side reserved for future actions -->
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;">
+        <div class="wo-hero-id"><span style="color:#8c959f">WO#</span> ${esc(String(d.work_order_id))}</div>
+        ${statusBadge(d.work_order_status)}
+        ${d.closing_code ? closingCodePill(d.closing_code) : ''}
+      </div>
     </div>
     <!-- Row 2 + 3: SN/CASE and MTM/PRODUCT in aligned grid columns -->
     <div style="margin-top:6px;display:grid;grid-template-columns:200px 1fr;row-gap:4px;align-items:center;">
@@ -673,12 +684,39 @@ function renderHero(d) {
 
 function renderTimeline(d, parts) {
   const now = Date.now();
-  const isCancelled = p => { const s = (p.wo_product_status || '').toLowerCase(); return s.includes('cancel'); };
-  const activePart    = (parts && parts.find(p => !isCancelled(p))) || (parts && parts[0]) || null;
-  const activePartIdx = activePart ? parts.indexOf(activePart) : -1;
-  const partOrderDate  = activePart ? (activePart.order_date       || activePart.acceptance_date || null) : null;
-  const partPickupDate = activePart ? (activePart.ship_pickup_time  || activePart.shipment_date   || null) : null;
-  const partPodDate    = activePart ? (activePart.ship_pou_pod_time || activePart.delivery_date   || null) : null;
+
+  const isCancelled = p => {
+    const s = (p.wo_product_status || '').toLowerCase();
+    return s.includes('cancel');
+  };
+
+  /* Collect non-cancelled part lines; fall back to all lines only when
+     every line is cancelled or there are no parts at all. */
+  const activeParts = (parts && parts.filter(p => !isCancelled(p)).length > 0)
+    ? parts.filter(p => !isCancelled(p))
+    : (parts || []);
+
+  /* Find the part line with the LATEST order_date (or acceptance_date).
+     This represents the most recently placed part order for the WO. */
+  const toTs = v => {
+    if (!v || isSentinel(v)) return -Infinity;
+    const t = new Date(String(v).replace(' ', 'T')).getTime();
+    return isNaN(t) ? -Infinity : t;
+  };
+  let latestPart = activeParts[0] || null;
+  let latestOrderTs = latestPart ? toTs(latestPart.order_date || latestPart.acceptance_date) : -Infinity;
+  for (const p of activeParts) {
+    const ts = toTs(p.order_date || p.acceptance_date);
+    if (ts > latestOrderTs) { latestOrderTs = ts; latestPart = p; }
+  }
+
+  /* For the footnote — index of the chosen part in the original list */
+  const activePartIdx = latestPart ? parts.indexOf(latestPart) : -1;
+
+  const partOrderDate  = latestPart ? (latestPart.order_date       || latestPart.acceptance_date || null) : null;
+  const partPickupDate = latestPart ? (latestPart.ship_pickup_time  || latestPart.shipment_date   || null) : null;
+  const partPodDate    = latestPart ? (latestPart.ship_pou_pod_time || latestPart.delivery_date   || null) : null;
+
   /* true when the WO is closed/completed — forces onsite nodes to done */
   const isWoClosed = !!(d.completion_date || d.closing_date);
   const nd = v => (isSentinel(v) ? null : v);
@@ -745,7 +783,7 @@ function renderTimeline(d, parts) {
   return `<div class="detail-section">
     ${sectionTitle(ICONS.timeline, 'Date Timeline')}
     <div class="tl-wrap"><div class="tl-scroll"><div class="tl-track">${nodeHtml}</div></div></div>
-    ${parts.length > 1 ? `<div style="font-size:11px;color:#8c959f;margin-top:8px">* Part dates shown for line #${activePartIdx + 1}${isCancelled(parts[0]) ? ' (skipping cancelled lines)' : ''}. See Part Order History for all lines.</div>` : ''}
+    ${parts.length > 1 ? `<div style="font-size:11px;color:#8c959f;margin-top:8px">* Part dates shown for line #${activePartIdx + 1} (latest part order). See Part Order History for all lines.</div>` : ''}
   </div>`;
 }
 
@@ -777,25 +815,30 @@ function partStatusBadge(s) {
 function renderParts(parts, woId) {
   const uid  = 'parts-body-' + Date.now();
   const title = sectionTitle(ICONS.parts, `Part Order History (WO #${esc(String(woId || ''))})`);
+
   if (!parts.length) return `<div class="detail-section">
     ${title}
     <div style="font-size:13px;color:#8c959f;font-style:italic;padding:4px 0 8px">No part order lines found for this WO.</div>
   </div>`;
-  /* Sort: cancelled lines last, preserving original order within each group */
-  const sorted = [
-    ...parts.filter(p => !(p.wo_product_status || '').toLowerCase().includes('cancel')),
-    ...parts.filter(p =>  (p.wo_product_status || '').toLowerCase().includes('cancel')),
-  ];
 
-  const cards = sorted.map((p, i) => {
+  /* Sort: cancelled lines last, preserving original order within each group */
+  const activeRows    = parts.filter(p => !(p.wo_product_status || '').toLowerCase().includes('cancel'));
+  const cancelledRows = parts.filter(p =>  (p.wo_product_status || '').toLowerCase().includes('cancel'));
+
+  function buildCard(p, i, isCancelledCard) {
     const _dc = p.dc_number != null ? String(p.dc_number).trim() : '';
-    const dcBadge = (_dc && _dc !== '0')
-      ? `<span style="font-size:11px;font-weight:600;color:#3b82d4;white-space:nowrap">(DC# ${esc(_dc)})</span>`
-      : '';
+    /* _dcFilled: has a real DC number — not null, not '0' sentinel, not '1' (filled but no display number) */
+    const _dcFilled  = _dc && _dc !== '0';
+    const _dcDisplay = _dcFilled && _dc !== '1';
 
     const retFlag = p.return_flag === 'Y'
-      ? '<span class="badge badge-part-hold">Return</span>'
+      ? (_dcDisplay
+          ? `<span class="badge" style="background:#dcfce7;color:#15803d;border:1px solid #86efac">Returned (DC# ${esc(_dc)})</span>`
+          : _dcFilled
+            ? `<span class="badge" style="background:#dcfce7;color:#15803d;border:1px solid #86efac">Returned</span>`
+            : '<span class="badge" style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa">Return Yes</span>')
       : (p.return_flag === 'N' ? '<span class="badge badge-default">No Return</span>' : '<span style="color:#8c959f">—</span>');
+
     const isPartHold = (p.wo_product_status || '').toLowerCase() === 'on hold - part hold';
     const etaWh      = isPartHold && p.eta_parthold_backlog
       ? `<span style="display:inline-flex;align-items:center;gap:6px;margin-right:4px">
@@ -803,7 +846,7 @@ function renderParts(parts, woId) {
            <span style="font-size:13px;font-weight:700;color:#d97706">${String(p.eta_parthold_backlog).slice(0,10)}</span>
          </span>`
       : '';
-    return `<div class="part-card">
+    return `<div class="part-card${isCancelledCard ? ' cancelled' : ''}">
       <div class="part-card-hdr">
         <span class="part-card-num">#${i + 1}</span>
         <span class="part-card-pn">${esc(p.product || '—')}</span>
@@ -811,7 +854,7 @@ function renderParts(parts, woId) {
         <div style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">
           ${etaWh}
           ${partStatusBadge(p.wo_product_status)}
-          ${retFlag}${dcBadge}
+          ${retFlag}
         </div>
       </div>
       <div class="part-card-body">
@@ -837,7 +880,17 @@ function renderParts(parts, woId) {
         <div class="part-card-field"><div class="pcf-label">Part Received (POD)</div><div class="pcf-value">${fmt(p.ship_pou_pod_time || p.delivery_date) || '—'}</div></div>
       </div>
     </div>`;
-  }).join('');
+  }
+
+  const activeCards    = activeRows.map((p, i) => buildCard(p, i, false));
+  const cancelledCards = cancelledRows.map((p, i) => buildCard(p, i, true));
+
+  const divider = cancelledCards.length && activeCards.length
+    ? `<div class="parts-cancelled-divider"><span>Cancelled (${cancelledCards.length})</span></div>`
+    : '';
+
+  const cards = [...activeCards, divider ? [divider] : [], ...cancelledCards].flat().join('');
+
   return `<div class="detail-section">
     <div class="detail-section-title collapsible-hdr" data-target="${uid}">
       ${ICONS.parts}<span>Part Order History (WO #${esc(String(woId || ''))})</span>
