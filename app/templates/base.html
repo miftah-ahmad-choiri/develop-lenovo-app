@@ -68,31 +68,25 @@
     .portal-btn.active { background: #fff; color: #1f2328; }
     .portal-btn:hover:not(.active) { color: #fff; background: rgba(255,255,255,0.12); }
 
-    /* User badge on far right */
+    /* User greeting */
     .topbar-user {
-      margin-left: auto;
       display: flex;
       align-items: center;
       gap: 8px;
-      font-size: 12px;
-      color: #c9d0d8;
+      text-decoration: none;
+      pointer-events: none;
+      border-radius: 6px;
+      padding: 4px 8px;
     }
-    .topbar-avatar {
-      width: 28px; height: 28px;
-      background: #3b82d4;
-      border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 700; font-size: 12px; color: #fff;
-      flex-shrink: 0;
-    }
-    .topbar-username {
-      font-size: 12px;
+    .topbar-greeting {
+      font-size: 13px;
       color: #c9d0d8;
-      max-width: 140px;
+      white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      white-space: nowrap;
+      max-width: 220px;
     }
+    .topbar-greeting strong { color: #fff; font-weight: 600; }
     .topbar-role-badge {
       font-size: 10px;
       font-weight: 600;
@@ -283,6 +277,30 @@
       border-top: 1px solid rgba(255,255,255,0.08);
       overflow: hidden;
     }
+    .sidebar-profile-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #c9d0d8;
+      background: none;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: left;
+      white-space: nowrap;
+      overflow: hidden;
+      text-decoration: none;
+      transition: background 0.13s, color 0.13s;
+    }
+    .sidebar-profile-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
+    .sidebar-profile-btn.active { background: rgba(59,130,212,0.25); color: #6fb3f5; }
+    .sidebar-profile-label { transition: opacity 0.15s; }
+    .sidebar.collapsed .sidebar-profile-label { opacity: 0; width: 0; overflow: hidden; }
+    .sidebar.collapsed .sidebar-profile-btn { justify-content: center; padding: 8px; }
     .sidebar-logout-btn {
       display: flex;
       align-items: center;
@@ -373,8 +391,9 @@
       cursor: pointer;
       color: #fff;
       flex-shrink: 0;
-      margin-left: 8px;
     }
+    /* Hamburger always hugs the far right on desktop too */
+    .topbar-menu-btn { margin-left: auto; }
     .topbar-menu-btn:hover { background: rgba(255,255,255,0.18); }
 
     /* Backdrop */
@@ -389,7 +408,9 @@
 
     @media (max-width: 768px) {
       .main-content { padding: 16px 14px 40px; }
-      .topbar-menu-btn { display: flex; }
+      /* Admin greeting hidden on mobile; hamburger stays far-right */
+      .topbar-user-admin { display: none; }
+      .topbar-menu-btn   { display: flex; margin-left: auto; }
 
       /* Sidebar becomes a fixed drawer that slides in from the left */
       .sidebar {
@@ -433,7 +454,22 @@
   </div>
   {% endif %}
 
-  <!-- Hamburger — mobile only -->
+  {% if session_role == 'asp' %}
+  <span class="topbar-user topbar-user-asp">
+    {% if session_display_name %}
+      <span class="topbar-greeting">Hi, <strong>{{ session_display_name }}</strong></span>
+    {% endif %}
+  </span>
+  {% elif session_role in ('admin', 'superadmin') %}
+  <span class="topbar-user topbar-user-admin">
+    {% if session_display_name %}
+      <span class="topbar-greeting">Hi, <strong>{{ session_display_name }}</strong></span>
+      <span class="topbar-role-badge">Admin</span>
+    {% endif %}
+  </span>
+  {% endif %}
+
+  <!-- Hamburger — mobile only, far-right via margin-left:auto in media query -->
   <button class="topbar-menu-btn" id="mobile-menu-btn" title="Open navigation">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
       <line x1="3" y1="6"  x2="21" y2="6"/>
@@ -441,20 +477,6 @@
       <line x1="3" y1="18" x2="21" y2="18"/>
     </svg>
   </button>
-
-  <div class="topbar-user">
-    {% if session_display_name %}
-      <div class="topbar-avatar">{{ (session_display_name[:1] or session_username[:1] or 'U') | upper }}</div>
-      <span class="topbar-username">{{ session_display_name }}</span>
-      {% if session_role == 'asp' %}
-        <span class="topbar-role-badge">ASP</span>
-      {% elif session_role in ('admin', 'superadmin') %}
-        <span class="topbar-role-badge">Admin</span>
-      {% endif %}
-    {% else %}
-      <div class="topbar-avatar">U</div>
-    {% endif %}
-  </div>
 </div>
 
 <!-- Backdrop for mobile drawer -->
@@ -573,8 +595,16 @@
       {% endif %}
     </nav>
 
-    <!-- ── Sidebar footer: logout ─────────────────────────────────────────── -->
+    <!-- ── Sidebar footer: profile + logout ──────────────────────────────── -->
     <div class="sidebar-footer">
+      <a href="/profile" class="sidebar-profile-btn {% if active_page == 'profile' %}active{% endif %}">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+        <span class="sidebar-profile-label">User Profile</span>
+      </a>
       <form method="POST" action="/logout" style="margin:0">
         <button type="submit" class="sidebar-logout-btn">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -671,6 +701,32 @@
   });
 })();
 </script>
+
+{% if session_role %}
+<script>
+/* ── Auto sign-out at 23:59:00 local time ─────────────────────────────────── */
+(function () {
+  function scheduleSignOut() {
+    var now    = new Date();
+    var target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 0, 0);
+    if (target <= now) {
+      /* Already past 23:59 today — schedule for tomorrow */
+      target.setDate(target.getDate() + 1);
+    }
+    var msUntil = target - now;
+    setTimeout(function () {
+      /* POST to /logout via a hidden form so the session is properly cleared */
+      var form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/logout';
+      document.body.appendChild(form);
+      form.submit();
+    }, msUntil);
+  }
+  scheduleSignOut();
+})();
+</script>
+{% endif %}
 
 {% block extra_scripts %}{% endblock %}
 </body>

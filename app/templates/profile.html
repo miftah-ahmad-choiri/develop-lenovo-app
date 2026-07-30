@@ -1,0 +1,664 @@
+{% extends "base.html" %}
+{% block title %}User Profile — Lenovo ASP Portal{% endblock %}
+
+{% block extra_styles %}
+/* ── Profile page ──────────────────────────────────────────────────────────── */
+.profile-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 1000px;
+}
+
+/* ── Hero card ─────────────────────────────────────────────────────────────── */
+.profile-hero-card {
+  background: #1f2328;
+  border-radius: 12px;
+  padding: 28px 32px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.profile-hero-card::before {
+  content: '';
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 200px; height: 200px;
+  border-radius: 50%;
+  background: rgba(59,130,212,0.1);
+}
+.profile-hero-card::after {
+  content: '';
+  position: absolute;
+  bottom: -60px; right: 80px;
+  width: 150px; height: 150px;
+  border-radius: 50%;
+  background: rgba(59,130,212,0.06);
+}
+.profile-avatar {
+  width: 76px; height: 76px;
+  border-radius: 50%;
+  background: #3b82d4;
+  color: #fff;
+  font-size: 30px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 3px solid rgba(255,255,255,0.15);
+  position: relative;
+  z-index: 1;
+}
+.profile-hero-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+  z-index: 1;
+  flex: 1;
+}
+.profile-display-name { font-size: 21px; font-weight: 700; color: #fff; }
+.profile-username      { font-size: 13px; color: #8b949e; margin-bottom: 2px; }
+.profile-hero-badges   { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.profile-role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  width: fit-content;
+}
+.badge-asp   { background: rgba(59,130,212,0.25); color: #93c5fd; border: 1px solid rgba(59,130,212,0.35); }
+.badge-admin { background: rgba(255,255,255,0.1);  color: #e2e8f0; border: 1px solid rgba(255,255,255,0.15); }
+.badge-status-active   { background: rgba(34,197,94,0.18);  color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
+.badge-status-inactive { background: rgba(239,68,68,0.18);  color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+
+/* ── Info card ─────────────────────────────────────────────────────────────── */
+.profile-info-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.profile-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: #57606a;
+  padding: 14px 24px 12px;
+  border-bottom: 1px solid #f0f1f3;
+  background: #f9fafb;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.profile-section-title svg { color: #9ca3af; }
+.profile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 4px 0;
+}
+.profile-field {
+  padding: 14px 24px;
+  border-bottom: 1px solid #f3f4f6;
+}
+.profile-field:nth-last-child(-n+2) { border-bottom: none; }
+.profile-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+.profile-value {
+  font-size: 14px;
+  color: #1f2328;
+  line-height: 1.5;
+}
+.profile-value.muted { color: #9ca3af; font-style: italic; }
+.profile-field.full  { grid-column: 1 / -1; }
+
+/* ── Status badge (inside cards) ───────────────────────────────────────────── */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.status-active   { background: #dcfce7; color: #15803d; }
+.status-inactive { background: #fee2e2; color: #dc2626; }
+
+/* ── Working hours ──────────────────────────────────────────────────────────── */
+.wh-wrap { display: flex; flex-direction: column; gap: 8px; }
+.wh-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+.wh-days {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #374151;
+  min-width: 160px;
+}
+.wh-sep { color: #d1d5db; font-size: 14px; }
+.wh-time-block { display: flex; align-items: center; gap: 8px; }
+.wh-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 5px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1d4ed8;
+  min-width: 110px;
+  justify-content: center;
+}
+.wh-time svg { color: #3b82f6; flex-shrink: 0; }
+.wh-dash { font-size: 12px; color: #9ca3af; font-weight: 600; }
+
+/* ── Working hours edit mode ────────────────────────────────────────────────── */
+.wh-edit-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 12px; border-radius: 6px; border: 1px solid #d0d7de;
+  background: #fff; color: #374151; font-size: 12px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: background 0.12s, border-color 0.12s;
+}
+.wh-edit-btn:hover { background: #f3f4f6; border-color: #9ca3af; }
+.wh-edit-rows { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.wh-edit-row {
+  display: flex; align-items: center; gap: 10px;
+  background: #f9fafb; border: 1px solid #e5e7eb;
+  border-radius: 8px; padding: 10px 14px; flex-wrap: wrap;
+}
+.wh-edit-row input[type="text"] {
+  flex: 1; min-width: 140px; max-width: 200px;
+  padding: 6px 10px; font-size: 13px; font-weight: 600;
+  border: 1px solid #d0d7de; border-radius: 6px;
+  font-family: inherit; color: #1f2328; background: #fff;
+  outline: none; transition: border-color 0.13s;
+}
+.wh-edit-row input[type="text"]:focus { border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,0.1); }
+.wh-edit-row input[type="time"] {
+  padding: 6px 10px; font-size: 13px; font-weight: 600;
+  border: 1px solid #bfdbfe; border-radius: 6px;
+  background: #eff6ff; color: #1d4ed8;
+  font-family: inherit; outline: none; cursor: pointer;
+  transition: border-color 0.13s;
+}
+.wh-edit-row input[type="time"]:focus { border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,0.1); }
+.wh-edit-sep { font-size: 12px; color: #9ca3af; font-weight: 600; }
+.wh-edit-sep-days { color: #d1d5db; font-size: 14px; }
+.wh-remove-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 5px; border: 1px solid #fca5a5;
+  background: #fff0f0; color: #dc2626; cursor: pointer; flex-shrink: 0;
+  font-family: inherit; transition: background 0.12s;
+}
+.wh-remove-btn:hover { background: #fee2e2; }
+.wh-add-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: 6px; border: 1px dashed #d0d7de;
+  background: #f9fafb; color: #57606a; font-size: 12px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: background 0.12s, border-color 0.12s;
+  margin-bottom: 14px;
+}
+.wh-add-btn:hover { background: #f3f4f6; border-color: #9ca3af; }
+.wh-edit-actions { display: flex; gap: 8px; }
+.wh-btn-cancel {
+  padding: 7px 18px; border-radius: 6px; border: 1px solid #d0d7de;
+  background: #fff; color: #374151; font-size: 13px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: background 0.12s;
+}
+.wh-btn-cancel:hover { background: #f3f4f6; }
+.wh-btn-save {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 18px; border-radius: 6px; border: none;
+  background: #1f2328; color: #fff; font-size: 13px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: background 0.12s;
+}
+.wh-btn-save:hover { background: #2d3340; }
+
+/* ── ASP Users (empty state) ────────────────────────────────────────────────── */
+.users-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  gap: 12px;
+  color: #9ca3af;
+}
+.users-empty svg { color: #d1d5db; }
+.users-empty-title { font-size: 14px; font-weight: 600; color: #57606a; }
+.users-empty-sub   { font-size: 12px; color: #9ca3af; }
+.users-coming-badge {
+  margin-top: 4px;
+  padding: 3px 12px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  letter-spacing: 0.4px;
+}
+
+@media (max-width: 640px) {
+  .profile-grid          { grid-template-columns: 1fr; }
+  .profile-field:nth-last-child(-n+2) { border-bottom: 1px solid #f3f4f6; }
+  .profile-field:last-child           { border-bottom: none; }
+  .profile-hero-card     { padding: 20px 18px; gap: 16px; }
+  .profile-display-name  { font-size: 18px; }
+  .profile-field         { padding: 12px 16px; }
+  .profile-section-title { padding: 12px 16px 10px; }
+  .wh-row                { flex-wrap: wrap; }
+  .wh-days               { min-width: unset; width: 100%; }
+  .wh-time               { min-width: 90px; }
+}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>User Profile</h1>
+  <p>Your account details and service information.</p>
+</div>
+
+<div class="profile-wrap">
+
+  <!-- ── Hero ── -->
+  <div class="profile-hero-card">
+    <div class="profile-avatar">{{ (user.display_name[:1] or user.username[:1] or 'U') | upper }}</div>
+    <div class="profile-hero-info">
+      <div class="profile-display-name">{{ user.display_name }}</div>
+      <div class="profile-username">@{{ user.username }}</div>
+      <div class="profile-hero-badges">
+        <span class="profile-role-badge {% if user.role == 'asp' %}badge-asp{% else %}badge-admin{% endif %}">
+          {% if user.role == 'asp' %}
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          {% else %}
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          {% endif %}
+          {{ user.role | upper }}
+        </span>
+        {% if user.role == 'asp' and user.operational_status %}
+          <span class="profile-role-badge {{ 'badge-status-active' if user.operational_status | lower == 'active' else 'badge-status-inactive' }}">
+            <svg width="7" height="7" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>
+            {{ user.operational_status }}
+          </span>
+        {% elif user.role in ('admin', 'superadmin') and user.is_active is defined %}
+          <span class="profile-role-badge {{ 'badge-status-active' if user.is_active else 'badge-status-inactive' }}">
+            <svg width="7" height="7" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>
+            {{ 'Active' if user.is_active else 'Disabled' }}
+          </span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {% if user.role in ('admin', 'superadmin') %}
+  <!-- ── Admin: Account Information ── -->
+  <div class="profile-info-card">
+    <div class="profile-section-title">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Account Information
+    </div>
+    <div class="profile-grid">
+      <div class="profile-field">
+        <div class="profile-label">Username</div>
+        <div class="profile-value">{{ user.username }}</div>
+      </div>
+      <div class="profile-field">
+        <div class="profile-label">Full Name</div>
+        <div class="profile-value">{{ user.full_name or '—' }}</div>
+      </div>
+      <div class="profile-field">
+        <div class="profile-label">Email</div>
+        <div class="profile-value">{{ user.email or '—' }}</div>
+      </div>
+      <div class="profile-field">
+        <div class="profile-label">Role</div>
+        <div class="profile-value">{{ user.role | capitalize }}</div>
+      </div>
+      <div class="profile-field">
+        <div class="profile-label">Account Status</div>
+        <div class="profile-value">
+          <span class="status-badge {{ 'status-active' if user.is_active else 'status-inactive' }}">
+            {{ 'Active' if user.is_active else 'Disabled' }}
+          </span>
+        </div>
+      </div>
+      <div class="profile-field">
+        <div class="profile-label">Created At</div>
+        <div class="profile-value">{{ user.created_at or '—' }}</div>
+      </div>
+    </div>
+  </div>
+
+  {% else %}
+  <!-- ── ASP: Identity ── -->
+  <div class="profile-info-card">
+    <div class="profile-section-title">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Identity
+    </div>
+    <div class="profile-grid">
+      <div class="profile-field">
+        <div class="profile-label">Username</div>
+        <div class="profile-value">{{ user.username }}</div>
+      </div>
+      <div class="profile-field">
+        <div class="profile-label">Service Provider</div>
+        <div class="profile-value">{{ user.service_provider or '—' }}</div>
+      </div>
+      <div class="profile-field">
+        <div class="profile-label">Vendor Code</div>
+        <div class="profile-value">{{ user.vendor_code or '—' }}</div>
+      </div>
+      <div class="profile-field">
+        <div class="profile-label">Labor Vendor</div>
+        <div class="profile-value">{{ user.labor_vendor_related or '—' }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ASP: Location ── -->
+  <div class="profile-info-card">
+    <div class="profile-section-title">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      Location
+    </div>
+    <div class="profile-grid">
+      <div class="profile-field">
+        <div class="profile-label">Store Name</div>
+        <div class="profile-value">{{ user.store_name or '—' }}</div>
+      </div>
+      <div class="profile-field">
+        <div class="profile-label">City</div>
+        <div class="profile-value">{{ user.kota or '—' }}</div>
+      </div>
+      <div class="profile-field">
+        <div class="profile-label">Island</div>
+        <div class="profile-value">{{ user.island or '—' }}</div>
+      </div>
+      <div class="profile-field">
+        <div class="profile-label">Phone</div>
+        <div class="profile-value">{{ user.phone_number or '—' }}</div>
+      </div>
+      <div class="profile-field full">
+        <div class="profile-label">Address</div>
+        <div class="profile-value">{{ user.address or '—' }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ASP: Working Hours ── -->
+  <div class="profile-info-card" id="wh-card">
+    <div class="profile-section-title" style="justify-content: space-between;">
+      <span style="display:flex;align-items:center;gap:8px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Working Hours
+      </span>
+      <button class="wh-edit-btn" id="wh-edit-btn" onclick="whStartEdit()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Edit
+      </button>
+    </div>
+
+    <!-- View mode -->
+    <div id="wh-view" style="padding: 16px 24px;">
+      <div class="wh-wrap" id="wh-wrap"></div>
+    </div>
+
+    <!-- Edit mode (hidden by default) -->
+    <div id="wh-edit" style="display:none; padding: 16px 24px;">
+      <div id="wh-rows-edit" class="wh-edit-rows"></div>
+      <button class="wh-add-btn" onclick="whAddRow()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add row
+      </button>
+      <div class="wh-edit-actions">
+        <button class="wh-btn-cancel" onclick="whCancelEdit()">Cancel</button>
+        <button class="wh-btn-save"   onclick="whSave()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Save
+        </button>
+      </div>
+      <div id="wh-save-msg" style="display:none; margin-top:10px; font-size:13px; color:#15803d; font-weight:600;">✓ Saved successfully</div>
+      <div id="wh-err-msg"  style="display:none; margin-top:10px; font-size:13px; color:#dc2626; font-weight:600;"></div>
+    </div>
+  </div>
+
+  <!-- ── ASP: Users (coming soon) ── -->
+  <div class="profile-info-card">
+    <div class="profile-section-title">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      ASP Users
+    </div>
+    <div class="users-empty">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+      <div class="users-empty-title">No users listed yet</div>
+      <div class="users-empty-sub">Users belonging to this ASP will appear here.</div>
+      <span class="users-coming-badge">Coming Soon</span>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+(function(){
+  /* ── Shared helpers ──────────────────────────────────────────────────────── */
+  var raw       = {{ (user.working_hours or '') | tojson }};
+  var clockSvg  = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+  var DAYS      = 'Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday';
+
+  function normTime(t) {
+    return t.replace(/[.](\d{2})/g, ':$1')
+            .replace(/(\d)([AP]M)/gi, '$1 $2')
+            .replace(/\s+/g, ' ').trim();
+  }
+
+  /* Parse raw string → array of {days, open, close} */
+  function parseSegments(str) {
+    if (!str) return [];
+    var marked = str.replace(
+      new RegExp('(?<![\\-–]\\s)(?<=\\w)\\s+(' + DAYS + '\\s*[:\\-])', 'gi'),
+      '|||$1'
+    );
+    var segs = marked.split(/[,\n|]+/).map(function(s){ return s.trim(); }).filter(Boolean);
+    return segs.map(function(seg){
+      var m = seg.match(/^(.+?)\s*[:：]\s*(.+)$/);
+      if (!m) return { days: seg, open: '', close: '' };
+      var days  = m[1].trim();
+      var times = normTime(m[2].trim());
+      var tm = times.match(/^(\d[\d:]+\s*[AP]M)\s*[-–]\s*(\d[\d:]+\s*[AP]M)$/i);
+      return tm
+        ? { days: days, open: tm[1].trim(), close: tm[2].trim() }
+        : { days: days, open: times, close: '' };
+    });
+  }
+
+  /* Convert "08:00 AM" → "08:00" for <input type="time"> */
+  function toTime24(str) {
+    if (!str) return '';
+    var m = str.match(/^(\d{1,2}):(\d{2})\s*([AP]M)$/i);
+    if (!m) return '';
+    var h = parseInt(m[1], 10), min = m[2], ampm = m[3].toUpperCase();
+    if (ampm === 'AM') { if (h === 12) h = 0; }
+    else               { if (h !== 12) h += 12; }
+    return (h < 10 ? '0' : '') + h + ':' + min;
+  }
+
+  /* Convert "08:00" (24h) → "08:00 AM" */
+  function toTime12(str) {
+    if (!str) return '';
+    var parts = str.split(':');
+    var h = parseInt(parts[0], 10), min = parts[1];
+    var ampm = h >= 12 ? 'PM' : 'AM';
+    if (h === 0) h = 12;
+    else if (h > 12) h -= 12;
+    return (h < 10 ? '0' : '') + h + ':' + min + ' ' + ampm;
+  }
+
+  /* ── Render view mode ───────────────────────────────────────────────────── */
+  function renderView(str) {
+    var wrap = document.getElementById('wh-wrap');
+    wrap.innerHTML = '';
+    var segs = parseSegments(str);
+    if (!segs.length) {
+      wrap.innerHTML = '<span style="color:#9ca3af;font-style:italic">—</span>';
+      return;
+    }
+    segs.forEach(function(s){
+      var timeHtml;
+      if (s.open && s.close) {
+        timeHtml = '<div class="wh-time-block">'
+          + '<span class="wh-time">' + clockSvg + s.open + '</span>'
+          + '<span class="wh-dash">to</span>'
+          + '<span class="wh-time">' + clockSvg + s.close + '</span>'
+          + '</div>';
+      } else if (s.open) {
+        timeHtml = '<span class="wh-time">' + clockSvg + s.open + '</span>';
+      } else {
+        timeHtml = '';
+      }
+      var row = document.createElement('div');
+      row.className = 'wh-row';
+      row.innerHTML = '<span class="wh-days">' + s.days + '</span>'
+        + '<span class="wh-sep">|</span>'
+        + timeHtml;
+      wrap.appendChild(row);
+    });
+  }
+
+  /* ── Render edit mode rows ──────────────────────────────────────────────── */
+  function renderEditRows(segs) {
+    var container = document.getElementById('wh-rows-edit');
+    container.innerHTML = '';
+    if (!segs.length) segs = [{ days: '', open: '', close: '' }];
+    segs.forEach(function(s, idx){
+      var row = document.createElement('div');
+      row.className = 'wh-edit-row';
+      row.innerHTML =
+        '<input type="text" class="wh-inp-days" placeholder="e.g. Monday - Friday" value="' + (s.days || '') + '">'
+        + '<span class="wh-edit-sep-days">|</span>'
+        + '<input type="time" class="wh-inp-open"  value="' + toTime24(s.open)  + '">'
+        + '<span class="wh-edit-sep">to</span>'
+        + '<input type="time" class="wh-inp-close" value="' + toTime24(s.close) + '">'
+        + '<button class="wh-remove-btn" title="Remove row">'
+        + '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+        + '</button>';
+      row.querySelector('.wh-remove-btn').addEventListener('click', function(){
+        row.remove();
+      });
+      container.appendChild(row);
+    });
+  }
+
+  /* ── Build string from edit rows ────────────────────────────────────────── */
+  function buildString() {
+    var rows = document.querySelectorAll('#wh-rows-edit .wh-edit-row');
+    var parts = [];
+    rows.forEach(function(row){
+      var days  = row.querySelector('.wh-inp-days').value.trim();
+      var open  = row.querySelector('.wh-inp-open').value;
+      var close = row.querySelector('.wh-inp-close').value;
+      if (!days) return;
+      var timeStr = '';
+      if (open && close) timeStr = toTime12(open) + ' - ' + toTime12(close);
+      else if (open)     timeStr = toTime12(open);
+      parts.push(timeStr ? days + ' : ' + timeStr : days);
+    });
+    return parts.join(', ');
+  }
+
+  /* ── Public handlers (called from onclick) ──────────────────────────────── */
+  window.whStartEdit = function() {
+    document.getElementById('wh-view').style.display = 'none';
+    document.getElementById('wh-edit').style.display = 'block';
+    document.getElementById('wh-edit-btn').style.display = 'none';
+    document.getElementById('wh-save-msg').style.display = 'none';
+    document.getElementById('wh-err-msg').style.display  = 'none';
+    renderEditRows(parseSegments(raw));
+  };
+
+  window.whCancelEdit = function() {
+    document.getElementById('wh-edit').style.display = 'none';
+    document.getElementById('wh-view').style.display = 'block';
+    document.getElementById('wh-edit-btn').style.display = '';
+  };
+
+  window.whAddRow = function() {
+    var container = document.getElementById('wh-rows-edit');
+    var segs = [];
+    container.querySelectorAll('.wh-edit-row').forEach(function(r){
+      segs.push({
+        days:  r.querySelector('.wh-inp-days').value,
+        open:  toTime12(r.querySelector('.wh-inp-open').value),
+        close: toTime12(r.querySelector('.wh-inp-close').value),
+      });
+    });
+    segs.push({ days: '', open: '', close: '' });
+    renderEditRows(segs);
+  };
+
+  window.whSave = function() {
+    var str = buildString();
+    var saveMsg = document.getElementById('wh-save-msg');
+    var errMsg  = document.getElementById('wh-err-msg');
+    saveMsg.style.display = 'none';
+    errMsg.style.display  = 'none';
+    if (!str) { errMsg.textContent = 'Please fill at least one row.'; errMsg.style.display = 'block'; return; }
+    fetch('/asp/api/working-hours', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ working_hours: str })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if (data.ok) {
+        raw = data.working_hours;
+        renderView(raw);
+        document.getElementById('wh-edit').style.display  = 'none';
+        document.getElementById('wh-view').style.display  = 'block';
+        document.getElementById('wh-edit-btn').style.display = '';
+        saveMsg.style.display = 'block';
+        setTimeout(function(){ saveMsg.style.display = 'none'; }, 3000);
+      } else {
+        errMsg.textContent = data.error || 'Failed to save.';
+        errMsg.style.display = 'block';
+      }
+    })
+    .catch(function(){ errMsg.textContent = 'Network error. Please try again.'; errMsg.style.display = 'block'; });
+  };
+
+  /* ── Init: render view on load ──────────────────────────────────────────── */
+  renderView(raw);
+})();
+</script>
+{% endblock %}

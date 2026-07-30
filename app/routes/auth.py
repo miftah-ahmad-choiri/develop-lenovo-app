@@ -122,3 +122,39 @@ def login():
 def logout():
     session.clear()
     return redirect(url_for("auth.login"))
+
+
+@auth_bp.route("/profile", methods=["GET"])
+def profile():
+    """User profile page — works for both ASP and admin users."""
+    if "user_id" not in session:
+        return redirect(url_for("auth.login", next="/profile"))
+    conn  = get_db()
+    role  = session.get("role", "")
+    uid   = session.get("user_id")
+    user  = {}
+
+    if role in ("admin", "superadmin"):
+        row = conn.execute(
+            "SELECT username, full_name, email, role, is_active, created_at "
+            "FROM admin_users WHERE id = ?", (uid,)
+        ).fetchone()
+        if row:
+            user = dict(row)
+            user["display_name"] = row["full_name"] or row["username"]
+    else:
+        row = conn.execute(
+            "SELECT username, service_provider, vendor_code, labor_vendor_related, "
+            "store_name, kota, address, phone_number, working_hours, "
+            "operational_status, island "
+            "FROM asp_details WHERE id = ?", (uid,)
+        ).fetchone()
+        if row:
+            user = dict(row)
+            user["display_name"] = row["service_provider"] or row["username"]
+
+    user["role"] = role
+
+    portal = "admin" if role in ("admin", "superadmin") else "asp"
+    return render_template("profile.html", user=user, portal=portal,
+                           active_page="profile")

@@ -51,6 +51,11 @@ def create_app():
             return value
 
     # ── Global template context (available in every template) ─────────────────
+    @app.before_request
+    def make_session_permanent():
+        from flask import session as _sess
+        _sess.permanent = True
+
     @app.context_processor
     def inject_globals():
         from flask import session as _sess

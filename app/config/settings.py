@@ -15,6 +15,10 @@ class Config:
     SECRET_KEY = "lenovo-asp-secret-key"
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB
 
+    # ── Session ────────────────────────────────────────────────────────────────
+    # Sessions expire after 24 hours; client-side JS signs out at 23:59
+    PERMANENT_SESSION_LIFETIME = 86400          # seconds (24 h)
+
     # ── Upload folders ─────────────────────────────────────────────────────────
     # Evidence files (images / PDFs submitted with tickets)
     UPLOAD_FOLDER = os.path.join(_ROOT, "files", "upload")

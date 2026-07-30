@@ -272,6 +272,27 @@ def api_wo_ticket_history(work_order_id: int):
     return jsonify({"case_number": detail["case_number"], "current_wo_id": work_order_id, "rows": rows})
 
 
+@asp_bp.route("/asp/api/working-hours", methods=["POST"])
+@login_required
+def api_save_working_hours():
+    """Save updated working_hours string for the logged-in ASP user."""
+    from app.services.database.db import get_db
+    uid  = session.get("user_id")
+    role = session.get("role", "")
+    if role != "asp":
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json(silent=True) or {}
+    working_hours = (data.get("working_hours") or "").strip()
+    if not working_hours:
+        return jsonify({"error": "working_hours is required"}), 400
+    get_db().execute(
+        "UPDATE asp_details SET working_hours = ? WHERE id = ?",
+        (working_hours, uid)
+    )
+    get_db().commit()
+    return jsonify({"ok": True, "working_hours": working_hours})
+
+
 @asp_bp.route("/asp/api/in-prepare", methods=["GET"])
 @login_required
 def api_in_prepare():

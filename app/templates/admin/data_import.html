@@ -307,7 +307,6 @@
         <th>Range</th>
         <th></th>
         <th></th>
-        <th></th>
       </tr>
     </thead>
     <tbody>
@@ -358,16 +357,6 @@
             <span style="font-size:12px;color:#57606a;">{{ row.days_range }}</span>
           {% else %}
             <span style="font-size:12px;color:#9ca3af;">—</span>
-          {% endif %}
-        </td>
-        <td>
-          {% if row.filename %}
-            <a href="/admin/data-import/view/{{ row.category_key }}" class="btn-view">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              View
-            </a>
-          {% else %}
-            <span style="font-size:12px;color:#d0d7de;">—</span>
           {% endif %}
         </td>
         <td>
