@@ -170,6 +170,16 @@ def api_wo_no_awb():
     return jsonify(get_wo_no_awb_by_asp(customer))
 
 
+@asp_bp.route("/asp/api/return-part-same-asp", methods=["GET"])
+def api_return_part_same_asp():
+    """Return closed WOs for a given ASP that have return_flag=Y parts with no DC number yet."""
+    from app.services.database.queries import get_return_part_wos_by_asp
+    customer = request.args.get("customer", "").strip()
+    if not customer:
+        return jsonify([])
+    return jsonify(get_return_part_wos_by_asp(customer))
+
+
 @asp_bp.route("/asp/api/wo-detail/<int:work_order_id>", methods=["GET"])
 def api_wo_detail(work_order_id: int):
     """Single WO full detail — wo_summary + wo_details joined."""

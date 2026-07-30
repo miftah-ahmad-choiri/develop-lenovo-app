@@ -572,12 +572,14 @@ def get_asp_part_return_page(
         s.case_desc, s.work_order_type, s.contact_name,
         s.customer, s.work_order_status, s.case_status,
         d.completion_date, d.closing_date,
-        (SELECT (p.dc_number IS NOT NULL AND TRIM(COALESCE(p.dc_number,'')) != '')
-         FROM wo_product_detail p
-         WHERE p.work_order_id = s.work_order_id
-           AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
-           AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != ''
-         ORDER BY p.soid DESC LIMIT 1) AS part_dc_filled,
+        (SELECT NOT EXISTS (
+             SELECT 1 FROM wo_product_detail p
+             WHERE p.work_order_id = s.work_order_id
+               AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
+               AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != ''
+               AND UPPER(TRIM(COALESCE(p.return_flag,''))) = 'Y'
+               AND (p.dc_number IS NULL OR TRIM(p.dc_number) = '0')
+         )) AS part_dc_filled,
         (SELECT 1
          FROM wo_product_detail p
          WHERE p.work_order_id = s.work_order_id
@@ -682,6 +684,32 @@ def get_wo_no_awb_by_asp(customer: str) -> list[dict]:
               'repair completed','ready for pickup'
           )
           AND LOWER(COALESCE(s.work_order_status,'')) NOT LIKE '%cancel%'
+        ORDER BY s.work_order_id ASC
+    """, (customer.strip(),)).fetchall()
+    return [dict(r) for r in rows]
+
+
+# Return-Part same-ASP — closed WOs for a given ASP with return_flag=Y part lines, no DC yet
+def get_return_part_wos_by_asp(customer: str) -> list[dict]:
+    """Return closed WOs belonging to the given ASP that have at least one
+    non-cancelled part line with return_flag='Y' and dc_number not yet filled."""
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT DISTINCT
+            s.work_order_id, s.contact_name, s.customer,
+            s.work_order_status, s.work_order_type,
+            s.committed_delivery_date, s.created_on,
+            d.completion_date,
+            p.soid, p.product, p.description, p.wo_product_status, p.return_flag
+        FROM wo_summary s
+        LEFT JOIN wo_details d USING (work_order_id)
+        JOIN wo_product_detail p USING (work_order_id)
+        WHERE LOWER(TRIM(s.customer)) = LOWER(TRIM(?))
+          AND UPPER(TRIM(COALESCE(p.return_flag,''))) = 'Y'
+          AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
+          AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != ''
+          AND (p.dc_number IS NULL OR TRIM(p.dc_number) = '0')
+          AND """ + _CLOSED_WHERE.replace("work_order_status", "s.work_order_status") + """
         ORDER BY s.work_order_id ASC
     """, (customer.strip(),)).fetchall()
     return [dict(r) for r in rows]

@@ -148,6 +148,7 @@
 
   /* ── Detail modal ───────────────────────────────────────────────── */
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; align-items: flex-start; justify-content: center; padding: 20px 8px 40px; overflow-y: auto; }
+  #modal-input-dc { z-index: 400; }
   .modal-overlay.open { display: flex; }
   .modal { background: #fff; border-radius: 12px; width: 100%; max-width: 1100px; box-shadow: 0 12px 40px rgba(0,0,0,0.2); }
   .modal-header { padding: 8px 14px 8px; border-bottom: none; display: flex; align-items: center; justify-content: flex-end; }
@@ -445,6 +446,29 @@
   .no-awb-loading { padding: 12px; text-align: center; font-size: 12px; color: #8c959f; }
   .no-awb-select-all { font-size: 11px; font-weight: 600; color: #b45309; cursor: pointer; background: none; border: none; font-family: inherit; padding: 0; }
   .no-awb-select-all:hover { color: #92400e; text-decoration: underline; }
+
+  /* ── IDC (Input DC) same-ASP WO panel ─────────────────────────────────── */
+  .idc-wo-section { margin-top: 16px; }
+  .idc-wo-list { margin-top: 8px; border: 1px solid #e5e7eb; border-radius: 7px; overflow: hidden; }
+  .idc-wo-list-header { padding: 7px 12px; background: #f7f8fa; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; gap: 8px; }
+  .idc-wo-list-title { font-size: 11px; font-weight: 700; color: #57606a; text-transform: uppercase; letter-spacing: .04em; flex: 1; }
+  .idc-wo-count-pill { font-size: 10px; font-weight: 700; background: #e5e7eb; color: #57606a; border: 1px solid #d1d5db; border-radius: 10px; padding: 1px 7px; white-space: nowrap; }
+  .idc-wo-item { padding: 8px 12px; border-bottom: 1px solid #f0f2f5; background: #fff; }
+  .idc-wo-item:last-child { border-bottom: none; }
+  .idc-wo-item.is-current { background: #e5e7eb; border-left: 3px solid #6b7280; padding-left: 9px; }
+  .idc-wo-item-body { min-width: 0; }
+  .idc-wo-item-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+  .idc-wo-item-id { font-family: ui-monospace, monospace; font-size: 12px; font-weight: 700; color: #1f2328; }
+  .idc-wo-item.is-current .idc-wo-item-id { color: #374151; }
+  .idc-wo-part-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; cursor: pointer; }
+  .idc-wo-part-row:hover { background: #f7f8fa; margin: 0 -12px; padding: 3px 12px; }
+  .idc-wo-part-row input[type="checkbox"] { flex-shrink: 0; width: 14px; height: 14px; accent-color: #6b7280; cursor: pointer; margin: 0; }
+  .idc-wo-part-soid { font-family: ui-monospace, monospace; font-size: 11px; font-weight: 700; color: #3b82d4; white-space: nowrap; }
+  .idc-wo-part-desc { font-size: 11px; color: #57606a; flex: 1; min-width: 0; }
+  .idc-wo-item-current { font-size: 10px; font-weight: 700; background: #e5e7eb; color: #374151; border: 1px solid #d1d5db; border-radius: 8px; padding: 1px 6px; white-space: nowrap; }
+  .idc-wo-loading { padding: 12px; text-align: center; font-size: 12px; color: #8c959f; }
+  .idc-wo-select-all { font-size: 11px; font-weight: 600; color: #c2410c; cursor: pointer; background: none; border: none; font-family: inherit; padding: 0; }
+  .idc-wo-select-all:hover { color: #9a3412; text-decoration: underline; }
 
   /* Mini parts table inside detail modal */
   .parts-mini-table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -746,6 +770,27 @@
           <input type="text" id="idc-number" placeholder="e.g. 19127" autocomplete="off"
                  style="font-family:ui-monospace,monospace;letter-spacing:.04em;font-size:14px" />
           <div style="font-size:11px;color:#8c959f;margin-top:5px">Enter the DC number exactly as shown in Resolv.</div>
+        </div>
+      </div>
+
+      <!-- SECTION 3 — Other WOs Same ASP -->
+      <div class="mf-section idc-wo-section" id="idc-wo-section" style="display:none">
+        <div class="mf-section-label">
+          <span class="sec-num" style="background:#15803d">2</span>
+          Also Apply to Same ASP WOs
+        </div>
+        <div class="idc-wo-list">
+          <div class="idc-wo-list-header">
+            <span class="idc-wo-list-title">Return-Part WOs — Same ASP</span>
+            <span class="idc-wo-count-pill" id="idc-wo-count"></span>
+            <button type="button" class="idc-wo-select-all" id="idc-wo-select-all">Select all</button>
+          </div>
+          <div id="idc-wo-list-body">
+            <div class="idc-wo-loading">Loading…</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:#8c959f;margin-top:6px">
+          The same DC number will be applied to all checked WOs above.
         </div>
       </div>
 
@@ -1698,10 +1743,10 @@ function openDetail(woId) {
       d.part_pod_raw = _podRaw || '';   /* actual timestamp for SLA elapsed calculation */
       /* has a real (non-cancelled, ordered) part line at all */
       d.part_has_order = latestOrderPart ? 1 : 0;
-      /* dc_number filled = non-null and non-empty (including '0' sentinel = filled) */
+      /* dc_number filled = non-null, non-empty, and not the '0' sentinel */
       const _dcRaw = latestOrderPart && latestOrderPart.dc_number != null
         ? String(latestOrderPart.dc_number).trim() : '';
-      d.part_dc_filled = _dcRaw !== '' ? 1 : 0;
+      d.part_dc_filled = (_dcRaw !== '' && _dcRaw !== '0') ? 1 : 0;
       /* any non-cancelled ordered part line has return_flag = 'Y' */
       d.part_return_flag_y = activeParts.some(p => (p.return_flag || '').toUpperCase() === 'Y') ? 1 : 0;
       body.innerHTML =
@@ -1734,7 +1779,7 @@ function openDetail(woId) {
       body.querySelectorAll('[data-action="onsite-report-problem"]').forEach(b =>
         b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.contact, b.dataset.status, 'onsite')));
       body.querySelectorAll('[data-action="return-dc"]').forEach(b =>
-        b.addEventListener('click', () => openInputDc(b.dataset.wo, b.dataset.contact, b.dataset.status)));
+        b.addEventListener('click', () => openInputDc(b.dataset.wo, b.dataset.contact, b.dataset.status, b.dataset.customer)));
     })
     .catch(() => { body.innerHTML = '<div style="padding:24px;color:#dc2626">Failed to load detail.</div>'; });
 }
@@ -1898,10 +1943,11 @@ function _returnHeroBtns(d) {
   if (!d.part_has_order)    return '';
   if (d.part_dc_filled)     return '';
   if (!d.part_return_flag_y) return '';
-  const wo      = esc(String(d.work_order_id));
-  const contact = esc(d.contact_name || '');
-  const status  = esc(d.work_order_status || '');
-  return `<button class="fu-badge fu-input-dc fu-badge-btn" data-action="return-dc" data-wo="${wo}" data-contact="${contact}" data-status="${status}">🔢 Input DC Number</button>`;
+  const wo       = esc(String(d.work_order_id));
+  const contact  = esc(d.contact_name || '');
+  const status   = esc(d.work_order_status || '');
+  const customer = esc(d.customer || '');
+  return `<button class="fu-badge fu-input-dc fu-badge-btn" data-action="return-dc" data-wo="${wo}" data-contact="${contact}" data-status="${status}" data-customer="${customer}">🔢 Input DC Number</button>`;
 }
 
 function renderHero(d) {
@@ -2151,12 +2197,17 @@ function renderParts(parts, woId) {
 
   function buildCard(p, i, isCancelledCard) {
     const _dc = p.dc_number != null ? String(p.dc_number).trim() : '';
-    const dcBadge = (_dc && _dc !== '0')
-      ? `<span style="font-size:11px;font-weight:600;color:#3b82d4;white-space:nowrap">(DC# ${esc(_dc)})</span>`
-      : '';
+    /* _dcFilled: has a real DC number — not null, not '0' sentinel, not '1' (means filled but no display number) */
+    const _dcFilled = _dc && _dc !== '0';
+    const _dcDisplay = _dcFilled && _dc !== '1';
+    const dcBadge = ''; /* DC number shown inside retFlag when applicable */
 
     const retFlag = p.return_flag === 'Y'
-      ? '<span class="badge badge-part-hold">Return</span>'
+      ? (_dcDisplay
+          ? `<span class="badge" style="background:#dcfce7;color:#15803d;border:1px solid #86efac">Returned (DC# ${esc(_dc)})</span>`
+          : _dcFilled
+            ? `<span class="badge" style="background:#dcfce7;color:#15803d;border:1px solid #86efac">Returned</span>`
+            : '<span class="badge" style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa">Return Yes</span>')
       : (p.return_flag === 'N' ? '<span class="badge badge-default">No Return</span>' : '<span style="color:#8c959f">—</span>');
     const isPartHold = (p.wo_product_status || '').toLowerCase() === 'on hold - part hold';
     const etaWh      = isPartHold && p.eta_parthold_backlog
@@ -2688,7 +2739,7 @@ const returnPartTable = makeTabTable({
   colsFn: () => [
     { key: 'created_on',                  render: r => fmt(r.created_on) },
     { key: 'work_order_id',               render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
-    { key: 'followup_state',              render: r => r.part_return_flag_y ? `<button class="fu-badge fu-input-dc fu-badge-btn" data-action="return-dc" data-wo="${esc(r.work_order_id)}" data-contact="${esc(r.contact_name||'')}">🔢 Input DC Number</button>` : '' },
+    { key: 'followup_state',              render: r => r.part_return_flag_y ? `<button class="fu-badge fu-input-dc fu-badge-btn" data-action="return-dc" data-wo="${esc(r.work_order_id)}" data-contact="${esc(r.contact_name||'')}" data-customer="${esc(r.customer||'')}">🔢 Input DC Number</button>` : '' },
     { key: 'work_order_type',             render: r => esc(r.work_order_type||'—') },
     { key: 'case_desc',                   render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
     { key: 'work_order_status',           render: r => statusBadge(r.work_order_status) },
@@ -2706,7 +2757,7 @@ const returnPartTable = makeTabTable({
     tbody.querySelectorAll('.wo-link').forEach(b =>
       b.addEventListener('click', () => openDetail(b.dataset.wo)));
     tbody.querySelectorAll('[data-action="return-dc"]').forEach(b =>
-      b.addEventListener('click', () => openInputDc(b.dataset.wo, b.dataset.contact, '')));
+      b.addEventListener('click', () => openInputDc(b.dataset.wo, b.dataset.contact, '', b.dataset.customer)));
   },
 });
 
@@ -2885,7 +2936,7 @@ function _renderAwbWoList(rows, primaryWoId) {
     const isPrimary = id === String(primaryWoId);
     const partsHtml = w.partLines.map(p => `
       <label class="awb-wo-part-row">
-        <input type="checkbox" class="awb-wo-cb" data-wo="${esc(id)}" />
+        <input type="checkbox" class="awb-wo-cb" data-wo="${esc(id)}"${isPrimary ? ' checked' : ''} />
         <span class="awb-wo-part-soid">${esc(p.soid || '—')}</span>
         <span class="awb-wo-part-desc">${esc(p.desc || '—')}</span>
         ${partStatusBadge(p.status)}
@@ -2924,10 +2975,10 @@ function _renderAwbWoList(rows, primaryWoId) {
 /* ── Input DC Number modal ── */
 let activeIdcWo = null;
 
-function openInputDc(woId, contact, woStatus) {
+function openInputDc(woId, contact, woStatus, aspName) {
   activeIdcWo = woId;
   document.getElementById('idc-wo-num').textContent        = woId;
-  document.getElementById('idc-contact').textContent       = contact  || '—';
+  document.getElementById('idc-contact').textContent       = aspName || contact || '—';
   document.getElementById('idc-wo-status-badge').innerHTML = woStatus ? statusBadge(woStatus) : '';
   document.getElementById('idc-number').value              = '';
 
@@ -2937,15 +2988,23 @@ function openInputDc(woId, contact, woStatus) {
   idcPartsList.style.display = 'none';
   idcPartsList.querySelectorAll('.wo-strip-part-row').forEach(r => r.remove());
 
+  /* Reset same-ASP WO section */
+  document.getElementById('idc-wo-section').style.display = 'none';
+  document.getElementById('idc-wo-list-body').innerHTML   = '<div class="idc-wo-loading">Loading…</div>';
+  document.getElementById('idc-wo-count').textContent     = '';
+
   openModal('modal-input-dc');
   setTimeout(() => document.getElementById('idc-number').focus(), 120);
 
-  /* Fetch parts for this WO */
+  /* Fetch parts for this WO (return_flag=Y only shown in strip) */
   fetch(`/asp/api/wo-parts/${woId}`)
     .then(r => r.ok ? r.json() : null)
     .then(data => {
       if (!data || !data.length) return;
-      const parts = data.filter(p => !(p.wo_product_status || '').toLowerCase().includes('cancel'));
+      const parts = data.filter(p =>
+        !(p.wo_product_status || '').toLowerCase().includes('cancel') &&
+        (p.return_flag || '').toUpperCase() === 'Y'
+      );
       if (!parts.length) return;
       idcPartsList.style.display = 'block';
       idcPartsQty.textContent = parts.length + (parts.length === 1 ? ' part' : ' parts');
@@ -2960,13 +3019,94 @@ function openInputDc(woId, contact, woStatus) {
       });
     })
     .catch(() => {});
+
+  /* Fetch same-ASP return-part WOs */
+  if (aspName) {
+    fetch(`/asp/api/return-part-same-asp?customer=${encodeURIComponent(aspName)}`)
+      .then(r => r.ok ? r.json() : [])
+      .then(rows => _renderIdcWoList(rows, woId))
+      .catch(() => { document.getElementById('idc-wo-section').style.display = 'none'; });
+  }
+}
+
+function _renderIdcWoList(rows, currentWoId) {
+  const section = document.getElementById('idc-wo-section');
+  const body    = document.getElementById('idc-wo-list-body');
+  const pill    = document.getElementById('idc-wo-count');
+  const allBtn  = document.getElementById('idc-wo-select-all');
+
+  /* Group rows by work_order_id, preserving each part line */
+  const byWo = {};
+  rows.forEach(r => {
+    const id = String(r.work_order_id);
+    if (!byWo[id]) byWo[id] = { ...r, partLines: [] };
+    byWo[id].partLines.push({ soid: r.soid != null ? String(r.soid) : '', desc: r.description || '', returnFlag: (r.return_flag || '').toUpperCase() });
+  });
+
+  /* Sort: current WO first, then others by completion_date descending (latest first) */
+  const woList = Object.values(byWo).sort((a, b) => {
+    const aIs = String(a.work_order_id) === String(currentWoId);
+    const bIs = String(b.work_order_id) === String(currentWoId);
+    if (aIs) return -1;
+    if (bIs) return 1;
+    return (b.completion_date || '') > (a.completion_date || '') ? 1 : -1;
+  });
+
+  if (!woList.length) { section.style.display = 'none'; return; }
+
+  pill.textContent = `${woList.length} WO${woList.length !== 1 ? 's' : ''}`;
+  section.style.display = 'block';
+
+  body.innerHTML = woList.map(w => {
+    const id        = String(w.work_order_id);
+    const isCurrent = id === String(currentWoId);
+    const partsHtml = w.partLines.map(p => `
+      <label class="idc-wo-part-row">
+        <input type="checkbox" class="idc-wo-cb" data-wo="${esc(id)}"${isCurrent ? ' checked' : ''} />
+        <span class="idc-wo-part-soid">${esc(p.soid || '—')}</span>
+        <span class="idc-wo-part-desc">${esc(p.desc || '—')}</span>
+        ${p.returnFlag === 'Y' ? '<span class="badge" style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa">Return Yes</span>' : '<span style="color:#8c959f">—</span>'}
+      </label>`).join('');
+    const compDate = w.completion_date ? `<div style="font-size:11px;color:#57606a;margin-top:2px">Completed on ${fmt(w.completion_date)}</div>` : '';
+    return `<div class="idc-wo-item${isCurrent ? ' is-current' : ''}">
+      <div class="idc-wo-item-body">
+        <div class="idc-wo-item-top">
+          <span class="idc-wo-item-id">${esc(id)}</span>
+          ${isCurrent ? '<span class="idc-wo-item-current">current WO</span>' : ''}
+          ${statusBadge(w.work_order_status)}
+        </div>
+        ${compDate}
+        ${partsHtml}
+      </div>
+    </div>`;
+  }).join('');
+
+  /* Select-all toggle */
+  function _updateIdcSelectAll() {
+    const cbs = body.querySelectorAll('.idc-wo-cb');
+    allBtn.textContent = cbs.length && [...cbs].every(c => c.checked) ? 'Deselect all' : 'Select all';
+  }
+  body.querySelectorAll('.idc-wo-cb').forEach(cb =>
+    cb.addEventListener('change', _updateIdcSelectAll));
+  _updateIdcSelectAll();
+  allBtn.onclick = () => {
+    const cbs = body.querySelectorAll('.idc-wo-cb');
+    const allChecked = [...cbs].every(c => c.checked);
+    cbs.forEach(cb => { cb.checked = !allChecked; });
+    _updateIdcSelectAll();
+  };
 }
 
 document.getElementById('btn-confirm-input-dc').addEventListener('click', () => {
   const dc = document.getElementById('idc-number').value.trim();
   if (!dc) { toast('Please enter the DC Number.', 'err'); return; }
+
+  /* Collect all checked WOs from the same-ASP list; fall back to current WO only */
+  const checked = [...document.querySelectorAll('#idc-wo-list-body .idc-wo-cb:checked')].map(cb => cb.dataset.wo);
+  const woIds   = checked.length ? [...new Set(checked)] : [String(activeIdcWo)];
+
   /* TODO: POST to backend once ready */
-  toast(`WO ${activeIdcWo} — DC Number ${dc} recorded ✓`, 'ok');
+  toast(`DC Number ${dc} recorded for WO${woIds.length > 1 ? 's' : ''} ${woIds.join(', ')} ✓`, 'ok');
   closeModal('modal-input-dc');
 });
 
@@ -3190,7 +3330,7 @@ function _renderNoAwbList(rows, currentWoId) {
     const isCurrent = id === String(currentWoId);
     const partsHtml = w.partLines.map(p => `
       <label class="no-awb-part-row">
-        <input type="checkbox" class="no-awb-cb" data-wo="${esc(id)}" />
+        <input type="checkbox" class="no-awb-cb" data-wo="${esc(id)}"${isCurrent ? ' checked' : ''} />
         <span class="no-awb-part-soid">${esc(p.soid || '—')}</span>
         <span class="no-awb-part-desc">${esc(p.desc || '—')}</span>
         ${partStatusBadge(p.status)}
