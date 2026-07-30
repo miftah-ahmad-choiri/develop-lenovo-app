@@ -85,7 +85,23 @@
       font-weight: 700; font-size: 12px; color: #fff;
       flex-shrink: 0;
     }
-
+    .topbar-username {
+      font-size: 12px;
+      color: #c9d0d8;
+      max-width: 140px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .topbar-role-badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.12);
+      color: #c9d0d8;
+      white-space: nowrap;
+    }
     /* ── Body layout: content + right sidebar ────────────────────────────── */
     .app-body {
       display: flex;
@@ -104,8 +120,8 @@
     .sidebar {
       width: 228px;
       flex-shrink: 0;
-      background: #fff;
-      border-right: 1px solid #e5e7eb;
+      background: #2d3340;
+      border-right: none;
       min-height: calc(100vh - 52px);
       position: sticky;
       top: 52px;
@@ -124,18 +140,18 @@
       gap: 8px;
       height: 44px;
       padding: 0 14px;
-      border-bottom: 1px solid #e5e7eb;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
       cursor: pointer;
       background: none;
       border-top: none;
       border-right: none;
       border-left: none;
       width: 100%;
-      color: #57606a;
+      color: #9ca8b8;
       flex-shrink: 0;
       transition: background 0.15s;
     }
-    .sidebar-toggle:hover { background: #f7f8fa; color: #1f2328; }
+    .sidebar-toggle:hover { background: rgba(255,255,255,0.07); color: #fff; }
     .sidebar-toggle svg { flex-shrink: 0; transition: transform 0.22s; }
     .sidebar.collapsed .sidebar-toggle svg { transform: rotate(180deg); }
     .sidebar-toggle-label {
@@ -151,7 +167,7 @@
     /* Nav sections */
     .sidebar-nav { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 0; }
     .sidebar-nav::-webkit-scrollbar { width: 4px; }
-    .sidebar-nav::-webkit-scrollbar-thumb { background: #d0d7de; border-radius: 2px; }
+    .sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
 
     /* Section label */
     .nav-section-label {
@@ -159,7 +175,7 @@
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.08em;
-      color: #8c959f;
+      color: rgba(255,255,255,0.3);
       padding: 10px 14px 4px;
       white-space: nowrap;
       overflow: hidden;
@@ -174,7 +190,7 @@
       gap: 10px;
       padding: 8px 14px;
       cursor: pointer;
-      color: #57606a;
+      color: #b0bac8;
       text-decoration: none;
       font-size: 13px;
       font-weight: 500;
@@ -184,9 +200,9 @@
       transition: background 0.13s, color 0.13s;
       overflow: hidden;
     }
-    .nav-item:hover { background: #f0f2f5; color: #1f2328; }
-    .nav-item.active { background: #eef4fd; color: #2563b0; font-weight: 600; }
-    .nav-item.active .nav-icon { color: #3b82d4; }
+    .nav-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+    .nav-item.active { background: rgba(59,130,212,0.25); color: #6fb3f5; font-weight: 600; }
+    .nav-item.active .nav-icon { color: #6fb3f5; }
     .nav-icon { flex-shrink: 0; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; }
     .nav-label { transition: opacity 0.15s; }
     .sidebar.collapsed .nav-label { opacity: 0; width: 0; overflow: hidden; }
@@ -198,7 +214,7 @@
       gap: 10px;
       padding: 8px 14px;
       cursor: pointer;
-      color: #57606a;
+      color: #b0bac8;
       font-size: 13px;
       font-weight: 500;
       border-radius: 6px;
@@ -208,13 +224,13 @@
       overflow: hidden;
       user-select: none;
     }
-    .nav-group-header:hover { background: #f0f2f5; color: #1f2328; }
-    .nav-group-header.open { color: #1f2328; }
+    .nav-group-header:hover { background: rgba(255,255,255,0.08); color: #fff; }
+    .nav-group-header.open { color: #e2e8f0; }
     .nav-chevron {
       margin-left: auto;
       flex-shrink: 0;
       transition: transform 0.2s;
-      color: #8c959f;
+      color: rgba(255,255,255,0.3);
     }
     .nav-group-header.open .nav-chevron { transform: rotate(90deg); }
     .sidebar.collapsed .nav-chevron { opacity: 0; width: 0; }
@@ -233,7 +249,7 @@
       gap: 8px;
       padding: 6px 14px 6px 42px;
       cursor: pointer;
-      color: #57606a;
+      color: #8a97a8;
       text-decoration: none;
       font-size: 12px;
       border-radius: 6px;
@@ -242,23 +258,54 @@
       overflow: hidden;
       transition: background 0.13s, color 0.13s;
     }
-    .nav-sub-item:hover { background: #f0f2f5; color: #1f2328; }
-    .nav-sub-item.active { background: #eef4fd; color: #2563b0; font-weight: 600; }
+    .nav-sub-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+    .nav-sub-item.active { background: rgba(59,130,212,0.22); color: #6fb3f5; font-weight: 600; }
     .nav-sub-dot {
       width: 5px; height: 5px;
       border-radius: 50%;
-      background: #d0d7de;
+      background: rgba(255,255,255,0.2);
       flex-shrink: 0;
     }
-    .nav-sub-item.active .nav-sub-dot { background: #3b82d4; }
+    .nav-sub-item.active .nav-sub-dot { background: #6fb3f5; }
 
-    /* Collapsed tooltip hint (icon-only mode) */
+    /* Collapsed icon-only mode */
     .sidebar.collapsed .nav-item,
     .sidebar.collapsed .nav-group-header {
       justify-content: center;
       padding: 8px;
       margin: 2px 6px;
     }
+
+    /* Logout slot at bottom of sidebar */
+    .sidebar-footer {
+      flex-shrink: 0;
+      padding: 10px 8px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      overflow: hidden;
+    }
+    .sidebar-logout-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: inherit;
+      color: #8a97a8;
+      background: none;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: left;
+      white-space: nowrap;
+      overflow: hidden;
+      transition: background 0.13s, color 0.13s;
+    }
+    .sidebar-logout-btn:hover { background: rgba(220,38,38,0.18); color: #f87171; }
+    .sidebar-logout-btn .sidebar-logout-label { transition: opacity 0.15s; }
+    .sidebar.collapsed .sidebar-logout-label { opacity: 0; width: 0; overflow: hidden; }
+    .sidebar.collapsed .sidebar-logout-btn { justify-content: center; padding: 8px; }
 
     /* ── Page header ─────────────────────────────────────────────────────── */
     .page-header { margin-bottom: 24px; }
@@ -379,10 +426,12 @@
 <div class="topbar">
   <a class="topbar-brand" href="/">Lenovo <span>ASP</span></a>
 
+  {% if session_role in ('admin', 'superadmin') %}
   <div class="portal-switcher">
     <a href="/asp/dashboard"   class="portal-btn {% if portal == 'asp' %}active{% endif %}">ASP Portal</a>
     <a href="/admin/dashboard" class="portal-btn {% if portal == 'admin' %}active{% endif %}">Admin Portal</a>
   </div>
+  {% endif %}
 
   <!-- Hamburger — mobile only -->
   <button class="topbar-menu-btn" id="mobile-menu-btn" title="Open navigation">
@@ -394,8 +443,17 @@
   </button>
 
   <div class="topbar-user">
-    <div class="topbar-avatar">U</div>
-    <span style="display:none" class="topbar-name">User</span>
+    {% if session_display_name %}
+      <div class="topbar-avatar">{{ (session_display_name[:1] or session_username[:1] or 'U') | upper }}</div>
+      <span class="topbar-username">{{ session_display_name }}</span>
+      {% if session_role == 'asp' %}
+        <span class="topbar-role-badge">ASP</span>
+      {% elif session_role in ('admin', 'superadmin') %}
+        <span class="topbar-role-badge">Admin</span>
+      {% endif %}
+    {% else %}
+      <div class="topbar-avatar">U</div>
+    {% endif %}
   </div>
 </div>
 
@@ -514,6 +572,21 @@
 
       {% endif %}
     </nav>
+
+    <!-- ── Sidebar footer: logout ─────────────────────────────────────────── -->
+    <div class="sidebar-footer">
+      <form method="POST" action="/logout" style="margin:0">
+        <button type="submit" class="sidebar-logout-btn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+          <span class="sidebar-logout-label">Sign out</span>
+        </button>
+      </form>
+    </div>
   </aside>
 
   <!-- ── Main content ───────────────────────────────────────────────────── -->

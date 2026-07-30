@@ -1,10 +1,12 @@
 import os
 import click
+from datetime import datetime
 from flask import Flask, redirect, url_for
 from app.config import Config
 from app.routes.excel_upload import excel_upload_bp
 from app.routes.asp import asp_bp
 from app.routes.admin import admin_bp
+from app.routes.auth import auth_bp
 
 
 def create_app():
@@ -36,6 +38,8 @@ def create_app():
         click.echo(f"  wo_details               : {counts['wo_details']:,} rows")
         click.echo(f"  wo_product_detail (MSD)  : {counts['wo_product_from_msd']:,} rows")
         click.echo(f"  wo_product_detail (Ship) : {counts['wo_product_from_shipment']:,} rows processed")
+        click.echo(f"  asp_details              : {counts['asp_details']:,} rows")
+        click.echo(f"  admin_users              : {counts.get('admin_users', 0):,} rows")
 
     # ── Template filters ───────────────────────────────────────────────────────
     @app.template_filter("thousands")
@@ -46,14 +50,26 @@ def create_app():
         except (ValueError, TypeError):
             return value
 
+    # ── Global template context (available in every template) ─────────────────
+    @app.context_processor
+    def inject_globals():
+        from flask import session as _sess
+        return {
+            "now":                  datetime.utcnow(),
+            "session_role":         _sess.get("role", ""),
+            "session_username":     _sess.get("username", ""),
+            "session_display_name": _sess.get("display_name", ""),
+        }
+
     # Register blueprints
+    app.register_blueprint(auth_bp)          # /login, /logout
     app.register_blueprint(excel_upload_bp)  # legacy: /upload-excel (kept for backward compat)
     app.register_blueprint(asp_bp)           # /asp/*
     app.register_blueprint(admin_bp)         # /admin/*
 
-    # Root → ASP dashboard
+    # Root → login page
     @app.route("/")
     def root():
-        return redirect(url_for("asp.dashboard"))
+        return redirect(url_for("auth.login"))
 
     return app

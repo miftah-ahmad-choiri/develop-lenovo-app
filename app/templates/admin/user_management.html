@@ -6,16 +6,29 @@
   .section-card h2 { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
   .section-card p  { font-size: 13px; color: #57606a; }
 
-  .feature-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 20px; }
-  .feature-item { padding: 16px; border: 1px solid #e5e7eb; border-radius: 8px; background: #f7f8fa; }
-  .feature-item .fi-title { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
-  .feature-item .fi-desc  { font-size: 12px; color: #57606a; }
-  .feature-item.blue   { border-left: 3px solid #3b82d4; }
-  .feature-item.purple { border-left: 3px solid #7c5cd8; }
-  .feature-item.green  { border-left: 3px solid #16a34a; }
-  .feature-item.red    { border-left: 3px solid #dc2626; }
+  .module-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 20px; }
+  .module-card {
+    display: block; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;
+    background: #f7f8fa; text-decoration: none; color: inherit;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .module-card:hover { border-color: #3b82d4; box-shadow: 0 1px 6px rgba(59,130,212,0.10); }
+  .module-card.disabled { cursor: default; pointer-events: none; opacity: 0.6; }
+  .module-card.blue   { border-left: 3px solid #3b82d4; }
+  .module-card.purple { border-left: 3px solid #7c5cd8; }
+  .module-card.green  { border-left: 3px solid #16a34a; }
+  .module-card.red    { border-left: 3px solid #dc2626; }
+  .mc-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .mc-title { font-size: 13px; font-weight: 700; }
+  .mc-badge {
+    font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 8px;
+    background: #dcfce7; color: #15803d;
+  }
+  .mc-badge.soon { background: #f3f4f6; color: #6b7280; }
+  .mc-desc { font-size: 12px; color: #57606a; line-height: 1.6; }
+  .mc-arrow { font-size: 12px; color: #3b82d4; margin-top: 10px; display: block; }
 
-  @media (max-width: 640px) { .feature-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 640px) { .module-grid { grid-template-columns: 1fr; } }
 {% endblock %}
 
 {% block content %}
@@ -26,32 +39,47 @@
 
 <div class="section-card">
   <h2>Management Scope</h2>
-  <p>This module covers user accounts and ASP entity management across both portals.</p>
+  <p>This module covers user accounts and ASP entity management across both portals. Select a section below to proceed.</p>
 
-  <div class="feature-grid">
-    <div class="feature-item blue">
-      <div class="fi-title">User Accounts</div>
-      <div class="fi-desc">Create, deactivate, and reset portal user accounts. Assign users to ASP or Admin roles.</div>
+  <div class="module-grid">
+
+    <!-- ASP Directory — LIVE -->
+    <a href="/admin/users/asp-directory" class="module-card green">
+      <div class="mc-header">
+        <span class="mc-title">ASP Directory</span>
+        <span class="mc-badge">Live</span>
+      </div>
+      <div class="mc-desc">Browse all 89 registered Authorized Service Providers — contact details, location, working hours, and operational status.</div>
+      <span class="mc-arrow">Open directory →</span>
+    </a>
+
+    <!-- User Accounts — coming soon -->
+    <div class="module-card blue disabled">
+      <div class="mc-header">
+        <span class="mc-title">User Accounts</span>
+        <span class="mc-badge soon">Coming Soon</span>
+      </div>
+      <div class="mc-desc">Create, deactivate, and reset portal user accounts. Assign users to ASP or Admin roles.</div>
     </div>
-    <div class="feature-item purple">
-      <div class="fi-title">Role Management</div>
-      <div class="fi-desc">Control access permissions — ASP view, Admin view, or dual-portal access.</div>
+
+    <!-- Role Management — coming soon -->
+    <div class="module-card purple disabled">
+      <div class="mc-header">
+        <span class="mc-title">Role Management</span>
+        <span class="mc-badge soon">Coming Soon</span>
+      </div>
+      <div class="mc-desc">Control access permissions — ASP view, Admin view, or dual-portal access.</div>
     </div>
-    <div class="feature-item green">
-      <div class="fi-title">ASP Directory</div>
-      <div class="fi-desc">Maintain the list of registered ASPs with contact details and service area assignments.</div>
+
+    <!-- Access Audit — coming soon -->
+    <div class="module-card red disabled">
+      <div class="mc-header">
+        <span class="mc-title">Access Audit</span>
+        <span class="mc-badge soon">Coming Soon</span>
+      </div>
+      <div class="mc-desc">View login history and track access events for security compliance.</div>
     </div>
-    <div class="feature-item red">
-      <div class="fi-title">Access Audit</div>
-      <div class="fi-desc">View login history and track access events for security compliance.</div>
-    </div>
+
   </div>
-</div>
-
-<div class="coming-soon">
-  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-  <h2>User &amp; ASP Management Coming Soon</h2>
-  <p>User directory, role assignment interface, and ASP profile management will be available in a future release.</p>
-  <span class="cs-badge">In Development</span>
 </div>
 {% endblock %}

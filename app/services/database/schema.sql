@@ -117,3 +117,55 @@ CREATE TABLE IF NOT EXISTS wo_product_detail (
 -- Index for lookup by work_order_id (most common query pattern)
 CREATE INDEX IF NOT EXISTS idx_wo_product_detail_work_order_id
     ON wo_product_detail(work_order_id);
+
+-- ------------------------------------------------------------
+-- 4. asp_details
+--    Static reference table — one row per Authorized Service
+--    Provider (ASP).  Seeded once from
+--    files/source-db/asp table list.xlsx (Sheet1).
+--    Not updated via the daily upload cycle.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS asp_details (
+    id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+    username                TEXT UNIQUE NOT NULL,   -- "Username"  e.g. asp001
+    password                TEXT,                  -- "Password"
+    vendor_code             TEXT,                  -- "Vendor Code"
+    service_provider        TEXT,                  -- "SERVICE PROVIDER"
+    parent_group            TEXT,                  -- "Parent Group"
+    labor_vendor_related    TEXT,                  -- "Labor Vendor Related"
+    customer_partner        TEXT,                  -- "Customer (Labor Vendor Related) (Partner Function)"
+    store_name              TEXT,                  -- "Store Name"
+    kota                    TEXT,                  -- "Kota"
+    address                 TEXT,                  -- "Address"
+    lat_long                TEXT,                  -- "LAT LONG"  raw combined string
+    link_map                TEXT,                  -- "Link Map"
+    phone_number            TEXT,                  -- "PHONE NUMBER"
+    island                  TEXT,                  -- "Island"
+    working_hours           TEXT,                  -- "WORKING HOURS"
+    operational_status      TEXT,                  -- "Operational Status"
+    future_status           TEXT,                  -- "Future Status"
+    operation_support       TEXT                   -- "Operation support"
+);
+
+CREATE INDEX IF NOT EXISTS idx_asp_details_username
+    ON asp_details(username);
+
+-- ------------------------------------------------------------
+-- 5. admin_users
+--    One row per admin / IBM-side portal user.
+--    Separated from asp_details so ASP accounts and admin
+--    accounts are never mixed in queries or the directory UI.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS admin_users (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    username        TEXT UNIQUE NOT NULL,   -- e.g. asp000, admin01
+    password        TEXT,                  -- plain-text for now (to match existing pattern)
+    full_name       TEXT,                  -- display name  e.g. "IBM Admin"
+    email           TEXT,
+    role            TEXT DEFAULT 'admin',  -- admin / superadmin / viewer …
+    is_active       INTEGER DEFAULT 1,     -- 1 = active, 0 = disabled
+    created_at      TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_users_username
+    ON admin_users(username);

@@ -29,6 +29,17 @@ _FILE_CATEGORY_TO_KEY = {
 }.get
 
 
+# ── Auth guard: all admin routes require admin role ───────────────────────────
+
+@admin_bp.before_request
+def _require_admin():
+    from flask import session as _session
+    if "user_id" not in _session:
+        return redirect(url_for("auth.login", next=request.path))
+    if _session.get("role") not in ("admin", "superadmin"):
+        return redirect(url_for("auth.login"))
+
+
 # ── Dashboard ────────────────────────────────────────────────────────────────
 
 @admin_bp.route("/admin/dashboard", methods=["GET"])
@@ -1212,6 +1223,106 @@ def validation():
 def users():
     return render_template("admin/user_management.html",
                            portal="admin", active_page="user_mgmt")
+
+
+# Kota → granular Java region mapping.
+# Anything on Java that doesn't match stays as "Jawa".
+_JABODETABEK = {
+    "jakarta pusat", "jakarta barat", "jakarta selatan", "jakarta utara",
+    "jakarta timur", "bogor", "depok", "tangerang", "bekasi", "banten",
+    "karawang", "cikarang",
+}
+_JAWA_BARAT = {
+    "bandung", "cirebon", "tasikmalaya", "garut", "sukabumi",
+    "cianjur", "purwakarta", "subang", "indramayu",
+}
+_JAWA_TENGAH = {
+    "semarang", "kudus", "pati", "tegal", "surakarta", "solo",
+    "magelang", "purwokerto", "salatiga", "klaten", "wonosobo",
+    "banyumas", "cilacap",
+}
+_JAWA_TIMUR = {
+    "surabaya", "malang", "kediri", "jember", "madiun", "mojokerto",
+    "pasuruan", "probolinggo", "blitar", "banyuwangi",
+}
+_DIY = {"yogyakarta", "sleman", "bantul", "gunung kidul", "kulonprogo"}
+
+
+def _resolve_region(kota: str | None, island: str | None) -> str:
+    """Return a granular region label for a given kota / island pair."""
+    if kota:
+        k = kota.strip().lower()
+        if k in _JABODETABEK:
+            return "Jabodetabek"
+        if k in _JAWA_BARAT:
+            return "Jawa Barat"
+        if k in _JAWA_TENGAH:
+            return "Jawa Tengah"
+        if k in _JAWA_TIMUR:
+            return "Jawa Timur"
+        if k in _DIY:
+            return "DIY"
+    # Fall back to the island column (strip + title-case)
+    if island and island.strip():
+        raw = island.strip()
+        # Normalise casing inconsistencies (e.g. "jawa" → "Jawa")
+        return raw[0].upper() + raw[1:]
+    return "—"
+
+
+@admin_bp.route("/admin/users/asp-directory", methods=["GET"])
+def asp_directory():
+    db_path = current_app.config["DATABASE_PATH"]
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute(
+        "SELECT * FROM asp_details ORDER BY id"
+    ).fetchall()
+    conn.close()
+
+    # Attach computed region to each row as a plain dict so the template
+    # can access asp.region without modifying the DB schema.
+    asps = []
+    for r in rows:
+        d = dict(r)
+        d["region"] = _resolve_region(d.get("kota"), d.get("island"))
+        asps.append(d)
+
+    regions = sorted({a["region"] for a in asps if a["region"] != "—"})
+
+    return render_template(
+        "admin/user_management/asp_directory.html",
+        asps=asps,
+        regions=regions,
+        portal="admin",
+        active_page="user_mgmt",
+    )
+
+
+@admin_bp.route("/admin/users/asp-directory/<int:asp_id>/edit", methods=["POST"])
+def asp_directory_edit(asp_id):
+    fields = [
+        "username", "password", "vendor_code", "service_provider",
+        "parent_group", "labor_vendor_related", "customer_partner",
+        "store_name", "kota", "address", "lat_long", "link_map",
+        "phone_number", "island", "working_hours", "operational_status",
+        "future_status", "operation_support",
+    ]
+    values = {f: request.form.get(f, "").strip() or None for f in fields}
+    set_clause = ", ".join(f"{f} = ?" for f in fields)
+    params = [values[f] for f in fields] + [asp_id]
+
+    db_path = current_app.config["DATABASE_PATH"]
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute(
+            f"UPDATE asp_details SET {set_clause} WHERE id = ?", params
+        )
+        conn.commit()
+        flash(f"ASP record #{asp_id} updated successfully.", "success")
+    finally:
+        conn.close()
+    return redirect(url_for("admin.asp_directory"))
 
 
 # ── System Archive ───────────────────────────────────────────────────────────

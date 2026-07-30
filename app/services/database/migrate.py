@@ -34,6 +34,8 @@ def run_migrations(app: Flask) -> None:
         _migrate_wo_details_add_product_description(conn)
         _migrate_wo_product_detail_add_eta_parthold(conn)
         _migrate_wo_product_detail_add_dc_number(conn)
+        _migrate_create_asp_details(conn)
+        _migrate_create_admin_users(conn)
     finally:
         conn.close()
 
@@ -155,3 +157,95 @@ def _migrate_wo_product_detail_add_dc_number(conn: sqlite3.Connection) -> None:
             "ALTER TABLE wo_product_detail ADD COLUMN dc_number TEXT"
         )
         conn.commit()
+
+
+def _migrate_create_admin_users(conn: sqlite3.Connection) -> None:
+    """Create the admin_users table and migrate asp000 out of asp_details.
+
+    Steps (all idempotent):
+    1. Create admin_users if it does not exist.
+    2. If asp000 is still present in asp_details, copy its credentials into
+       admin_users and then delete it from asp_details — so the separation
+       happens automatically on the first startup after this migration ships.
+    """
+    # 1. Create table (schema.sql handles IF NOT EXISTS on fresh DBs;
+    #    this handles existing DBs that were created before the table existed)
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS admin_users (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            username        TEXT UNIQUE NOT NULL,
+            password        TEXT,
+            full_name       TEXT,
+            email           TEXT,
+            role            TEXT DEFAULT 'admin',
+            is_active       INTEGER DEFAULT 1,
+            created_at      TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_admin_users_username
+            ON admin_users(username);
+        """
+    )
+    conn.commit()
+
+    # 2. Move asp000 from asp_details → admin_users (once)
+    asp000 = conn.execute(
+        "SELECT username, password, service_provider FROM asp_details WHERE username = 'asp000'"
+    ).fetchone()
+
+    if asp000 is not None:
+        # INSERT OR IGNORE so re-running is safe if admin_users already has the row
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO admin_users (username, password, full_name, role, is_active)
+            VALUES (?, ?, ?, 'admin', 1)
+            """,
+            (asp000[0], asp000[1], asp000[2]),
+        )
+        conn.execute("DELETE FROM asp_details WHERE username = 'asp000'")
+        conn.commit()
+
+
+def _migrate_create_asp_details(conn: sqlite3.Connection) -> None:
+    """Create the asp_details table if it does not already exist.
+
+    The DDL in schema.sql uses CREATE TABLE IF NOT EXISTS, so this function
+    is a no-op on databases that already have the table.  It exists to handle
+    databases created before the asp_details table was added to schema.sql.
+    """
+    row = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='asp_details'"
+    ).fetchone()
+    if row is not None:
+        return  # table already exists
+
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS asp_details (
+            id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+            username                TEXT UNIQUE NOT NULL,
+            password                TEXT,
+            vendor_code             TEXT,
+            service_provider        TEXT,
+            parent_group            TEXT,
+            labor_vendor_related    TEXT,
+            customer_partner        TEXT,
+            store_name              TEXT,
+            kota                    TEXT,
+            address                 TEXT,
+            lat_long                TEXT,
+            link_map                TEXT,
+            phone_number            TEXT,
+            island                  TEXT,
+            working_hours           TEXT,
+            operational_status      TEXT,
+            future_status           TEXT,
+            operation_support       TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_asp_details_username
+            ON asp_details(username);
+        """
+    )
+    conn.commit()

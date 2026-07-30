@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign In — Lenovo ASP Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'IBM Plex Sans', system-ui, sans-serif;
+      font-size: 14px;
+      background: #d1d5db;
+      color: #1f2328;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+
+    /* ── Card ── */
+    .login-card {
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 420px;
+      padding: 40px 36px 32px;
+    }
+
+    /* ── Brand ── */
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+    .brand-logo {
+      font-size: 36px;
+      line-height: 1;
+    }
+    .brand-name {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+    }
+    .brand-name span { color: #dc2626; }
+
+    h1 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      font-size: 13px;
+      color: #57606a;
+      margin-bottom: 28px;
+      line-height: 1.5;
+    }
+
+    /* ── Form ── */
+    .field { margin-bottom: 18px; }
+    label {
+      display: block;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 5px;
+    }
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 9px 12px;
+      font-size: 14px;
+      font-family: inherit;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      outline: none;
+      transition: border-color 0.15s;
+      background: #fff;
+      color: #1f2328;
+    }
+    input[type="text"]:focus,
+    input[type="password"]:focus {
+      border-color: #3b82d4;
+      box-shadow: 0 0 0 3px rgba(59,130,212,0.12);
+    }
+    input[type="text"].error,
+    input[type="password"].error {
+      border-color: #dc2626;
+    }
+
+    /* ── Error banner ── */
+    .alert-error {
+      background: #fff0f0;
+      border: 1px solid #fca5a5;
+      color: #b91c1c;
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 13px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .alert-error svg { flex-shrink: 0; margin-top: 1px; }
+
+    /* ── Submit button ── */
+    .btn-login {
+      width: 100%;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      background: #1f2328;
+      color: #ffffff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-top: 4px;
+    }
+    .btn-login:hover { background: #2d3340; }
+    .btn-login:active { background: #111317; }
+
+    /* ── Footer ── */
+    .page-footer {
+      margin-top: 24px;
+      font-size: 11.5px;
+      color: #8b949e;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-card">
+
+    <!-- Brand -->
+    <div class="brand">
+      <div class="brand-logo">👩🏻‍💻</div>
+      <div class="brand-name">Lenovo <span>ASP</span> Portal</div>
+    </div>
+
+    <h1>Sign in</h1>
+    <p class="subtitle">Enter your credentials to access the portal.</p>
+
+    <!-- Error banner -->
+    {% if error %}
+    <div class="alert-error">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      {{ error }}
+    </div>
+    {% endif %}
+
+    <!-- Login form -->
+    <form method="POST" action="/login">
+      <input type="hidden" name="next" value="{{ next }}" />
+
+      <div class="field">
+        <label for="username">User ID</label>
+        <input
+          type="text"
+          id="username"
+          name="username"
+          autocomplete="username"
+          placeholder="e.g. asp001 or admin01"
+          class="{{ 'error' if error else '' }}"
+          autofocus
+        />
+      </div>
+
+      <div class="field">
+        <label for="password">Password</label>
+        <input
+          type="password"
+          id="password"
+          name="password"
+          autocomplete="current-password"
+          placeholder="Enter your password"
+          class="{{ 'error' if error else '' }}"
+        />
+      </div>
+
+      <button type="submit" class="btn-login">Sign in</button>
+    </form>
+  </div>
+
+  <p class="page-footer">Lenovo Authorized Service Provider Portal &mdash; IBM &copy; {{ now.year }}</p>
+
+</body>
+</html>

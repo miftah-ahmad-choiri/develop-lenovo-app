@@ -500,7 +500,7 @@
 
 {% block content %}
 <div class="page-header">
-  <h1>Dashboard</h1>
+  <h1>Dashboard 🧑🏻‍💻</h1>
   <p>Overview of all Work Orders — ASP Portal</p>
 </div>
 
@@ -2120,7 +2120,7 @@ function renderTimeline(d, parts) {
       ? `tl-connector ${(state === 'done' && i < lastDoneIdx) ? 'done' : ''}` : '';
 
     const dateStr  = fmtShort(n.date);
-    const dateCls  = state === 'done' ? 'done-text' : state === 'active' ? 'active-text' : 'future-text';
+    const dateCls  = (i === 6 && hasDate) ? 'active-text' : state === 'done' ? 'done-text' : state === 'active' ? 'active-text' : 'future-text';
 
     /* SVG icon inside dot */
     let dotSvg = '';

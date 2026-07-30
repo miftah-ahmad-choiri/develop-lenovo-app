@@ -1,29 +1,41 @@
 import os
 from datetime import datetime
-from flask import Blueprint, render_template, request, jsonify, send_file, current_app
+from flask import Blueprint, render_template, request, jsonify, send_file, current_app, session, redirect, url_for
 from app.services.database.queries import get_wo_summary_stats
+from app.routes.auth import login_required
 
 asp_bp = Blueprint("asp", __name__)
+
+
+# ── Session helper ────────────────────────────────────────────────────────────
+
+def _vendor_filter() -> str | None:
+    """Return the labor_vendor_related value for the current ASP session, or None."""
+    if session.get("role") == "asp":
+        return session.get("labor_vendor") or None
+    return None
 
 
 # ── Shared stat context ───────────────────────────────────────────────────────
 
 def _stat_ctx() -> dict:
     """Stat counts only — no row data loaded on page request."""
-    s = get_wo_summary_stats()
+    vf = _vendor_filter()
+    s = get_wo_summary_stats(vendor_filter=vf)
     return dict(
-        total                = s["total"],
-        total_closed         = s["closed"],
-        total_open           = s["open"],
-        total_part_hold      = s["part_hold"],
-        total_part_transit   = s["part_transit"],
-        portal               = "asp",
+        total              = s["total"],
+        total_closed       = s["closed"],
+        total_open         = s["open"],
+        total_part_hold    = s["part_hold"],
+        total_part_transit = s["part_transit"],
+        portal             = "asp",
     )
 
 
 # ── Page routes ───────────────────────────────────────────────────────────────
 
 @asp_bp.route("/asp/dashboard", methods=["GET"])
+@login_required
 def dashboard():
     ctx = _stat_ctx()
     ctx["active_page"] = "asp_dashboard"
@@ -31,6 +43,7 @@ def dashboard():
 
 
 @asp_bp.route("/asp/work-orders", methods=["GET"])
+@login_required
 def work_orders():
     ctx = _stat_ctx()
     tab = request.args.get("tab", "active")
@@ -41,16 +54,18 @@ def work_orders():
 
 
 @asp_bp.route("/asp/parts", methods=["GET"])
+@login_required
 def parts_management():
     ctx = _stat_ctx()
     tab = request.args.get("tab", "awaiting")
     ctx["active_page"]  = {"awaiting": "parts_awaiting", "received": "parts_received",
-                           "return": "parts_return"}.get(tab, "parts_awaiting")
+                            "return": "parts_return"}.get(tab, "parts_awaiting")
     ctx["active_group"] = "parts"
     return render_template("asp/parts_management.html", **ctx)
 
 
 @asp_bp.route("/asp/reschedule", methods=["GET"])
+@login_required
 def reschedule():
     ctx = _stat_ctx()
     ctx["active_page"] = "reschedule"
@@ -58,6 +73,7 @@ def reschedule():
 
 
 @asp_bp.route("/asp/escalation", methods=["GET"])
+@login_required
 def escalation():
     ctx = _stat_ctx()
     ctx["active_page"] = "escalation"
@@ -74,6 +90,7 @@ def _int_arg(name: str, default: int) -> int:
 
 
 @asp_bp.route("/asp/api/all-wo", methods=["GET"])
+@login_required
 def api_all_wo():
     """All WO tab — filterable by status, WO type, and case status."""
     from app.services.database.queries import get_asp_all_wo_page
@@ -85,22 +102,26 @@ def api_all_wo():
         case_status_filter  = request.args.get("case_status", "").strip(),
         page                = _int_arg("page", 1),
         page_size           = per_page,
+        vendor_filter       = _vendor_filter(),
     ))
 
 
 @asp_bp.route("/asp/api/part-received", methods=["GET"])
+@login_required
 def api_part_received():
     """Part Received tab — WOs waiting for part / on part hold."""
     from app.services.database.queries import get_asp_part_received_page
     per_page = min(_int_arg("per_page", 25), 100)
     return jsonify(get_asp_part_received_page(
-        search    = request.args.get("q", "").strip(),
-        page      = _int_arg("page", 1),
-        page_size = per_page,
+        search        = request.args.get("q", "").strip(),
+        page          = _int_arg("page", 1),
+        page_size     = per_page,
+        vendor_filter = _vendor_filter(),
     ))
 
 
 @asp_bp.route("/asp/api/cci-followup", methods=["GET"])
+@login_required
 def api_cci_followup():
     """CCI Follow-Up tab — all Carry-In WOs with computed followup_state."""
     from app.services.database.queries import get_asp_cci_followup_page
@@ -110,34 +131,40 @@ def api_cci_followup():
         followup_state = request.args.get("followup_state", "").strip(),
         page           = _int_arg("page", 1),
         page_size      = per_page,
+        vendor_filter  = _vendor_filter(),
     ))
 
 
 @asp_bp.route("/asp/api/part-return", methods=["GET"])
+@login_required
 def api_part_return():
     """Part Return tab — closed / completed WOs."""
     from app.services.database.queries import get_asp_part_return_page
     per_page = min(_int_arg("per_page", 25), 100)
     return jsonify(get_asp_part_return_page(
-        search    = request.args.get("q", "").strip(),
-        page      = _int_arg("page", 1),
-        page_size = per_page,
+        search        = request.args.get("q", "").strip(),
+        page          = _int_arg("page", 1),
+        page_size     = per_page,
+        vendor_filter = _vendor_filter(),
     ))
 
 
 @asp_bp.route("/asp/api/reschedule", methods=["GET"])
+@login_required
 def api_reschedule():
     """WO Reschedule tab — open WOs eligible for rescheduling."""
     from app.services.database.queries import get_asp_reschedule_page
     per_page = min(_int_arg("per_page", 25), 100)
     return jsonify(get_asp_reschedule_page(
-        search    = request.args.get("q", "").strip(),
-        page      = _int_arg("page", 1),
-        page_size = per_page,
+        search        = request.args.get("q", "").strip(),
+        page          = _int_arg("page", 1),
+        page_size     = per_page,
+        vendor_filter = _vendor_filter(),
     ))
 
 
 @asp_bp.route("/asp/api/onsite-followup", methods=["GET"])
+@login_required
 def api_onsite_followup():
     """Onsite Follow-Up tab — all Onsite WOs with computed followup_state."""
     from app.services.database.queries import get_asp_onsite_followup_page
@@ -147,10 +174,12 @@ def api_onsite_followup():
         followup_state = request.args.get("followup_state", "").strip(),
         page           = _int_arg("page", 1),
         page_size      = per_page,
+        vendor_filter  = _vendor_filter(),
     ))
 
 
 @asp_bp.route("/asp/api/wos-by-awb", methods=["GET"])
+@login_required
 def api_wos_by_awb():
     """Return all WOs sharing the given AWB number."""
     from app.services.database.queries import get_wos_by_awb
@@ -161,6 +190,7 @@ def api_wos_by_awb():
 
 
 @asp_bp.route("/asp/api/wo-no-awb", methods=["GET"])
+@login_required
 def api_wo_no_awb():
     """Return open WOs for a given ASP (customer name) that have part lines with no AWB."""
     from app.services.database.queries import get_wo_no_awb_by_asp
@@ -171,6 +201,7 @@ def api_wo_no_awb():
 
 
 @asp_bp.route("/asp/api/return-part-same-asp", methods=["GET"])
+@login_required
 def api_return_part_same_asp():
     """Return closed WOs for a given ASP that have return_flag=Y parts with no DC number yet."""
     from app.services.database.queries import get_return_part_wos_by_asp
@@ -181,28 +212,44 @@ def api_return_part_same_asp():
 
 
 @asp_bp.route("/asp/api/wo-detail/<int:work_order_id>", methods=["GET"])
+@login_required
 def api_wo_detail(work_order_id: int):
     """Single WO full detail — wo_summary + wo_details joined."""
     from app.services.database.queries import get_wo_detail
     row = get_wo_detail(work_order_id)
     if not row:
         return jsonify({"error": "Not found"}), 404
+    # ASP users: deny access to WOs outside their vendor scope
+    vf = _vendor_filter()
+    if vf and row.get("labor_vendor_related") != vf:
+        return jsonify({"error": "Not found"}), 404
     return jsonify(row)
 
 
 @asp_bp.route("/asp/api/wo-parts/<int:work_order_id>", methods=["GET"])
+@login_required
 def api_wo_parts(work_order_id: int):
     """All part-order lines for one WO from wo_product_detail."""
-    from app.services.database.queries import get_parts_for_wo
+    from app.services.database.queries import get_parts_for_wo, get_wo_detail
+    vf = _vendor_filter()
+    if vf:
+        row = get_wo_detail(work_order_id)
+        if not row or row.get("labor_vendor_related") != vf:
+            return jsonify([])
     rows = get_parts_for_wo(work_order_id)
     return jsonify(rows)
 
 
 @asp_bp.route("/asp/api/wo-related-serial/<int:work_order_id>", methods=["GET"])
+@login_required
 def api_wo_related_serial(work_order_id: int):
     """Return all WOs (including the current one) that share the same serial_number."""
     from app.services.database.queries import get_wo_detail, get_wo_by_serial
     detail = get_wo_detail(work_order_id)
+    vf = _vendor_filter()
+    # Only gate access to the current WO; history rows are unfiltered context.
+    if vf and (not detail or detail.get("labor_vendor_related") != vf):
+        return jsonify({"serial_number": None, "current_wo_id": work_order_id, "rows": []})
     if not detail or not detail.get("serial_number"):
         return jsonify({"serial_number": None, "current_wo_id": work_order_id, "rows": []})
     rows = get_wo_by_serial(detail["serial_number"])
@@ -210,10 +257,15 @@ def api_wo_related_serial(work_order_id: int):
 
 
 @asp_bp.route("/asp/api/wo-ticket-history/<int:work_order_id>", methods=["GET"])
+@login_required
 def api_wo_ticket_history(work_order_id: int):
     """Return all WOs (including the current one) that share the same case_number (ticket)."""
     from app.services.database.queries import get_wo_detail, get_wo_by_case_number
     detail = get_wo_detail(work_order_id)
+    vf = _vendor_filter()
+    # Only gate access to the current WO; history rows are unfiltered context.
+    if vf and (not detail or detail.get("labor_vendor_related") != vf):
+        return jsonify({"case_number": None, "current_wo_id": work_order_id, "rows": []})
     if not detail or not detail.get("case_number"):
         return jsonify({"case_number": None, "current_wo_id": work_order_id, "rows": []})
     rows = get_wo_by_case_number(detail["case_number"])
@@ -221,42 +273,49 @@ def api_wo_ticket_history(work_order_id: int):
 
 
 @asp_bp.route("/asp/api/in-prepare", methods=["GET"])
+@login_required
 def api_in_prepare():
     """In-Prepare Follow-Up — WOs with part ordered but not yet shipped."""
     from app.services.database.queries import get_asp_in_prepare_page
     per_page = min(_int_arg("per_page", 25), 100)
     return jsonify(get_asp_in_prepare_page(
-        search    = request.args.get("q", "").strip(),
-        page      = _int_arg("page", 1),
-        page_size = per_page,
+        search        = request.args.get("q", "").strip(),
+        page          = _int_arg("page", 1),
+        page_size     = per_page,
+        vendor_filter = _vendor_filter(),
     ))
 
 
 @asp_bp.route("/asp/api/in-delivery", methods=["GET"])
+@login_required
 def api_in_delivery():
     """In-Delivery Follow-Up — WOs with part shipped but not yet POD'd."""
     from app.services.database.queries import get_asp_in_delivery_page
     per_page = min(_int_arg("per_page", 25), 100)
     return jsonify(get_asp_in_delivery_page(
-        search    = request.args.get("q", "").strip(),
-        page      = _int_arg("page", 1),
-        page_size = per_page,
+        search        = request.args.get("q", "").strip(),
+        page          = _int_arg("page", 1),
+        page_size     = per_page,
+        vendor_filter = _vendor_filter(),
     ))
 
 
 @asp_bp.route("/asp/api/in-repair", methods=["GET"])
+@login_required
 def api_in_repair():
     """In-Repair Follow-Up — WOs with part POD'd but WO still open."""
     from app.services.database.queries import get_asp_in_repair_page
     per_page = min(_int_arg("per_page", 25), 100)
     return jsonify(get_asp_in_repair_page(
-        search    = request.args.get("q", "").strip(),
-        page      = _int_arg("page", 1),
-        page_size = per_page,
+        search        = request.args.get("q", "").strip(),
+        page          = _int_arg("page", 1),
+        page_size     = per_page,
+        vendor_filter = _vendor_filter(),
     ))
 
 
 @asp_bp.route("/asp/api/return-part", methods=["GET"])
+@login_required
 def api_return_part():
     """Return Part Follow-Up — closed/completed WOs with computed input_dc / return_part state."""
     from app.services.database.queries import get_asp_part_return_page
@@ -266,10 +325,12 @@ def api_return_part():
         followup_state = request.args.get("followup_state", "").strip(),
         page           = _int_arg("page", 1),
         page_size      = per_page,
+        vendor_filter  = _vendor_filter(),
     ))
 
 
 @asp_bp.route("/asp/api/return-part/export", methods=["GET"])
+@login_required
 def api_return_part_export():
     """Export Return Part Follow-Up rows expanded by SOID (one row per part line)
     for every WO that exists on the Return Part tab (followup_state=input_dc).
@@ -285,6 +346,7 @@ def api_return_part_export():
         followup_state = "input_dc",
         page           = 1,
         page_size      = 9999,
+        vendor_filter  = _vendor_filter(),
     )
     wo_rows = result.get("rows", [])
 

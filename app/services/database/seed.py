@@ -314,11 +314,69 @@ def _seed_wo_product_from_shipment(conn: sqlite3.Connection, filepath: str) -> i
     return len(insert_rows)
 
 
+def _seed_asp_details(conn: sqlite3.Connection, filepath: str) -> int:
+    """
+    Load 'asp table list.xlsx' (Sheet1) → asp_details table.
+
+    Uses INSERT OR IGNORE keyed on username so re-running is safe.
+    Returns the number of rows inserted.
+    """
+    df = pd.read_excel(filepath, sheet_name="Sheet1")
+
+    sql = """
+        INSERT OR IGNORE INTO asp_details (
+            username, password, vendor_code,
+            service_provider, parent_group, labor_vendor_related,
+            customer_partner, store_name, kota,
+            address, lat_long, link_map, phone_number,
+            island, working_hours, operational_status,
+            future_status, operation_support
+        ) VALUES (
+            ?, ?, ?,
+            ?, ?, ?,
+            ?, ?, ?,
+            ?, ?, ?, ?,
+            ?, ?, ?,
+            ?, ?
+        )
+    """
+
+    rows = []
+    for _, r in df.iterrows():
+        username = _safe_str(r.get("Username"))
+        if not username:
+            continue
+        rows.append((
+            username,
+            _safe_str(r.get("Password")),
+            _safe_str(r.get("Vendor Code")),
+            _safe_str(r.get("SERVICE PROVIDER")),
+            _safe_str(r.get("Parent Group")),
+            _safe_str(r.get("Labor Vendor Related")),
+            _safe_str(r.get("Customer (Labor Vendor Related) (Partner Function)")),
+            _safe_str(r.get("Store Name")),
+            _safe_str(r.get("Kota")),
+            _safe_str(r.get("Address")),
+            _safe_str(r.get("LAT LONG")),
+            _safe_str(r.get("Link Map")),
+            _safe_str(r.get("PHONE NUMBER")),
+            _safe_str(r.get("Island")),
+            _safe_str(r.get("WORKING HOURS")),
+            _safe_str(r.get("Operational Status")),
+            _safe_str(r.get("Future Status")),
+            _safe_str(r.get("Operation support")),
+        ))
+
+    conn.executemany(sql, rows)
+    conn.commit()
+    return len(rows)
+
+
 # ── public entry point ────────────────────────────────────────────────────────
 
 def seed_from_source_db(app: Flask) -> dict[str, int]:
     """
-    Seed all three tables from the four source-db Excel files.
+    Seed all tables from the source-db Excel files.
 
     Must be called inside a Flask application context, or pass the app
     object directly (the function creates its own context via app.app_context()).
@@ -330,16 +388,18 @@ def seed_from_source_db(app: Flask) -> dict[str, int]:
             "wo_details":              21825,
             "wo_product_from_msd":     36143,
             "wo_product_from_shipment": 6299,
+            "asp_details":             70,
         }
     """
     source_dir: str = app.config["SOURCE_DB_DIR"]
     db_path:    str = app.config["DATABASE_PATH"]
 
     files = {
-        "summary":  os.path.join(source_dir, "Work Order Summary.xlsx"),
-        "details":  os.path.join(source_dir, "Work Order Details.xlsx"),
-        "products": os.path.join(source_dir, "Work Order Product Details.xlsx"),
-        "shipment": os.path.join(source_dir, "Lenovo Shipment Daily Report.xlsx"),
+        "summary":     os.path.join(source_dir, "Work Order Summary.xlsx"),
+        "details":     os.path.join(source_dir, "Work Order Details.xlsx"),
+        "products":    os.path.join(source_dir, "Work Order Product Details.xlsx"),
+        "shipment":    os.path.join(source_dir, "Lenovo Shipment Daily Report.xlsx"),
+        "asp_details": os.path.join(source_dir, "asp table list.xlsx"),
     }
 
     # Verify all source files exist before opening the DB
@@ -354,21 +414,25 @@ def seed_from_source_db(app: Flask) -> dict[str, int]:
     conn.execute("PRAGMA foreign_keys = OFF")   # allow inserting details before summary if needed
 
     try:
-        print("  [1/4] Seeding wo_summary …")
+        print("  [1/5] Seeding wo_summary …")
         n_summary = _seed_wo_summary(conn, files["summary"])
         print(f"        {n_summary:,} rows")
 
-        print("  [2/4] Seeding wo_details …")
+        print("  [2/5] Seeding wo_details …")
         n_details = _seed_wo_details(conn, files["details"])
         print(f"        {n_details:,} rows")
 
-        print("  [3/4] Seeding wo_product_detail from MSD product file …")
+        print("  [3/5] Seeding wo_product_detail from MSD product file …")
         n_msd = _seed_wo_product_from_msd(conn, files["products"])
         print(f"        {n_msd:,} rows")
 
-        print("  [4/4] Seeding wo_product_detail from Shipment file …")
+        print("  [4/5] Seeding wo_product_detail from Shipment file …")
         n_ship = _seed_wo_product_from_shipment(conn, files["shipment"])
         print(f"        {n_ship:,} rows processed")
+
+        print("  [5/5] Seeding asp_details …")
+        n_asp = _seed_asp_details(conn, files["asp_details"])
+        print(f"        {n_asp:,} rows")
 
     finally:
         conn.execute("PRAGMA foreign_keys = ON")
@@ -379,4 +443,5 @@ def seed_from_source_db(app: Flask) -> dict[str, int]:
         "wo_details":               n_details,
         "wo_product_from_msd":      n_msd,
         "wo_product_from_shipment": n_ship,
+        "asp_details":              n_asp,
     }

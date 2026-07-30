@@ -237,18 +237,35 @@ def get_wo_by_serial(serial_number: str) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def get_wo_summary_stats() -> dict:
+def get_wo_summary_stats(vendor_filter: str | None = None) -> dict:
     """
     Return aggregate counts used by stat cards:
         total, closed, open, part_hold, part_transit
+
+    When vendor_filter is given, only WOs whose wo_details.labor_vendor_related
+    matches are counted.
     """
     conn = get_db()
 
-    def _count(where: str = "") -> int:
-        sql = "SELECT COUNT(*) FROM wo_summary"
-        if where:
-            sql += " WHERE " + where
-        return conn.execute(sql).fetchone()[0]
+    if vendor_filter:
+        # Join wo_details to restrict by labor_vendor_related
+        def _count(extra_where: str = "") -> int:
+            clauses = [f"d.labor_vendor_related = '{vendor_filter.replace(chr(39), chr(39)*2)}'"]
+            if extra_where:
+                clauses.append(extra_where.replace("work_order_status", "s.work_order_status"))
+            where = " AND ".join(clauses)
+            sql = (
+                "SELECT COUNT(*) FROM wo_summary s "
+                "LEFT JOIN wo_details d USING (work_order_id) "
+                f"WHERE {where}"
+            )
+            return conn.execute(sql).fetchone()[0]
+    else:
+        def _count(where: str = "") -> int:
+            sql = "SELECT COUNT(*) FROM wo_summary"
+            if where:
+                sql += " WHERE " + where
+            return conn.execute(sql).fetchone()[0]
 
     total         = _count()
     closed        = _count(_CLOSED_WHERE)
@@ -281,10 +298,12 @@ def _paged_query(
     search: str = "",
     page: int = 1,
     page_size: int = 25,
+    vendor_filter: str | None = None,
 ) -> dict:
     """
     Internal helper: execute a paginated SELECT over wo_summary with an
-    optional pre-applied tab_where clause and an optional free-text search.
+    optional pre-applied tab_where clause, optional free-text search, and
+    an optional vendor filter (wo_details.labor_vendor_related).
     """
     conn   = get_db()
     params: list = []
@@ -303,6 +322,14 @@ def _paged_query(
             OR LOWER(case_desc)         LIKE ?
         )""")
         params.extend([term, term, term, term, term])
+
+    if vendor_filter:
+        wheres.append(
+            "work_order_id IN ("
+            "SELECT work_order_id FROM wo_details "
+            "WHERE labor_vendor_related = ?)"
+        )
+        params.append(vendor_filter)
 
     where_sql = ("WHERE " + " AND ".join(wheres)) if wheres else ""
 
@@ -326,6 +353,7 @@ def get_asp_all_wo_page(
     search: str = "", status_filter: str = "", type_filter: str = "",
     case_status_filter: str = "",
     page: int = 1, page_size: int = 25,
+    vendor_filter: str | None = None,
 ) -> dict:
     conn   = get_db()
     params: list = []
@@ -366,6 +394,14 @@ def get_asp_all_wo_page(
         wheres.append("LOWER(case_status) = ?")
         params.append(case_status_filter.lower())
 
+    if vendor_filter:
+        wheres.append(
+            "work_order_id IN ("
+            "SELECT work_order_id FROM wo_details "
+            "WHERE labor_vendor_related = ?)"
+        )
+        params.append(vendor_filter)
+
     where_sql = ("WHERE " + " AND ".join(wheres)) if wheres else ""
     total  = conn.execute(f"SELECT COUNT(*) FROM wo_summary {where_sql}", params).fetchone()[0]
     pages  = max(1, -(-total // page_size))
@@ -378,12 +414,15 @@ def get_asp_all_wo_page(
 
 
 # Part Received — WOs waiting for parts or on part hold or parts in transit
-def get_asp_part_received_page(search: str = "", page: int = 1, page_size: int = 25) -> dict:
+def get_asp_part_received_page(
+    search: str = "", page: int = 1, page_size: int = 25,
+    vendor_filter: str | None = None,
+) -> dict:
     tab_where = (
         "LOWER(work_order_status) LIKE '%part%hold%' "
         "OR LOWER(work_order_status) LIKE '%transit%'"
     )
-    return _paged_query(tab_where, search, page, page_size)
+    return _paged_query(tab_where, search, page, page_size, vendor_filter)
 
 
 # CCI Follow-Up — all CCI (Carry-In) WOs with a computed follow-up state
@@ -429,6 +468,7 @@ def get_asp_cci_followup_page(
     followup_state: str = "",
     page: int = 1,
     page_size: int = 25,
+    vendor_filter: str | None = None,
 ) -> dict:
     """
     CCI Follow-Up tab — all CCI / Carry-In WOs, excluding cancelled.
@@ -463,6 +503,10 @@ def get_asp_cci_followup_page(
             OR LOWER(s.case_desc)         LIKE ?
         )""")
         params.extend([term, term, term, term, term])
+
+    if vendor_filter:
+        wheres.append("d.labor_vendor_related = ?")
+        params.append(vendor_filter)
 
     where_sql = "WHERE " + " AND ".join(wheres)
     now = datetime.datetime.utcnow()
@@ -557,6 +601,7 @@ def get_asp_part_return_page(
     followup_state: str = "",
     page: int = 1,
     page_size: int = 25,
+    vendor_filter: str | None = None,
 ) -> dict:
     """
     Return Part Follow-Up — all closed/completed WOs, with a computed followup_state:
@@ -606,6 +651,10 @@ def get_asp_part_return_page(
             OR LOWER(s.case_desc)         LIKE ?
         )""")
         params.extend([term, term, term, term, term])
+
+    if vendor_filter:
+        wheres.append("d.labor_vendor_related = ?")
+        params.append(vendor_filter)
 
     where_sql = "WHERE " + " AND ".join(wheres)
 
@@ -716,9 +765,12 @@ def get_return_part_wos_by_asp(customer: str) -> list[dict]:
 
 
 # WO Reschedule — open, non-closed, non-cancelled WOs
-def get_asp_reschedule_page(search: str = "", page: int = 1, page_size: int = 25) -> dict:
+def get_asp_reschedule_page(
+    search: str = "", page: int = 1, page_size: int = 25,
+    vendor_filter: str | None = None,
+) -> dict:
     tab_where = _OPEN_WHERE
-    return _paged_query(tab_where, search, page, page_size)
+    return _paged_query(tab_where, search, page, page_size, vendor_filter)
 
 
 # Onsite Follow-Up — all Onsite WOs (excluding cancelled) with a computed follow-up state
@@ -727,6 +779,7 @@ def get_asp_onsite_followup_page(
     followup_state: str = "",
     page: int = 1,
     page_size: int = 25,
+    vendor_filter: str | None = None,
 ) -> dict:
     """
     Onsite Follow-Up tab — all Onsite WOs, excluding cancelled.
@@ -756,6 +809,10 @@ def get_asp_onsite_followup_page(
             OR LOWER(s.case_desc)         LIKE ?
         )""")
         params.extend([term, term, term, term, term])
+
+    if vendor_filter:
+        wheres.append("d.labor_vendor_related = ?")
+        params.append(vendor_filter)
 
     where_sql = "WHERE " + " AND ".join(wheres)
     now = datetime.datetime.utcnow()
@@ -879,6 +936,7 @@ def get_asp_in_delivery_page(
     search: str = "",
     page: int = 1,
     page_size: int = 25,
+    vendor_filter: str | None = None,
 ) -> dict:
     """
     In-Delivery Follow-Up — WOs whose latest active part line has been shipped
@@ -932,13 +990,18 @@ def get_asp_in_delivery_page(
         """
         params.extend([term, term, term, term, term])
 
-    count_sql  = base_sql.format(cols="COUNT(*)") + search_clause
+    vendor_clause = ""
+    if vendor_filter:
+        vendor_clause = " AND d.labor_vendor_related = ?"
+        params.append(vendor_filter)
+
+    count_sql  = base_sql.format(cols="COUNT(*)") + search_clause + vendor_clause
     total = conn.execute(count_sql, params).fetchone()[0]
     pages  = max(1, -(-total // page_size))
     offset = (max(1, page) - 1) * page_size
 
     rows = conn.execute(
-        base_sql.format(cols=_IN_DELIVERY_COLS) + search_clause
+        base_sql.format(cols=_IN_DELIVERY_COLS) + search_clause + vendor_clause
         + " ORDER BY s.created_on DESC LIMIT ? OFFSET ?",
         params + [page_size, offset],
     ).fetchall()
@@ -974,6 +1037,7 @@ def get_asp_in_repair_page(
     search: str = "",
     page: int = 1,
     page_size: int = 25,
+    vendor_filter: str | None = None,
 ) -> dict:
     """
     In-Repair Follow-Up — WO is still open (completion_date and closing_date
@@ -1033,13 +1097,18 @@ def get_asp_in_repair_page(
         """
         params.extend([term, term, term, term, term])
 
-    count_sql = base_sql.format(cols="COUNT(*)") + search_clause
+    vendor_clause = ""
+    if vendor_filter:
+        vendor_clause = " AND d.labor_vendor_related = ?"
+        params.append(vendor_filter)
+
+    count_sql = base_sql.format(cols="COUNT(*)") + search_clause + vendor_clause
     total = conn.execute(count_sql, params).fetchone()[0]
     pages  = max(1, -(-total // page_size))
     offset = (max(1, page) - 1) * page_size
 
     rows = conn.execute(
-        base_sql.format(cols=_IN_REPAIR_COLS) + search_clause
+        base_sql.format(cols=_IN_REPAIR_COLS) + search_clause + vendor_clause
         + " ORDER BY s.created_on DESC LIMIT ? OFFSET ?",
         params + [page_size, offset],
     ).fetchall()
@@ -1073,6 +1142,7 @@ def get_asp_in_prepare_page(
     search: str = "",
     page: int = 1,
     page_size: int = 25,
+    vendor_filter: str | None = None,
 ) -> dict:
     """
     In-Prepare Follow-Up — WOs still open whose latest active part line has
@@ -1131,13 +1201,18 @@ def get_asp_in_prepare_page(
         """
         params.extend([term, term, term, term, term])
 
-    count_sql = base_sql.format(cols="COUNT(*)") + search_clause
+    vendor_clause = ""
+    if vendor_filter:
+        vendor_clause = " AND d.labor_vendor_related = ?"
+        params.append(vendor_filter)
+
+    count_sql = base_sql.format(cols="COUNT(*)") + search_clause + vendor_clause
     total  = conn.execute(count_sql, params).fetchone()[0]
     pages  = max(1, -(-total // page_size))
     offset = (max(1, page) - 1) * page_size
 
     rows = conn.execute(
-        base_sql.format(cols=_IN_PREPARE_COLS) + search_clause
+        base_sql.format(cols=_IN_PREPARE_COLS) + search_clause + vendor_clause
         + " ORDER BY s.created_on DESC LIMIT ? OFFSET ?",
         params + [page_size, offset],
     ).fetchall()

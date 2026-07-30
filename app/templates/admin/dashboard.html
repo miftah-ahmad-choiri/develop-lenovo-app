@@ -250,7 +250,7 @@
 
 {% block content %}
 <div class="page-header">
-  <h1>Admin Dashboard</h1>
+  <h1>Admin Dashboard 👩🏻‍💻</h1>
   <p>System overview — WO database statistics and quick access.</p>
 </div>
 
@@ -861,7 +861,7 @@ function renderTimeline(d, parts) {
     else                             state = 'future';
     const connCls = i < nodes.length - 1 ? `tl-connector ${(state === 'done' && i < lastDoneIdx) ? 'done' : ''}` : '';
     const dateStr = fmtShort(n.date);
-    const dateCls = state === 'done' ? 'done-text' : state === 'active' ? 'active-text' : 'future-text';
+    const dateCls = (i === 6 && hasDate) ? 'active-text' : state === 'done' ? 'done-text' : state === 'active' ? 'active-text' : 'future-text';
     let dotSvg;
     if (state === 'done')
       dotSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;

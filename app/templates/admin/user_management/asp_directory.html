@@ -1,0 +1,1059 @@
+{% extends "base.html" %}
+{% block title %}ASP Directory — Admin Portal{% endblock %}
+
+{% block extra_styles %}
+  /* ── breadcrumb ── */
+  .breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #57606a; margin-bottom: 18px; }
+  .breadcrumb a { color: #3b82d4; text-decoration: none; }
+  .breadcrumb a:hover { text-decoration: underline; }
+  .breadcrumb-sep { color: #d0d7de; }
+
+  /* ── toolbar ── */
+  .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  .toolbar-search {
+    flex: 1; min-width: 200px; max-width: 340px;
+    padding: 7px 12px; font-size: 13px;
+    border: 1px solid #d0d7de; border-radius: 6px;
+    outline: none; font-family: inherit;
+  }
+  .toolbar-search:focus { border-color: #3b82d4; }
+  .toolbar-filter {
+    padding: 7px 10px; font-size: 12px;
+    border: 1px solid #d0d7de; border-radius: 6px;
+    background: #fff; font-family: inherit; cursor: pointer;
+  }
+  .toolbar-filter:focus { outline: none; border-color: #3b82d4; }
+  .toolbar-count { font-size: 12px; color: #57606a; white-space: nowrap; }
+
+  /* ── table ── */
+  .table-wrap {
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: 68vh;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+  }
+  table { width: auto; border-collapse: collapse; font-size: 12.5px; }
+  thead th {
+    background: #f7f8fa; padding: 9px 12px;
+    text-align: left; font-weight: 600; font-size: 11.5px;
+    color: #57606a; border-bottom: 2px solid #e5e7eb;
+    white-space: nowrap;
+    position: sticky; top: 0; z-index: 2;
+  }
+  tbody tr { border-bottom: 1px solid #f0f2f5; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #f0f6ff; }
+  tbody td { padding: 9px 12px; vertical-align: top; line-height: 1.5; }
+  td.mono { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: #57606a; }
+  td.wrap { min-width: 200px; max-width: 320px; white-space: normal; word-break: break-word; }
+  td.nowrap { white-space: nowrap; }
+
+  /* ── table edit button ── */
+  .btn-edit {
+    padding: 4px 8px; font-size: 11.5px; font-weight: 600;
+    border: 1px solid #d0d7de; border-radius: 5px;
+    background: #fff; color: #1f2328; cursor: pointer;
+    font-family: inherit; white-space: nowrap; line-height: 1;
+  }
+  .btn-edit:hover { background: #f0f2f5; border-color: #3b82d4; color: #3b82d4; }
+
+  /* ── drawer section-level edit/save/cancel ── */
+  .sec-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid #e5e7eb; }
+  .sec-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #57606a; }
+  .sec-edit-btn {
+    padding: 3px 10px; font-size: 11px; font-weight: 600;
+    border: 1px solid #d0d7de; border-radius: 4px;
+    background: #fff; color: #57606a; cursor: pointer; font-family: inherit;
+  }
+  .sec-edit-btn:hover { border-color: #3b82d4; color: #3b82d4; background: #f0f6ff; }
+  .sec-actions { display: none; gap: 6px; }
+  .sec-actions.visible { display: flex; }
+  .sec-save-btn {
+    padding: 3px 10px; font-size: 11px; font-weight: 600;
+    border: none; border-radius: 4px;
+    background: #3b82d4; color: #fff; cursor: pointer; font-family: inherit;
+  }
+  .sec-save-btn:hover { background: #2563b0; }
+  .sec-cancel-btn {
+    padding: 3px 10px; font-size: 11px; font-weight: 600;
+    border: 1px solid #d0d7de; border-radius: 4px;
+    background: #fff; color: #57606a; cursor: pointer; font-family: inherit;
+  }
+  .sec-cancel-btn:hover { background: #f0f2f5; }
+
+  /* ── view mode rows ── */
+  .view-row { display: flex; flex-wrap: wrap; gap: 10px 20px; margin-bottom: 4px; }
+  .view-item { display: flex; flex-direction: column; gap: 2px; min-width: 140px; flex: 1; }
+  .view-item.full { flex-basis: 100%; }
+  .view-label { font-size: 10.5px; font-weight: 600; color: #57606a; text-transform: uppercase; letter-spacing: 0.04em; }
+  .view-val { font-size: 13px; color: #1f2328; word-break: break-word; line-height: 1.5; }
+  .view-val.mono { font-family: "IBM Plex Mono", monospace; font-size: 12px; }
+  .view-val.muted { color: #adb5bd; }
+
+  /* ── form-section no longer needs its own title style ── */
+  .form-section { margin-bottom: 20px; }
+
+  /* ── badges ── */
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px;
+    font-size: 11px; font-weight: 600; white-space: nowrap;
+  }
+  .badge-active   { background: #dcfce7; color: #15803d; }
+  .badge-inactive { background: #f3f4f6; color: #6b7280; }
+  .badge-continue { background: #eff6ff; color: #1d4ed8; }
+  .badge-stop     { background: #fff0f0; color: #b91c1c; }
+
+  /* ── asp name link ── */
+  .asp-name-link { color: #3b82d4; text-decoration: none; cursor: pointer; font-size: 12.5px; }
+  .asp-name-link:hover { text-decoration: underline; }
+
+  /* ── map link ── */
+  .map-link { font-size: 11.5px; color: #3b82d4; text-decoration: none; }
+  .map-link:hover { text-decoration: underline; }
+
+  /* ── empty state ── */
+  .empty-state { padding: 48px; text-align: center; color: #57606a; font-size: 13px; }
+
+  /* ── detail modal ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.4); z-index: 950;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: #fff; border-radius: 10px; width: 720px; max-width: 96vw;
+    max-height: 90vh; display: flex; flex-direction: column;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+  }
+  .modal-header {
+    padding: 16px 20px 14px; border-bottom: 1px solid #e5e7eb;
+    display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+  }
+  .modal-header-info { flex: 1; min-width: 0; }
+  .modal-asp-name { font-size: 16px; font-weight: 700; margin-bottom: 3px; }
+  .modal-asp-sub  { font-size: 12px; color: #57606a; }
+  .modal-close {
+    background: none; border: none; cursor: pointer; color: #57606a;
+    padding: 4px; border-radius: 4px; margin-left: 12px; flex-shrink: 0;
+  }
+  .modal-close:hover { background: #f0f2f5; color: #1f2328; }
+  .modal-body { flex: 1; overflow-y: auto; padding: 20px 24px; }
+  .detail-section { margin-bottom: 22px; }
+  .detail-section-title {
+    font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: #57606a;
+    margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #e5e7eb;
+  }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; }
+  .detail-grid.full { grid-template-columns: 1fr; }
+  .detail-item { display: flex; flex-direction: column; gap: 2px; }
+  .detail-label { font-size: 10.5px; font-weight: 600; color: #57606a; text-transform: uppercase; letter-spacing: 0.04em; }
+  .detail-value { font-size: 13px; color: #1f2328; line-height: 1.5; word-break: break-word; }
+  .detail-value.mono { font-family: "IBM Plex Mono", monospace; font-size: 12px; }
+  .detail-value.muted { color: #57606a; }
+  .btn-modal-edit {
+    padding: 7px 16px; font-size: 13px; font-weight: 600;
+    background: #3b82d4; color: #fff; border: none; border-radius: 6px;
+    cursor: pointer; font-family: inherit;
+  }
+  .btn-modal-edit:hover { background: #2563b0; }
+  .btn-modal-close {
+    padding: 7px 16px; font-size: 13px; font-weight: 600;
+    background: #fff; color: #57606a; border: 1px solid #d0d7de;
+    border-radius: 6px; cursor: pointer; font-family: inherit;
+  }
+  .btn-modal-close:hover { background: #f0f2f5; }
+  @media (max-width: 640px) { .detail-grid { grid-template-columns: 1fr; } }
+
+  /* ── drawer overlay ── */
+  .drawer-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.4); z-index: 900;
+    backdrop-filter: blur(2px);
+  }
+  .drawer-overlay.open { display: block; }
+
+  /* ── drawer panel ── */
+  .drawer {
+    position: fixed; top: 0; right: -520px; width: 500px; max-width: 96vw;
+    height: 100vh; background: #f7f8fa; z-index: 901;
+    box-shadow: -6px 0 32px rgba(0,0,0,0.14);
+    display: flex; flex-direction: column;
+    transition: right 0.28s cubic-bezier(0.4,0,0.2,1);
+  }
+  .drawer.open { right: 0; }
+
+  /* drawer header */
+  .drawer-header {
+    padding: 16px 20px 14px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #fff;
+    display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+  }
+  .drawer-header-id {
+    display: inline-block; font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px; font-weight: 600; color: #3b82d4;
+    background: #eff6ff; border-radius: 4px; padding: 2px 7px;
+    margin-right: 8px; vertical-align: middle;
+  }
+  .drawer-title { font-size: 15px; font-weight: 700; color: #1f2328; display: inline; vertical-align: middle; }
+  .drawer-subtitle { font-size: 11.5px; color: #57606a; margin-top: 5px; }
+  .drawer-close {
+    background: none; border: 1px solid #e5e7eb; cursor: pointer; color: #57606a;
+    padding: 5px 7px; border-radius: 6px; line-height: 1;
+  }
+  .drawer-close:hover { background: #f0f2f5; color: #1f2328; border-color: #d0d7de; }
+
+  /* drawer body */
+  .drawer-body { flex: 1; overflow-y: auto; padding: 12px 12px 12px; background: #e4e7eb; }
+
+  /* drawer footer */
+  .drawer-footer {
+    padding: 12px 16px; border-top: 1px solid #e5e7eb; background: #fff;
+    display: flex; gap: 10px; flex-shrink: 0;
+  }
+
+  /* ── section card ── */
+  .form-section {
+    background: #fff;
+    border: 1px solid #d8dde3;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    overflow: hidden;
+  }
+  .form-section:last-child { margin-bottom: 0; }
+  .sec-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f7f8fa;
+  }
+  .sec-title-wrap { display: flex; align-items: center; gap: 8px; }
+  .sec-icon {
+    width: 26px; height: 26px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .sec-icon.account-icon  { background: #eff6ff; color: #3b82d4; }
+  .sec-icon.identity-icon { background: #f0fdf4; color: #16a34a; }
+  .sec-icon.location-icon { background: #fff7ed; color: #ea580c; }
+  .sec-icon.ops-icon      { background: #fdf4ff; color: #9333ea; }
+  .sec-title {
+    font-size: 11.5px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.07em; color: #1f2328;
+  }
+  .sec-edit-btn {
+    padding: 4px 12px; font-size: 11.5px; font-weight: 600;
+    border: 1px solid #d0d7de; border-radius: 5px;
+    background: #fff; color: #57606a; cursor: pointer; font-family: inherit;
+  }
+  .sec-edit-btn:hover { border-color: #3b82d4; color: #3b82d4; background: #f0f6ff; }
+  .sec-actions { display: none; gap: 6px; }
+  .sec-actions.visible { display: flex; }
+  .sec-save-btn {
+    padding: 4px 12px; font-size: 11.5px; font-weight: 600;
+    border: none; border-radius: 5px;
+    background: #3b82d4; color: #fff; cursor: pointer; font-family: inherit;
+  }
+  .sec-save-btn:hover { background: #2563b0; }
+  .sec-cancel-btn {
+    padding: 4px 12px; font-size: 11.5px; font-weight: 600;
+    border: 1px solid #d0d7de; border-radius: 5px;
+    background: #fff; color: #57606a; cursor: pointer; font-family: inherit;
+  }
+  .sec-cancel-btn:hover { background: #f0f2f5; }
+
+  /* ── view mode inside card ── */
+  .view-row {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 0; padding: 4px 0;
+  }
+  .view-row .view-item { padding: 10px 16px; border-bottom: 1px solid #f0f2f5; }
+  .view-row .view-item:nth-last-child(1),
+  .view-row .view-item:nth-last-child(2):not(.full) { border-bottom: none; }
+  .view-item.full {
+    grid-column: 1 / -1;
+  }
+  .view-label {
+    font-size: 10px; font-weight: 700; color: #8b949e;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin-bottom: 3px; display: block;
+  }
+  .view-val {
+    font-size: 13px; color: #1f2328; word-break: break-word; line-height: 1.5;
+    display: block;
+  }
+  .view-val.mono { font-family: "IBM Plex Mono", monospace; font-size: 12px; }
+  .view-val.muted { color: #adb5bd; font-style: italic; }
+
+  /* ── edit inputs inside card ── */
+  .sec-inputs-wrap { padding: 14px 16px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-grid.full { grid-template-columns: 1fr; }
+  .form-field { display: flex; flex-direction: column; gap: 4px; }
+  .form-field label {
+    font-size: 11px; font-weight: 700; color: #57606a;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .form-field input,
+  .form-field select,
+  .form-field textarea {
+    padding: 7px 10px; font-size: 13px; border: 1px solid #d0d7de;
+    border-radius: 6px; font-family: inherit; background: #fff; color: #1f2328;
+    outline: none; transition: border-color 0.15s;
+  }
+  .form-field input:focus,
+  .form-field select:focus,
+  .form-field textarea:focus { border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,0.1); }
+  .form-field textarea { resize: vertical; min-height: 64px; }
+  .form-field input.mono-input { font-family: "IBM Plex Mono", monospace; font-size: 12px; }
+
+  /* ── drawer footer buttons ── */
+  .btn-save {
+    flex: 1; padding: 8px 16px; font-size: 13px; font-weight: 600;
+    background: #3b82d4; color: #fff; border: none; border-radius: 6px;
+    cursor: pointer; font-family: inherit;
+  }
+  .btn-save:hover { background: #2563b0; }
+  .btn-cancel {
+    padding: 8px 16px; font-size: 13px; font-weight: 600;
+    background: #fff; color: #57606a; border: 1px solid #d0d7de;
+    border-radius: 6px; cursor: pointer; font-family: inherit;
+  }
+  .btn-cancel:hover { background: #f0f2f5; }
+
+  @media (max-width: 640px) {
+    .toolbar-count { width: 100%; text-align: right; }
+    .form-grid { grid-template-columns: 1fr; }
+    .view-row { grid-template-columns: 1fr; }
+  }
+{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="/admin/users">User &amp; ASP Management</a>
+  <span class="breadcrumb-sep">›</span>
+  <span>ASP Directory</span>
+</div>
+
+<div class="page-header">
+  <h1>ASP Directory</h1>
+  <p>All registered Authorized Service Providers — {{ asps | length }} entries.</p>
+</div>
+
+<!-- toolbar -->
+<div class="toolbar">
+  <input
+    type="text"
+    id="search-input"
+    class="toolbar-search"
+    placeholder="Search by name, kota, region, username…"
+    oninput="filterTable()"
+  />
+  <select class="toolbar-filter" id="region-filter" onchange="filterTable()">
+    <option value="">All Regions</option>
+    {% for region in regions %}
+    <option value="{{ region }}">{{ region }}</option>
+    {% endfor %}
+  </select>
+  <select class="toolbar-filter" id="status-filter" onchange="filterTable()">
+    <option value="">All Statuses</option>
+    <option value="active">Active</option>
+    <option value="inactive">Inactive</option>
+  </select>
+  <select class="toolbar-filter" id="future-filter" onchange="filterTable()">
+    <option value="">All Future Status</option>
+    <option value="continue">Continue</option>
+    <option value="stop">Stop</option>
+  </select>
+  <span class="toolbar-count" id="row-count">{{ asps | length }} records</span>
+</div>
+
+<!-- table -->
+<div class="table-wrap">
+  <table id="asp-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Service Provider</th>
+        <th>Username</th>
+        <th>ASP Name</th>
+        <th>ASP ID</th>
+        <th>Vendor Code</th>
+        <th>Kota</th>
+        <th>Region</th>
+        <th>Working Hours</th>
+        <th>Operational Status</th>
+        <th>Future Status</th>
+        <th>Operation Support</th>
+        <th>Map</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="asp-tbody">
+      {% for asp in asps %}
+      <tr
+        data-search="{{ [asp.username, asp.service_provider, asp.kota, asp.region, asp.customer_partner] | join(' ') | lower }}"
+        data-region="{{ asp.region | lower }}"
+        data-status="{{ asp.operational_status | lower if asp.operational_status else '' }}"
+        data-future="{{ asp.future_status | lower if asp.future_status else '' }}"
+      >
+        <td class="mono nowrap">{{ asp.id }}</td>
+        <td class="wrap">
+          <div style="font-weight:600">{{ asp.service_provider or '—' }}</div>
+          {% if asp.parent_group and asp.parent_group != asp.service_provider %}
+          <div style="font-size:11px;color:#57606a">{{ asp.parent_group }}</div>
+          {% endif %}
+        </td>
+        <td class="mono nowrap">{{ asp.username }}</td>
+        <td class="nowrap">
+          <span class="asp-name-link asp-name-cell">{{ asp.customer_partner or '—' }}</span>
+        </td>
+        <td class="mono nowrap">{{ asp.labor_vendor_related or '—' }}</td>
+        <td class="mono nowrap">{{ asp.vendor_code or '—' }}</td>
+        <td class="nowrap">{{ asp.kota or '—' }}</td>
+        <td class="nowrap">{{ asp.region }}</td>
+        <td class="wrap" style="min-width:160px">{{ asp.working_hours or '—' }}</td>
+        <td class="nowrap">
+          {% if asp.operational_status == 'Active' %}
+            <span class="badge badge-active">Active</span>
+          {% else %}
+            <span class="badge badge-inactive">{{ asp.operational_status or '—' }}</span>
+          {% endif %}
+        </td>
+        <td class="nowrap">
+          {% if asp.future_status and asp.future_status | lower == 'continue' %}
+            <span class="badge badge-continue">Continue</span>
+          {% elif asp.future_status and asp.future_status | lower == 'stop' %}
+            <span class="badge badge-stop">Stop</span>
+          {% else %}
+            <span style="color:#57606a">{{ asp.future_status or '—' }}</span>
+          {% endif %}
+        </td>
+        <td class="nowrap">{{ asp.operation_support or '—' }}</td>
+        <td class="nowrap">
+          {% if asp.link_map %}
+            <a class="map-link" href="{{ asp.link_map }}" target="_blank" rel="noopener">View ↗</a>
+          {% else %}
+            <span style="color:#d0d7de">—</span>
+          {% endif %}
+        </td>
+        <td class="nowrap">
+          <button
+            class="btn-edit"
+            data-asp="{{ asp | tojson | forceescape }}"
+            title="Edit"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="14" class="empty-state">No ASP records found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- ── detail modal ── -->
+<div class="modal-overlay" id="detail-overlay">
+  <div class="modal-box">
+
+    <!-- header -->
+    <div class="modal-header">
+      <div class="modal-header-info">
+        <div class="modal-asp-name" id="d-asp-name"></div>
+        <div id="d-header-provider" style="font-size:12px;color:#57606a;margin-top:3px"></div>
+        <!-- operation pills row -->
+        <div id="d-ops-pills" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
+        <!-- working hours plain text -->
+        <div id="d-working-hours-row" style="margin-top:6px;font-size:12px;color:#57606a;display:none">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span id="d-working_hours"></span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:12px">
+        <button class="btn-modal-edit" id="modal-edit-btn" title="Edit this ASP">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:5px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Edit
+        </button>
+        <button class="modal-close" id="modal-close-btn" title="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- body -->
+    <div class="modal-body">
+
+      <!-- account -->
+      <div class="detail-section">
+        <div class="detail-section-title">Account</div>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">Username</span>
+            <span class="detail-value mono" id="d-username"></span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Password</span>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
+              <span class="detail-value mono" id="d-password" style="letter-spacing:0.12em"></span>
+              <button id="pwd-toggle" style="background:none;border:none;cursor:pointer;padding:2px;color:#57606a;flex-shrink:0" title="Show / hide password">
+                <svg id="pwd-eye-show" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg id="pwd-eye-hide" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- identity -->
+      <div class="detail-section">
+        <div class="detail-section-title">Identity</div>
+        <div class="detail-grid">
+          <div class="detail-item"><span class="detail-label">ASP Name</span><span class="detail-value" id="d-customer_partner"></span></div>
+          <div class="detail-item"><span class="detail-label">Store Name</span><span class="detail-value" id="d-store_name"></span></div>
+          <div class="detail-item"><span class="detail-label">ASP ID</span><span class="detail-value mono" id="d-labor_vendor_related"></span></div>
+          <div class="detail-item"><span class="detail-label">Vendor Code</span><span class="detail-value mono" id="d-vendor_code"></span></div>
+        </div>
+      </div>
+
+      <!-- location -->
+      <div class="detail-section">
+        <div class="detail-section-title">Location</div>
+        <div class="detail-grid">
+          <div class="detail-item"><span class="detail-label">Kota</span><span class="detail-value" id="d-kota"></span></div>
+          <div class="detail-item"><span class="detail-label">Island</span><span class="detail-value" id="d-island"></span></div>
+          <div class="detail-item"><span class="detail-label">Phone Number</span><span class="detail-value" id="d-phone_number"></span></div>
+        </div>
+        <div class="detail-grid full" style="margin-top:10px">
+          <div class="detail-item"><span class="detail-label">Address</span><span class="detail-value" id="d-address"></span></div>
+        </div>
+      </div>
+
+      <!-- map at bottom -->
+      <div class="detail-section" style="margin-bottom:0">
+        <div class="detail-section-title">Location Map</div>
+        <div id="d-map-frame" style="width:100%;height:240px;border-radius:8px;overflow:hidden;background:#f0f2f5;border:1px solid #e5e7eb;display:flex;align-items:center;justify-content:center;">
+          <span style="color:#57606a;font-size:12px">No location data</span>
+        </div>
+        <div style="margin-top:6px;text-align:right">
+          <a id="d-link_map-btn" href="#" target="_blank" rel="noopener"
+             style="font-size:11.5px;color:#3b82d4;text-decoration:none;display:none">
+            Open in Google Maps ↗
+          </a>
+        </div>
+      </div>
+
+    </div><!-- /modal-body -->
+  </div><!-- /modal-box -->
+</div>
+
+<!-- ── drawer overlay ── -->
+<div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
+
+<!-- ── edit drawer ── -->
+<div class="drawer" id="edit-drawer">
+  <div class="drawer-header">
+    <div>
+      <div>
+        <span class="drawer-header-id" id="drawer-header-id"></span><span class="drawer-title">ASP Record</span>
+      </div>
+      <div class="drawer-subtitle" id="drawer-subtitle"></div>
+    </div>
+    <button class="drawer-close" onclick="closeDrawer()" title="Close">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+
+  <div class="drawer-body">
+    <form id="edit-form" method="POST">
+
+      <!-- ── ACCOUNT ── -->
+      <div class="form-section" id="sec-account">
+        <div class="sec-header">
+          <div class="sec-title-wrap">
+            <span class="sec-icon account-icon">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </span>
+            <span class="sec-title">Account</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button type="button" class="sec-edit-btn" data-sec="account">Edit</button>
+            <div class="sec-actions" id="sec-actions-account">
+              <button type="button" class="sec-save-btn"   data-sec="account">Save</button>
+              <button type="button" class="sec-cancel-btn" data-sec="account">Cancel</button>
+            </div>
+          </div>
+        </div>
+        <!-- view -->
+        <div class="view-row" id="view-account">
+          <div class="view-item"><span class="view-label">Username</span><span class="view-val mono" id="v-username"></span></div>
+          <div class="view-item"><span class="view-label">Password</span><span class="view-val mono" id="v-password">••••••••</span></div>
+        </div>
+        <!-- edit inputs -->
+        <div class="sec-inputs-wrap" id="inputs-account" style="display:none">
+          <div class="form-grid">
+            <div class="form-field"><label>Username</label><input type="text" name="username" id="f-username" class="mono-input" required /></div>
+            <div class="form-field"><label>Password</label><input type="text" name="password" id="f-password" /></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── IDENTITY ── -->
+      <div class="form-section" id="sec-identity">
+        <div class="sec-header">
+          <div class="sec-title-wrap">
+            <span class="sec-icon identity-icon">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3H8"/><path d="M12 3v4"/></svg>
+            </span>
+            <span class="sec-title">Identity</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button type="button" class="sec-edit-btn" data-sec="identity">Edit</button>
+            <div class="sec-actions" id="sec-actions-identity">
+              <button type="button" class="sec-save-btn"   data-sec="identity">Save</button>
+              <button type="button" class="sec-cancel-btn" data-sec="identity">Cancel</button>
+            </div>
+          </div>
+        </div>
+        <!-- view -->
+        <div class="view-row" id="view-identity">
+          <div class="view-item"><span class="view-label">Service Provider</span><span class="view-val" id="v-service_provider"></span></div>
+          <div class="view-item"><span class="view-label">Parent Group</span><span class="view-val" id="v-parent_group"></span></div>
+          <div class="view-item"><span class="view-label">ASP Name</span><span class="view-val" id="v-customer_partner"></span></div>
+          <div class="view-item"><span class="view-label">Store Name</span><span class="view-val" id="v-store_name"></span></div>
+          <div class="view-item"><span class="view-label">ASP ID</span><span class="view-val mono" id="v-labor_vendor_related"></span></div>
+          <div class="view-item"><span class="view-label">Vendor Code</span><span class="view-val mono" id="v-vendor_code"></span></div>
+        </div>
+        <!-- edit inputs -->
+        <div class="sec-inputs-wrap" id="inputs-identity" style="display:none">
+          <div class="form-grid">
+            <div class="form-field"><label>Service Provider</label><input type="text" name="service_provider" id="f-service_provider" /></div>
+            <div class="form-field"><label>Parent Group</label><input type="text" name="parent_group" id="f-parent_group" /></div>
+            <div class="form-field"><label>ASP Name</label><input type="text" name="customer_partner" id="f-customer_partner" /></div>
+            <div class="form-field"><label>Store Name</label><input type="text" name="store_name" id="f-store_name" /></div>
+            <div class="form-field"><label>ASP ID</label><input type="text" name="labor_vendor_related" id="f-labor_vendor_related" class="mono-input" /></div>
+            <div class="form-field"><label>Vendor Code</label><input type="text" name="vendor_code" id="f-vendor_code" class="mono-input" /></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── LOCATION ── -->
+      <div class="form-section" id="sec-location">
+        <div class="sec-header">
+          <div class="sec-title-wrap">
+            <span class="sec-icon location-icon">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            </span>
+            <span class="sec-title">Location</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button type="button" class="sec-edit-btn" data-sec="location">Edit</button>
+            <div class="sec-actions" id="sec-actions-location">
+              <button type="button" class="sec-save-btn"   data-sec="location">Save</button>
+              <button type="button" class="sec-cancel-btn" data-sec="location">Cancel</button>
+            </div>
+          </div>
+        </div>
+        <!-- view -->
+        <div class="view-row" id="view-location">
+          <div class="view-item"><span class="view-label">Kota</span><span class="view-val" id="v-kota"></span></div>
+          <div class="view-item"><span class="view-label">Island</span><span class="view-val" id="v-island"></span></div>
+          <div class="view-item"><span class="view-label">Phone Number</span><span class="view-val" id="v-phone_number"></span></div>
+          <div class="view-item"><span class="view-label">Lat / Long</span><span class="view-val mono" id="v-lat_long"></span></div>
+          <div class="view-item full"><span class="view-label">Address</span><span class="view-val" id="v-address"></span></div>
+          <div class="view-item full"><span class="view-label">Google Maps Link</span><span class="view-val" id="v-link_map" style="font-size:11.5px;word-break:break-all"></span></div>
+        </div>
+        <!-- edit inputs -->
+        <div class="sec-inputs-wrap" id="inputs-location" style="display:none">
+          <div class="form-grid">
+            <div class="form-field"><label>Kota</label><input type="text" name="kota" id="f-kota" /></div>
+            <div class="form-field"><label>Island</label><input type="text" name="island" id="f-island" /></div>
+            <div class="form-field"><label>Phone Number</label><input type="text" name="phone_number" id="f-phone_number" /></div>
+            <div class="form-field"><label>Lat / Long</label><input type="text" name="lat_long" id="f-lat_long" class="mono-input" /></div>
+          </div>
+          <div class="form-grid full" style="margin-top:12px">
+            <div class="form-field"><label>Address</label><textarea name="address" id="f-address"></textarea></div>
+            <div class="form-field"><label>Google Maps Link</label><input type="text" name="link_map" id="f-link_map" /></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── OPERATIONS ── -->
+      <div class="form-section" id="sec-operations">
+        <div class="sec-header">
+          <div class="sec-title-wrap">
+            <span class="sec-icon ops-icon">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </span>
+            <span class="sec-title">Operations</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button type="button" class="sec-edit-btn" data-sec="operations">Edit</button>
+            <div class="sec-actions" id="sec-actions-operations">
+              <button type="button" class="sec-save-btn"   data-sec="operations">Save</button>
+              <button type="button" class="sec-cancel-btn" data-sec="operations">Cancel</button>
+            </div>
+          </div>
+        </div>
+        <!-- view -->
+        <div class="view-row" id="view-operations">
+          <div class="view-item"><span class="view-label">Operational Status</span><span class="view-val" id="v-operational_status"></span></div>
+          <div class="view-item"><span class="view-label">Future Status</span><span class="view-val" id="v-future_status"></span></div>
+          <div class="view-item"><span class="view-label">Operation Support</span><span class="view-val" id="v-operation_support"></span></div>
+          <div class="view-item full"><span class="view-label">Working Hours</span><span class="view-val" id="v-working_hours"></span></div>
+        </div>
+        <!-- edit inputs -->
+        <div class="sec-inputs-wrap" id="inputs-operations" style="display:none">
+          <div class="form-grid">
+            <div class="form-field"><label>Operational Status</label>
+              <select name="operational_status" id="f-operational_status">
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
+            <div class="form-field"><label>Future Status</label>
+              <select name="future_status" id="f-future_status">
+                <option value="continue">continue</option>
+                <option value="stop">stop</option>
+              </select>
+            </div>
+            <div class="form-field"><label>Operation Support</label>
+              <input type="text" name="operation_support" id="f-operation_support" />
+            </div>
+          </div>
+          <div class="form-grid full" style="margin-top:12px">
+            <div class="form-field"><label>Working Hours</label>
+              <textarea name="working_hours" id="f-working_hours"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </form>
+  </div>
+
+  <div class="drawer-footer">
+    <button class="btn-cancel" style="width:100%" onclick="closeDrawer()">Close</button>
+  </div>
+</div>
+
+<script>
+  /* ── filter ── */
+  function filterTable() {
+    var q      = document.getElementById('search-input').value.toLowerCase().trim();
+    var region = document.getElementById('region-filter').value.toLowerCase();
+    var status = document.getElementById('status-filter').value.toLowerCase();
+    var future = document.getElementById('future-filter').value.toLowerCase();
+    var rows   = document.querySelectorAll('#asp-tbody tr[data-search]');
+    var shown  = 0;
+    rows.forEach(function(row) {
+      var matchQ      = !q      || row.dataset.search.includes(q);
+      var matchRegion = !region || row.dataset.region === region;
+      var matchStatus = !status || row.dataset.status === status;
+      var matchFuture = !future || row.dataset.future === future;
+      var visible = matchQ && matchRegion && matchStatus && matchFuture;
+      row.style.display = visible ? '' : 'none';
+      if (visible) shown++;
+    });
+    document.getElementById('row-count').textContent = shown + ' record' + (shown !== 1 ? 's' : '');
+  }
+
+  /* ── helpers ── */
+  var currentId  = null;
+  var _currentAsp = null;
+  var _pwdVisible = false;
+  var _realPassword = '';
+
+  function _val(asp, f) {
+    return (asp[f] !== null && asp[f] !== undefined) ? String(asp[f]) : '';
+  }
+
+  /* ── password show/hide ── */
+  function _maskPwd(str) { return str ? '•'.repeat(str.length) : '—'; }
+
+  function _setPwd(visible) {
+    _pwdVisible = visible;
+    var el = document.getElementById('d-password');
+    el.textContent = visible ? (_realPassword || '—') : _maskPwd(_realPassword);
+    el.style.letterSpacing = visible ? '0' : '0.12em';
+    document.getElementById('pwd-eye-show').style.display = visible ? 'none' : '';
+    document.getElementById('pwd-eye-hide').style.display = visible ? '' : 'none';
+  }
+
+  /* ── map ── */
+  function _renderMap(latLong) {
+    var frame = document.getElementById('d-map-frame');
+    // Try to parse "lat, lng" from the lat_long string
+    var lat = null, lng = null;
+    if (latLong) {
+      var parts = latLong.replace(/[°NS'"]/g,'').split(',');
+      if (parts.length >= 2) {
+        lat = parseFloat(parts[0].trim());
+        lng = parseFloat(parts[1].trim());
+      }
+    }
+    if (lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng)) {
+      var src = 'https://maps.google.com/maps?q=' + lat + ',' + lng + '&z=17&output=embed';
+      frame.innerHTML = '<iframe src="' + src + '" width="100%" height="240"'
+        + ' style="border:none;border-radius:8px" loading="lazy"'
+        + ' referrerpolicy="no-referrer-when-downgrade"></iframe>';
+    } else {
+      frame.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;'
+        + 'height:220px;color:#57606a;font-size:12px;background:#f7f8fa;border-radius:8px">'
+        + 'No location coordinates available</div>';
+    }
+  }
+
+  /* ── detail modal ── */
+  function openDetailModal(asp) {
+    _currentAsp = asp;
+    _pwdVisible = false;
+    _realPassword = _val(asp, 'password');
+
+    // Header — ASP name + provider line
+    document.getElementById('d-asp-name').textContent =
+      _val(asp, 'customer_partner') || _val(asp, 'service_provider') || '—';
+    var sp = _val(asp, 'service_provider');
+    var pg = _val(asp, 'parent_group');
+    var provParts = [sp, (pg && pg !== sp) ? pg : ''].filter(Boolean);
+    document.getElementById('d-header-provider').textContent = provParts.join('  ·  ');
+
+    // Operation pills
+    var pillsCfg = [
+      { field: 'operational_status', colors: { 'active':   'background:#dcfce7;color:#15803d',
+                                               'inactive': 'background:#f3f4f6;color:#6b7280' } },
+      { field: 'future_status',      colors: { 'continue': 'background:#eff6ff;color:#1d4ed8',
+                                               'stop':     'background:#fff0f0;color:#b91c1c' } },
+      { field: 'operation_support',  colors: {} }
+    ];
+    var pillsEl = document.getElementById('d-ops-pills');
+    pillsEl.innerHTML = '';
+    pillsCfg.forEach(function(cfg) {
+      var v = _val(asp, cfg.field);
+      if (!v) return;
+      var key = v.toLowerCase();
+      var style = cfg.colors[key] ||
+        (cfg.field === 'operation_support'
+          ? 'background:#f3f0ff;color:#6d28d9'
+          : 'background:#f3f4f6;color:#6b7280');
+      var span = document.createElement('span');
+      span.style.cssText = 'display:inline-block;padding:3px 10px;border-radius:12px;font-size:11.5px;font-weight:600;' + style;
+      span.textContent = v;
+      pillsEl.appendChild(span);
+    });
+
+    // Working hours plain text under pills
+    var wh = _val(asp, 'working_hours');
+    var whRow = document.getElementById('d-working-hours-row');
+    var whEl  = document.getElementById('d-working_hours');
+    if (wh) {
+      whEl.textContent = wh;
+      whRow.style.display = '';
+    } else {
+      whRow.style.display = 'none';
+    }
+
+    // Plain text fields (excluding ops / working_hours / provider — handled above)
+    var textFields = [
+      'username','customer_partner',
+      'store_name','labor_vendor_related','vendor_code',
+      'kota','island','phone_number','address'
+    ];
+    textFields.forEach(function(f) {
+      var el = document.getElementById('d-' + f);
+      if (!el) return;
+      var v = _val(asp, f);
+      el.textContent = v || '—';
+      if (!v) el.classList.add('muted'); else el.classList.remove('muted');
+    });
+
+    // Password (masked by default)
+    _setPwd(false);
+
+    // Google Maps button
+    var ll = _val(asp, 'lat_long');
+    var mapBtn = document.getElementById('d-link_map-btn');
+    var mapUrl = _val(asp, 'link_map');
+    if (mapUrl) {
+      mapBtn.href = mapUrl;
+      mapBtn.style.display = '';
+    } else {
+      mapBtn.style.display = 'none';
+    }
+
+    // Render OSM map
+    _renderMap(ll);
+
+    document.getElementById('detail-overlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeDetailModal() {
+    document.getElementById('detail-overlay').classList.remove('open');
+    document.body.style.overflow = '';
+    _currentAsp = null;
+  }
+
+  /* ── section toggle helpers ── */
+  var _secFields = {
+    account:    ['username','password'],
+    identity:   ['service_provider','parent_group','customer_partner','store_name','labor_vendor_related','vendor_code'],
+    location:   ['kota','island','phone_number','lat_long','address','link_map'],
+    operations: ['operational_status','future_status','operation_support','working_hours']
+  };
+
+  function _secOpen(sec) {
+    document.getElementById('view-'    + sec).style.display = 'none';
+    document.getElementById('inputs-'  + sec).style.display = '';
+    document.getElementById('sec-actions-' + sec).classList.add('visible');
+    // hide the Edit button
+    var editBtn = document.querySelector('.sec-edit-btn[data-sec="' + sec + '"]');
+    if (editBtn) editBtn.style.display = 'none';
+  }
+
+  function _secClose(sec) {
+    document.getElementById('view-'    + sec).style.display = '';
+    document.getElementById('inputs-'  + sec).style.display = 'none';
+    document.getElementById('sec-actions-' + sec).classList.remove('visible');
+    var editBtn = document.querySelector('.sec-edit-btn[data-sec="' + sec + '"]');
+    if (editBtn) editBtn.style.display = '';
+  }
+
+  function _secSave(sec) {
+    // Read input values back into the view spans
+    _secFields[sec].forEach(function(f) {
+      var inp = document.getElementById('f-' + f);
+      var view = document.getElementById('v-' + f);
+      if (!inp || !view) return;
+      var v = inp.tagName === 'SELECT' ? inp.options[inp.selectedIndex].value : inp.value;
+      if (f === 'password') {
+        view.textContent = v ? '••••••••' : '—';
+      } else {
+        view.textContent = v || '—';
+      }
+    });
+    // Submit the whole form to persist to DB
+    document.getElementById('edit-form').submit();
+  }
+
+  function _allSecClose() {
+    ['account','identity','location','operations'].forEach(_secClose);
+  }
+
+  /* ── edit drawer ── */
+  function openDrawer(asp) {
+    currentId = asp.id;
+    document.getElementById('edit-form').action =
+      '/admin/users/asp-directory/' + asp.id + '/edit';
+    document.getElementById('drawer-header-id').textContent = _val(asp, 'username');
+    document.getElementById('drawer-subtitle').textContent =
+      _val(asp, 'service_provider') || '';
+
+    // Populate both view spans and input values
+    var allFields = [
+      'username','password','vendor_code','service_provider','parent_group',
+      'labor_vendor_related','customer_partner','store_name','kota','address',
+      'lat_long','link_map','phone_number','island','working_hours',
+      'operational_status','future_status','operation_support'
+    ];
+    allFields.forEach(function(f) {
+      var v = _val(asp, f);
+      // input
+      var inp = document.getElementById('f-' + f);
+      if (inp) inp.value = v;
+      // view span
+      var view = document.getElementById('v-' + f);
+      if (view) {
+        view.textContent = (f === 'password') ? (v ? '••••••••' : '—') : (v || '—');
+      }
+    });
+
+    // Reset all sections to view mode
+    _allSecClose();
+
+    document.getElementById('drawer-overlay').classList.add('open');
+    document.getElementById('edit-drawer').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeDrawer() {
+    document.getElementById('drawer-overlay').classList.remove('open');
+    document.getElementById('edit-drawer').classList.remove('open');
+    document.body.style.overflow = '';
+    currentId = null;
+  }
+
+  function submitForm() { document.getElementById('edit-form').submit(); }
+
+  /* ── wire up on DOM ready ── */
+  document.addEventListener('DOMContentLoaded', function () {
+
+    // Edit buttons in table
+    document.querySelectorAll('.btn-edit').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        openDrawer(JSON.parse(btn.getAttribute('data-asp')));
+      });
+    });
+
+    // ASP Name links
+    document.querySelectorAll('.asp-name-cell').forEach(function (cell) {
+      cell.addEventListener('click', function () {
+        var row = cell.closest('tr');
+        var btn = row.querySelector('.btn-edit');
+        if (btn) openDetailModal(JSON.parse(btn.getAttribute('data-asp')));
+      });
+    });
+
+    // Modal — close X
+    document.getElementById('modal-close-btn').addEventListener('click', closeDetailModal);
+
+    // Modal — backdrop click
+    document.getElementById('detail-overlay').addEventListener('click', function(e) {
+      if (e.target === this) closeDetailModal();
+    });
+
+    // Modal — Edit button → open drawer for same ASP
+    document.getElementById('modal-edit-btn').addEventListener('click', function() {
+      var asp = _currentAsp;
+      closeDetailModal();
+      if (asp) openDrawer(asp);
+    });
+
+    // Password show/hide toggle
+    document.getElementById('pwd-toggle').addEventListener('click', function() {
+      _setPwd(!_pwdVisible);
+    });
+
+    // Section Edit buttons
+    document.querySelectorAll('.sec-edit-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        _secOpen(btn.getAttribute('data-sec'));
+      });
+    });
+
+    // Section Save buttons
+    document.querySelectorAll('.sec-save-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        _secSave(btn.getAttribute('data-sec'));
+      });
+    });
+
+    // Section Cancel buttons
+    document.querySelectorAll('.sec-cancel-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        _secClose(btn.getAttribute('data-sec'));
+      });
+    });
+
+    // Escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key !== 'Escape') return;
+      if (document.getElementById('detail-overlay').classList.contains('open')) closeDetailModal();
+      else closeDrawer();
+    });
+  });
+</script>
+{% endblock %}
