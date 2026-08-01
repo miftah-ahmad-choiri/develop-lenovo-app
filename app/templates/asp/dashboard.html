@@ -36,6 +36,7 @@
   .fu-in-delivery    { background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; }
   .fu-in-repair      { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
   .fu-return-part    { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+  .fu-escalate       { background: #f3f4f6; color: #1f2328; border: 1px solid #d1d5db; }
   /* CCI sub-tab pills */
   .subtab-bar { display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap; }
   .subtab-pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1.5px solid transparent; background: #f7f8fa; color: #57606a; border-color: #e5e7eb; font-family: inherit; transition: background .12s, color .12s; white-space: nowrap; }
@@ -254,6 +255,8 @@
   .wo-strip-meta-row { display: flex; align-items: center; gap: 6px; margin-top: 3px; flex-wrap: wrap; }
   .wo-strip-meta { font-size: 12px; color: #57606a; }
   .wo-strip-meta strong { color: #1f2328; font-family: ui-monospace, monospace; font-size: 12px; }
+  .wo-type-pill { display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; background: #f0f4ff; color: #3b5bdb; border: 1px solid #c5d0fa; border-radius: 10px; padding: 1px 8px; line-height: 1.7; }
+  .wo-type-pill:empty { display: none; }
   .wo-strip-parts { margin-top: 10px; border-top: 1px solid #e5e7eb; padding-top: 8px; }
   .wo-strip-parts-header { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #8c959f; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; }
   .wo-strip-qty-pill { background: #3b82d4; color: #fff; border-radius: 10px; padding: 1px 8px; font-size: 10px; font-weight: 800; }
@@ -401,6 +404,30 @@
   .ticket-table tr:last-child td { border-bottom: none; }
   .ticket-table tbody tr:hover { background: #f7f8fa; }
   .ticket-group-row td:first-child { border-right: 2px solid #bfdbfe; background: #eff6ff; }
+
+  /* ── WO SLA modal — repair timeline ────────────────────────────────── */
+  .wosla-tl-wrap { padding: 14px 20px 12px; border-bottom: 1px solid #e5e7eb; background: #fafbfc; }
+  .wosla-tl-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: #8c959f; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+  .wosla-tl-title::after { content: ''; flex: 1; height: 1px; background: #e5e7eb; }
+  .wosla-tl-track { display: flex; align-items: flex-start; gap: 0; }
+  .wosla-tl-connector { flex: 1; height: 2px; margin-top: 17px; min-width: 12px; background: #e5e7eb; }
+  .wosla-tl-connector.done { background: #86efac; }
+  .wosla-tl-connector.warn { background: #fcd34d; }
+  .wosla-tl-connector.over { background: #fca5a5; }
+  .wosla-tl-node { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 68px; max-width: 110px; }
+  .wosla-tl-dot { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .wosla-tl-dot.green  { background: #dcfce7; border: 2px solid #86efac; }
+  .wosla-tl-dot.yellow { background: #fef9c3; border: 2px dashed #fde68a; }
+  .wosla-tl-dot.orange { background: #ffedd5; border: 2px solid #fdba74; }
+  .wosla-tl-dot.red    { background: #fee2e2; border: 2px solid #fca5a5; }
+  .wosla-tl-dot.grey   { background: #f3f4f6; border: 2px dashed #d1d5db; }
+  .wosla-tl-lbl { font-size: 10px; font-weight: 600; color: #57606a; text-align: center; margin-top: 5px; line-height: 1.3; }
+  .wosla-tl-date { font-size: 10px; text-align: center; margin-top: 2px; line-height: 1.25; white-space: pre-line; font-weight: 700; }
+  .wosla-tl-date.green  { color: #15803d; }
+  .wosla-tl-date.yellow { color: #b45309; }
+  .wosla-tl-date.orange { color: #c2410c; }
+  .wosla-tl-date.red    { color: #dc2626; }
+  .wosla-tl-date.grey   { color: #6b7280; }
 
   /* Toast */
   .toast-wrap { position: fixed; bottom: 24px; right: 24px; z-index: 300; display: flex; flex-direction: column; gap: 8px; }
@@ -742,7 +769,8 @@
           <span id="idc-wo-status-badge"></span>
         </div>
         <div class="wo-strip-meta-row">
-          <span class="wo-strip-meta" id="idc-contact">—</span>
+          <span class="wo-strip-meta wo-type-pill" id="idc-wo-type"></span>
+          <span class="wo-strip-meta" id="idc-asp">—</span>
         </div>
         <!-- Parts list (populated by JS) -->
         <div class="wo-strip-parts" id="idc-parts-list" style="display:none">
@@ -847,7 +875,13 @@
           <span id="onsite-recv-wo-status-badge"></span>
         </div>
         <div class="wo-strip-meta-row">
-          <span class="wo-strip-meta" id="onsite-recv-contact">—</span>
+          <span class="wo-strip-meta wo-type-pill" id="onsite-recv-wo-type"></span>
+          <span class="wo-strip-meta" id="onsite-recv-asp">—</span>
+        </div>
+        <!-- Onsite date mini-timeline (only shown for Onsite WO type) -->
+        <div id="or-onsite-timeline" style="display:none;margin-top:10px;border-top:1px solid #e5e7eb;padding-top:10px;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8c959f;margin-bottom:8px">Onsite Schedule</div>
+          <div style="display:flex;align-items:flex-start;gap:0;" id="or-onsite-tl-track"></div>
         </div>
       </div>
 
@@ -991,9 +1025,13 @@
           <span id="recv-wo-status-badge"></span>
         </div>
         <div class="wo-strip-meta-row">
-          <span class="wo-strip-meta" id="recv-contact">—</span>
-          <span class="wo-strip-sep">·</span>
-          <span class="wo-strip-meta">Committed <strong id="recv-eta">—</strong></span>
+          <span class="wo-strip-meta wo-type-pill" id="recv-wo-type"></span>
+          <span class="wo-strip-meta" id="recv-asp">—</span>
+        </div>
+        <!-- Part shipment mini-timeline: Pickup → ETA → POD -->
+        <div id="recv-part-timeline" style="display:none;margin-top:10px;border-top:1px solid #e5e7eb;padding-top:10px;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8c959f;margin-bottom:8px">Part Shipment</div>
+          <div style="display:flex;align-items:flex-start;gap:0;" id="recv-part-tl-track"></div>
         </div>
         <!-- Parts list (populated by JS) -->
         <div class="wo-strip-parts" id="recv-parts-list" style="display:none">
@@ -1132,7 +1170,8 @@
       <div class="wo-strip">
         <div class="wo-strip-num" id="ret-wo-num">—</div>
         <div class="wo-strip-grid">
-          <div><span>Contact: </span><strong id="ret-contact">—</strong></div>
+          <div><span>WO Type: </span><strong id="ret-wo-type">—</strong></div>
+          <div><span>ASP: </span><strong id="ret-asp">—</strong></div>
           <div><span>Actual Onsite: </span><strong id="ret-onsite">—</strong></div>
         </div>
       </div>
@@ -1195,7 +1234,13 @@
           <span id="psla-wo-status-badge"></span>
         </div>
         <div class="wo-strip-meta-row">
-          <span class="wo-strip-meta" id="psla-contact">—</span>
+          <span class="wo-strip-meta wo-type-pill" id="psla-wo-type"></span>
+          <span class="wo-strip-meta" id="psla-asp">—</span>
+        </div>
+        <!-- Part shipment mini-timeline: Pickup → ETA → POD -->
+        <div id="psla-part-timeline" style="display:none;margin-top:10px;border-top:1px solid #e5e7eb;padding-top:10px;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8c959f;margin-bottom:8px">Part Shipment</div>
+          <div style="display:flex;align-items:flex-start;gap:0;" id="psla-part-tl-track"></div>
         </div>
         <!-- Parts list (populated by JS) -->
         <div class="wo-strip-parts" id="psla-parts-list" style="display:none">
@@ -1327,7 +1372,13 @@
           <span id="rs-wo-status-badge"></span>
         </div>
         <div class="wo-strip-meta-row">
-          <span class="wo-strip-meta" id="rs-contact">—</span>
+          <span class="wo-strip-meta wo-type-pill" id="rs-wo-type"></span>
+          <span class="wo-strip-meta" id="rs-asp">—</span>
+        </div>
+        <!-- Onsite date mini-timeline (only shown for Onsite WO type) -->
+        <div id="rs-onsite-timeline" style="display:none;margin-top:10px;border-top:1px solid #e5e7eb;padding-top:10px;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8c959f;margin-bottom:8px">Onsite Schedule</div>
+          <div style="display:flex;align-items:flex-start;gap:0;" id="rs-onsite-tl-track"></div>
         </div>
       </div>
 
@@ -1447,27 +1498,19 @@
           <span id="wosla-wo-status-badge"></span>
         </div>
         <div class="wo-strip-meta-row">
-          <span class="wo-strip-meta" id="wosla-contact">—</span>
+          <span class="wo-strip-meta wo-type-pill" id="wosla-wo-type"></span>
+          <span class="wo-strip-meta" id="wosla-asp">—</span>
         </div>
       </div>
 
-      <!-- SECTION 1 — WO Closing Date -->
-      <div class="mf-section">
-        <div class="mf-section-label">
-          <span class="sec-num" style="background:#16a34a">1</span>
-          WO Closing Date
-        </div>
-        <div class="mf-group" style="margin-bottom:0">
-          <span class="mf-label">Date &amp; Time WO# Closed <span class="req">*</span></span>
-          <input type="datetime-local" id="wosla-closed-datetime" />
-        </div>
-      </div>
+      <!-- Repair timeline -->
+      <div id="wosla-timeline" class="wosla-tl-wrap" style="display:none"></div>
 
-      <!-- SECTION 2 — Issue -->
+      <!-- SECTION 1 — Issue -->
       <div class="mf-section conditional">
         <div class="mf-section-label">
-          <span class="sec-num" style="background:#d97706">2</span>
-          Issue
+          <span class="sec-num" style="background:#d97706">1</span>
+          Issue <span class="req" style="color:#dc2626;margin-left:2px">*</span>
           <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px;color:#8c959f">— only if WO have issue or problem</span>
         </div>
 
@@ -1475,11 +1518,11 @@
           <span class="mf-label">Issue / Status</span>
           <div class="custom-dd" id="wosla-issue-dd">
             <div class="custom-dd-trigger" tabindex="0" id="wosla-issue-trigger">
-              <span class="dd-val" id="wosla-issue-display">— WO Closed (no issue) —</span>
+              <span class="dd-val" id="wosla-issue-display">— select SLA breach reason for this WO —</span>
               <svg class="dd-arrow" width="12" height="8" viewBox="0 0 12 8" fill="none"><path fill="#57606a" d="M1 1l5 5 5-5"/></svg>
             </div>
             <div class="custom-dd-list" id="wosla-issue-list" style="bottom:auto;top:calc(100% + 4px);box-shadow:0 4px 24px rgba(0,0,0,0.12);">
-              <div class="dd-option dd-default active" data-value="WO Closed">— WO Closed (no issue) —</div>
+              <div class="dd-option dd-default active" data-value="">— select SLA breach reason for this WO —</div>
               <div class="dd-group-label">Part Problem</div>
               <div class="dd-option part-problem" data-value="Wrong Part Received">Wrong Part Received</div>
               <div class="dd-option part-problem" data-value="DOA">DOA — Part Dead on Arrival</div>
@@ -1513,7 +1556,100 @@
         <button class="btn btn-ghost" data-close="modal-wo-sla">Cancel</button>
         <button class="btn btn-amber" id="btn-confirm-wo-sla">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          Submit Follow-Up
+          Submit Reason
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Escalate WO Modal ─────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-escalate-wo">
+  <div class="modal narrow">
+
+    <!-- Header -->
+    <div class="modal-header" style="padding:14px 20px 12px;border-bottom:1px solid #e5e7eb;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="modal-hdr-icon" style="background:#f3f4f6;border-color:#d1d5db;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.7A2 2 0 012 .94h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L6.09 8.91A16 16 0 0015.1 17.9l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>
+        </div>
+        <div>
+          <div class="modal-title" style="font-weight:700">Escalate WO</div>
+          <div class="modal-subtitle" id="esc-wo-subtitle">In-Repair — WO Escalation</div>
+        </div>
+      </div>
+      <button class="modal-close" data-close="modal-escalate-wo">×</button>
+    </div>
+
+    <div class="modal-body">
+
+      <!-- WO context strip -->
+      <div class="wo-strip">
+        <div class="wo-strip-top">
+          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8c959f">WO#</span>
+          <span class="wo-strip-num" id="escwo-wo-num">—</span>
+          <span id="escwo-wo-status-badge"></span>
+        </div>
+        <div class="wo-strip-meta-row">
+          <span class="wo-strip-meta wo-type-pill" id="escwo-wo-type"></span>
+          <span class="wo-strip-meta" id="escwo-asp">—</span>
+        </div>
+      </div>
+
+      <!-- Repair timeline (same component as WO SLA modal) -->
+      <div id="escwo-timeline" class="wosla-tl-wrap" style="display:none"></div>
+
+      <!-- Issue section -->
+      <div class="mf-section conditional">
+        <div class="mf-section-label">
+          <span class="sec-num" style="background:#374151">1</span>
+          Issue <span class="req" style="color:#dc2626;margin-left:2px">*</span>
+          <span style="font-weight:600;text-transform:none;letter-spacing:0;font-size:10px;color:#1f2328">— Escalate only if WO have Issue/Problem</span>
+        </div>
+
+        <div class="mf-group">
+          <span class="mf-label">Issue / Status</span>
+          <div class="custom-dd" id="escwo-issue-dd">
+            <div class="custom-dd-trigger" tabindex="0" id="escwo-issue-trigger">
+              <span class="dd-val" id="escwo-issue-display">select escalation category to proceed</span>
+              <svg class="dd-arrow" width="12" height="8" viewBox="0 0 12 8" fill="none"><path fill="#57606a" d="M1 1l5 5 5-5"/></svg>
+            </div>
+            <div class="custom-dd-list" id="escwo-issue-list" style="bottom:auto;top:calc(100% + 4px);box-shadow:0 4px 24px rgba(0,0,0,0.12);">
+              <div class="dd-option dd-default active" data-value="">select escalation category to proceed</div>
+              <div class="dd-group-label">Part Problem</div>
+              <div class="dd-option part-problem" data-value="Wrong Part Received">Wrong Part Received</div>
+              <div class="dd-option part-problem" data-value="DOA">DOA — Part Dead on Arrival</div>
+              <div class="dd-option part-problem" data-value="Incomplete Shipment">Incomplete Shipment (missing items)</div>
+              <div class="dd-option part-problem" data-value="Wrong Route">Wrong Route / Delivered to wrong ASP</div>
+              <div class="dd-group-label">Repair Issue</div>
+              <div class="dd-option repair-issue" data-value="Need Additional Part">Need Additional Part</div>
+              <div class="dd-option repair-issue" data-value="Technical Issue - Need Running Test">Technical Issue — Need Running Test</div>
+              <div class="dd-option repair-issue" data-value="Technical Issue - Need Escalation">Technical Issue — Need Escalation</div>
+              <div class="dd-group-label">Administrative</div>
+              <div class="dd-option administrative" data-value="ASP Issue - Late Repair">ASP Issue — Late Repair</div>
+              <div class="dd-option administrative" data-value="Machine at Customer">Machine Still at Customer</div>
+              <div class="dd-option administrative" data-value="WO Cancelled">WO Cancelled / Duplicate</div>
+              <div class="dd-option administrative" data-value="MSD Issue">MSD Issue — System not updated</div>
+            </div>
+          </div>
+          <input type="hidden" id="escwo-issue-status" value="" />
+        </div>
+
+        <div class="mf-group" style="margin-bottom:0">
+          <span class="mf-label">Notes <span class="opt">(optional)</span></span>
+          <textarea id="escwo-notes" placeholder="Describe the issue or reason for escalation…"></textarea>
+        </div>
+      </div>
+
+    </div><!-- /.modal-body -->
+
+    <div class="modal-footer">
+      <div class="modal-footer-hint"><strong>*</strong> required fields</div>
+      <div class="modal-footer-btns">
+        <button class="btn btn-ghost" data-close="modal-escalate-wo">Cancel</button>
+        <button class="btn" id="btn-go-escalate" style="background:#1f2328;color:#fff;border-color:#1f2328;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.7A2 2 0 012 .94h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L6.09 8.91A16 16 0 0015.1 17.9l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>
+          Go to Escalation Center
         </button>
       </div>
     </div>
@@ -1772,9 +1908,12 @@ function openDetail(woId) {
       const _dcRaw = latestOrderPart && latestOrderPart.dc_number != null
         ? String(latestOrderPart.dc_number).trim() : '';
       d.part_dc_filled = (_dcRaw !== '' && _dcRaw !== '0') ? 1 : 0;
-      /* SLA deadline (target col from Shipment file) and AWB for hero buttons */
-      d.part_eta = latestOrderPart ? (String(latestOrderPart.target || '').trim() || '') : '';
-      d.part_awb = latestOrderPart ? (String(latestOrderPart.awb    || '').trim() || '') : '';
+      /* SLA deadline (target col from Shipment file), AWB, and pickup date for hero buttons */
+      d.part_eta        = latestOrderPart ? (String(latestOrderPart.target || '').trim() || '') : '';
+      d.part_awb        = latestOrderPart ? (String(latestOrderPart.awb    || '').trim() || '') : '';
+      d.part_pickup_raw = latestOrderPart
+        ? (String(latestOrderPart.ship_pickup_time || '').trim() || String(latestOrderPart.shipment_date || '').trim())
+        : '';
       /* any non-cancelled ordered part line has return_flag = 'Y' */
       d.part_return_flag_y = activeParts.some(p => (p.return_flag || '').toUpperCase() === 'Y') ? 1 : 0;
       body.innerHTML =
@@ -1791,23 +1930,23 @@ function openDetail(woId) {
       body.querySelectorAll('.wo-link').forEach(b =>
         b.addEventListener('click', () => openDetail(b.dataset.wo)));
       body.querySelectorAll('[data-action="cci-recv"]').forEach(b =>
-        b.addEventListener('click', () => openRecv(b.dataset.wo, b.dataset.contact, b.dataset.eta, b.dataset.status, b.dataset.customer)));
+        b.addEventListener('click', () => openRecv(b.dataset.wo, b.dataset.woType, b.dataset.eta, b.dataset.pickup, b.dataset.pod, b.dataset.status, b.dataset.asp)));
       body.querySelectorAll('[data-action="cci-part-sla"]').forEach(b =>
-        b.addEventListener('click', () => openPartSla(b.dataset.wo, b.dataset.contact, b.dataset.eta, b.dataset.awb, b.dataset.status, b.dataset.customer, 'cci')));
+        b.addEventListener('click', () => openPartSla(b.dataset.wo, b.dataset.woType, b.dataset.eta, b.dataset.pickup, b.dataset.pod, b.dataset.awb, b.dataset.status, b.dataset.asp, 'cci')));
       body.querySelectorAll('[data-action="cci-wo-sla"]').forEach(b =>
-        b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.contact, b.dataset.status, 'cci')));
+        b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, 'cci', b.dataset.pod)));
       body.querySelectorAll('[data-action="cci-report-problem"]').forEach(b =>
-        b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.contact, b.dataset.status, 'cci')));
+        b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, 'cci', b.dataset.pod)));
       body.querySelectorAll('[data-action="onsite-reschedule"]').forEach(b =>
-        b.addEventListener('click', () => openReschedule(b.dataset.wo, b.dataset.contact, b.dataset.status)));
+        b.addEventListener('click', () => openReschedule(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, b.dataset.origOnsite, b.dataset.deferDate, b.dataset.actualOnsite, b.dataset.pod)));
       body.querySelectorAll('[data-action="onsite-part-sla"]').forEach(b =>
-        b.addEventListener('click', () => openPartSla(b.dataset.wo, b.dataset.contact, b.dataset.eta, b.dataset.awb, b.dataset.status, b.dataset.customer, 'onsite')));
+        b.addEventListener('click', () => openPartSla(b.dataset.wo, b.dataset.woType, b.dataset.eta, b.dataset.pickup, b.dataset.pod, b.dataset.awb, b.dataset.status, b.dataset.asp, 'onsite')));
       body.querySelectorAll('[data-action="onsite-wo-sla"]').forEach(b =>
-        b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.contact, b.dataset.status, 'onsite')));
+        b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, 'onsite', b.dataset.pod, b.dataset.deferDate)));
       body.querySelectorAll('[data-action="onsite-report-problem"]').forEach(b =>
-        b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.contact, b.dataset.status, 'onsite')));
+        b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, 'onsite', b.dataset.pod, b.dataset.deferDate)));
       body.querySelectorAll('[data-action="return-dc"]').forEach(b =>
-        b.addEventListener('click', () => openInputDc(b.dataset.wo, b.dataset.contact, b.dataset.status, b.dataset.customer)));
+        b.addEventListener('click', () => openInputDc(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp)));
     })
     .catch(() => { body.innerHTML = '<div style="padding:24px;color:#dc2626">Failed to load detail.</div>'; });
 }
@@ -1893,23 +2032,25 @@ function _cciHeroBtns(d) {
     return '';
   }
 
-  const wo         = esc(String(d.work_order_id));
-  const contact    = esc(d.contact_name || '');
-  const etaEsc     = esc(d.part_eta || '');   /* SLA deadline from Shipment file */
-  const stEsc      = esc(d.work_order_status || '');
-  const custEsc    = esc(d.customer || '');
+  const wo            = esc(String(d.work_order_id));
+  const woTypeEsc     = esc(d.work_order_type || '');
+  const etaEsc        = esc(d.part_eta || '');   /* SLA deadline from Shipment file */
+  const stEsc         = esc(d.work_order_status || '');
+  const aspEsc        = esc(d.customer || '');
+  const pickupEsc     = esc(d.part_pickup_raw || '');
+  const podEsc        = esc(d.part_pod_raw    || '');
   const partAwbFilled = !!(d.part_awb && String(d.part_awb).trim());
 
   const btns = [];
   if (state === 'confirm_receipt')
-    btns.push(`<button class="fu-badge fu-confirm fu-badge-btn" data-action="cci-recv" data-wo="${wo}" data-contact="${contact}" data-eta="${etaEsc}" data-status="${stEsc}" data-customer="${custEsc}">📬 Confirm Receipt</button>`);
+    btns.push(`<button class="fu-badge fu-confirm fu-badge-btn" data-action="cci-recv" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-eta="${etaEsc}" data-pickup="${pickupEsc}" data-pod="${podEsc}" data-status="${stEsc}" data-asp="${aspEsc}">📬 Confirm Receipt</button>`);
   if (state === 'part_sla')
-    btns.push(`<button class="fu-badge fu-part-sla fu-badge-btn" data-action="cci-part-sla" data-wo="${wo}" data-contact="${contact}" data-eta="${etaEsc}" data-awb="${esc(d.part_awb||'')}" data-status="${stEsc}" data-customer="${custEsc}">⚠️ Part SLA Overdue</button>`);
+    btns.push(`<button class="fu-badge fu-part-sla fu-badge-btn" data-action="cci-part-sla" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-eta="${etaEsc}" data-pickup="${pickupEsc}" data-pod="${podEsc}" data-awb="${esc(d.part_awb||'')}" data-status="${stEsc}" data-asp="${aspEsc}">⚠️ Part SLA Overdue</button>`);
   if (state === 'report_problem')
-    btns.push(`<button class="fu-badge fu-wo-sla fu-badge-btn" data-action="cci-wo-sla" data-wo="${wo}" data-contact="${contact}" data-status="${stEsc}">🔔 WO SLA Follow-Up</button>`);
+    btns.push(`<button class="fu-badge fu-wo-sla fu-badge-btn" data-action="cci-wo-sla" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-pod="${podEsc}" data-status="${stEsc}" data-asp="${aspEsc}">🔔 WO SLA Follow-Up</button>`);
   /* Part POD'd but AWB still blank — show receipt button regardless of current state */
   if (partPod && !isClosed && !partAwbFilled && state !== 'confirm_receipt')
-    btns.push(`<button class="fu-badge fu-confirm fu-badge-btn" data-action="cci-recv" data-wo="${wo}" data-contact="${contact}" data-eta="${etaEsc}" data-status="${stEsc}" data-customer="${custEsc}">📬 Confirm Receipt</button>`);
+    btns.push(`<button class="fu-badge fu-confirm fu-badge-btn" data-action="cci-recv" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-eta="${etaEsc}" data-pickup="${pickupEsc}" data-pod="${podEsc}" data-status="${stEsc}" data-asp="${aspEsc}">📬 Confirm Receipt</button>`);
 
   return btns.join('');
 }
@@ -1954,25 +2095,30 @@ function _onsiteHeroBtns(d) {
     return '';
   }
 
-  const wo         = esc(String(d.work_order_id));
-  const contact    = esc(d.contact_name || '');
-  const stEsc      = esc(d.work_order_status || '');
-  const etaEsc     = esc(d.part_eta || '');   /* SLA deadline from Shipment file */
-  const custEsc    = esc(d.customer || '');
+  const wo            = esc(String(d.work_order_id));
+  const woTypeEsc     = esc(d.work_order_type || '');
+  const stEsc         = esc(d.work_order_status || '');
+  const etaEsc        = esc(d.part_eta || '');   /* SLA deadline from Shipment file */
+  const aspEsc        = esc(d.customer || '');
+  const pickupEsc     = esc(d.part_pickup_raw || '');
+  const podEsc        = esc(d.part_pod_raw    || '');
+  const origOnsiteEsc = esc(d.original_committed_onsite_date || '');
+  const deferDateEsc  = esc(d.customer_defer_date || '');
+  const actOnsiteEsc  = esc(d.actual_committed_onsite_date || '');
   const partAwbFilled = !!(d.part_awb && String(d.part_awb).trim());
 
   const btns = [];
   if (state === 'wo_reschedule')
-    btns.push(`<button class="fu-badge fu-reschedule fu-badge-btn" data-action="onsite-reschedule" data-wo="${wo}" data-contact="${contact}" data-status="${stEsc}">📅 WO Reschedule</button>`);
+    btns.push(`<button class="fu-badge fu-reschedule fu-badge-btn" data-action="onsite-reschedule" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-status="${stEsc}" data-asp="${aspEsc}" data-orig-onsite="${origOnsiteEsc}" data-defer-date="${deferDateEsc}" data-actual-onsite="${actOnsiteEsc}" data-pod="${podEsc}">📅 WO Reschedule</button>`);
   if (state === 'part_sla')
-    btns.push(`<button class="fu-badge fu-part-sla fu-badge-btn" data-action="onsite-part-sla" data-wo="${wo}" data-contact="${contact}" data-eta="${etaEsc}" data-awb="${esc(d.part_awb||'')}" data-status="${stEsc}" data-customer="${custEsc}">⚠️ Part SLA Overdue</button>`);
+    btns.push(`<button class="fu-badge fu-part-sla fu-badge-btn" data-action="onsite-part-sla" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-eta="${etaEsc}" data-pickup="${pickupEsc}" data-pod="${podEsc}" data-awb="${esc(d.part_awb||'')}" data-status="${stEsc}" data-asp="${aspEsc}">⚠️ Part SLA Overdue</button>`);
   if (state === 'wo_sla' || state === 'report_problem')
-    btns.push(`<button class="fu-badge fu-reschedule fu-badge-btn" data-action="onsite-reschedule" data-wo="${wo}" data-contact="${contact}" data-status="${stEsc}">📅 WO Reschedule</button>`);
+    btns.push(`<button class="fu-badge fu-reschedule fu-badge-btn" data-action="onsite-reschedule" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-status="${stEsc}" data-asp="${aspEsc}" data-orig-onsite="${origOnsiteEsc}" data-defer-date="${deferDateEsc}" data-actual-onsite="${actOnsiteEsc}" data-pod="${podEsc}">📅 WO Reschedule</button>`);
   if (state === 'report_problem')
-    btns.push(`<button class="fu-badge fu-wo-sla fu-badge-btn" data-action="onsite-wo-sla" data-wo="${wo}" data-contact="${contact}" data-status="${stEsc}">🔔 WO SLA Follow-Up</button>`);
+    btns.push(`<button class="fu-badge fu-wo-sla fu-badge-btn" data-action="onsite-wo-sla" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-pod="${podEsc}" data-defer-date="${deferDateEsc}" data-status="${stEsc}" data-asp="${aspEsc}">🔔 WO SLA Follow-Up</button>`);
   /* Part POD'd but AWB still blank — show receipt button alongside other buttons */
   if (partPod && !isClosed && !partAwbFilled)
-    btns.push(`<button class="fu-badge fu-confirm fu-badge-btn" data-action="cci-recv" data-wo="${wo}" data-contact="${contact}" data-eta="${etaEsc}" data-status="${stEsc}" data-customer="${custEsc}">📬 Confirm Receipt</button>`);
+    btns.push(`<button class="fu-badge fu-confirm fu-badge-btn" data-action="cci-recv" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-eta="${etaEsc}" data-pickup="${pickupEsc}" data-pod="${podEsc}" data-status="${stEsc}" data-asp="${aspEsc}">📬 Confirm Receipt</button>`);
 
   return btns.join('');
 }
@@ -1986,11 +2132,11 @@ function _returnHeroBtns(d) {
   if (!d.part_has_order)    return '';
   if (d.part_dc_filled)     return '';
   if (!d.part_return_flag_y) return '';
-  const wo       = esc(String(d.work_order_id));
-  const contact  = esc(d.contact_name || '');
-  const status   = esc(d.work_order_status || '');
-  const customer = esc(d.customer || '');
-  return `<button class="fu-badge fu-input-dc fu-badge-btn" data-action="return-dc" data-wo="${wo}" data-contact="${contact}" data-status="${status}" data-customer="${customer}">🔢 Input DC Number</button>`;
+  const wo        = esc(String(d.work_order_id));
+  const woTypeEsc = esc(d.work_order_type || '');
+  const status    = esc(d.work_order_status || '');
+  const aspEsc    = esc(d.customer || '');
+  return `<button class="fu-badge fu-input-dc fu-badge-btn" data-action="return-dc" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-status="${status}" data-asp="${aspEsc}">🔢 Input DC Number</button>`;
 }
 
 function renderHero(d) {
@@ -2115,16 +2261,16 @@ function renderTimeline(d, parts) {
   /* Define timeline nodes in order */
   const nd = v => (isSentinel(v) ? null : v);
   const nodes = [
-    { label: 'Case\nCreated',        date: nd(d.created_on) },
-    { label: 'Released',             date: nd(d.release_date) },
-    { label: 'Part Order',           date: nd(partOrderDate) },
-    { label: 'Part Pickup',          date: nd(partPickupDate) },
-    { label: 'Part Received\n(POD)', date: nd(partPodDate) },
-    { label: 'Orig. Onsite',         date: nd(d.original_committed_onsite_date) },
-    { label: 'Defer Date',           date: nd(d.customer_defer_date), optional: true },
-    { label: 'Actual\nOnsite',       date: nd(d.actual_committed_onsite_date) },
-    { label: 'Completion',           date: nd(d.completion_date) },
-    { label: 'Closed',               date: nd(d.closing_date) },
+    { label: 'Case\nCreated',        date: nd(d.created_on) },                                     // 0
+    { label: 'Released',             date: nd(d.release_date) },                                    // 1
+    { label: 'Part Order',           date: nd(partOrderDate) },                                     // 2
+    { label: 'Part Pickup',          date: nd(partPickupDate) },                                    // 3
+    { label: 'Part Received\n(POD)', date: nd(partPodDate) },                                       // 4
+    { label: 'Orig. Onsite',         date: nd(d.original_committed_onsite_date) },                  // 5
+    { label: 'Actual\nOnsite',       date: nd(d.actual_committed_onsite_date) },                    // 6
+    { label: 'Defer Date',           date: nd(d.customer_defer_date), optional: true },             // 7
+    { label: 'Completion',           date: nd(d.completion_date) },                                 // 8
+    { label: 'Closed',               date: nd(d.closing_date) },                                    // 9
   ];
 
   /* Determine "progress" — the last node index that has a real date */
@@ -2136,17 +2282,17 @@ function renderTimeline(d, parts) {
     const ts      = hasDate ? new Date(String(n.date).replace(' ', 'T')).getTime() : null;
     const isPast  = ts && ts <= now;
     const isOverdue = !hasDate && i > 0 && i <= lastDoneIdx + 1 && !n.optional;
-    /* Closed WO: Orig. Onsite (5) and Actual Onsite (7) forced done only when they
-       have a date — if empty they stay grey (future). Defer Date (6): forced done
+    /* Closed WO: Orig. Onsite (5) and Actual Onsite (6) forced done only when they
+       have a date — if empty they stay grey (future). Defer Date (7): forced done
        if it has a date; forced grey if empty. */
-    const forceDone   = isWoClosed && ((hasDate && (i === 5 || i === 7)) || (i === 6 && hasDate));
-    const forceGrey   = isWoClosed && i === 6 && !hasDate;
-    /* Open WO: Orig. Onsite (5) and Actual Onsite (7) forced active (blue) when
+    const forceDone   = isWoClosed && ((hasDate && (i === 5 || i === 6)) || (i === 7 && hasDate));
+    const forceGrey   = isWoClosed && i === 7 && !hasDate;
+    /* Open WO: Orig. Onsite (5) and Actual Onsite (6) forced active (blue) when
        they have a date — the WO is not finished yet so they are not "done".
-       Defer Date (6) forced skipped (amber) when it has a date — it is a deferral,
+       Defer Date (7) forced skipped (amber) when it has a date — it is a deferral,
        not a completion event. */
-    const forceActive = !isWoClosed && hasDate && (i === 5 || i === 7);
-    const forceSkip   = !isWoClosed && hasDate && i === 6;
+    const forceActive = !isWoClosed && hasDate && (i === 5 || i === 6);
+    const forceSkip   = !isWoClosed && hasDate && i === 7;
 
     let state;
     if (forceDone)                   state = 'done';
@@ -2163,7 +2309,7 @@ function renderTimeline(d, parts) {
       ? `tl-connector ${(state === 'done' && i < lastDoneIdx) ? 'done' : ''}` : '';
 
     const dateStr  = fmtShort(n.date);
-    const dateCls  = (i === 6 && hasDate) ? 'active-text' : state === 'done' ? 'done-text' : state === 'active' ? 'active-text' : 'future-text';
+    const dateCls  = (i === 7 && hasDate) ? 'active-text' : state === 'done' ? 'done-text' : state === 'active' ? 'active-text' : 'future-text';
 
     /* SVG icon inside dot */
     let dotSvg = '';
@@ -2637,12 +2783,16 @@ document.getElementById('search-in-prepare').addEventListener('input', () => {
      2. WO type is Onsite            →  📅 Set Onsite Schedule
      3. Otherwise (CCI)              →  📬 Confirm Receipt */
 function inDeliveryFuBadge(r) {
-  const wo      = esc(r.work_order_id);
-  const contact = esc(r.contact_name    || '');
-  const eta     = esc(r.part_eta        || '');   /* SLA deadline = target col from Shipment file */
-  const awb     = esc(r.part_awb        || '');
-  const status  = esc(r.work_order_status || '');
-  const cust    = esc(r.customer         || '');
+  const wo            = esc(r.work_order_id);
+  const eta           = esc(r.part_eta        || '');   /* SLA deadline = target col from Shipment file */
+  const awb           = esc(r.part_awb        || '');
+  const status        = esc(r.work_order_status || '');
+  const asp           = esc(r.customer         || '');
+  const pickupEsc     = esc(r.ship_pickup_time || r.shipment_date    || '');
+  const podEsc        = esc(r.ship_pou_pod_time || r.part_delivery_date || '');
+  const origOnsiteEsc = esc(r.original_committed_onsite_date || '');
+  const deferDateEsc  = esc(r.customer_defer_date || '');
+  const actOnsiteEsc  = esc(r.actual_committed_onsite_date || '');
 
   /* Overdue = part_eta (target) is filled AND current date has passed it (target + 1 day grace) */
   const partEtaRaw  = (r.part_eta || '');
@@ -2650,14 +2800,14 @@ function inDeliveryFuBadge(r) {
   const _tomorrow   = new Date(); _tomorrow.setDate(_tomorrow.getDate() + 1);
   const tomorrow    = _tomorrow.toISOString().slice(0, 10);
   const overdue     = partEtaDate && partEtaDate < tomorrow;
-  const isOnsite   = (r.work_order_type || '').toLowerCase().includes('onsite');
-  const woType     = esc(isOnsite ? 'onsite' : 'cci');
+  const isOnsite    = (r.work_order_type || '').toLowerCase().includes('onsite');
+  const woType      = esc(r.work_order_type || (isOnsite ? 'Onsite' : 'CCI'));
 
   if (overdue)
-    return `<button class="fu-badge fu-part-sla fu-badge-btn" data-action="in-delivery-part-sla" data-wo="${wo}" data-contact="${contact}" data-eta="${eta}" data-awb="${awb}" data-status="${status}" data-customer="${cust}" data-wo-type="${woType}">⚠️ Part SLA Overdue</button>`;
+    return `<button class="fu-badge fu-part-sla fu-badge-btn" data-action="in-delivery-part-sla" data-wo="${wo}" data-wo-type="${woType}" data-eta="${eta}" data-pickup="${pickupEsc}" data-pod="${podEsc}" data-awb="${awb}" data-status="${status}" data-asp="${asp}">⚠️ Part SLA Overdue</button>`;
   if (isOnsite)
-    return `<button class="fu-badge fu-reschedule fu-badge-btn" data-action="in-delivery-onsite-recv" data-wo="${wo}" data-contact="${contact}" data-status="${status}">📅 Set Onsite Schedule</button>`;
-  return `<button class="fu-badge fu-confirm fu-badge-btn" data-action="in-delivery-recv" data-wo="${wo}" data-contact="${contact}" data-eta="${eta}" data-status="${status}" data-customer="${cust}">📬 Confirm Receipt</button>`;
+    return `<button class="fu-badge fu-reschedule fu-badge-btn" data-action="in-delivery-onsite-recv" data-wo="${wo}" data-wo-type="${woType}" data-status="${status}" data-asp="${asp}" data-orig-onsite="${origOnsiteEsc}" data-defer-date="${deferDateEsc}" data-actual-onsite="${actOnsiteEsc}" data-pod="${podEsc}">📅 Set Onsite Schedule</button>`;
+  return `<button class="fu-badge fu-confirm fu-badge-btn" data-action="in-delivery-recv" data-wo="${wo}" data-wo-type="${woType}" data-eta="${eta}" data-pickup="${pickupEsc}" data-pod="${podEsc}" data-status="${status}" data-asp="${asp}">📬 Confirm Receipt</button>`;
 }
 
 const inDeliveryTable = makeTabTable({
@@ -2694,11 +2844,11 @@ const inDeliveryTable = makeTabTable({
     tbody.querySelectorAll('.wo-link').forEach(b =>
       b.addEventListener('click', () => openDetail(b.dataset.wo)));
     tbody.querySelectorAll('[data-action="in-delivery-recv"]').forEach(b =>
-      b.addEventListener('click', () => openRecv(b.dataset.wo, b.dataset.contact, b.dataset.eta, b.dataset.status, b.dataset.customer)));
+      b.addEventListener('click', () => openRecv(b.dataset.wo, b.dataset.woType, b.dataset.eta, b.dataset.pickup, b.dataset.pod, b.dataset.status, b.dataset.asp)));
     tbody.querySelectorAll('[data-action="in-delivery-onsite-recv"]').forEach(b =>
-      b.addEventListener('click', () => openOnsiteRecv(b.dataset.wo, b.dataset.contact, b.dataset.status)));
+      b.addEventListener('click', () => openOnsiteRecv(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, b.dataset.origOnsite, b.dataset.deferDate, b.dataset.actualOnsite, b.dataset.pod)));
     tbody.querySelectorAll('[data-action="in-delivery-part-sla"]').forEach(b =>
-      b.addEventListener('click', () => openPartSla(b.dataset.wo, b.dataset.contact, b.dataset.eta, b.dataset.awb, b.dataset.status, b.dataset.customer, b.dataset.woType || 'cci')));
+      b.addEventListener('click', () => openPartSla(b.dataset.wo, b.dataset.woType, b.dataset.eta, b.dataset.pickup, b.dataset.pod, b.dataset.awb, b.dataset.status, b.dataset.asp, b.dataset.woType || 'cci')));
   },
 });
 
@@ -2723,10 +2873,15 @@ const inRepairTable = makeTabTable({
     { key: '_followup_state',   render: r => {
       const isOnsite = (r.work_order_type || '').toLowerCase().includes('onsite');
       if (!isOnsite) return '<span style="color:#8c959f;font-style:italic">—</span>';
-      const wo      = esc(r.work_order_id);
-      const contact = esc(r.contact_name || '');
-      const status  = esc(r.work_order_status || '');
-      return `<button class="fu-badge fu-reschedule fu-badge-btn" data-action="onsite-reschedule" data-wo="${wo}" data-contact="${contact}" data-status="${status}">📅 WO Reschedule</button>`;
+      const wo            = esc(r.work_order_id);
+      const woType        = esc(r.work_order_type || '');
+      const status        = esc(r.work_order_status || '');
+      const asp           = esc(r.customer || '');
+      const origOnsiteEsc = esc(r.original_committed_onsite_date || '');
+      const deferDateEsc  = esc(r.customer_defer_date || '');
+      const actOnsiteEsc  = esc(r.actual_committed_onsite_date || '');
+      const podEsc        = esc(r.ship_pou_pod_time || r.part_delivery_date || '');
+      return `<button class="fu-badge fu-reschedule fu-badge-btn" data-action="onsite-reschedule" data-wo="${wo}" data-wo-type="${woType}" data-status="${status}" data-asp="${asp}" data-orig-onsite="${origOnsiteEsc}" data-defer-date="${deferDateEsc}" data-actual-onsite="${actOnsiteEsc}" data-pod="${podEsc}">📅 WO Reschedule</button>`;
     }},
     { key: '_sla_breach',       render: r => {
       /* Only fire when WO is still open (no close/completion date) */
@@ -2740,11 +2895,17 @@ const inRepairTable = makeTabTable({
       /* Threshold: Onsite → 4 days (96 h), Carry-In → 1 day (24 h) */
       const type = (r.work_order_type || '').toLowerCase();
       const thresholdH = type.includes('onsite') ? 96 : 24;
-      if (elapsedH < thresholdH) return '<span style="color:#8c959f;font-style:italic">—</span>';
-      const wo      = esc(r.work_order_id);
-      const contact = esc(r.contact_name || '');
-      const status  = esc(r.work_order_status || '');
-      return `<button class="fu-badge fu-wo-sla fu-badge-btn" data-action="in-repair-wo-sla" data-wo="${wo}" data-contact="${contact}" data-status="${status}">🔔 WO SLA Follow-Up</button>`;
+      const wo        = esc(r.work_order_id);
+      const woType    = esc(r.work_order_type || '');
+      const status    = esc(r.work_order_status || '');
+      const asp       = esc(r.customer || '');
+      const pod       = esc(podRaw);
+      const deferDate = esc(r.customer_defer_date || '');
+      /* Within SLA → show Escalate WO button */
+      if (elapsedH < thresholdH)
+        return `<button class="fu-badge fu-escalate fu-badge-btn" data-action="in-repair-escalate" data-wo="${wo}" data-wo-type="${woType}" data-pod="${pod}" data-defer-date="${deferDate}" data-status="${status}" data-asp="${asp}">📞 Escalate WO</button>`;
+      /* SLA breached → show WO SLA Follow-Up button */
+      return `<button class="fu-badge fu-wo-sla fu-badge-btn" data-action="in-repair-wo-sla" data-wo="${wo}" data-wo-type="${woType}" data-pod="${pod}" data-defer-date="${deferDate}" data-status="${status}" data-asp="${asp}">🔔 WO SLA Follow-Up</button>`;
     }},
     { key: 'work_order_type',   render: r => esc(r.work_order_type||'—') },
     { key: 'case_desc',         render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
@@ -2764,9 +2925,11 @@ const inRepairTable = makeTabTable({
     tbody.querySelectorAll('.wo-link').forEach(b =>
       b.addEventListener('click', () => openDetail(b.dataset.wo)));
     tbody.querySelectorAll('[data-action="onsite-reschedule"]').forEach(b =>
-      b.addEventListener('click', () => openReschedule(b.dataset.wo, b.dataset.contact, b.dataset.status)));
+      b.addEventListener('click', () => openReschedule(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, b.dataset.origOnsite, b.dataset.deferDate, b.dataset.actualOnsite, b.dataset.pod)));
     tbody.querySelectorAll('[data-action="in-repair-wo-sla"]').forEach(b =>
-      b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.contact, b.dataset.status, 'in-repair')));
+      b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, 'in-repair', b.dataset.pod, b.dataset.deferDate)));
+    tbody.querySelectorAll('[data-action="in-repair-escalate"]').forEach(b =>
+      b.addEventListener('click', () => openEscalateWo(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, b.dataset.pod, b.dataset.deferDate)));
   },
 });
 
@@ -2788,7 +2951,7 @@ const returnPartTable = makeTabTable({
   colsFn: () => [
     { key: 'created_on',                  render: r => fmt(r.created_on) },
     { key: 'work_order_id',               render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
-    { key: 'followup_state',              render: r => r.part_return_flag_y ? `<button class="fu-badge fu-input-dc fu-badge-btn" data-action="return-dc" data-wo="${esc(r.work_order_id)}" data-contact="${esc(r.contact_name||'')}" data-customer="${esc(r.customer||'')}">🔢 Input DC Number</button>` : '' },
+    { key: 'followup_state',              render: r => r.part_return_flag_y ? `<button class="fu-badge fu-input-dc fu-badge-btn" data-action="return-dc" data-wo="${esc(r.work_order_id)}" data-wo-type="${esc(r.work_order_type||'')}" data-asp="${esc(r.customer||'')}">🔢 Input DC Number</button>` : '' },
     { key: 'work_order_type',             render: r => esc(r.work_order_type||'—') },
     { key: 'case_desc',                   render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
     { key: 'work_order_status',           render: r => statusBadge(r.work_order_status) },
@@ -2806,7 +2969,7 @@ const returnPartTable = makeTabTable({
     tbody.querySelectorAll('.wo-link').forEach(b =>
       b.addEventListener('click', () => openDetail(b.dataset.wo)));
     tbody.querySelectorAll('[data-action="return-dc"]').forEach(b =>
-      b.addEventListener('click', () => openInputDc(b.dataset.wo, b.dataset.contact, '', b.dataset.customer)));
+      b.addEventListener('click', () => openInputDc(b.dataset.wo, b.dataset.woType, '', b.dataset.asp)));
   },
 });
 
@@ -2930,24 +3093,29 @@ function initCustomDd(ddId, triggerId, listId, displayId, hiddenId) {
       opt.classList.add('active');
       const val = opt.dataset.value;
       display.textContent = opt.textContent.trim();
-      display.classList.toggle('has-selection', val !== 'WO Closed');
+      display.classList.toggle('has-selection', val !== '');
       hidden.value = val;
       closeDd();
     });
   });
 
+  const _defaultOpt  = list.querySelector('.dd-default');
+  const _defaultText = _defaultOpt ? _defaultOpt.textContent.trim() : '';
+  const _defaultVal  = _defaultOpt ? (_defaultOpt.dataset.value || '') : '';
+
   return {
     reset() {
       list.querySelectorAll('.dd-option').forEach(o => o.classList.remove('active'));
-      list.querySelector('.dd-default').classList.add('active');
-      display.textContent = '— WO Closed (no issue) —';
+      if (_defaultOpt) _defaultOpt.classList.add('active');
+      display.textContent = _defaultText;
       display.classList.remove('has-selection');
-      hidden.value = 'WO Closed';
+      hidden.value = _defaultVal;
     }
   };
 }
 
-const woslaIssueDd = initCustomDd('wosla-issue-dd', 'wosla-issue-trigger', 'wosla-issue-list', 'wosla-issue-display', 'wosla-issue-status');
+const woslaIssueDd  = initCustomDd('wosla-issue-dd',  'wosla-issue-trigger',  'wosla-issue-list',  'wosla-issue-display',  'wosla-issue-status');
+const escwoIssueDd  = initCustomDd('escwo-issue-dd',  'escwo-issue-trigger',  'escwo-issue-list',  'escwo-issue-display',  'escwo-issue-status');
 
 /* Part Received modal */
 let activeRecvWo   = null;
@@ -3024,10 +3192,11 @@ function _renderAwbWoList(rows, primaryWoId) {
 /* ── Input DC Number modal ── */
 let activeIdcWo = null;
 
-function openInputDc(woId, contact, woStatus, aspName) {
+function openInputDc(woId, woType, woStatus, aspName) {
   activeIdcWo = woId;
   document.getElementById('idc-wo-num').textContent        = woId;
-  document.getElementById('idc-contact').textContent       = aspName || contact || '—';
+  document.getElementById('idc-wo-type').textContent       = woType  || '';
+  document.getElementById('idc-asp').textContent           = aspName || '—';
   document.getElementById('idc-wo-status-badge').innerHTML = woStatus ? statusBadge(woStatus) : '';
   document.getElementById('idc-number').value              = '';
 
@@ -3245,17 +3414,30 @@ function _onOrEvidenceChange() {
 document.getElementById('or-evidence-file').addEventListener('change', _onOrEvidenceChange);
 document.getElementById('or-evidence-remove').addEventListener('click', _clearOrEvidence);
 
-function openOnsiteRecv(woId, contact, woStatus) {
+function openOnsiteRecv(woId, woType, woStatus, aspName, origOnsite, deferDate, actualOnsite, podDate) {
   activeOnsiteRecvWo      = woId;
-  activeOnsiteRecvContact = contact  || '';
+  activeOnsiteRecvContact = '';
   activeOnsiteRecvStatus  = woStatus || '';
   document.getElementById('onsite-recv-wo-num').textContent        = woId;
-  document.getElementById('onsite-recv-contact').textContent       = contact || '—';
+  document.getElementById('onsite-recv-wo-type').textContent       = woType  || '';
+  document.getElementById('onsite-recv-asp').textContent           = aspName || '—';
   document.getElementById('onsite-recv-wo-status-badge').innerHTML = woStatus ? statusBadge(woStatus) : '';
   document.getElementById('onsite-recv-datetime').value            = '';
   document.getElementById('or-rs-date').value                      = '';
   orByDd.reset();
   _clearOrEvidence();
+
+  /* Show onsite timeline (always shown for onsite type modals) */
+  const tlDiv   = document.getElementById('or-onsite-timeline');
+  const trackEl = document.getElementById('or-onsite-tl-track');
+  if (podDate || origOnsite || deferDate || actualOnsite) {
+    renderOnsiteTimeline(trackEl, podDate, origOnsite, actualOnsite, deferDate);
+    tlDiv.style.display = '';
+  } else {
+    tlDiv.style.display = 'none';
+    trackEl.innerHTML   = '';
+  }
+
   openModal('modal-onsite-recv');
 }
 
@@ -3315,14 +3497,72 @@ function _renderSoidDetail(part) {
   el.style.display = 'flex';
 }
 
-function openRecv(woId, contact, eta, woStatus, aspName) {
+/* ── Part Received mini-timeline: Part Pickup → ETA → Part Received (POD) ── */
+function renderRecvTimeline(trackEl, pickupDate, etaDate, podDate) {
+  if (!trackEl) return;
+  const now = Date.now();
+  const nodes = [
+    { label: 'Part Pickup',           val: pickupDate },
+    { label: 'ETA\n(Target)',         val: etaDate,   isEta: true },
+    { label: 'Part Received\n(POD)',  val: podDate },
+  ];
+  const podFilled = !!(podDate && !isSentinel(podDate));
+  trackEl.innerHTML = nodes.map((n, i) => {
+    const hasDate = !!(n.val && !isSentinel(n.val));
+    const ts      = hasDate ? new Date(String(n.val).replace(' ', 'T')).getTime() : null;
+    const isPast  = ts && ts <= now;
+    let state;
+    if (n.isEta) {
+      /* ETA node: overdue (red) when date has passed and POD not yet filled;
+         done (green) when POD is already filled (delivery confirmed);
+         active (blue) when date is set but still in the future;
+         future (grey) when no date set. */
+      if (!hasDate)       state = 'future';
+      else if (podFilled) state = 'done';
+      else                state = isPast ? 'overdue' : 'active';
+    } else {
+      state = hasDate ? (isPast ? 'done' : 'active') : 'future';
+    }
+    let dotSvg;
+    if (state === 'done')
+      dotSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+    else if (state === 'active')
+      dotSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/></svg>`;
+    else if (state === 'overdue')
+      dotSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+    else
+      dotSvg = `<div class="tl-dot-inner"></div>`;
+    const dateCls  = state === 'done' ? 'done-text' : state === 'active' ? 'active-text' : state === 'overdue' ? 'overdue-text' : 'future-text';
+    const dateStr  = fmtShort(n.val);
+    const connector = i < nodes.length - 1
+      ? `<div class="tl-connector${state === 'done' ? ' done' : ''}"></div>` : '';
+    return `<div class="tl-node">
+        <div class="tl-dot-wrap ${state}">${dotSvg}</div>
+        <div class="tl-label">${n.label.replace(/\n/g, '<br>')}</div>
+        <div class="tl-date ${dateCls}">${dateStr ? dateStr.replace(/\n/g, '<br>') : '<span style="color:#d1d5db">—</span>'}</div>
+      </div>${connector}`;
+  }).join('');
+}
+
+function openRecv(woId, woType, eta, pickupDate, podDate, woStatus, aspName) {
   activeRecvWo = woId;
 
   /* Reset strip */
-  document.getElementById('recv-wo-num').textContent    = woId;
-  document.getElementById('recv-contact').textContent   = contact || '—';
-  document.getElementById('recv-eta').textContent       = fmt(eta);
+  document.getElementById('recv-wo-num').textContent        = woId;
+  document.getElementById('recv-wo-type').textContent       = woType  || '';
+  document.getElementById('recv-asp').textContent           = aspName || '—';
   document.getElementById('recv-wo-status-badge').innerHTML = woStatus ? statusBadge(woStatus) : '';
+
+  /* Part shipment mini-timeline */
+  const tlDiv   = document.getElementById('recv-part-timeline');
+  const trackEl = document.getElementById('recv-part-tl-track');
+  if (pickupDate || eta || podDate) {
+    renderRecvTimeline(trackEl, pickupDate, eta, podDate);
+    tlDiv.style.display = '';
+  } else {
+    tlDiv.style.display = 'none';
+    trackEl.innerHTML   = '';
+  }
 
   /* Reset form fields */
   document.getElementById('recv-datetime').value        = '';
@@ -3572,34 +3812,180 @@ document.getElementById('btn-confirm-received').addEventListener('click', () => 
 
 /* WO SLA Follow-Up modal (shared by CCI & Onsite) */
 let activeWoSlaWo = null;
-function openWoSla(woId, contact, woStatus, source) {
+
+/* ── helper: format a Date → "DD Mon\nHH:MM" ── */
+function _woslafmtDate(d) {
+  const day  = d.getDate().toString().padStart(2, '0');
+  const mon  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
+  const hh   = d.getHours().toString().padStart(2, '0');
+  const mm   = d.getMinutes().toString().padStart(2, '0');
+  return `${day} ${mon}\n${hh}:${mm}`;
+}
+
+/* ── SVG dot icons ── */
+const _WOSLA_ICON_CHECK  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+const _WOSLA_ICON_DOT_Y  = `<svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.5" fill="#ca8a04"/></svg>`;
+const _WOSLA_ICON_DOT_O  = `<svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.5" fill="#ea580c"/></svg>`;
+const _WOSLA_ICON_BANG   = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+
+function _renderWoSlaTimeline(podRaw, woType, deferRaw, tlId) {
+  const tl = document.getElementById(tlId || 'wosla-timeline');
+  if (!podRaw) { tl.style.display = 'none'; return; }
+
+  const podMs = new Date(String(podRaw).replace(' ', 'T')).getTime();
+  if (isNaN(podMs)) { tl.style.display = 'none'; return; }
+
+  const isOnsite    = (woType || '').toLowerCase().includes('onsite');
+  const thresholdH  = isOnsite ? 96 : 24;
+  const maxRepairMs = podMs + thresholdH * 3600000;
+  const nowMs       = Date.now();
+  const isOverdue   = nowMs >= maxRepairMs;
+
+  const podDate = new Date(podMs);
+  const maxDate = new Date(maxRepairMs);
+  const nowDate = new Date(nowMs);
+
+  /* Defer date — Onsite only, if provided and parseable */
+  const deferMs  = (isOnsite && deferRaw)
+    ? new Date(String(deferRaw).replace(' ', 'T')).getTime()
+    : NaN;
+  const hasDefer = isOnsite && !isNaN(deferMs);
+  const deferDate = hasDefer ? new Date(deferMs) : null;
+
+  /* ── Node helpers ── */
+  const _nodeGreen = (label, date) => `
+    <div class="wosla-tl-node">
+      <div class="wosla-tl-dot green">${_WOSLA_ICON_CHECK}</div>
+      <div class="wosla-tl-lbl">${label}</div>
+      <div class="wosla-tl-date green">${_woslafmtDate(date)}</div>
+    </div>`;
+
+  const _nodeYellow = (label, date) => `
+    <div class="wosla-tl-node">
+      <div class="wosla-tl-dot yellow">${_WOSLA_ICON_DOT_Y}</div>
+      <div class="wosla-tl-lbl">${label}</div>
+      <div class="wosla-tl-date yellow">${_woslafmtDate(date)}</div>
+    </div>`;
+
+  /* Now node — always grey */
+  const _WOSLA_ICON_NOW = `<svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.5" fill="#8c959f"/></svg>`;
+  const _nodeNow = () => `
+    <div class="wosla-tl-node">
+      <div class="wosla-tl-dot grey">${_WOSLA_ICON_NOW}</div>
+      <div class="wosla-tl-lbl">Now</div>
+      <div class="wosla-tl-date grey">${_woslafmtDate(nowDate)}</div>
+    </div>`;
+
+  /* Max Repair node — orange (within SLA) or red+! (overdue) */
+  const _nodeMax = () => `
+    <div class="wosla-tl-node">
+      <div class="wosla-tl-dot ${isOverdue ? 'red' : 'orange'}">${isOverdue ? _WOSLA_ICON_BANG : _WOSLA_ICON_DOT_O}</div>
+      <div class="wosla-tl-lbl">Max Repair<br>(${isOnsite ? '4 days' : '1 day'})</div>
+      <div class="wosla-tl-date ${isOverdue ? 'red' : 'orange'}">${_woslafmtDate(maxDate)}</div>
+    </div>`;
+
+  /* ── Connector helpers ── */
+  const _conn = cls => `<div class="wosla-tl-connector ${cls}"></div>`;
+
+  /* ── Build the node sequence ──────────────────────────────────────
+     Layout depends on isOnsite (has Defer) and isOverdue (Now position).
+
+     NOT overdue  (now < maxRepair):
+       CCI:    POD ── Now ── MaxRepair
+       Onsite: POD ── Now ── Defer ── MaxRepair
+
+     Overdue (now >= maxRepair):
+       CCI:    POD ── MaxRepair ── Now
+       Onsite: POD ── Defer ── MaxRepair ── Now
+  ── */
+  let nodes = '';
+
+  if (!isOverdue) {
+    /* Now is BEFORE Max Repair */
+    nodes += _nodeGreen('Received<br>(POD)', podDate);
+    nodes += _conn('done');
+    nodes += _nodeNow();
+    if (isOnsite && hasDefer) {
+      nodes += _conn('warn');
+      nodes += _nodeYellow('Defer Date', deferDate);
+    }
+    nodes += _conn('warn');
+    nodes += _nodeMax();
+  } else {
+    /* Now is AFTER Max Repair */
+    nodes += _nodeGreen('Received<br>(POD)', podDate);
+    if (isOnsite && hasDefer) {
+      nodes += _conn('done');
+      nodes += _nodeYellow('Defer Date', deferDate);
+    }
+    nodes += _conn('done');
+    nodes += _nodeMax();
+    nodes += _conn('over');
+    nodes += _nodeNow();
+  }
+
+  tl.style.display = '';
+  tl.innerHTML = `
+    <div class="wosla-tl-title">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#8c959f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+      Repair SLA Timeline
+    </div>
+    <div class="wosla-tl-track">${nodes}</div>`;
+}
+
+function openWoSla(woId, woType, woStatus, aspName, source, podRaw, deferRaw) {
   activeWoSlaWo = woId;
   document.getElementById('wosla-wo-num').textContent        = woId;
-  document.getElementById('wosla-contact').textContent       = contact || '—';
+  document.getElementById('wosla-wo-type').textContent       = woType  || '';
+  document.getElementById('wosla-asp').textContent           = aspName || '—';
   document.getElementById('wosla-wo-status-badge').innerHTML = woStatus ? statusBadge(woStatus) : '';
   document.getElementById('wo-sla-subtitle').textContent     = (source === 'onsite' ? 'Onsite' : source === 'in-repair' ? 'In-Repair' : 'CCI') + ' — WO SLA Follow-Up';
-  document.getElementById('wosla-closed-datetime').value     = '';
   document.getElementById('wosla-notes').value               = '';
   woslaIssueDd.reset();
+  _renderWoSlaTimeline(podRaw || '', woType || '', deferRaw || '', 'wosla-timeline');
   openModal('modal-wo-sla');
 }
 
 document.getElementById('btn-confirm-wo-sla').addEventListener('click', () => {
-  if (!document.getElementById('wosla-closed-datetime').value) {
-    toast('Please enter the Date & Time WO# Closed.', 'err'); return;
+  const issue = document.getElementById('wosla-issue-status').value;
+  if (!issue) {
+    toast('Please select an Issue / Status before submitting.', 'err'); return;
   }
   /* TODO: POST to backend once ready */
   toast(`WO ${activeWoSlaWo} — SLA follow-up submitted ✓`, 'ok');
   closeModal('modal-wo-sla');
 });
 
+/* ── Escalate WO modal ─────────────────────────────────────────────────── */
+function openEscalateWo(woId, woType, woStatus, aspName, podRaw, deferRaw) {
+  document.getElementById('escwo-wo-num').textContent        = woId;
+  document.getElementById('escwo-wo-type').textContent       = woType  || '';
+  document.getElementById('escwo-asp').textContent           = aspName || '—';
+  document.getElementById('escwo-wo-status-badge').innerHTML = woStatus ? statusBadge(woStatus) : '';
+  document.getElementById('esc-wo-subtitle').textContent     =
+    ((woType || '').toLowerCase().includes('onsite') ? 'Onsite' : 'CCI') + ' — WO Escalation';
+  document.getElementById('escwo-notes').value               = '';
+  escwoIssueDd.reset();
+  _renderWoSlaTimeline(podRaw || '', woType || '', deferRaw || '', 'escwo-timeline');
+  openModal('modal-escalate-wo');
+}
+
+document.getElementById('btn-go-escalate').addEventListener('click', () => {
+  if (!document.getElementById('escwo-issue-status').value) {
+    toast('Please select an escalation category before proceeding.', 'err');
+    return;
+  }
+  window.location.href = '/asp/escalation';
+});
+
 /* Part Return modal */
 let activeRetWo = null;
-function openReturn(woId, contact, onsite) {
+function openReturn(woId, woType, onsite, aspName) {
   activeRetWo = woId;
-  document.getElementById('ret-wo-num').textContent  = woId;
-  document.getElementById('ret-contact').textContent = contact || '—';
-  document.getElementById('ret-onsite').textContent  = fmt(onsite);
+  document.getElementById('ret-wo-num').textContent   = woId;
+  document.getElementById('ret-wo-type').textContent  = woType  || '—';
+  document.getElementById('ret-asp').textContent      = aspName || '—';
+  document.getElementById('ret-onsite').textContent   = fmt(onsite);
   document.getElementById('ret-dc').value            = '';
   document.getElementById('ret-date').value = '';
   document.getElementById('ret-issue').value         = '';
@@ -3629,17 +4015,33 @@ let activePslaWoStatus = '';
 let activePslaCustomer = '';
 let activePslaContact  = '';
 let activePslaSource   = '';
+let activePslaPickup   = '';
+let activePslaPod      = '';
 
-function openPartSla(woId, contact, eta, awb, woStatus, customer, source) {
+function openPartSla(woId, woType, eta, pickupDate, podDate, awb, woStatus, aspName, source) {
   activePslaWo       = woId;
-  activePslaEta      = eta      || '';
-  activePslaWoStatus = woStatus || '';
-  activePslaCustomer = customer || '';
-  activePslaContact  = contact  || '';
-  activePslaSource   = source   || '';
+  activePslaEta      = eta        || '';
+  activePslaWoStatus = woStatus   || '';
+  activePslaCustomer = aspName    || '';
+  activePslaContact  = '';
+  activePslaSource   = source     || '';
+  activePslaPickup   = pickupDate || '';
+  activePslaPod      = podDate    || '';
   document.getElementById('psla-wo-num').textContent        = woId;
-  document.getElementById('psla-contact').textContent       = contact || '—';
+  document.getElementById('psla-wo-type').textContent       = woType  || '';
+  document.getElementById('psla-asp').textContent           = aspName || '—';
   document.getElementById('psla-wo-status-badge').innerHTML = woStatus ? statusBadge(woStatus) : '';
+
+  /* Part shipment timeline */
+  const pslaTlDiv   = document.getElementById('psla-part-timeline');
+  const pslaTlTrack = document.getElementById('psla-part-tl-track');
+  if (pickupDate || eta || podDate) {
+    renderRecvTimeline(pslaTlTrack, pickupDate, eta, podDate);
+    pslaTlDiv.style.display = '';
+  } else {
+    pslaTlDiv.style.display = 'none';
+    pslaTlTrack.innerHTML   = '';
+  }
   document.getElementById('psla-new-eta').value    = '';
   document.getElementById('psla-arrived-date').value = '';
   pslaStatusDd.reset();
@@ -3779,7 +4181,7 @@ document.getElementById('btn-psla-confirm-receipt').addEventListener('click', ()
   } else {
     /* CCI — open the full Part Received confirmation form */
     closeModal('modal-part-sla');
-    openRecv(activePslaWo, activePslaContact, activePslaEta, activePslaWoStatus, activePslaCustomer);
+    openRecv(activePslaWo, '', activePslaEta, activePslaPickup, activePslaPod, activePslaWoStatus, activePslaCustomer);
   }
 });
 
@@ -3817,18 +4219,78 @@ document.getElementById('btn-psla-prompt-exit').addEventListener('click', () => 
 
 document.getElementById('btn-psla-prompt-reschedule').addEventListener('click', () => {
   closeModal('modal-part-sla');
-  openReschedule(activePslaWo, activePslaContact, activePslaWoStatus);
+  openReschedule(activePslaWo, activePslaSource, activePslaWoStatus, activePslaCustomer);
 });
 
+/* ── Onsite mini-timeline helper ──
+   Renders 4-node timeline: Received (POD) → Orig. Onsite → Actual Onsite → Defer Date
+   into a container element. Only shown when WO type contains 'onsite'. */
+function renderOnsiteTimeline(trackEl, podDate, origOnsite, actualOnsite, deferDate) {
+  if (!trackEl) return;
+  const nodes = [
+    { label: 'Received\n(POD)',  val: podDate                       },
+    { label: 'Orig. Onsite',    val: origOnsite,  isOnsite: true   },
+    { label: 'Actual\nOnsite',  val: actualOnsite, isOnsite: true  },
+    { label: 'Defer Date',      val: deferDate,   isDefer: true    },
+  ];
+  const now = Date.now();
+  trackEl.innerHTML = nodes.map((n, i) => {
+    const hasDate = !!(n.val && !isSentinel(n.val));
+    const ts      = hasDate ? new Date(String(n.val).replace(' ', 'T')).getTime() : null;
+    const isPast  = ts && ts <= now;
+    let state;
+    if (n.isDefer)         state = hasDate ? 'skipped' : 'future';
+    else if (n.isOnsite)   state = hasDate ? 'active'  : 'future';   /* Orig/Actual Onsite: always blue when set */
+    else if (hasDate)      state = isPast  ? 'done'    : 'active';
+    else                   state = 'future';
+
+    let dotSvg;
+    if (state === 'done')
+      dotSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+    else if (state === 'active')
+      dotSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/></svg>`;
+    else
+      dotSvg = `<div class="tl-dot-inner"></div>`;
+
+    const dateCls = state === 'done'    ? 'done-text'
+                  : state === 'active'  ? 'active-text'
+                  : state === 'skipped' ? 'active-text'
+                  : 'future-text';
+    const dateStr = fmtShort(n.val);
+
+    const connector = i < nodes.length - 1
+      ? `<div class="tl-connector${state === 'done' ? ' done' : ''}"></div>` : '';
+    return `<div class="tl-node">
+        <div class="tl-dot-wrap ${state}">${dotSvg}</div>
+        <div class="tl-label">${n.label.replace(/\n/g, '<br>')}</div>
+        <div class="tl-date ${dateCls}">${dateStr ? dateStr.replace(/\n/g, '<br>') : '<span style="color:#d1d5db">—</span>'}</div>
+      </div>${connector}`;
+  }).join('');
+}
+
 let activeRsWo = null;
-function openReschedule(woId, contact, status) {
+function openReschedule(woId, woType, status, aspName, origOnsite, deferDate, actualOnsite, podDate) {
   activeRsWo = woId;
-  document.getElementById('rs-wo-num').textContent           = woId;
-  document.getElementById('rs-contact').textContent          = contact || '—';
-  document.getElementById('rs-wo-status-badge').innerHTML    = status ? statusBadge(status) : '';
-  document.getElementById('rs-date').value                    = '';
+  document.getElementById('rs-wo-num').textContent        = woId;
+  document.getElementById('rs-wo-type').textContent       = woType  || '';
+  document.getElementById('rs-asp').textContent           = aspName || '—';
+  document.getElementById('rs-wo-status-badge').innerHTML = status ? statusBadge(status) : '';
+  document.getElementById('rs-date').value                = '';
   _clearRsEvidence();
   rsByDd.reset();
+
+  /* Show onsite timeline only for Onsite WO type */
+  const tlDiv   = document.getElementById('rs-onsite-timeline');
+  const trackEl = document.getElementById('rs-onsite-tl-track');
+  const isOnsite = (woType || '').toLowerCase().includes('onsite');
+  if (isOnsite && (podDate || origOnsite || deferDate || actualOnsite)) {
+    renderOnsiteTimeline(trackEl, podDate, origOnsite, actualOnsite, deferDate);
+    tlDiv.style.display = '';
+  } else {
+    tlDiv.style.display = 'none';
+    trackEl.innerHTML   = '';
+  }
+
   openModal('modal-reschedule');
 }
 
