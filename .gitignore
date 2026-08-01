@@ -30,3 +30,5 @@ Thumbs.db
 .env
 *.local
 nul
+# Upload metadata cache — runtime-generated, not for version control
+app/templates/admin/upload_meta/*.json

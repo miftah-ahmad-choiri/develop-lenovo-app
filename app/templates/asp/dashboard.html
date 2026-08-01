@@ -208,6 +208,16 @@
   /* Action modals (Part Received / Part Return / Reschedule) */
   .modal.narrow { max-width: 520px; }
   .modal.narrow .modal-body { padding: 0; }
+  /* SOID selector inside Part Received modal */
+  .recv-soid-select { width: 100%; padding: 9px 11px; border: 1px solid #d0d7de; border-radius: 7px; font-size: 13px; font-family: ui-monospace, monospace; color: #1f2328; background: #fff; box-sizing: border-box; }
+  .recv-soid-select:focus { outline: none; border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,.12); }
+  .recv-soid-detail { margin-top: 8px; padding: 8px 11px; background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 7px; font-size: 11px; color: #57606a; display: flex; flex-direction: column; gap: 3px; }
+  .recv-soid-detail .rsd-row { display: flex; align-items: baseline; gap: 8px; }
+  .recv-soid-detail .rsd-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #8c959f; white-space: nowrap; }
+  .recv-soid-detail .rsd-val { color: #1f2328; font-weight: 600; font-family: ui-monospace, monospace; font-size: 12px; }
+  .recv-soid-detail .rsd-desc { color: #57606a; font-weight: 400; font-family: inherit; }
+  .recv-soid-detail .rsd-awb  { color: #3b82d4; font-weight: 700; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 4px; padding: 1px 6px; }
+  .recv-soid-detail .rsd-noawb { color: #8c959f; font-style: italic; }
   .mf-group { margin-bottom: 14px; }
   .mf-group .mf-label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 5px; color: #374151; }
   .mf-group .mf-label .req { color: #dc2626; margin-left: 2px; }
@@ -994,6 +1004,21 @@
         </div>
       </div>
 
+      <!-- SOID selector — shown when WO has multiple active part lines -->
+      <div class="mf-section" id="recv-soid-section" style="display:none">
+        <div class="mf-section-label" style="margin-bottom:10px">
+          <span class="sec-num" style="background:#57606a">⊙</span>
+          Select Part Order (SOID)
+        </div>
+        <div class="mf-group" style="margin-bottom:0">
+          <span class="mf-label">Part Order <span class="req">*</span></span>
+          <select id="recv-soid-select" class="recv-soid-select">
+            <option value="">— select part order —</option>
+          </select>
+          <div class="recv-soid-detail" id="recv-soid-detail" style="display:none"></div>
+        </div>
+      </div>
+
       <!-- SECTION 1 — Receipt Details -->
       <div class="mf-section">
         <div class="mf-section-label">
@@ -1747,6 +1772,9 @@ function openDetail(woId) {
       const _dcRaw = latestOrderPart && latestOrderPart.dc_number != null
         ? String(latestOrderPart.dc_number).trim() : '';
       d.part_dc_filled = (_dcRaw !== '' && _dcRaw !== '0') ? 1 : 0;
+      /* SLA deadline (target col from Shipment file) and AWB for hero buttons */
+      d.part_eta = latestOrderPart ? (String(latestOrderPart.target || '').trim() || '') : '';
+      d.part_awb = latestOrderPart ? (String(latestOrderPart.awb    || '').trim() || '') : '';
       /* any non-cancelled ordered part line has return_flag = 'Y' */
       d.part_return_flag_y = activeParts.some(p => (p.return_flag || '').toUpperCase() === 'Y') ? 1 : 0;
       body.innerHTML =
@@ -1835,22 +1863,25 @@ function _cciHeroBtns(d) {
   const type = (d.work_order_type || '').toLowerCase();
   if (!type.includes('carry') && !type.includes('cci')) return '';
 
-  const eta         = (d.committed_delivery_date || '').slice(0, 10);
-  const today       = new Date().toISOString().slice(0, 10);
   const compDate    = d.completion_date || '';
   const closeDate   = d.closing_date   || '';
   const isClosed    = !!(compDate || closeDate);
-  // part_shipped / part_pod / part_has_order / part_dc_filled: injected onto d from parts array
-  // in openDetail(), or present directly when row came from the follow-up list API.
+  // part_shipped / part_pod / part_has_order / part_dc_filled / part_eta / part_awb:
+  // injected onto d from parts array in openDetail(), or present directly from the API.
   const partShipped  = !!(d.part_shipped);
   const partPod      = !!(d.part_pod);
   const partHasOrder = !!(d.part_has_order);
   const partDcFilled = !!(d.part_dc_filled);
+  /* Same overdue logic as inDeliveryFuBadge: part_eta filled + today >= part_eta */
+  const _cciEtaRaw  = (d.part_eta || '');
+  const _cciEtaDate = _cciEtaRaw && !isSentinel(_cciEtaRaw) ? _cciEtaRaw.slice(0, 10) : '';
+  const _cciTomorrow = (() => { const t = new Date(); t.setDate(t.getDate() + 1); return t.toISOString().slice(0, 10); })();
+  const partSlaOverdue = _cciEtaDate && _cciEtaDate < _cciTomorrow;
 
   let state;
   if (partShipped && !partPod) {
     // part shipped but NOT yet POD'd — prioritise over input_dc
-    state = (eta && eta < today) ? 'part_sla' : 'confirm_receipt';
+    state = partSlaOverdue ? 'part_sla' : 'confirm_receipt';
   } else if (partPod && !isClosed) {
     // part received and WO still open — check WO completion SLA (1 day = 24 h for Carry-In/CCI)
     const podRaw   = d.part_pod_raw || String(d.ship_pou_pod_time || d.part_delivery_date || '').trim();
@@ -1862,11 +1893,12 @@ function _cciHeroBtns(d) {
     return '';
   }
 
-  const wo      = esc(String(d.work_order_id));
-  const contact = esc(d.contact_name || '');
-  const etaEsc  = esc(d.committed_delivery_date || '');
-  const stEsc   = esc(d.work_order_status || '');
-  const custEsc = esc(d.customer || '');
+  const wo         = esc(String(d.work_order_id));
+  const contact    = esc(d.contact_name || '');
+  const etaEsc     = esc(d.part_eta || '');   /* SLA deadline from Shipment file */
+  const stEsc      = esc(d.work_order_status || '');
+  const custEsc    = esc(d.customer || '');
+  const partAwbFilled = !!(d.part_awb && String(d.part_awb).trim());
 
   const btns = [];
   if (state === 'confirm_receipt')
@@ -1875,6 +1907,9 @@ function _cciHeroBtns(d) {
     btns.push(`<button class="fu-badge fu-part-sla fu-badge-btn" data-action="cci-part-sla" data-wo="${wo}" data-contact="${contact}" data-eta="${etaEsc}" data-awb="${esc(d.part_awb||'')}" data-status="${stEsc}" data-customer="${custEsc}">⚠️ Part SLA Overdue</button>`);
   if (state === 'report_problem')
     btns.push(`<button class="fu-badge fu-wo-sla fu-badge-btn" data-action="cci-wo-sla" data-wo="${wo}" data-contact="${contact}" data-status="${stEsc}">🔔 WO SLA Follow-Up</button>`);
+  /* Part POD'd but AWB still blank — show receipt button regardless of current state */
+  if (partPod && !isClosed && !partAwbFilled && state !== 'confirm_receipt')
+    btns.push(`<button class="fu-badge fu-confirm fu-badge-btn" data-action="cci-recv" data-wo="${wo}" data-contact="${contact}" data-eta="${etaEsc}" data-status="${stEsc}" data-customer="${custEsc}">📬 Confirm Receipt</button>`);
 
   return btns.join('');
 }
@@ -1896,15 +1931,18 @@ function _onsiteHeroBtns(d) {
   const partPod      = !!(d.part_pod);
   const partDcFilled = !!(d.part_dc_filled);
 
-  const eta   = (d.committed_delivery_date || '').slice(0, 10);
-  const today = new Date().toISOString().slice(0, 10);
+  /* Same overdue logic as inDeliveryFuBadge: part_eta filled + today >= part_eta */
+  const _onsiteEtaRaw  = (d.part_eta || '');
+  const _onsiteEtaDate = _onsiteEtaRaw && !isSentinel(_onsiteEtaRaw) ? _onsiteEtaRaw.slice(0, 10) : '';
+  const _onsiteTomorrow = (() => { const t = new Date(); t.setDate(t.getDate() + 1); return t.toISOString().slice(0, 10); })();
+  const onsitePartSlaOverdue = _onsiteEtaDate && _onsiteEtaDate < _onsiteTomorrow;
 
   let state;
   if (partShipped && !partPod) {
     // Part shipped but NOT yet POD'd (regardless of WO open/closed):
     //   ETA already passed → part_sla; ETA not yet passed → wo_reschedule
     //   (mirrors _cciHeroBtns — isClosed is not a gate here)
-    state = (eta && eta < today) ? 'part_sla' : 'wo_reschedule';
+    state = onsitePartSlaOverdue ? 'part_sla' : 'wo_reschedule';
   } else if (partPod && !isClosed) {
     // part received (POD filled) and WO still open — check WO completion SLA (4 days = 96 h for Onsite)
     const podRaw   = d.part_pod_raw || String(d.ship_pou_pod_time || d.part_delivery_date || '').trim();
@@ -1916,20 +1954,25 @@ function _onsiteHeroBtns(d) {
     return '';
   }
 
-  const wo      = esc(String(d.work_order_id));
-  const contact = esc(d.contact_name || '');
-  const stEsc   = esc(d.work_order_status || '');
+  const wo         = esc(String(d.work_order_id));
+  const contact    = esc(d.contact_name || '');
+  const stEsc      = esc(d.work_order_status || '');
+  const etaEsc     = esc(d.part_eta || '');   /* SLA deadline from Shipment file */
+  const custEsc    = esc(d.customer || '');
+  const partAwbFilled = !!(d.part_awb && String(d.part_awb).trim());
 
-  const etaEsc = esc(d.committed_delivery_date || '');
   const btns = [];
   if (state === 'wo_reschedule')
     btns.push(`<button class="fu-badge fu-reschedule fu-badge-btn" data-action="onsite-reschedule" data-wo="${wo}" data-contact="${contact}" data-status="${stEsc}">📅 WO Reschedule</button>`);
   if (state === 'part_sla')
-    btns.push(`<button class="fu-badge fu-part-sla fu-badge-btn" data-action="onsite-part-sla" data-wo="${wo}" data-contact="${contact}" data-eta="${etaEsc}" data-awb="${esc(d.part_awb||'')}" data-status="${stEsc}" data-customer="${esc(d.customer||'')}">⚠️ Part SLA Overdue</button>`);
+    btns.push(`<button class="fu-badge fu-part-sla fu-badge-btn" data-action="onsite-part-sla" data-wo="${wo}" data-contact="${contact}" data-eta="${etaEsc}" data-awb="${esc(d.part_awb||'')}" data-status="${stEsc}" data-customer="${custEsc}">⚠️ Part SLA Overdue</button>`);
   if (state === 'wo_sla' || state === 'report_problem')
     btns.push(`<button class="fu-badge fu-reschedule fu-badge-btn" data-action="onsite-reschedule" data-wo="${wo}" data-contact="${contact}" data-status="${stEsc}">📅 WO Reschedule</button>`);
   if (state === 'report_problem')
     btns.push(`<button class="fu-badge fu-wo-sla fu-badge-btn" data-action="onsite-wo-sla" data-wo="${wo}" data-contact="${contact}" data-status="${stEsc}">🔔 WO SLA Follow-Up</button>`);
+  /* Part POD'd but AWB still blank — show receipt button alongside other buttons */
+  if (partPod && !isClosed && !partAwbFilled)
+    btns.push(`<button class="fu-badge fu-confirm fu-badge-btn" data-action="cci-recv" data-wo="${wo}" data-contact="${contact}" data-eta="${etaEsc}" data-status="${stEsc}" data-customer="${custEsc}">📬 Confirm Receipt</button>`);
 
   return btns.join('');
 }
@@ -2587,22 +2630,28 @@ document.getElementById('search-in-prepare').addEventListener('input', () => {
    TAB: In-Delivery Follow-Up
 ═══════════════════════════════════════════════════════════════ */
 /* Follow-Up State badge for In-Delivery rows.
-   Every row by definition has part shipped but not POD'd, so the only
-   two possible states are confirm_receipt (ETA not yet passed) and
-   part_sla (ETA already passed). */
+   Every row by definition has part shipped but not POD'd.
+   Decision order:
+     1. part_eta (target col / SLA deadline from Shipment file) is filled
+        AND current date > part_eta  →  ⚠️ Part SLA Overdue
+     2. WO type is Onsite            →  📅 Set Onsite Schedule
+     3. Otherwise (CCI)              →  📬 Confirm Receipt */
 function inDeliveryFuBadge(r) {
   const wo      = esc(r.work_order_id);
   const contact = esc(r.contact_name    || '');
-  const eta     = esc(r.committed_delivery_date || '');
+  const eta     = esc(r.part_eta        || '');   /* SLA deadline = target col from Shipment file */
   const awb     = esc(r.part_awb        || '');
   const status  = esc(r.work_order_status || '');
   const cust    = esc(r.customer         || '');
 
-  const etaDate = (r.committed_delivery_date || '').slice(0, 10);
-  const today   = new Date().toISOString().slice(0, 10);
-  const overdue = etaDate && etaDate < today;
-  const isOnsite = (r.work_order_type || '').toLowerCase().includes('onsite');
-  const woType   = esc(isOnsite ? 'onsite' : 'cci');
+  /* Overdue = part_eta (target) is filled AND current date has passed it (target + 1 day grace) */
+  const partEtaRaw  = (r.part_eta || '');
+  const partEtaDate = partEtaRaw && !isSentinel(partEtaRaw) ? partEtaRaw.slice(0, 10) : '';
+  const _tomorrow   = new Date(); _tomorrow.setDate(_tomorrow.getDate() + 1);
+  const tomorrow    = _tomorrow.toISOString().slice(0, 10);
+  const overdue     = partEtaDate && partEtaDate < tomorrow;
+  const isOnsite   = (r.work_order_type || '').toLowerCase().includes('onsite');
+  const woType     = esc(isOnsite ? 'onsite' : 'cci');
 
   if (overdue)
     return `<button class="fu-badge fu-part-sla fu-badge-btn" data-action="in-delivery-part-sla" data-wo="${wo}" data-contact="${contact}" data-eta="${eta}" data-awb="${awb}" data-status="${status}" data-customer="${cust}" data-wo-type="${woType}">⚠️ Part SLA Overdue</button>`;
@@ -3226,6 +3275,46 @@ document.getElementById('btn-confirm-onsite-recv').addEventListener('click', () 
   closeModal('modal-onsite-recv');
 });
 
+/* Apply AWB from a part object into the Receipt Details AWB field */
+function _applyRecvPartAwb(part) {
+  const awb = part && part.awb ? String(part.awb).trim() : '';
+  if (awb) {
+    document.getElementById('awb-db-value').textContent = awb;
+    document.getElementById('awb-compare-hint').style.display = 'flex';
+    document.getElementById('awb-number').value = awb;
+    _triggerAwbLookup(awb);
+  } else {
+    document.getElementById('awb-compare-hint').style.display = 'none';
+    document.getElementById('awb-number').value = '';
+    _resetAwbWoList();
+  }
+}
+
+/* Render the detail hint below the SOID select */
+function _renderSoidDetail(part) {
+  const el = document.getElementById('recv-soid-detail');
+  if (!part) { el.style.display = 'none'; return; }
+  const awbHtml = part.awb
+    ? `<span class="rsd-awb">${esc(part.awb)}</span>`
+    : `<span class="rsd-noawb">No AWB on record</span>`;
+  const shipped = part.ship_pickup_time || part.shipment_date || '';
+  el.innerHTML = `
+    <div class="rsd-row">
+      <span class="rsd-lbl">SOID</span>
+      <span class="rsd-val">${esc(part.soid != null ? String(part.soid) : '—')}</span>
+    </div>
+    <div class="rsd-row">
+      <span class="rsd-lbl">Product</span>
+      <span class="rsd-val">${esc(part.product||'—')}</span>
+      <span class="rsd-desc">${esc(part.description||'')}</span>
+    </div>
+    <div class="rsd-row">
+      <span class="rsd-lbl">AWB</span>${awbHtml}
+      ${shipped ? `<span class="rsd-lbl" style="margin-left:8px">Shipped</span><span class="rsd-val">${esc(shipped.slice(0,16).replace('T',' '))}</span>` : ''}
+    </div>`;
+  el.style.display = 'flex';
+}
+
 function openRecv(woId, contact, eta, woStatus, aspName) {
   activeRecvWo = woId;
 
@@ -3242,12 +3331,19 @@ function openRecv(woId, contact, eta, woStatus, aspName) {
   document.getElementById('awb-compare-hint').style.display = 'none';
   _resetAwbWoList();
 
+  /* Reset SOID selector */
+  const soidSection = document.getElementById('recv-soid-section');
+  const soidSelect  = document.getElementById('recv-soid-select');
+  soidSection.style.display = 'none';
+  soidSelect.innerHTML = '<option value="">— select part order —</option>';
+  document.getElementById('recv-soid-detail').style.display = 'none';
+
   /* Reset no-AWB section */
   document.getElementById('no-awb-section').style.display  = 'none';
   document.getElementById('no-awb-list-body').innerHTML    = '<div class="no-awb-loading">Loading…</div>';
   document.getElementById('no-awb-count').textContent      = '';
 
-  /* Clear parts list */
+  /* Clear parts list strip */
   const partsList = document.getElementById('recv-parts-list');
   const qtyPill   = document.getElementById('recv-parts-qty');
   partsList.style.display = 'none';
@@ -3255,40 +3351,74 @@ function openRecv(woId, contact, eta, woStatus, aspName) {
 
   openModal('modal-received');
 
-  /* Fetch parts for this WO to prefill AWB hint */
+  /* Fetch parts for this WO */
   fetch(`/asp/api/wo-parts/${woId}`)
     .then(r => r.ok ? r.json() : null)
     .then(data => {
       if (!data || !data.length) return;
       const parts = data.filter(p => !(p.wo_product_status || '').toLowerCase().includes('cancel'));
       if (!parts.length) return;
+
+      /* Populate strip summary */
       partsList.style.display = 'block';
       qtyPill.textContent = parts.length + (parts.length === 1 ? ' part' : ' parts');
-      let awbValues = new Set();
       parts.forEach(p => {
         const row = document.createElement('div');
         row.className = 'wo-strip-part-row';
         const awbHtml = p.awb
           ? `<span class="wo-strip-part-awb">AWB: ${esc(p.awb)}</span>`
           : `<span class="wo-strip-part-noawb">No AWB on record</span>`;
-        row.innerHTML = `<span class="wo-strip-part-pn">${esc(p.product||'—')}</span><span class="wo-strip-part-desc">${esc(p.description||'')}</span>${awbHtml}`;
+        row.innerHTML = `<span class="wo-strip-part-pn">${esc(p.soid != null ? String(p.soid) : '—')}</span><span class="wo-strip-part-desc">${esc(p.description||'')}</span>${awbHtml}`;
         partsList.appendChild(row);
-        if (p.awb) awbValues.add(p.awb.trim());
       });
-      /* Pre-fill AWB field and trigger lookup if a single AWB found */
-      if (awbValues.size === 1) {
-        const foundAwb = [...awbValues][0];
-        document.getElementById('awb-db-value').textContent = foundAwb;
-        document.getElementById('awb-compare-hint').style.display = 'flex';
-        document.getElementById('awb-number').value = foundAwb;
-        _triggerAwbLookup(foundAwb);
+
+      /* Determine default selected part: latest active (highest soid) */
+      const activeParts = parts.filter(p =>
+        (p.order_date && String(p.order_date).trim()) ||
+        (p.acceptance_date && String(p.acceptance_date).trim())
+      );
+      const defaultPart = activeParts.reduce(
+        (best, p) => (!best || (p.soid > best.soid) ? p : best), null
+      ) || parts[parts.length - 1];
+
+      /* Build a lookup map soid → part */
+      const partBySoid = {};
+      parts.forEach(p => { if (p.soid != null) partBySoid[String(p.soid)] = p; });
+
+      if (parts.length > 1) {
+        /* Populate dropdown */
+        soidSelect.innerHTML = '';
+        parts.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.soid != null ? String(p.soid) : '';
+          const label = [
+            p.soid != null ? String(p.soid) : '—',
+            p.description || '',
+          ].filter(Boolean).join(' · ');
+          opt.textContent = label;
+          if (defaultPart && String(p.soid) === String(defaultPart.soid)) opt.selected = true;
+          soidSelect.appendChild(opt);
+        });
+        soidSection.style.display = 'block';
+
+        /* Wire change → update detail hint + AWB prefill */
+        soidSelect.onchange = function() {
+          const chosen = partBySoid[this.value] || null;
+          _renderSoidDetail(chosen);
+          _applyRecvPartAwb(chosen);
+        };
       }
+
+      /* Apply AWB from default part immediately */
+      _renderSoidDetail(defaultPart);
+      _applyRecvPartAwb(defaultPart);
     })
     .catch(() => {});
 
-  /* Fetch open WOs for the same ASP that are still missing an AWB */
+  /* Fetch open WOs for the same ASP that are still missing an AWB.
+     Pass current_wo so the backend always includes it even when it already has an AWB. */
   if (aspName) {
-    fetch(`/asp/api/wo-no-awb?customer=${encodeURIComponent(aspName)}`)
+    fetch(`/asp/api/wo-no-awb?customer=${encodeURIComponent(aspName)}&current_wo=${encodeURIComponent(woId)}`)
       .then(r => r.ok ? r.json() : [])
       .then(rows => _renderNoAwbList(rows, woId))
       .catch(() => { document.getElementById('no-awb-section').style.display = 'none'; });

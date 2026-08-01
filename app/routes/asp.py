@@ -192,12 +192,18 @@ def api_wos_by_awb():
 @asp_bp.route("/asp/api/wo-no-awb", methods=["GET"])
 @login_required
 def api_wo_no_awb():
-    """Return open WOs for a given ASP (customer name) that have part lines with no AWB."""
+    """Return open WOs for a given ASP (customer name) that have part lines with no AWB.
+    If current_wo is supplied, that WO is always included even if it already has an AWB."""
     from app.services.database.queries import get_wo_no_awb_by_asp
     customer = request.args.get("customer", "").strip()
     if not customer:
         return jsonify([])
-    return jsonify(get_wo_no_awb_by_asp(customer))
+    current_wo = request.args.get("current_wo", "").strip()
+    try:
+        current_wo_id = int(current_wo) if current_wo else None
+    except ValueError:
+        current_wo_id = None
+    return jsonify(get_wo_no_awb_by_asp(customer, current_wo_id=current_wo_id))
 
 
 @asp_bp.route("/asp/api/return-part-same-asp", methods=["GET"])

@@ -14,6 +14,11 @@ A Flask web application for managing Lenovo After-Sales Partner (ASP) work order
 - [Environment Variables](#environment-variables)
 - [File Persistence Note](#file-persistence-note)
 - [Windows Troubleshooting](#windows-troubleshooting)
+  - [Git Bash: `uname`/`sed`/`git` command not found](#git-bash-uname--sed--git-command-not-found)
+  - [PowerShell execution policy blocks activate](#powershell-execution-policy-blocks-venvscriptsactivate)
+  - [Activating venv with emoji path](#activating-the-virtual-environment-windows)
+  - [ImportError on pip](#importerror-cannot-import-name-_appengine_environ-when-running-pip)
+  - [OSError Errno 22](#oserror-errno-22-invalid-argument-when-running-python-runpy)
 
 ---
 
@@ -255,6 +260,40 @@ For persistent storage either:
 ---
 
 ## Windows Troubleshooting
+
+### Git Bash: `uname` / `sed` / `git` command not found
+
+**Symptom:**
+```
+bash: uname: command not found
+bash: sed: command not found
+bash: git: command not found
+```
+
+**Cause:** The Windows `PATH` has `C:\Users\...\AppData\Local\Microsoft\WindowsApps` (WSL `bash.exe` stub) listed *before* Git's tool directories, so every call to `bash`, `sed`, or `uname` is intercepted by the broken WSL stub.
+
+**Immediate fix** — paste this into the broken Git Bash session:
+```bash
+export PATH="/mingw64/bin:/usr/bin:/bin:$PATH"
+```
+
+Verify it worked:
+```bash
+uname -a && sed --version && git --version
+```
+
+**Permanent fix** — run once in PowerShell (moves Git bins to front of user PATH):
+```powershell
+$gitBins = @("C:\Program Files\Git\mingw64\bin", "C:\Program Files\Git\usr\bin")
+$current = [System.Environment]::GetEnvironmentVariable("PATH", "User") -split ";" |
+           Where-Object { $_ -ne "" -and $gitBins -notcontains $_ }
+$newPath = ($gitBins + $current) -join ";"
+[System.Environment]::SetEnvironmentVariable("PATH", $newPath, "User")
+```
+
+Then **close and reopen Git Bash** — the fix will be permanent.
+
+---
 
 ### PowerShell execution policy blocks `.venv\Scripts\activate`
 

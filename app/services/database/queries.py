@@ -704,19 +704,48 @@ def get_wos_by_awb(awb: str) -> list[dict]:
         JOIN wo_product_detail p USING (work_order_id)
         WHERE TRIM(p.awb) = ?
           AND LOWER(COALESCE(s.work_order_status,'')) NOT LIKE '%cancel%'
+          AND LOWER(COALESCE(s.work_order_type,'')) LIKE '%carry%'
         ORDER BY s.work_order_id ASC
     """, (awb.strip(),)).fetchall()
     return [dict(r) for r in rows]
 
 
 # WOs with no AWB — open WOs for a given ASP where at least one part line has no AWB set
-def get_wo_no_awb_by_asp(customer: str) -> list[dict]:
+def get_wo_no_awb_by_asp(customer: str, current_wo_id: int | None = None) -> list[dict]:
     """Return open WOs belonging to the given ASP (customer) that have at
-    least one non-cancelled part line with a NULL or blank AWB, and whose
-    WO status is still open (not closed / completed / cancelled)."""
+    least one non-cancelled part line where:
+      - AWB is NULL or blank (part has no tracking number yet), AND
+      - ship_pickup_time or shipment_date is filled (part has actually shipped)
+    WO must not be closed / completed / cancelled.
+
+    If current_wo_id is supplied, that WO is always included (prepended) as
+    long as it has at least one part line matching the same two conditions —
+    so the current WO always appears at the top of the list in the form.
+    """
     conn = get_db()
-    rows = conn.execute("""
-        SELECT DISTINCT
+    _closed_statuses = (
+        'closed', 'completed', 'cancelled', 'canceled',
+        'rma in progress',
+        'unit returned to customer /awaiting for parts rma',
+        'repair completed', 'ready for pickup',
+    )
+    _open_where = """
+        LOWER(COALESCE(s.work_order_status,'')) NOT IN ({})
+        AND LOWER(COALESCE(s.work_order_status,'')) NOT LIKE '%cancel%'
+    """.format(','.join('?' * len(_closed_statuses)))
+
+    # Part condition: no AWB yet BUT already shipped (pickup or shipment date filled)
+    _part_where = """
+        TRIM(COALESCE(p.awb,'')) = ''
+        AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
+        AND (
+            TRIM(COALESCE(p.ship_pickup_time,'')) != ''
+            OR TRIM(COALESCE(p.shipment_date,''))  != ''
+        )
+    """
+
+    no_awb_rows = conn.execute("""
+        SELECT
             s.work_order_id, s.contact_name, s.customer,
             s.work_order_status, s.work_order_type,
             s.committed_delivery_date,
@@ -724,18 +753,37 @@ def get_wo_no_awb_by_asp(customer: str) -> list[dict]:
         FROM wo_summary s
         JOIN wo_product_detail p USING (work_order_id)
         WHERE LOWER(TRIM(s.customer)) = LOWER(TRIM(?))
-          AND (TRIM(COALESCE(p.awb,'')) = '')
-          AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
-          AND LOWER(COALESCE(s.work_order_status,'')) NOT IN (
-              'closed','completed','cancelled','canceled',
-              'rma in progress',
-              'unit returned to customer /awaiting for parts rma',
-              'repair completed','ready for pickup'
-          )
-          AND LOWER(COALESCE(s.work_order_status,'')) NOT LIKE '%cancel%'
+          AND LOWER(COALESCE(s.work_order_type,'')) LIKE '%carry%'
+          AND """ + _part_where + """
+          AND """ + _open_where + """
         ORDER BY s.work_order_id ASC
-    """, (customer.strip(),)).fetchall()
-    return [dict(r) for r in rows]
+    """, (customer.strip(),) + _closed_statuses).fetchall()
+
+    rows = [dict(r) for r in no_awb_rows]
+
+    # Always include the current WO at the top — but only its part lines that
+    # also match: no AWB AND already shipped. This prevents parts with AWBs or
+    # unshipped parts from appearing in the "no AWB" list.
+    if current_wo_id is not None:
+        already_included = any(r['work_order_id'] == current_wo_id for r in rows)
+        if not already_included:
+            current_rows = conn.execute("""
+                SELECT
+                    s.work_order_id, s.contact_name, s.customer,
+                    s.work_order_status, s.work_order_type,
+                    s.committed_delivery_date,
+                    p.soid, p.product, p.description, p.wo_product_status
+                FROM wo_summary s
+                JOIN wo_product_detail p USING (work_order_id)
+                WHERE s.work_order_id = ?
+                  AND LOWER(COALESCE(s.work_order_type,'')) LIKE '%carry%'
+                  AND """ + _part_where + """
+                ORDER BY p.line_order ASC
+            """, (current_wo_id,)).fetchall()
+            if current_rows:
+                rows = [dict(r) for r in current_rows] + rows
+
+    return rows
 
 
 # Return-Part same-ASP — closed WOs for a given ASP with return_flag=Y part lines, no DC yet
