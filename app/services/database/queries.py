@@ -1061,12 +1061,10 @@ def get_asp_in_delivery_page(
 
 # ── In-Repair Follow-Up ───────────────────────────────────────────────────────
 # A WO is "in repair" when:
-#   (A) It has NO active part order at all, OR
-#   (B) Its latest active part line already has delivery_date or ship_pou_pod_time
-#       filled (part received / POD'd)
-# AND in both cases: WO completion_date and closing_date are both empty (still open).
-# Excluded: WO is closed/cancelled, or part exists but is still in-delivery
-#           (shipped but not yet POD'd).
+#   Its latest active part line already has delivery_date or ship_pou_pod_time
+#   filled (part received / POD'd), AND the WO is still open.
+# Excluded: WO is closed/cancelled; WO has no part rows or part not yet POD'd
+#           (those belong to In-Prepare or In-Delivery).
 _IN_REPAIR_COLS = """
     s.work_order_id, s.serial_number, s.created_on,
     s.committed_delivery_date, s.actual_committed_onsite_date,
@@ -1093,12 +1091,10 @@ def get_asp_in_repair_page(
 ) -> dict:
     """
     In-Repair Follow-Up — WO is still open (completion_date and closing_date
-    both empty) AND either:
-      (A) No active part order exists for this WO, OR
-      (B) The latest active part line has delivery_date or ship_pou_pod_time
-          filled (part already received / POD'd).
-    WOs where the latest part is shipped but not yet POD'd are excluded
-    (those belong to In-Delivery).
+    both empty) AND the latest active part line has delivery_date or
+    ship_pou_pod_time filled (part already received / POD'd).
+    WOs with no part rows, or whose part is not yet POD'd, are excluded
+    (they belong to In-Prepare or In-Delivery).
     """
     conn = get_db()
     params: list = []
@@ -1126,12 +1122,11 @@ def get_asp_in_repair_page(
           )
           AND COALESCE(d.completion_date,'') = ''
           AND COALESCE(d.closing_date,'')    = ''
-          -- (A) no active part order at all, OR
-          -- (B) latest part line is POD'd (delivery_date or ship_pou_pod_time filled)
+          -- Latest ordered part line must be POD'd (delivery_date or ship_pou_pod_time filled)
+          AND latest.latest_soid IS NOT NULL
           AND (
-            latest.latest_soid IS NULL
-            OR TRIM(COALESCE(p.ship_pou_pod_time,'')) != ''
-            OR TRIM(COALESCE(p.delivery_date,''))     != ''
+            TRIM(COALESCE(p.ship_pou_pod_time,'')) != ''
+            OR TRIM(COALESCE(p.delivery_date,''))  != ''
           )
     """
 
@@ -1170,10 +1165,11 @@ def get_asp_in_repair_page(
 # ── In-Prepare Follow-Up ─────────────────────────────────────────────────────
 # A WO is "in prepare" when:
 #   - WO is still open (not closed/cancelled)
-#   - Latest active part line EXISTS but has NOT been shipped yet
-#     (order_date or acceptance_date filled, but ship_pickup_time AND
-#      shipment_date are BOTH empty)
-#   This is the stage before In-Delivery: part ordered but not yet dispatched.
+#   - At least one non-cancelled part row EXISTS and has NOT been shipped yet
+#     (ship_pickup_time AND shipment_date are BOTH empty) AND has not been
+#     POD'd (ship_pou_pod_time AND delivery_date are BOTH empty).
+#   This covers parts at any pre-shipment stage: Released, ordered, or simply
+#   not yet dispatched. order_date/acceptance_date may or may not be filled.
 #   No follow-up state is computed — all rows are shown as-is.
 _IN_PREPARE_COLS = """
     s.work_order_id, s.serial_number, s.created_on,
@@ -1197,14 +1193,16 @@ def get_asp_in_prepare_page(
     vendor_filter: str | None = None,
 ) -> dict:
     """
-    In-Prepare Follow-Up — WOs still open whose latest active part line has
-    been ordered (order_date or acceptance_date filled) but not yet shipped
-    (ship_pickup_time and shipment_date are both empty).
+    In-Prepare Follow-Up — WOs still open that have at least one non-cancelled
+    part row which has not yet been shipped (ship_pickup_time and shipment_date
+    both empty) and not yet POD'd (ship_pou_pod_time and delivery_date both
+    empty). order_date / acceptance_date are not required — a "Released" part
+    with no dates filled still qualifies.
 
     Excluded:
       - Closed / cancelled WOs
-      - WOs already in In-Delivery (part shipped, not POD'd)
-      - WOs already in In-Repair  (part POD'd OR no active part order)
+      - WOs already in In-Delivery (part shipped, not yet POD'd)
+      - WOs already in In-Repair  (part POD'd OR truly no part rows at all)
 
     No follow-up_state column — rows are returned as-is.
     """
@@ -1215,16 +1213,21 @@ def get_asp_in_prepare_page(
         SELECT {cols}
         FROM wo_summary s
         LEFT JOIN wo_details d USING (work_order_id)
-        -- Latest active part line per WO that has been ordered but not yet shipped
+        -- Latest non-cancelled part line per WO that has not yet been shipped
+        -- (no ship_pickup_time / shipment_date) and not yet POD'd.
+        -- order_date / acceptance_date are NOT required — a "Released" part
+        -- with no dates filled still belongs here.
         JOIN (
             SELECT work_order_id,
                    MAX(soid) AS latest_soid
             FROM wo_product_detail
             WHERE LOWER(COALESCE(wo_product_status,'')) NOT LIKE '%cancel%'
-              AND TRIM(COALESCE(order_date, acceptance_date, '')) != ''
               -- not yet shipped
               AND TRIM(COALESCE(ship_pickup_time,'')) = ''
               AND TRIM(COALESCE(shipment_date,''))    = ''
+              -- not yet POD'd (exclude parts already received)
+              AND TRIM(COALESCE(ship_pou_pod_time,'')) = ''
+              AND TRIM(COALESCE(delivery_date,''))     = ''
             GROUP BY work_order_id
         ) latest ON latest.work_order_id = s.work_order_id
         JOIN wo_product_detail p

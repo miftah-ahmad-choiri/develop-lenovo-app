@@ -266,6 +266,16 @@
   .wo-strip-part-desc { color: #57606a; font-size: 11px; flex: 1; min-width: 60px; }
   .wo-strip-part-awb { font-family: ui-monospace, monospace; font-size: 11px; color: #3b82d4; font-weight: 700; background: #eff6ff; border: 1px solid #bfdbfe; padding: 1px 6px; border-radius: 4px; }
   .wo-strip-part-noawb { font-size: 11px; color: #8c959f; font-style: italic; }
+  /* Part shipment — per-SOID card + timeline */
+  .part-soid-block { margin-bottom: 10px; }
+  .part-soid-block:last-child { margin-bottom: 0; }
+  .part-soid-block + .part-soid-block { border-top: 1px solid #f0f2f5; padding-top: 10px; }
+  .part-soid-card { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 6px; background: #fff; border: 1px solid #e5e7eb; margin-bottom: 8px; flex-wrap: wrap; }
+  .part-soid-card .wo-strip-part-pn  { font-family: ui-monospace, monospace; font-weight: 700; font-size: 11px; color: #1f2328; background: #f0f2f5; padding: 2px 6px; border-radius: 4px; }
+  .part-soid-card .wo-strip-part-desc { color: #57606a; font-size: 11px; flex: 1; min-width: 60px; }
+  .part-soid-card .wo-strip-part-awb  { font-family: ui-monospace, monospace; font-size: 11px; color: #3b82d4; font-weight: 700; background: #eff6ff; border: 1px solid #bfdbfe; padding: 1px 6px; border-radius: 4px; margin-left: auto; }
+  .part-soid-card .wo-strip-part-noawb { font-size: 11px; color: #8c959f; font-style: italic; margin-left: auto; }
+  .part-soid-tl-track { display: flex; align-items: flex-start; gap: 0; }
   /* Modal header icon */
   .modal-hdr-icon { width: 36px; height: 36px; border-radius: 9px; background: #eff6ff; border: 1px solid #bfdbfe; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   /* Form section dividers */
@@ -1028,17 +1038,17 @@
           <span class="wo-strip-meta wo-type-pill" id="recv-wo-type"></span>
           <span class="wo-strip-meta" id="recv-asp">—</span>
         </div>
-        <!-- Part shipment mini-timeline: Pickup → ETA → POD -->
-        <div id="recv-part-timeline" style="display:none;margin-top:10px;border-top:1px solid #e5e7eb;padding-top:10px;">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8c959f;margin-bottom:8px">Part Shipment</div>
-          <div style="display:flex;align-items:flex-start;gap:0;" id="recv-part-tl-track"></div>
-        </div>
         <!-- Parts list (populated by JS) -->
         <div class="wo-strip-parts" id="recv-parts-list" style="display:none">
           <div class="wo-strip-parts-header">
             Parts on this WO
             <span class="wo-strip-qty-pill" id="recv-parts-qty"></span>
           </div>
+        </div>
+        <!-- Part shipment mini-timeline: Pickup → ETA → POD (grouped by AWB) -->
+        <div id="recv-part-timeline" style="display:none;margin-top:10px;border-top:1px solid #e5e7eb;padding-top:10px;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8c959f;margin-bottom:8px">Part Shipment</div>
+          <div id="recv-part-tl-groups"></div>
         </div>
       </div>
 
@@ -1237,11 +1247,6 @@
           <span class="wo-strip-meta wo-type-pill" id="psla-wo-type"></span>
           <span class="wo-strip-meta" id="psla-asp">—</span>
         </div>
-        <!-- Part shipment mini-timeline: Pickup → ETA → POD -->
-        <div id="psla-part-timeline" style="display:none;margin-top:10px;border-top:1px solid #e5e7eb;padding-top:10px;">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8c959f;margin-bottom:8px">Part Shipment</div>
-          <div style="display:flex;align-items:flex-start;gap:0;" id="psla-part-tl-track"></div>
-        </div>
         <!-- Parts list (populated by JS) -->
         <div class="wo-strip-parts" id="psla-parts-list" style="display:none">
           <div class="wo-strip-parts-header">
@@ -1250,6 +1255,11 @@
           </div>
         </div>
         <div id="psla-parts-loading" style="display:none;font-size:12px;color:#8c959f;padding:6px 2px 0">Loading parts…</div>
+        <!-- Part shipment mini-timeline: Pickup → ETA → POD (grouped by AWB) -->
+        <div id="psla-part-timeline" style="display:none;margin-top:10px;border-top:1px solid #e5e7eb;padding-top:10px;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8c959f;margin-bottom:8px">Part Shipment</div>
+          <div id="psla-part-tl-groups"></div>
+        </div>
       </div>
 
       <!-- SECTION 1 — Part Delivery Status -->
@@ -3470,6 +3480,17 @@ function _applyRecvPartAwb(part) {
     document.getElementById('awb-number').value = '';
     _resetAwbWoList();
   }
+
+  /* Pre-fill receipt datetime from POD date if the selected part already has one */
+  const podRaw = part && (part.ship_pou_pod_time || part.delivery_date || '');
+  const dtInput = document.getElementById('recv-datetime');
+  if (podRaw && !isSentinel(podRaw)) {
+    /* Format to YYYY-MM-DDTHH:MM as required by datetime-local input */
+    const dtStr = String(podRaw).trim().slice(0, 16).replace(' ', 'T');
+    dtInput.value = dtStr;
+  } else {
+    dtInput.value = '';
+  }
 }
 
 /* Render the detail hint below the SOID select */
@@ -3544,6 +3565,65 @@ function renderRecvTimeline(trackEl, pickupDate, etaDate, podDate) {
   }).join('');
 }
 
+/* ── Part Shipment timeline — one card + timeline per SOID, sorted by AWB ──
+   containerEl : the wrapper div (recv-part-tl-groups / psla-part-tl-groups)
+   parts       : non-cancelled rows from /asp/api/wo-parts/:id
+                 (all parts, not just shipped ones)
+   labelKey    : 'soid' (Confirm Receipt) | 'product' (Part SLA Overdue)
+
+   Each part gets:
+     [SOID/PN]  [description]  [AWB badge or "No AWB"] ← card row
+     Part Pickup ──── ETA ──── Part Received            ← timeline
+
+   Parts are sorted so same-AWB parts stay together (AWB asc, empty last).
+   ─────────────────────────────────────────────────────────────────────────── */
+function _renderPartShipmentTimelines(containerEl, parts, labelKey) {
+  if (!containerEl) return;
+  containerEl.innerHTML = '';
+
+  /* Sort: non-empty AWB first (alphabetical), then empty/no-AWB */
+  const sorted = [...parts].sort((a, b) => {
+    const ak = (a.awb || '').trim();
+    const bk = (b.awb || '').trim();
+    if (ak && !bk) return -1;
+    if (!ak && bk) return  1;
+    return ak < bk ? -1 : ak > bk ? 1 : 0;
+  });
+
+  sorted.forEach(p => {
+    const pickup = (p.ship_pickup_time  || p.shipment_date  || '').trim();
+    const eta    = (p.target            || '').trim();
+    const pod    = (p.ship_pou_pod_time || p.delivery_date  || '').trim();
+
+    /* Skip parts with no shipment data at all */
+    if (!pickup && !eta && !pod) return;
+
+    const awbKey = (p.awb || '').trim();
+    const awbHtml = awbKey
+      ? `<span class="wo-strip-part-awb">AWB: ${esc(awbKey)}</span>`
+      : `<span class="wo-strip-part-noawb">No AWB on record</span>`;
+
+    const pnLabel = (labelKey === 'product')
+      ? esc(p.product || '—')
+      : esc(p.soid != null ? String(p.soid) : '—');
+
+    const block = document.createElement('div');
+    block.className = 'part-soid-block';
+    block.innerHTML = `<div class="part-soid-card">
+      <span class="wo-strip-part-pn">${pnLabel}</span>
+      <span class="wo-strip-part-desc">${esc(p.description || '')}</span>
+      ${awbHtml}
+    </div>`;
+
+    const track = document.createElement('div');
+    track.className = 'part-soid-tl-track';
+    renderRecvTimeline(track, pickup, eta, pod);
+    block.appendChild(track);
+
+    containerEl.appendChild(block);
+  });
+}
+
 function openRecv(woId, woType, eta, pickupDate, podDate, woStatus, aspName) {
   activeRecvWo = woId;
 
@@ -3553,16 +3633,11 @@ function openRecv(woId, woType, eta, pickupDate, podDate, woStatus, aspName) {
   document.getElementById('recv-asp').textContent           = aspName || '—';
   document.getElementById('recv-wo-status-badge').innerHTML = woStatus ? statusBadge(woStatus) : '';
 
-  /* Part shipment mini-timeline */
-  const tlDiv   = document.getElementById('recv-part-timeline');
-  const trackEl = document.getElementById('recv-part-tl-track');
-  if (pickupDate || eta || podDate) {
-    renderRecvTimeline(trackEl, pickupDate, eta, podDate);
-    tlDiv.style.display = '';
-  } else {
-    tlDiv.style.display = 'none';
-    trackEl.innerHTML   = '';
-  }
+  /* Part shipment mini-timeline — populated after parts fetch */
+  const tlDiv      = document.getElementById('recv-part-timeline');
+  const tlGroupsEl = document.getElementById('recv-part-tl-groups');
+  tlDiv.style.display = 'none';
+  if (tlGroupsEl) tlGroupsEl.innerHTML = '';
 
   /* Reset form fields */
   document.getElementById('recv-datetime').value        = '';
@@ -3599,18 +3674,14 @@ function openRecv(woId, woType, eta, pickupDate, podDate, woStatus, aspName) {
       const parts = data.filter(p => !(p.wo_product_status || '').toLowerCase().includes('cancel'));
       if (!parts.length) return;
 
-      /* Populate strip summary */
+      /* ── Per-SOID card + timeline (sorted by AWB) ── */
+      const groupsEl = document.getElementById('recv-part-tl-groups');
+      _renderPartShipmentTimelines(groupsEl, parts, 'soid');
+      document.getElementById('recv-part-timeline').style.display = '';
+
+      /* Qty pill only — individual rows are rendered inside the timeline block */
       partsList.style.display = 'block';
       qtyPill.textContent = parts.length + (parts.length === 1 ? ' part' : ' parts');
-      parts.forEach(p => {
-        const row = document.createElement('div');
-        row.className = 'wo-strip-part-row';
-        const awbHtml = p.awb
-          ? `<span class="wo-strip-part-awb">AWB: ${esc(p.awb)}</span>`
-          : `<span class="wo-strip-part-noawb">No AWB on record</span>`;
-        row.innerHTML = `<span class="wo-strip-part-pn">${esc(p.soid != null ? String(p.soid) : '—')}</span><span class="wo-strip-part-desc">${esc(p.description||'')}</span>${awbHtml}`;
-        partsList.appendChild(row);
-      });
 
       /* Determine default selected part: latest active (highest soid) */
       const activeParts = parts.filter(p =>
@@ -3888,26 +3959,35 @@ function _renderWoSlaTimeline(podRaw, woType, deferRaw, tlId) {
   const _conn = cls => `<div class="wosla-tl-connector ${cls}"></div>`;
 
   /* ── Build the node sequence ──────────────────────────────────────
-     Layout depends on isOnsite (has Defer) and isOverdue (Now position).
+     Layout depends on isOnsite (has Defer) and Now position.
 
-     NOT overdue  (now < maxRepair):
-       CCI:    POD ── Now ── MaxRepair
-       Onsite: POD ── Now ── Defer ── MaxRepair
+     CCI (no Defer):
+       now < maxRepair:  POD ── Now ── MaxRepair
+       now >= maxRepair: POD ── MaxRepair ── Now
 
-     Overdue (now >= maxRepair):
-       CCI:    POD ── MaxRepair ── Now
-       Onsite: POD ── Defer ── MaxRepair ── Now
+     Onsite (has Defer):
+       now < deferMs:              POD ── Now ── Defer ── MaxRepair
+       deferMs <= now < maxRepair: POD ── Defer ── Now ── MaxRepair
+       now >= maxRepair:           POD ── Defer ── MaxRepair ── Now
   ── */
   let nodes = '';
 
   if (!isOverdue) {
     /* Now is BEFORE Max Repair */
     nodes += _nodeGreen('Received<br>(POD)', podDate);
-    nodes += _conn('done');
-    nodes += _nodeNow();
-    if (isOnsite && hasDefer) {
-      nodes += _conn('warn');
+    if (isOnsite && hasDefer && nowMs >= deferMs) {
+      /* Now is between Defer Date and Max Repair */
+      nodes += _conn('done');
       nodes += _nodeYellow('Defer Date', deferDate);
+      nodes += _conn('warn');
+      nodes += _nodeNow();
+    } else {
+      nodes += _conn('done');
+      nodes += _nodeNow();
+      if (isOnsite && hasDefer) {
+        nodes += _conn('warn');
+        nodes += _nodeYellow('Defer Date', deferDate);
+      }
     }
     nodes += _conn('warn');
     nodes += _nodeMax();
@@ -4032,16 +4112,12 @@ function openPartSla(woId, woType, eta, pickupDate, podDate, awb, woStatus, aspN
   document.getElementById('psla-asp').textContent           = aspName || '—';
   document.getElementById('psla-wo-status-badge').innerHTML = woStatus ? statusBadge(woStatus) : '';
 
-  /* Part shipment timeline */
-  const pslaTlDiv   = document.getElementById('psla-part-timeline');
-  const pslaTlTrack = document.getElementById('psla-part-tl-track');
-  if (pickupDate || eta || podDate) {
-    renderRecvTimeline(pslaTlTrack, pickupDate, eta, podDate);
-    pslaTlDiv.style.display = '';
-  } else {
-    pslaTlDiv.style.display = 'none';
-    pslaTlTrack.innerHTML   = '';
-  }
+  /* Part shipment timeline — populated after parts fetch */
+  const pslaTlDiv      = document.getElementById('psla-part-timeline');
+  const pslaTlGroupsEl = document.getElementById('psla-part-tl-groups');
+  pslaTlDiv.style.display = 'none';
+  if (pslaTlGroupsEl) pslaTlGroupsEl.innerHTML = '';
+
   document.getElementById('psla-new-eta').value    = '';
   document.getElementById('psla-arrived-date').value = '';
   pslaStatusDd.reset();
@@ -4070,16 +4146,17 @@ function openPartSla(woId, woType, eta, pickupDate, podDate, awb, woStatus, aspN
       if (!data || !data.length) return;
       const parts = data.filter(p => !(p.wo_product_status || '').toLowerCase().includes('cancel'));
       if (!parts.length) return;
+
+      /* ── Per-SOID card + timeline (sorted by AWB) ── */
+      _renderPartShipmentTimelines(
+        document.getElementById('psla-part-tl-groups'),
+        parts,
+        'product'
+      );
+      document.getElementById('psla-part-timeline').style.display = '';
+
+      /* Qty pill only — individual rows are rendered inside the timeline block */
       qtyPill.textContent = parts.length + (parts.length === 1 ? ' PART' : ' PARTS');
-      parts.forEach(p => {
-        const row = document.createElement('div');
-        row.className = 'wo-strip-part-row';
-        const awbHtml = p.awb
-          ? `<span class="wo-strip-part-awb">AWB: ${esc(p.awb)}</span>`
-          : `<span class="wo-strip-part-noawb">No AWB on record</span>`;
-        row.innerHTML = `<span class="wo-strip-part-pn">${esc(p.product||'—')}</span><span class="wo-strip-part-desc">${esc(p.description||'')}</span>${awbHtml}`;
-        partsList.appendChild(row);
-      });
       partsList.style.display = 'block';
     })
     .catch(() => { partsLoading.style.display = 'none'; });
