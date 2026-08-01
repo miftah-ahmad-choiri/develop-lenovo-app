@@ -148,7 +148,7 @@
     </div>
 
     <h1>Sign in</h1>
-    <p class="subtitle">Enter your credentials to access the portal.</p>
+    <p class="subtitle">Enter your credentials to access the portal.<br>ASP staff users: use your <strong>email address</strong> as the username.</p>
 
     <!-- Error banner -->
     {% if error %}
@@ -168,13 +168,13 @@
       <input type="hidden" name="next" value="{{ next }}" />
 
       <div class="field">
-        <label for="username">User ID</label>
+        <label for="username">Username / Email</label>
         <input
           type="text"
           id="username"
           name="username"
           autocomplete="username"
-          placeholder="e.g. asp001 or admin01"
+          placeholder="Username or email address"
           class="{{ 'error' if error else '' }}"
           autofocus
         />

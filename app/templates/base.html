@@ -454,7 +454,7 @@
   </div>
   {% endif %}
 
-  {% if session_role == 'asp' %}
+  {% if session_role in ('asp', 'asp_user') %}
   <span class="topbar-user topbar-user-asp">
     {% if session_display_name %}
       <span class="topbar-greeting">Hi, <strong>{{ session_display_name }}</strong></span>

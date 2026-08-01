@@ -11,7 +11,7 @@ asp_bp = Blueprint("asp", __name__)
 
 def _vendor_filter() -> str | None:
     """Return the labor_vendor_related value for the current ASP session, or None."""
-    if session.get("role") == "asp":
+    if session.get("role") in ("asp", "asp_user"):
         return session.get("labor_vendor") or None
     return None
 
@@ -297,6 +297,277 @@ def api_save_working_hours():
     )
     get_db().commit()
     return jsonify({"ok": True, "working_hours": working_hours})
+
+
+@asp_bp.route("/asp/api/operation-support", methods=["POST"])
+@login_required
+def api_save_operation_support():
+    """Save updated operation_support value for the logged-in ASP user."""
+    from app.services.database.db import get_db
+    uid  = session.get("user_id")
+    role = session.get("role", "")
+    if role != "asp":
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json(silent=True) or {}
+    value = (data.get("operation_support") or "").strip()
+    allowed = {"CCI Only", "CCI & ONSITE"}
+    if value not in allowed:
+        return jsonify({"error": "Invalid value. Must be 'CCI Only' or 'CCI & ONSITE'."}), 400
+    get_db().execute(
+        "UPDATE asp_details SET operation_support = ? WHERE id = ?",
+        (value, uid)
+    )
+    get_db().commit()
+    return jsonify({"ok": True, "operation_support": value})
+
+
+@asp_bp.route("/asp/api/request-password-change", methods=["POST"])
+@login_required
+def api_request_password_change():
+    """Submit a password change request for the logged-in ASP account."""
+    from app.services.database.db import get_db
+    uid      = session.get("user_id")
+    username = session.get("username")
+    role     = session.get("role", "")
+    if role != "asp":
+        return jsonify({"error": "Forbidden"}), 403
+    data         = request.get_json(silent=True) or {}
+    new_password = (data.get("new_password") or "").strip()
+    if not new_password or len(new_password) < 8:
+        return jsonify({"error": "New password must be at least 8 characters."}), 400
+    db = get_db()
+    # Cancel any existing pending request first
+    db.execute(
+        "UPDATE asp_pw_change_requests SET status='cancelled' "
+        "WHERE asp_username=? AND status='pending'",
+        (username,)
+    )
+    db.execute(
+        "INSERT INTO asp_pw_change_requests (asp_username, new_password) VALUES (?, ?)",
+        (username, new_password)
+    )
+    db.commit()
+    return jsonify({"ok": True, "message": "Password change request submitted."})
+
+
+@asp_bp.route("/asp/api/location", methods=["PATCH"])
+@login_required
+def api_save_location():
+    """Save updated location fields for the logged-in ASP account."""
+    from app.services.database.db import get_db
+    uid  = session.get("user_id")
+    role = session.get("role", "")
+    if role != "asp":
+        return jsonify({"error": "Forbidden"}), 403
+    data       = request.get_json(silent=True) or {}
+    store_name = (data.get("store_name")    or "").strip() or None
+    kota       = (data.get("kota")          or "").strip() or None
+    island     = (data.get("island")        or "").strip() or None
+    phone      = (data.get("phone_number")  or "").strip() or None
+    address    = (data.get("address")       or "").strip() or None
+    db = get_db()
+    db.execute(
+        "UPDATE asp_details SET store_name=?, kota=?, island=?, "
+        "phone_number=?, address=?, updated_at=datetime('now') WHERE id=?",
+        (store_name, kota, island, phone, address, uid)
+    )
+    db.commit()
+    row = db.execute(
+        "SELECT store_name, kota, island, phone_number, address "
+        "FROM asp_details WHERE id=?", (uid,)
+    ).fetchone()
+    return jsonify({"ok": True, "location": dict(row)})
+
+
+# ── ASP Users API ─────────────────────────────────────────────────────────────
+
+def _asp_users_forbidden():
+    """Only the parent ASP account may manage (create/edit) asp_users."""
+    if session.get("role") != "asp":
+        return jsonify({"error": "Forbidden"}), 403
+    return None
+
+
+@asp_bp.route("/asp/api/users", methods=["GET"])
+@login_required
+def api_list_asp_users():
+    """Return all users belonging to the logged-in ASP."""
+    err = _asp_users_forbidden()
+    if err: return err
+    from app.services.database.db import get_db
+    username = session.get("username")
+    rows = get_db().execute(
+        "SELECT id, full_name, email, password, phone_number, is_active, created_at "
+        "FROM asp_users WHERE asp_username = ? ORDER BY id",
+        (username,)
+    ).fetchall()
+    return jsonify({"ok": True, "users": [dict(r) for r in rows]})
+
+
+@asp_bp.route("/asp/api/users", methods=["POST"])
+@login_required
+def api_create_asp_user():
+    """Create a new user under the logged-in ASP."""
+    err = _asp_users_forbidden()
+    if err: return err
+    from app.services.database.db import get_db
+    username = session.get("username")
+    data      = request.get_json(silent=True) or {}
+    full_name = (data.get("full_name")    or "").strip()
+    email     = (data.get("email")        or "").strip()
+    password  = (data.get("password")     or "").strip()
+    phone     = (data.get("phone_number") or "").strip() or None
+    if not full_name:
+        return jsonify({"error": "full_name is required"}), 400
+    if not email:
+        return jsonify({"error": "email is required"}), 400
+    if not password or len(password) < 8:
+        return jsonify({"error": "password must be at least 8 characters"}), 400
+    db = get_db()
+    # Uniqueness checks across the entire asp_users table
+    dup_email = db.execute(
+        "SELECT id FROM asp_users WHERE LOWER(email) = LOWER(?)",
+        (email,)
+    ).fetchone()
+    if dup_email:
+        return jsonify({"error": "That email address is already registered.", "field": "email"}), 409
+    dup_name = db.execute(
+        "SELECT id FROM asp_users WHERE LOWER(full_name) = LOWER(?)",
+        (full_name,)
+    ).fetchone()
+    if dup_name:
+        return jsonify({"error": "That full name is already registered.", "field": "full_name"}), 409
+    cur = db.execute(
+        "INSERT INTO asp_users (asp_username, full_name, email, password, phone_number) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (username, full_name, email, password, phone)
+    )
+    db.commit()
+    new_id = cur.lastrowid
+    row = db.execute(
+        "SELECT id, full_name, email, password, phone_number, is_active, created_at "
+        "FROM asp_users WHERE id = ?", (new_id,)
+    ).fetchone()
+    return jsonify({"ok": True, "user": dict(row)}), 201
+
+
+@asp_bp.route("/asp/api/users/<int:user_id>", methods=["PUT"])
+@login_required
+def api_update_asp_user(user_id):
+    """Update an existing ASP user (must belong to the logged-in ASP)."""
+    err = _asp_users_forbidden()
+    if err: return err
+    from app.services.database.db import get_db
+    username = session.get("username")
+    db   = get_db()
+    # Verify ownership
+    existing = db.execute(
+        "SELECT id FROM asp_users WHERE id = ? AND asp_username = ?",
+        (user_id, username)
+    ).fetchone()
+    if not existing:
+        return jsonify({"error": "User not found"}), 404
+    data      = request.get_json(silent=True) or {}
+    # Fetch current values so partial updates (e.g. contact-only) don't wipe other fields
+    current = db.execute(
+        "SELECT full_name, email, password, phone_number FROM asp_users WHERE id = ?",
+        (user_id,)
+    ).fetchone()
+    full_name = (data.get("full_name") or "").strip() or (current["full_name"] or "")
+    email     = (data.get("email")     or "").strip() or (current["email"]     or "")
+    password  = (data.get("password")  or "").strip()
+    # phone_number key present → use it (even if empty string → None); key absent → keep current
+    if "phone_number" in data:
+        phone = (data.get("phone_number") or "").strip() or None
+    else:
+        phone = current["phone_number"]
+    if not full_name:
+        return jsonify({"error": "full_name is required"}), 400
+    if not email:
+        return jsonify({"error": "email is required"}), 400
+    # Uniqueness checks across the entire asp_users table, excluding the current user
+    dup_email = db.execute(
+        "SELECT id FROM asp_users WHERE LOWER(email) = LOWER(?) AND id != ?",
+        (email, user_id)
+    ).fetchone()
+    if dup_email:
+        return jsonify({"error": "That email address is already registered.", "field": "email"}), 409
+    dup_name = db.execute(
+        "SELECT id FROM asp_users WHERE LOWER(full_name) = LOWER(?) AND id != ?",
+        (full_name, user_id)
+    ).fetchone()
+    if dup_name:
+        return jsonify({"error": "That full name is already registered.", "field": "full_name"}), 409
+    # Only update password when a new one is supplied
+    if password:
+        if len(password) < 8:
+            return jsonify({"error": "password must be at least 8 characters"}), 400
+        db.execute(
+            "UPDATE asp_users SET full_name=?, email=?, password=?, "
+            "phone_number=?, updated_at=datetime('now') WHERE id=?",
+            (full_name, email, password, phone, user_id)
+        )
+    else:
+        db.execute(
+            "UPDATE asp_users SET full_name=?, email=?, "
+            "phone_number=?, updated_at=datetime('now') WHERE id=?",
+            (full_name, email, phone, user_id)
+        )
+    db.commit()
+    row = db.execute(
+        "SELECT id, full_name, email, password, phone_number, is_active, created_at "
+        "FROM asp_users WHERE id = ?", (user_id,)
+    ).fetchone()
+    return jsonify({"ok": True, "user": dict(row)})
+
+
+@asp_bp.route("/asp/api/users/<int:user_id>", methods=["DELETE"])
+@login_required
+def api_delete_asp_user(user_id):
+    """Permanently delete an ASP user (must belong to the logged-in ASP)."""
+    err = _asp_users_forbidden()
+    if err: return err
+    from app.services.database.db import get_db
+    username = session.get("username")
+    db = get_db()
+    existing = db.execute(
+        "SELECT id FROM asp_users WHERE id = ? AND asp_username = ?",
+        (user_id, username)
+    ).fetchone()
+    if not existing:
+        return jsonify({"error": "User not found"}), 404
+    db.execute("DELETE FROM asp_users WHERE id = ?", (user_id,))
+    db.commit()
+    return jsonify({"ok": True})
+
+
+@asp_bp.route("/asp/api/users/<int:user_id>/status", methods=["PATCH"])
+@login_required
+def api_toggle_asp_user_status(user_id):
+    """Toggle is_active for an ASP user (must belong to the logged-in ASP)."""
+    err = _asp_users_forbidden()
+    if err: return err
+    from app.services.database.db import get_db
+    username = session.get("username")
+    db = get_db()
+    existing = db.execute(
+        "SELECT id, is_active FROM asp_users WHERE id = ? AND asp_username = ?",
+        (user_id, username)
+    ).fetchone()
+    if not existing:
+        return jsonify({"error": "User not found"}), 404
+    data       = request.get_json(silent=True) or {}
+    new_status = 1 if data.get("is_active") else 0
+    db.execute(
+        "UPDATE asp_users SET is_active = ?, updated_at = datetime('now') WHERE id = ?",
+        (new_status, user_id)
+    )
+    db.commit()
+    row = db.execute(
+        "SELECT id, full_name, email, password, phone_number, is_active, created_at "
+        "FROM asp_users WHERE id = ?", (user_id,)
+    ).fetchone()
+    return jsonify({"ok": True, "user": dict(row)})
 
 
 @asp_bp.route("/asp/api/in-prepare", methods=["GET"])

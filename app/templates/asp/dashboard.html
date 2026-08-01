@@ -888,6 +888,14 @@
           <span class="wo-strip-meta wo-type-pill" id="onsite-recv-wo-type"></span>
           <span class="wo-strip-meta" id="onsite-recv-asp">—</span>
         </div>
+        <!-- Parts list (populated by JS) -->
+        <div class="wo-strip-parts" id="or-parts-list" style="display:none">
+          <div class="wo-strip-parts-header">
+            Parts on this WO
+            <span class="wo-strip-qty-pill" id="or-parts-qty"></span>
+          </div>
+        </div>
+        <div id="or-parts-loading" style="display:none;font-size:12px;color:#8c959f;padding:6px 2px 0">Loading parts…</div>
         <!-- Onsite date mini-timeline (only shown for Onsite WO type) -->
         <div id="or-onsite-timeline" style="display:none;margin-top:10px;border-top:1px solid #e5e7eb;padding-top:10px;">
           <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8c959f;margin-bottom:8px">Onsite Schedule</div>
@@ -1385,6 +1393,14 @@
           <span class="wo-strip-meta wo-type-pill" id="rs-wo-type"></span>
           <span class="wo-strip-meta" id="rs-asp">—</span>
         </div>
+        <!-- Parts list (populated by JS) -->
+        <div class="wo-strip-parts" id="rs-parts-list" style="display:none">
+          <div class="wo-strip-parts-header">
+            Parts on this WO
+            <span class="wo-strip-qty-pill" id="rs-parts-qty"></span>
+          </div>
+        </div>
+        <div id="rs-parts-loading" style="display:none;font-size:12px;color:#8c959f;padding:6px 2px 0">Loading parts…</div>
         <!-- Onsite date mini-timeline (only shown for Onsite WO type) -->
         <div id="rs-onsite-timeline" style="display:none;margin-top:10px;border-top:1px solid #e5e7eb;padding-top:10px;">
           <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8c959f;margin-bottom:8px">Onsite Schedule</div>
@@ -1511,6 +1527,14 @@
           <span class="wo-strip-meta wo-type-pill" id="wosla-wo-type"></span>
           <span class="wo-strip-meta" id="wosla-asp">—</span>
         </div>
+        <!-- Parts list (populated by JS) -->
+        <div class="wo-strip-parts" id="wosla-parts-list" style="display:none">
+          <div class="wo-strip-parts-header">
+            Parts on this WO
+            <span class="wo-strip-qty-pill" id="wosla-parts-qty"></span>
+          </div>
+        </div>
+        <div id="wosla-parts-loading" style="display:none;font-size:12px;color:#8c959f;padding:6px 2px 0">Loading parts…</div>
       </div>
 
       <!-- Repair timeline -->
@@ -1604,6 +1628,14 @@
           <span class="wo-strip-meta wo-type-pill" id="escwo-wo-type"></span>
           <span class="wo-strip-meta" id="escwo-asp">—</span>
         </div>
+        <!-- Parts list (populated by JS) -->
+        <div class="wo-strip-parts" id="escwo-parts-list" style="display:none">
+          <div class="wo-strip-parts-header">
+            Parts on this WO
+            <span class="wo-strip-qty-pill" id="escwo-parts-qty"></span>
+          </div>
+        </div>
+        <div id="escwo-parts-loading" style="display:none;font-size:12px;color:#8c959f;padding:6px 2px 0">Loading parts…</div>
       </div>
 
       <!-- Repair timeline (same component as WO SLA modal) -->
@@ -3242,7 +3274,7 @@ function openInputDc(woId, woType, woStatus, aspName) {
         const awbHtml = p.awb
           ? `<span class="wo-strip-part-awb">AWB: ${esc(p.awb)}</span>`
           : `<span class="wo-strip-part-noawb">No AWB on record</span>`;
-        row.innerHTML = `<span class="wo-strip-part-pn">${esc(p.product||'—')}</span><span class="wo-strip-part-desc">${esc(p.description||'')}</span>${awbHtml}`;
+        row.innerHTML = `<span class="wo-strip-part-pn">${esc(p.soid != null ? String(p.soid) : '—')}</span><span class="wo-strip-part-desc">${esc(p.description||'')}</span>${awbHtml}`;
         idcPartsList.appendChild(row);
       });
     })
@@ -3448,6 +3480,7 @@ function openOnsiteRecv(woId, woType, woStatus, aspName, origOnsite, deferDate, 
     trackEl.innerHTML   = '';
   }
 
+  _loadPartsStrip(woId, 'or-parts-list', 'or-parts-loading', 'or-parts-qty');
   openModal('modal-onsite-recv');
 }
 
@@ -3569,7 +3602,7 @@ function renderRecvTimeline(trackEl, pickupDate, etaDate, podDate) {
    containerEl : the wrapper div (recv-part-tl-groups / psla-part-tl-groups)
    parts       : non-cancelled rows from /asp/api/wo-parts/:id
                  (all parts, not just shipped ones)
-   labelKey    : 'soid' (Confirm Receipt) | 'product' (Part SLA Overdue)
+   labelKey    : 'soid' (always — SOID shown in the PN pill)
 
    Each part gets:
      [SOID/PN]  [description]  [AWB badge or "No AWB"] ← card row
@@ -3577,7 +3610,7 @@ function renderRecvTimeline(trackEl, pickupDate, etaDate, podDate) {
 
    Parts are sorted so same-AWB parts stay together (AWB asc, empty last).
    ─────────────────────────────────────────────────────────────────────────── */
-function _renderPartShipmentTimelines(containerEl, parts, labelKey) {
+function _renderPartShipmentTimelines(containerEl, parts) {
   if (!containerEl) return;
   containerEl.innerHTML = '';
 
@@ -3603,9 +3636,7 @@ function _renderPartShipmentTimelines(containerEl, parts, labelKey) {
       ? `<span class="wo-strip-part-awb">AWB: ${esc(awbKey)}</span>`
       : `<span class="wo-strip-part-noawb">No AWB on record</span>`;
 
-    const pnLabel = (labelKey === 'product')
-      ? esc(p.product || '—')
-      : esc(p.soid != null ? String(p.soid) : '—');
+    const pnLabel = esc(p.soid != null ? String(p.soid) : '—');
 
     const block = document.createElement('div');
     block.className = 'part-soid-block';
@@ -3676,7 +3707,7 @@ function openRecv(woId, woType, eta, pickupDate, podDate, woStatus, aspName) {
 
       /* ── Per-SOID card + timeline (sorted by AWB) ── */
       const groupsEl = document.getElementById('recv-part-tl-groups');
-      _renderPartShipmentTimelines(groupsEl, parts, 'soid');
+      _renderPartShipmentTimelines(groupsEl, parts);
       document.getElementById('recv-part-timeline').style.display = '';
 
       /* Qty pill only — individual rows are rendered inside the timeline block */
@@ -4013,6 +4044,47 @@ function _renderWoSlaTimeline(podRaw, woType, deferRaw, tlId) {
     <div class="wosla-tl-track">${nodes}</div>`;
 }
 
+/* ── Shared helper: fetch & render Parts on this WO into a wo-strip ────────
+   woId      : work order id to fetch
+   listId    : id of .wo-strip-parts div
+   loadingId : id of the loading text div
+   qtyId     : id of the qty pill span
+   labelKey param removed — SOID is always shown in the PN pill.
+   ─────────────────────────────────────────────────────────────────────────── */
+function _loadPartsStrip(woId, listId, loadingId, qtyId) {
+  const listEl    = document.getElementById(listId);
+  const loadingEl = document.getElementById(loadingId);
+  const qtyEl     = document.getElementById(qtyId);
+
+  /* Reset */
+  listEl.querySelectorAll('.wo-strip-part-row').forEach(r => r.remove());
+  listEl.style.display    = 'none';
+  loadingEl.style.display = 'block';
+  qtyEl.textContent       = '';
+
+  fetch(`/asp/api/wo-parts/${woId}`)
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      loadingEl.style.display = 'none';
+      if (!data || !data.length) return;
+      const parts = data.filter(p => !(p.wo_product_status || '').toLowerCase().includes('cancel'));
+      if (!parts.length) return;
+      qtyEl.textContent = parts.length + (parts.length === 1 ? ' PART' : ' PARTS');
+      parts.forEach(p => {
+        const row = document.createElement('div');
+        row.className = 'wo-strip-part-row';
+        const pnLabel = esc(p.soid != null ? String(p.soid) : '—');
+        const awbHtml = p.awb
+          ? `<span class="wo-strip-part-awb">AWB: ${esc(p.awb)}</span>`
+          : `<span class="wo-strip-part-noawb">No AWB on record</span>`;
+        row.innerHTML = `<span class="wo-strip-part-pn">${pnLabel}</span><span class="wo-strip-part-desc">${esc(p.description || '')}</span>${awbHtml}`;
+        listEl.appendChild(row);
+      });
+      listEl.style.display = 'block';
+    })
+    .catch(() => { loadingEl.style.display = 'none'; });
+}
+
 function openWoSla(woId, woType, woStatus, aspName, source, podRaw, deferRaw) {
   activeWoSlaWo = woId;
   document.getElementById('wosla-wo-num').textContent        = woId;
@@ -4023,6 +4095,7 @@ function openWoSla(woId, woType, woStatus, aspName, source, podRaw, deferRaw) {
   document.getElementById('wosla-notes').value               = '';
   woslaIssueDd.reset();
   _renderWoSlaTimeline(podRaw || '', woType || '', deferRaw || '', 'wosla-timeline');
+  _loadPartsStrip(woId, 'wosla-parts-list', 'wosla-parts-loading', 'wosla-parts-qty');
   openModal('modal-wo-sla');
 }
 
@@ -4047,6 +4120,7 @@ function openEscalateWo(woId, woType, woStatus, aspName, podRaw, deferRaw) {
   document.getElementById('escwo-notes').value               = '';
   escwoIssueDd.reset();
   _renderWoSlaTimeline(podRaw || '', woType || '', deferRaw || '', 'escwo-timeline');
+  _loadPartsStrip(woId, 'escwo-parts-list', 'escwo-parts-loading', 'escwo-parts-qty');
   openModal('modal-escalate-wo');
 }
 
@@ -4150,8 +4224,7 @@ function openPartSla(woId, woType, eta, pickupDate, podDate, awb, woStatus, aspN
       /* ── Per-SOID card + timeline (sorted by AWB) ── */
       _renderPartShipmentTimelines(
         document.getElementById('psla-part-tl-groups'),
-        parts,
-        'product'
+        parts
       );
       document.getElementById('psla-part-timeline').style.display = '';
 
@@ -4368,6 +4441,7 @@ function openReschedule(woId, woType, status, aspName, origOnsite, deferDate, ac
     trackEl.innerHTML   = '';
   }
 
+  _loadPartsStrip(woId, 'rs-parts-list', 'rs-parts-loading', 'rs-parts-qty');
   openModal('modal-reschedule');
 }
 

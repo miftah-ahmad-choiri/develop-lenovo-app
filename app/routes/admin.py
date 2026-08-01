@@ -1322,6 +1322,91 @@ def asp_directory_create():
     return redirect(url_for("admin.asp_directory"))
 
 
+# ── ASP Password Change Requests ─────────────────────────────────────────────
+
+@admin_bp.route("/admin/users/pw-change-requests", methods=["GET"])
+def pw_change_requests():
+    """List pending and historical ASP password change requests."""
+    from app.services.database.db import get_db
+    db = get_db()
+    pending_rows = db.execute(
+        """SELECT r.id, r.asp_username, r.requested_at, r.status,
+                  r.new_password, d.service_provider
+           FROM asp_pw_change_requests r
+           LEFT JOIN asp_details d ON d.username = r.asp_username
+           WHERE r.status = 'pending'
+           ORDER BY r.requested_at DESC"""
+    ).fetchall()
+    history_rows = db.execute(
+        """SELECT r.id, r.asp_username, r.requested_at, r.status,
+                  r.new_password, r.reviewed_by, r.reviewed_at,
+                  d.service_provider
+           FROM asp_pw_change_requests r
+           LEFT JOIN asp_details d ON d.username = r.asp_username
+           WHERE r.status != 'pending'
+           ORDER BY r.reviewed_at DESC"""
+    ).fetchall()
+    return render_template(
+        "admin/user_management/pw_change_requests.html",
+        requests=[dict(r) for r in pending_rows],
+        history=[dict(r) for r in history_rows],
+        portal="admin", active_page="user_management"
+    )
+
+
+@admin_bp.route("/admin/users/pw-change-requests/<int:req_id>/approve", methods=["POST"])
+def pw_change_request_approve(req_id):
+    """Approve a password change request: apply the ASP's requested password."""
+    from app.services.database.db import get_db
+    from flask import session as _session
+    db = get_db()
+    row = db.execute(
+        "SELECT asp_username, new_password FROM asp_pw_change_requests "
+        "WHERE id=? AND status='pending'",
+        (req_id,)
+    ).fetchone()
+    if not row:
+        flash("Request not found or already reviewed.", "danger")
+        return redirect(url_for("admin.pw_change_requests"))
+    asp_username = row["asp_username"]
+    new_password = row["new_password"]
+    if not new_password:
+        flash("No password was submitted with this request.", "danger")
+        return redirect(url_for("admin.pw_change_requests"))
+    reviewed_by = _session.get("username", "admin")
+    db.execute(
+        "UPDATE asp_details SET password=? WHERE username=?",
+        (new_password, asp_username)
+    )
+    db.execute(
+        "UPDATE asp_pw_change_requests "
+        "SET status='approved', reviewed_by=?, reviewed_at=datetime('now') "
+        "WHERE id=?",
+        (reviewed_by, req_id)
+    )
+    db.commit()
+    flash(f"Password for {asp_username} approved and applied successfully.", "success")
+    return redirect(url_for("admin.pw_change_requests"))
+
+
+@admin_bp.route("/admin/users/pw-change-requests/<int:req_id>/deny", methods=["POST"])
+def pw_change_request_deny(req_id):
+    """Deny a password change request."""
+    from app.services.database.db import get_db
+    from flask import session as _session
+    db = get_db()
+    reviewed_by = _session.get("username", "admin")
+    db.execute(
+        "UPDATE asp_pw_change_requests "
+        "SET status='denied', reviewed_by=?, reviewed_at=datetime('now') "
+        "WHERE id=? AND status='pending'",
+        (reviewed_by, req_id)
+    )
+    db.commit()
+    flash("Request denied.", "warning")
+    return redirect(url_for("admin.pw_change_requests"))
+
+
 # ── System Archive ───────────────────────────────────────────────────────────
 
 @admin_bp.route("/admin/archive", methods=["GET"])

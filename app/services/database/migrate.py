@@ -36,6 +36,9 @@ def run_migrations(app: Flask) -> None:
         _migrate_wo_product_detail_add_dc_number(conn)
         _migrate_create_asp_details(conn)
         _migrate_create_admin_users(conn)
+        _migrate_create_asp_users(conn)
+        _migrate_asp_users_drop_tech_id(conn)
+        _migrate_create_asp_pw_change_requests(conn)
     finally:
         conn.close()
 
@@ -246,6 +249,111 @@ def _migrate_create_asp_details(conn: sqlite3.Connection) -> None:
 
         CREATE INDEX IF NOT EXISTS idx_asp_details_username
             ON asp_details(username);
+        """
+    )
+    conn.commit()
+
+
+def _migrate_create_asp_users(conn: sqlite3.Connection) -> None:
+    """Create the asp_users table if it does not already exist.
+
+    Each row represents a technician/staff account that belongs to one ASP.
+    The asp_username column is a FK → asp_details.username.
+    """
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS asp_users (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            asp_username    TEXT NOT NULL
+                                REFERENCES asp_details(username)
+                                ON UPDATE CASCADE
+                                ON DELETE CASCADE,
+            full_name       TEXT NOT NULL,
+            email           TEXT NOT NULL,
+            password        TEXT NOT NULL,
+            phone_number    TEXT,
+            is_active       INTEGER DEFAULT 1,
+            created_at      TEXT DEFAULT (datetime('now')),
+            updated_at      TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_asp_users_asp_username
+            ON asp_users(asp_username);
+        """
+    )
+    conn.commit()
+
+
+def _migrate_asp_users_drop_tech_id(conn: sqlite3.Connection) -> None:
+    """Drop the tech_id column from asp_users if it still exists.
+
+    SQLite does not support DROP COLUMN before 3.35.0, so we use the
+    rename-create-copy-drop pattern inside a transaction.
+    """
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(asp_users)").fetchall()}
+    if "tech_id" not in cols:
+        return  # already clean
+
+    conn.executescript(
+        """
+        PRAGMA foreign_keys = OFF;
+        BEGIN;
+
+        ALTER TABLE asp_users RENAME TO _asp_users_old;
+
+        CREATE TABLE asp_users (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            asp_username    TEXT NOT NULL
+                                REFERENCES asp_details(username)
+                                ON UPDATE CASCADE
+                                ON DELETE CASCADE,
+            full_name       TEXT NOT NULL,
+            email           TEXT NOT NULL,
+            password        TEXT NOT NULL,
+            phone_number    TEXT,
+            is_active       INTEGER DEFAULT 1,
+            created_at      TEXT DEFAULT (datetime('now')),
+            updated_at      TEXT DEFAULT (datetime('now'))
+        );
+
+        INSERT INTO asp_users
+            (id, asp_username, full_name, email, password,
+             phone_number, is_active, created_at, updated_at)
+        SELECT
+            id, asp_username, full_name, email, password,
+            phone_number, is_active, created_at, updated_at
+        FROM _asp_users_old;
+
+        DROP TABLE _asp_users_old;
+
+        CREATE INDEX IF NOT EXISTS idx_asp_users_asp_username
+            ON asp_users(asp_username);
+
+        COMMIT;
+        PRAGMA foreign_keys = ON;
+        """
+    )
+    conn.commit()
+
+
+def _migrate_create_asp_pw_change_requests(conn: sqlite3.Connection) -> None:
+    """Create the asp_pw_change_requests table if it does not already exist."""
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS asp_pw_change_requests (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            asp_username    TEXT NOT NULL,
+            requested_at    TEXT DEFAULT (datetime('now')),
+            status          TEXT DEFAULT 'pending',
+            reviewed_by     TEXT,
+            reviewed_at     TEXT,
+            new_password    TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_asp_pw_req_username
+            ON asp_pw_change_requests(asp_username);
+        CREATE INDEX IF NOT EXISTS idx_asp_pw_req_status
+            ON asp_pw_change_requests(status);
         """
     )
     conn.commit()

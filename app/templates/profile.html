@@ -176,6 +176,122 @@
 .wh-time svg { color: #3b82f6; flex-shrink: 0; }
 .wh-dash { font-size: 12px; color: #9ca3af; font-weight: 600; }
 
+/* ── Operations card wrapper ────────────────────────────────────────────────── */
+.ops-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.ops-card-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: #57606a;
+  padding: 14px 24px 12px;
+  border-bottom: 1px solid #f0f1f3;
+  background: #f9fafb;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ops-inner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.ops-section {
+  padding: 16px 24px;
+}
+.ops-section:first-child {
+  border-right: 1px solid #f0f1f3;
+}
+.ops-section-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+/* In edit mode the two columns stack back to full-width */
+.ops-inner.editing {
+  display: flex;
+  flex-direction: column;
+}
+.ops-inner.editing .ops-section:first-child {
+  border-right: none;
+  border-bottom: 1px solid #f0f1f3;
+}
+
+/* ── Operational support row ─────────────────────────────────────────────────── */
+.op-support-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.op-support-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.op-support-badge.cci-only   { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.op-support-badge.cci-onsite { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+.op-support-badge.unknown    { background: #f9fafb; color: #9ca3af; border: 1px solid #e5e7eb; font-style: italic; }
+.op-support-edit-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 12px; border-radius: 6px; border: 1px solid #d0d7de;
+  background: #fff; color: #374151; font-size: 12px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: background 0.12s, border-color 0.12s;
+}
+.op-support-edit-btn:hover { background: #f3f4f6; border-color: #9ca3af; }
+.op-support-edit-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.op-support-select {
+  padding: 6px 32px 6px 10px;
+  font-size: 13px; font-weight: 600;
+  border: 1px solid #d0d7de; border-radius: 6px;
+  background: #fff; color: #1f2328;
+  font-family: inherit; outline: none; cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  transition: border-color 0.13s;
+}
+.op-support-select:focus { border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,0.1); }
+.op-support-btn-cancel {
+  padding: 6px 14px; border-radius: 6px; border: 1px solid #d0d7de;
+  background: #fff; color: #374151; font-size: 12px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: background 0.12s;
+}
+.op-support-btn-cancel:hover { background: #f3f4f6; }
+.op-support-btn-save {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 14px; border-radius: 6px; border: none;
+  background: #1f2328; color: #fff; font-size: 12px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: background 0.12s;
+}
+.op-support-btn-save:hover { background: #2d3340; }
+
+/* ── Working hours section within ops card ─────────────────────────────────── */
+.wh-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
 /* ── Working hours edit mode ────────────────────────────────────────────────── */
 .wh-edit-btn {
   display: inline-flex; align-items: center; gap: 5px;
@@ -238,29 +354,214 @@
 }
 .wh-btn-save:hover { background: #2d3340; }
 
-/* ── ASP Users (empty state) ────────────────────────────────────────────────── */
-.users-empty {
+/* ── Location edit card ─────────────────────────────────────────────────────── */
+.loc-edit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  padding: 16px 24px;
+}
+.loc-edit-field { display: flex; flex-direction: column; gap: 5px; }
+.loc-edit-field.full { grid-column: 1 / -1; }
+.loc-edit-field label {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.5px;
+  text-transform: uppercase; color: #57606a;
+}
+.loc-edit-field input,
+.loc-edit-field textarea {
+  padding: 8px 11px; border: 1px solid #d0d7de; border-radius: 6px;
+  font-size: 13px; font-family: inherit; color: #1f2328;
+  background: #fff; outline: none; transition: border-color 0.13s;
+}
+.loc-edit-field input:focus,
+.loc-edit-field textarea:focus { border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,0.1); }
+.loc-edit-field textarea { resize: vertical; min-height: 62px; }
+.loc-edit-actions {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 24px 16px; border-top: 1px solid #f0f1f3;
+}
+.loc-save-msg { font-size: 12px; color: #15803d; font-weight: 600; margin-left: 4px; }
+.loc-err-msg  { font-size: 12px; color: #dc2626; font-weight: 600; margin-left: 4px; }
+
+/* ── ASP Users card ─────────────────────────────────────────────────────────── */
+.asp-users-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 48px 24px;
-  gap: 12px;
+  padding: 44px 24px;
+  gap: 10px;
   color: #9ca3af;
 }
-.users-empty svg { color: #d1d5db; }
-.users-empty-title { font-size: 14px; font-weight: 600; color: #57606a; }
-.users-empty-sub   { font-size: 12px; color: #9ca3af; }
-.users-coming-badge {
-  margin-top: 4px;
-  padding: 3px 12px;
-  background: #f3f4f6;
-  border: 1px solid #e5e7eb;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #6b7280;
-  letter-spacing: 0.4px;
+.asp-users-empty svg { color: #d1d5db; }
+.asp-users-empty-title { font-size: 13.5px; font-weight: 600; color: #57606a; }
+.asp-users-empty-sub   { font-size: 12px; color: #9ca3af; }
+.asp-add-user-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 13px; border-radius: 6px;
+  border: none; background: #1f2328; color: #fff;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  font-family: inherit; transition: background 0.12s;
+}
+.asp-add-user-btn:hover { background: #2d3340; }
+.asp-user-list {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0;
+}
+.asp-user-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 24px;
+  border-bottom: 1px solid #f3f4f6;
+  transition: background 0.1s;
+}
+.asp-user-row:last-child { border-bottom: none; }
+.asp-user-row:hover { background: #fafafa; }
+.asp-user-avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: #3b82d4; color: #fff;
+  font-size: 13px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.asp-user-info { flex: 1; min-width: 0; }
+.asp-user-name  { font-size: 13.5px; font-weight: 600; color: #1f2328; }
+.asp-user-email { font-size: 11.5px; color: #8c959f; margin-top: 1px; }
+.asp-user-meta  {
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+}
+.asp-user-badge {
+  font-size: 10.5px; font-weight: 700; padding: 2px 8px;
+  border-radius: 20px; letter-spacing: 0.3px;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.asp-user-badge.active {
+  background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0;
+}
+.asp-user-badge.inactive {
+  background: #fff4f4; color: #b91c1c; border: 1px solid #fecaca;
+}
+.asp-user-edit-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 6px;
+  border: 1px solid #d0d7de; background: #fff; color: #57606a;
+  cursor: pointer; flex-shrink: 0; font-family: inherit;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.asp-user-edit-btn:hover { background: #f3f4f6; border-color: #9ca3af; color: #1f2328; }
+
+/* ── Add User modal ──────────────────────────────────────────────────────────── */
+.au-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.48); z-index: 300;
+  align-items: flex-start; justify-content: center;
+  padding: 40px 12px 40px; overflow-y: auto;
+}
+.au-overlay.open { display: flex; }
+.au-modal {
+  background: #fff; border-radius: 12px;
+  width: 100%; max-width: 480px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+}
+.au-modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px 14px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.au-modal-title-wrap { display: flex; align-items: center; gap: 10px; }
+.au-modal-icon {
+  width: 34px; height: 34px; border-radius: 8px;
+  background: #eff6ff; border: 1px solid #bfdbfe;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.au-modal-title    { font-size: 15px; font-weight: 700; color: #1f2328; }
+.au-modal-subtitle { font-size: 12px; color: #57606a; margin-top: 2px; }
+.au-modal-close {
+  background: none; border: none; cursor: pointer;
+  color: #8c959f; font-size: 20px; line-height: 1;
+  padding: 2px 6px; font-family: inherit;
+}
+.au-modal-close:hover { color: #1f2328; }
+.au-modal-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.au-field { display: flex; flex-direction: column; gap: 5px; }
+.au-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.au-label {
+  font-size: 11px; font-weight: 700; color: #57606a;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.au-label .au-req { color: #dc2626; }
+.au-input {
+  padding: 8px 11px; font-size: 13px; font-weight: 500;
+  border: 1px solid #d0d7de; border-radius: 6px;
+  background: #fff; color: #1f2328; font-family: inherit;
+  outline: none; transition: border-color 0.13s;
+  width: 100%; box-sizing: border-box;
+}
+.au-input:focus { border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,0.1); }
+.au-input.error { border-color: #dc2626; box-shadow: 0 0 0 3px rgba(220,38,38,0.1); }
+.au-input:disabled { background: #f9fafb; color: #6b7280; cursor: default; border-color: #e5e7eb; }
+.au-hint { font-size: 11px; color: #9ca3af; margin-top: 1px; }
+/* password wrapper with eye button */
+.au-pw-wrap {
+  position: relative; display: flex; align-items: center;
+}
+.au-pw-wrap .au-input {
+  padding-right: 36px;   /* room for the eye button */
+}
+.au-eye-btn {
+  position: absolute; right: 0; top: 0; bottom: 0;
+  width: 34px; border: none; background: none;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: #9ca3af; flex-shrink: 0;
+  transition: color 0.12s;
+}
+.au-eye-btn:hover { color: #57606a; }
+/* hide eye button when its input is disabled so the pencil is clickable */
+.au-pw-wrap:has(input:disabled) .au-eye-btn { display: none; pointer-events: none; }
+.au-pw-wrap:has(input:disabled) .au-input   { padding-right: 11px; }
+/* live password match feedback */
+.au-pw-match {
+  font-size: 11px; font-weight: 600; margin-top: -2px;
+  display: flex; align-items: center; gap: 4px;
+  transition: opacity 0.15s;
+}
+.au-pw-match.match   { color: #15803d; }
+.au-pw-match.nomatch { color: #dc2626; }
+.au-optional-divider {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 10.5px; font-weight: 700; color: #9ca3af;
+  text-transform: uppercase; letter-spacing: 0.6px;
+}
+.au-optional-divider::before,
+.au-optional-divider::after {
+  content: ''; flex: 1; height: 1px; background: #e5e7eb;
+}
+.au-modal-footer {
+  padding: 14px 20px; border-top: 1px solid #e5e7eb;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.au-footer-hint { font-size: 11px; color: #8c959f; }
+.au-footer-hint strong { color: #dc2626; }
+.au-footer-btns { display: flex; gap: 8px; }
+.au-btn-cancel {
+  padding: 7px 16px; border-radius: 6px; border: 1px solid #d0d7de;
+  background: #fff; color: #374151; font-size: 13px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: background 0.12s;
+}
+.au-btn-cancel:hover { background: #f3f4f6; }
+.au-btn-submit {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 18px; border-radius: 6px; border: none;
+  background: #1f2328; color: #fff; font-size: 13px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: background 0.12s;
+}
+.au-btn-submit:hover { background: #2d3340; }
+.au-form-err {
+  font-size: 12px; color: #dc2626; font-weight: 600;
+  padding: 8px 12px; background: #fff0f0;
+  border: 1px solid #fca5a5; border-radius: 6px; display: none;
 }
 
 @media (max-width: 640px) {
@@ -275,12 +576,354 @@
   .wh-days               { min-width: unset; width: 100%; }
   .wh-time               { min-width: 90px; }
 }
+
+/* ── Edit User Drawer ───────────────────────────────────────────────────────── */
+.au-dr-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.4); z-index: 900;
+  backdrop-filter: blur(2px);
+}
+.au-dr-overlay.open { display: block; }
+
+.au-drawer {
+  position: fixed; top: 0; right: -520px; width: 480px; max-width: 96vw;
+  height: 100vh; background: #f7f8fa; z-index: 901;
+  box-shadow: -6px 0 32px rgba(0,0,0,0.14);
+  display: flex; flex-direction: column;
+  transition: right 0.28s cubic-bezier(0.4,0,0.2,1);
+}
+.au-drawer.open { right: 0; }
+
+.au-drawer-header {
+  padding: 16px 20px 14px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fff;
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+}
+.au-drawer-title    { font-size: 15px; font-weight: 700; color: #1f2328; }
+.au-drawer-subtitle { font-size: 11.5px; color: #57606a; margin-top: 4px; }
+.au-drawer-close {
+  background: none; border: 1px solid #e5e7eb; cursor: pointer; color: #57606a;
+  padding: 5px 7px; border-radius: 6px; line-height: 1; flex-shrink: 0;
+}
+.au-drawer-close:hover { background: #f0f2f5; color: #1f2328; border-color: #d0d7de; }
+
+.au-drawer-body { flex: 1; overflow-y: auto; padding: 12px; background: #e4e7eb; }
+
+.au-drawer-footer {
+  padding: 14px 16px 16px; border-top: 1px solid #e5e7eb; background: #fff;
+  display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;
+}
+.au-drawer-footer-sep {
+  border: none; border-top: 1px solid #e5e7eb; margin: 4px 0;
+}
+.au-drawer-close-btn {
+  width: 100%; padding: 9px 16px; font-size: 13px; font-weight: 600;
+  background: #fff; color: #57606a; border: 1px solid #d0d7de;
+  border-radius: 6px; cursor: pointer; font-family: inherit;
+}
+.au-drawer-close-btn:hover { background: #f0f2f5; }
+
+/* Section card */
+.au-sec {
+  background: #fff; border: 1px solid #d8dde3;
+  border-radius: 8px; margin-bottom: 8px; overflow: hidden;
+}
+.au-sec:last-child { margin-bottom: 0; }
+.au-sec-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px; border-bottom: 1px solid #e5e7eb; background: #f7f8fa;
+}
+.au-sec-title-wrap { display: flex; align-items: center; gap: 8px; }
+.au-sec-icon {
+  width: 26px; height: 26px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.au-sec-icon.account { background: #eff6ff; color: #3b82d4; }
+.au-sec-icon.contact { background: #f0fdf4; color: #16a34a; }
+.au-sec-title {
+  font-size: 11.5px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.07em; color: #1f2328;
+}
+.au-sec-btns { display: flex; align-items: center; gap: 6px; }
+.au-sec-edit-btn {
+  padding: 4px 12px; font-size: 11.5px; font-weight: 600;
+  border: 1px solid #d0d7de; border-radius: 5px;
+  background: #fff; color: #57606a; cursor: pointer; font-family: inherit;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.au-sec-edit-btn:hover { border-color: #3b82d4; color: #3b82d4; background: #f0f6ff; }
+.au-sec-actions { display: none; gap: 6px; }
+.au-sec-actions.visible { display: flex; }
+.au-sec-save-btn {
+  padding: 4px 12px; font-size: 11.5px; font-weight: 600;
+  border: none; border-radius: 5px;
+  background: #3b82d4; color: #fff; cursor: pointer; font-family: inherit;
+}
+.au-sec-save-btn:hover { background: #2563b0; }
+.au-sec-cancel-btn {
+  padding: 4px 12px; font-size: 11.5px; font-weight: 600;
+  border: 1px solid #d0d7de; border-radius: 5px;
+  background: #fff; color: #57606a; cursor: pointer; font-family: inherit;
+}
+.au-sec-cancel-btn:hover { background: #f0f2f5; }
+
+/* View-mode read fields inside section card */
+.au-sec-view { padding: 12px 16px; display: flex; flex-direction: column; gap: 0; }
+.au-sec-view-field {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 8px 0; border-bottom: 1px solid #f3f4f6;
+}
+.au-sec-view-field:last-child { border-bottom: none; }
+.au-sec-view-label {
+  font-size: 10.5px; font-weight: 700; color: #9ca3af;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.au-sec-view-value {
+  font-size: 13px; color: #1f2328; line-height: 1.5; word-break: break-all;
+}
+.au-sec-view-value.muted { color: #9ca3af; font-style: italic; }
+
+/* Edit inputs inside section card — single column */
+.au-sec-inputs { padding: 14px 16px; display: none; }
+.au-sec-inputs.editing { display: block; }
+.au-sec-form-stack { display: flex; flex-direction: column; gap: 12px; }
+.au-sec-form-field { display: flex; flex-direction: column; gap: 4px; }
+.au-sec-form-field label {
+  font-size: 11px; font-weight: 700; color: #57606a;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.au-sec-form-field input {
+  padding: 7px 10px; font-size: 13px; border: 1px solid #d0d7de;
+  border-radius: 6px; font-family: inherit; background: #fff; color: #1f2328;
+  outline: none; transition: border-color 0.15s; width: 100%; box-sizing: border-box;
+}
+.au-sec-form-field input:focus { border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,0.1); }
+.au-sec-form-field input.error { border-color: #dc2626; }
+/* password wrapper inside drawer */
+.au-dr-pw-wrap { position: relative; }
+.au-dr-pw-wrap input { padding-right: 36px; }
+.au-dr-eye-btn {
+  position: absolute; right: 0; top: 0; bottom: 0; width: 34px;
+  border: none; background: none; display: flex; align-items: center;
+  justify-content: center; cursor: pointer; color: #9ca3af;
+}
+.au-dr-eye-btn:hover { color: #57606a; }
+/* change-password toggle link */
+.au-dr-chpw-toggle {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11.5px; font-weight: 600; color: #3b82d4;
+  background: none; border: none; cursor: pointer;
+  padding: 0; font-family: inherit;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.au-dr-chpw-toggle:hover { color: #1d4ed8; }
+.au-dr-chpw-section { margin-top: 4px; display: none; }
+.au-dr-chpw-section.open { display: block; }
+/* divider inside change-pw section */
+.au-dr-divider {
+  display: flex; align-items: center; gap: 8px; margin: 10px 0 12px;
+  font-size: 10.5px; font-weight: 700; color: #9ca3af;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.au-dr-divider::before, .au-dr-divider::after {
+  content: ''; flex: 1; height: 1px; background: #e5e7eb;
+}
+/* pw match feedback */
+.au-dr-pw-match { font-size: 11px; font-weight: 600; display: flex; align-items: center; gap: 4px; margin-top: 4px; }
+.au-dr-pw-match.match   { color: #15803d; }
+.au-dr-pw-match.nomatch { color: #dc2626; }
+/* section-level error/success */
+.au-sec-err {
+  margin: 0 16px 12px; font-size: 12px; color: #dc2626; font-weight: 600;
+  padding: 7px 10px; background: #fff0f0; border: 1px solid #fca5a5;
+  border-radius: 6px; display: none;
+}
+.au-sec-ok {
+  margin: 0 16px 12px; font-size: 12px; color: #15803d; font-weight: 600;
+  padding: 7px 10px; background: #f0fdf4; border: 1px solid #bbf7d0;
+  border-radius: 6px; display: none;
+}
+
+/* ── Drawer footer action buttons ───────────────────────────────────────── */
+.au-danger-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  width: 100%; padding: 9px 14px; border-radius: 6px; border: 1px solid;
+  font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+  transition: background 0.12s;
+}
+.au-danger-btn svg { flex-shrink: 0; }
+.au-danger-btn-deactivate { background: #fff; color: #92400e; border-color: #fcd34d; }
+.au-danger-btn-deactivate:hover { background: #fffbeb; }
+.au-danger-btn-activate   { background: #fff; color: #14532d; border-color: #86efac; }
+.au-danger-btn-activate:hover   { background: #f0fdf4; }
+.au-danger-btn-remove     { background: #fff; color: #dc2626; border-color: #fca5a5; }
+.au-danger-btn-remove:hover     { background: #fff0f0; }
+
+/* ── Confirmation modal ──────────────────────────────────────────────────── */
+.au-confirm-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55); z-index: 1000;
+  align-items: center; justify-content: center; padding: 24px;
+}
+.au-confirm-overlay.open { display: flex; }
+.au-confirm-modal {
+  background: #fff; border-radius: 14px;
+  width: 100%; max-width: 480px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.28);
+  overflow: hidden;
+}
+.au-confirm-header {
+  padding: 28px 28px 0;
+  display: flex; align-items: flex-start; gap: 18px;
+}
+.au-confirm-icon-wrap {
+  width: 52px; height: 52px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 36px; line-height: 1;
+  /* no background, no border-radius — plain emoji */
+}
+.au-confirm-icon-wrap.danger  {}
+.au-confirm-icon-wrap.warning {}
+.au-confirm-icon-wrap.success {}
+.au-confirm-text { flex: 1; padding-top: 4px; }
+.au-confirm-title { font-size: 17px; font-weight: 700; color: #1f2328; margin-bottom: 8px; }
+.au-confirm-body  { font-size: 14px; color: #57606a; line-height: 1.7; }
+.au-confirm-body strong { color: #1f2328; }
+.au-confirm-footer {
+  padding: 24px 28px; display: flex; gap: 10px; justify-content: flex-end;
+  border-top: 1px solid #f0f1f3; margin-top: 24px;
+}
+.au-confirm-btn-cancel {
+  padding: 10px 22px; border-radius: 7px; border: 1px solid #d0d7de;
+  background: #fff; color: #374151; font-size: 14px; font-weight: 600;
+  cursor: pointer; font-family: inherit;
+}
+.au-confirm-btn-cancel:hover { background: #f3f4f6; }
+.au-confirm-btn-ok {
+  padding: 10px 22px; border-radius: 7px; border: none;
+  font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+  display: inline-flex; align-items: center; gap: 7px;
+}
+.au-confirm-btn-ok.danger  { background: #dc2626; color: #fff; }
+.au-confirm-btn-ok.danger:hover  { background: #b91c1c; }
+.au-confirm-btn-ok.warning { background: #d97706; color: #fff; }
+.au-confirm-btn-ok.warning:hover { background: #b45309; }
+.au-confirm-btn-ok.success { background: #16a34a; color: #fff; }
+.au-confirm-btn-ok.success:hover { background: #15803d; }
+.au-confirm-err {
+  margin: 0 28px 4px; font-size: 12px; color: #dc2626; font-weight: 600;
+  padding: 7px 10px; background: #fff0f0; border: 1px solid #fca5a5;
+  border-radius: 6px; display: none;
+}
+
+@media (max-width: 640px) { .au-drawer { width: 100%; } }
+
+/* ── Hero password row ───────────────────────────────────────────────────── */
+.hero-pw-row {
+  display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap;
+}
+.hero-pw-value {
+  font-size: 13px; font-family: monospace; color: #cbd5e1;
+  letter-spacing: 2px; user-select: none;
+}
+.hero-pw-toggle {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; border-radius: 5px;
+  border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.07);
+  color: #8b949e; cursor: pointer; flex-shrink: 0;
+  transition: background 0.12s;
+}
+.hero-pw-toggle:hover { background: rgba(255,255,255,0.14); color: #e2e8f0; }
+.hero-pw-req-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;
+  cursor: pointer; font-family: inherit; border: none;
+  transition: background 0.12s;
+}
+.hero-pw-req-btn.idle    { background: rgba(59,130,212,0.22); color: #93c5fd; }
+.hero-pw-req-btn.idle:hover { background: rgba(59,130,212,0.35); }
+.hero-pw-req-btn.pending { background: rgba(234,179,8,0.22);  color: #fde047; cursor: default; }
+/* ── Password Change Request modal ──────────────────────────────────────── */
+.pw-req-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55); z-index: 1100;
+  align-items: center; justify-content: center; padding: 24px;
+}
+.pw-req-overlay.open { display: flex; }
+.pw-req-modal {
+  background: #fff; border-radius: 14px;
+  width: 100%; max-width: 460px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.28); overflow: hidden;
+}
+.pw-req-header {
+  padding: 22px 24px 0; display: flex; align-items: flex-start; gap: 14px;
+}
+.pw-req-icon { font-size: 34px; line-height: 1; flex-shrink: 0; }
+.pw-req-title { font-size: 16px; font-weight: 700; color: #1f2328; margin-bottom: 4px; }
+.pw-req-body  { font-size: 13px; color: #57606a; line-height: 1.7; }
+.pw-req-fields { padding: 16px 24px 0; display: flex; flex-direction: column; gap: 12px; }
+.pw-req-field  { display: flex; flex-direction: column; gap: 5px; }
+.pw-req-field label {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.5px; color: #57606a;
+}
+.pw-req-pw-wrap { position: relative; display: flex; align-items: center; }
+.pw-req-pw-wrap input {
+  flex: 1; padding: 8px 38px 8px 11px; border: 1px solid #d0d7de; border-radius: 6px;
+  font-size: 13px; font-family: inherit; color: #1f2328;
+  background: #fff; outline: none; transition: border-color 0.13s;
+}
+.pw-req-pw-wrap input:focus { border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,0.1); }
+.pw-req-pw-wrap input.error { border-color: #dc2626; }
+.pw-req-eye {
+  position: absolute; right: 8px;
+  display: flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; border: none; background: none;
+  color: #9ca3af; cursor: pointer; padding: 0;
+}
+.pw-req-eye:hover { color: #374151; }
+.pw-req-match {
+  font-size: 11.5px; font-weight: 600; display: flex; align-items: center; gap: 4px;
+}
+.pw-req-match.match   { color: #15803d; }
+.pw-req-match.nomatch { color: #dc2626; }
+.pw-req-footer {
+  padding: 18px 24px; display: flex; gap: 10px; justify-content: flex-end;
+  border-top: 1px solid #f0f1f3; margin-top: 16px;
+}
+.pw-req-cancel {
+  padding: 9px 20px; border-radius: 7px; border: 1px solid #d0d7de;
+  background: #fff; color: #374151; font-size: 13px; font-weight: 600;
+  cursor: pointer; font-family: inherit;
+}
+.pw-req-cancel:hover { background: #f3f4f6; }
+.pw-req-submit {
+  padding: 9px 20px; border-radius: 7px; border: none;
+  background: #3b82d4; color: #fff; font-size: 13px; font-weight: 600;
+  cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px;
+}
+.pw-req-submit:hover { background: #2563b0; }
+.pw-req-err  { margin: 0 24px 4px; font-size: 12px; color: #dc2626; font-weight: 600;
+  padding: 6px 10px; background: #fff0f0; border: 1px solid #fca5a5;
+  border-radius: 6px; display: none; }
 {% endblock %}
 
 {% block content %}
 <div class="page-header">
-  <h1>User Profile</h1>
-  <p>Your account details and service information.</p>
+  {% if user.role == 'asp' %}
+    <h1>ASP Admin Profile</h1>
+    <p>Your ASP account details and service information.</p>
+  {% elif user.role == 'asp_user' %}
+    <h1>ASP User Profile</h1>
+    <p>Your account details and ASP service information.</p>
+  {% elif user.role == 'superadmin' %}
+    <h1>Superadmin Profile</h1>
+    <p>Your account details and service information.</p>
+  {% else %}
+    <h1>User Profile</h1>
+    <p>Your account details and service information.</p>
+  {% endif %}
 </div>
 
 <div class="profile-wrap">
@@ -290,26 +933,61 @@
     <div class="profile-avatar">{{ (user.display_name[:1] or user.username[:1] or 'U') | upper }}</div>
     <div class="profile-hero-info">
       <div class="profile-display-name">{{ user.display_name }}</div>
-      <div class="profile-username">@{{ user.username }}</div>
+      <div class="profile-username">{% if user.role == 'asp_user' %}{{ user.email }}{% else %}@{{ user.username }}{% endif %}</div>
+      {% if user.role == 'asp' %}
+      <div class="hero-pw-row">
+        <span style="font-size:11px;color:#8b949e;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Password</span>
+        <span class="hero-pw-value" id="hero-pw-val">••••••••</span>
+        <button class="hero-pw-toggle" id="hero-pw-eye" title="Show / hide password" type="button">
+          <svg id="hero-pw-eye-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+        {% if user.pw_request_pending %}
+        <button class="hero-pw-req-btn pending" type="button" disabled>
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>
+          Request Pending…
+        </button>
+        {% else %}
+        <button class="hero-pw-req-btn idle" id="hero-pw-req-btn" type="button">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Request Password Change
+        </button>
+        {% endif %}
+      </div>
+      {% endif %}
       <div class="profile-hero-badges">
-        <span class="profile-role-badge {% if user.role == 'asp' %}badge-asp{% else %}badge-admin{% endif %}">
-          {% if user.role == 'asp' %}
-            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          {% else %}
-            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          {% endif %}
-          {{ user.role | upper }}
-        </span>
-        {% if user.role == 'asp' and user.operational_status %}
-          <span class="profile-role-badge {{ 'badge-status-active' if user.operational_status | lower == 'active' else 'badge-status-inactive' }}">
-            <svg width="7" height="7" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>
-            {{ user.operational_status }}
+        {% if user.role == 'asp_user' %}
+          <span class="profile-role-badge badge-asp">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            ASP User
           </span>
-        {% elif user.role in ('admin', 'superadmin') and user.is_active is defined %}
           <span class="profile-role-badge {{ 'badge-status-active' if user.is_active else 'badge-status-inactive' }}">
             <svg width="7" height="7" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>
             {{ 'Active' if user.is_active else 'Disabled' }}
           </span>
+        {% else %}
+          <span class="profile-role-badge {% if user.role == 'asp' %}badge-asp{% else %}badge-admin{% endif %}">
+            {% if user.role == 'asp' %}
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              ASP Admin
+            {% elif user.role == 'superadmin' %}
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              Superadmin
+            {% else %}
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              {{ user.role | upper }}
+            {% endif %}
+          </span>
+          {% if user.role == 'asp' and user.operational_status %}
+            <span class="profile-role-badge {{ 'badge-status-active' if user.operational_status | lower == 'active' else 'badge-status-inactive' }}">
+              <svg width="7" height="7" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>
+              {{ user.operational_status }}
+            </span>
+          {% elif user.role in ('admin', 'superadmin') and user.is_active is defined %}
+            <span class="profile-role-badge {{ 'badge-status-active' if user.is_active else 'badge-status-inactive' }}">
+              <svg width="7" height="7" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>
+              {{ 'Active' if user.is_active else 'Disabled' }}
+            </span>
+          {% endif %}
         {% endif %}
       </div>
     </div>
@@ -354,6 +1032,115 @@
     </div>
   </div>
 
+  {% elif user.role == 'asp_user' %}
+  <!-- ── ASP User: Account Information ── -->
+  <div class="profile-info-card">
+    <div class="profile-section-title">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Account Information
+    </div>
+    <div class="profile-grid">
+      <div class="profile-field">
+        <div class="profile-label">Full Name</div>
+        <div class="profile-value">{{ user.full_name or '—' }}</div>
+      </div>
+      <div class="profile-field">
+        <div class="profile-label">Email (Login)</div>
+        <div class="profile-value">{{ user.email or '—' }}</div>
+      </div>
+      <div class="profile-field">
+        <div class="profile-label">Phone Number</div>
+        <div class="profile-value">{{ user.phone_number or '—' }}</div>
+      </div>
+      <div class="profile-field">
+        <div class="profile-label">ASP Account</div>
+        <div class="profile-value">{{ user.asp_username or '—' }}</div>
+      </div>
+      <div class="profile-field">
+        <div class="profile-label">Account Status</div>
+        <div class="profile-value">
+          <span class="status-badge {{ 'status-active' if user.is_active else 'status-inactive' }}">
+            {{ 'Active' if user.is_active else 'Disabled' }}
+          </span>
+        </div>
+      </div>
+      <div class="profile-field">
+        <div class="profile-label">Created At</div>
+        <div class="profile-value">{{ user.created_at or '—' }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ASP User: ASP Information ── -->
+  {% set asp = user.asp_detail %}
+  <div class="profile-info-card">
+    <div class="profile-section-title">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+      ASP Information
+    </div>
+    <div class="profile-grid">
+      <div class="profile-field">
+        <div class="profile-label">Service Provider</div>
+        <div class="profile-value">{{ asp.service_provider or '—' }}</div>
+      </div>
+      <div class="profile-field">
+        <div class="profile-label">Vendor Code</div>
+        <div class="profile-value">{{ asp.vendor_code or '—' }}</div>
+      </div>
+      <div class="profile-field">
+        <div class="profile-label">Labor Vendor</div>
+        <div class="profile-value">{{ asp.labor_vendor_related or '—' }}</div>
+      </div>
+      <div class="profile-field">
+        <div class="profile-label">Operational Status</div>
+        <div class="profile-value">
+          {% if asp.operational_status %}
+            <span class="status-badge {{ 'status-active' if asp.operational_status | lower == 'active' else 'status-inactive' }}">
+              {{ asp.operational_status }}
+            </span>
+          {% else %}—{% endif %}
+        </div>
+      </div>
+      <div class="profile-field">
+        <div class="profile-label">Store Name</div>
+        <div class="profile-value">{{ asp.store_name or '—' }}</div>
+      </div>
+      <div class="profile-field">
+        <div class="profile-label">City</div>
+        <div class="profile-value">{{ asp.kota or '—' }}</div>
+      </div>
+      <div class="profile-field">
+        <div class="profile-label">Island</div>
+        <div class="profile-value">{{ asp.island or '—' }}</div>
+      </div>
+      <div class="profile-field">
+        <div class="profile-label">ASP Phone</div>
+        <div class="profile-value">{{ asp.phone_number or '—' }}</div>
+      </div>
+      <div class="profile-field">
+        <div class="profile-label">Operational Support</div>
+        <div class="profile-value">{{ asp.operation_support or '—' }}</div>
+      </div>
+      <div class="profile-field full">
+        <div class="profile-label">Address</div>
+        <div class="profile-value">{{ asp.address or '—' }}</div>
+      </div>
+    </div>
+    <div style="padding: 0 24px 16px;">
+      <div class="profile-label" style="margin-bottom:6px;">Working Hours</div>
+      {% if asp.working_hours %}
+        <div style="font-size:13px; color:#1f2328; line-height:1.9;">
+          {% for seg in asp.working_hours.split('\n') %}
+            {% set seg = seg.strip() %}
+            {% if seg %}<div>{{ seg }}</div>{% endif %}
+          {% endfor %}
+        </div>
+      {% else %}
+        <div style="font-size:13px; color:#9ca3af; font-style:italic;">—</div>
+      {% endif %}
+    </div>
+  </div>
+
   {% else %}
   <!-- ── ASP: Identity ── -->
   <div class="profile-info-card">
@@ -382,96 +1169,654 @@
   </div>
 
   <!-- ── ASP: Location ── -->
-  <div class="profile-info-card">
-    <div class="profile-section-title">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-      Location
-    </div>
-    <div class="profile-grid">
-      <div class="profile-field">
-        <div class="profile-label">Store Name</div>
-        <div class="profile-value">{{ user.store_name or '—' }}</div>
-      </div>
-      <div class="profile-field">
-        <div class="profile-label">City</div>
-        <div class="profile-value">{{ user.kota or '—' }}</div>
-      </div>
-      <div class="profile-field">
-        <div class="profile-label">Island</div>
-        <div class="profile-value">{{ user.island or '—' }}</div>
-      </div>
-      <div class="profile-field">
-        <div class="profile-label">Phone</div>
-        <div class="profile-value">{{ user.phone_number or '—' }}</div>
-      </div>
-      <div class="profile-field full">
-        <div class="profile-label">Address</div>
-        <div class="profile-value">{{ user.address or '—' }}</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── ASP: Working Hours ── -->
-  <div class="profile-info-card" id="wh-card">
-    <div class="profile-section-title" style="justify-content: space-between;">
+  <div class="profile-info-card" id="loc-card">
+    <div class="profile-section-title" style="justify-content:space-between;">
       <span style="display:flex;align-items:center;gap:8px;">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        Working Hours
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        Location
       </span>
-      <button class="wh-edit-btn" id="wh-edit-btn" onclick="whStartEdit()">
+      <button class="op-support-edit-btn" id="loc-edit-btn">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         Edit
       </button>
     </div>
 
     <!-- View mode -->
-    <div id="wh-view" style="padding: 16px 24px;">
-      <div class="wh-wrap" id="wh-wrap"></div>
+    <div id="loc-view">
+      <div class="profile-grid">
+        <div class="profile-field">
+          <div class="profile-label">Store Name</div>
+          <div class="profile-value" id="loc-vw-store">{{ user.store_name or '—' }}</div>
+        </div>
+        <div class="profile-field">
+          <div class="profile-label">City</div>
+          <div class="profile-value" id="loc-vw-kota">{{ user.kota or '—' }}</div>
+        </div>
+        <div class="profile-field">
+          <div class="profile-label">Island</div>
+          <div class="profile-value" id="loc-vw-island">{{ user.island or '—' }}</div>
+        </div>
+        <div class="profile-field">
+          <div class="profile-label">Phone</div>
+          <div class="profile-value" id="loc-vw-phone">{{ user.phone_number or '—' }}</div>
+        </div>
+        <div class="profile-field full">
+          <div class="profile-label">Address</div>
+          <div class="profile-value" id="loc-vw-address">{{ user.address or '—' }}</div>
+        </div>
+      </div>
     </div>
 
     <!-- Edit mode (hidden by default) -->
-    <div id="wh-edit" style="display:none; padding: 16px 24px;">
-      <div id="wh-rows-edit" class="wh-edit-rows"></div>
-      <button class="wh-add-btn" onclick="whAddRow()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Add row
-      </button>
-      <div class="wh-edit-actions">
-        <button class="wh-btn-cancel" onclick="whCancelEdit()">Cancel</button>
-        <button class="wh-btn-save"   onclick="whSave()">
+    <div id="loc-edit" style="display:none;">
+      <div class="loc-edit-grid">
+        <div class="loc-edit-field">
+          <label for="loc-inp-store">Store Name</label>
+          <input id="loc-inp-store" type="text" placeholder="e.g. Azzahra Computer" value="{{ user.store_name or '' }}">
+        </div>
+        <div class="loc-edit-field">
+          <label for="loc-inp-kota">City</label>
+          <input id="loc-inp-kota" type="text" placeholder="e.g. Tegal" value="{{ user.kota or '' }}">
+        </div>
+        <div class="loc-edit-field">
+          <label for="loc-inp-island">Island</label>
+          <input id="loc-inp-island" type="text" placeholder="e.g. Jawa" value="{{ user.island or '' }}">
+        </div>
+        <div class="loc-edit-field">
+          <label for="loc-inp-phone">Phone</label>
+          <input id="loc-inp-phone" type="text" placeholder="e.g. 081234567890" value="{{ user.phone_number or '' }}">
+        </div>
+        <div class="loc-edit-field full">
+          <label for="loc-inp-address">Address</label>
+          <textarea id="loc-inp-address" placeholder="Full address">{{ user.address or '' }}</textarea>
+        </div>
+      </div>
+      <div class="loc-edit-actions">
+        <button class="wh-btn-save" id="loc-save-btn">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           Save
         </button>
+        <button class="wh-btn-cancel" id="loc-cancel-btn">Cancel</button>
+        <span class="loc-save-msg" id="loc-save-msg" style="display:none;">✓ Saved</span>
+        <span class="loc-err-msg"  id="loc-err-msg"  style="display:none;"></span>
       </div>
-      <div id="wh-save-msg" style="display:none; margin-top:10px; font-size:13px; color:#15803d; font-weight:600;">✓ Saved successfully</div>
-      <div id="wh-err-msg"  style="display:none; margin-top:10px; font-size:13px; color:#dc2626; font-weight:600;"></div>
     </div>
   </div>
 
-  <!-- ── ASP: Users (coming soon) ── -->
-  <div class="profile-info-card">
-    <div class="profile-section-title">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      ASP Users
+  <!-- ── ASP: Operations (Operational Support + Working Hours) ── -->
+  <div class="ops-card" id="wh-card">
+    <div class="ops-card-title" style="justify-content: space-between;">
+      <span style="display:flex;align-items:center;gap:8px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+        Operations
+      </span>
+      <button class="op-support-edit-btn" id="ops-edit-btn" onclick="opsStartEdit()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Edit
+      </button>
     </div>
-    <div class="users-empty">
+    <div class="ops-inner" id="ops-inner">
+
+      <!-- Working Hours section (col 1) -->
+      <div class="ops-section">
+        <div class="ops-section-label">
+          <span style="display:flex;align-items:center;gap:6px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Working Hours
+          </span>
+        </div>
+
+        <!-- View mode -->
+        <div id="wh-view">
+          <div class="wh-wrap" id="wh-wrap"></div>
+        </div>
+
+        <!-- Edit mode (hidden by default) -->
+        <div id="wh-edit" style="display:none;">
+          <div id="wh-rows-edit" class="wh-edit-rows"></div>
+          <button class="wh-add-btn" onclick="whAddRow()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add row
+          </button>
+        </div>
+      </div>
+
+      <!-- Operational Support section (col 2) -->
+      <div class="ops-section">
+        <div class="ops-section-label">
+          <span>Operational Support</span>
+        </div>
+        <!-- View mode -->
+        <div id="ops-view" class="op-support-row">
+          <span id="ops-badge"></span>
+        </div>
+        <!-- Edit mode (hidden by default) -->
+        <div id="ops-edit" style="display:none;">
+          <div class="op-support-edit-row">
+            <select id="ops-select" class="op-support-select">
+              <option value="CCI Only">CCI Only</option>
+              <option value="CCI &amp; ONSITE">CCI &amp; ONSITE</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Shared save/cancel bar (shown only in edit mode) -->
+      <div id="ops-action-bar" style="display:none; padding:14px 24px; border-top:1px solid #f0f1f3;">
+        <div class="wh-edit-actions">
+          <button class="wh-btn-cancel" onclick="opsCancelEdit()">Cancel</button>
+          <button class="wh-btn-save" onclick="opsSaveAll()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Save
+          </button>
+        </div>
+        <div id="ops-save-msg" style="display:none; margin-top:8px; font-size:13px; color:#15803d; font-weight:600;">✓ Saved successfully</div>
+        <div id="ops-err-msg"  style="display:none; margin-top:8px; font-size:13px; color:#dc2626; font-weight:600;"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── ASP: Users ── -->
+  <div class="profile-info-card" id="asp-users-card">
+    <div class="profile-section-title" style="justify-content: space-between;">
+      <span style="display:flex;align-items:center;gap:8px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        ASP Users
+        {% if asp_users %}<span style="font-size:11px;font-weight:700;background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;border-radius:20px;padding:1px 8px;margin-left:4px;">{{ asp_users|length }}</span>{% endif %}
+      </span>
+      <button class="asp-add-user-btn" onclick="auOpenModal()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add User
+      </button>
+    </div>
+
+    <!-- User list -->
+    <div id="asp-user-list" class="asp-user-list"{% if not asp_users %} style="display:none;"{% endif %}>
+      {% for u in asp_users %}
+      <div class="asp-user-row" data-uid="{{ u.id }}">
+        <div class="asp-user-avatar">{{ (u.full_name[:2])|upper }}</div>
+        <div class="asp-user-info">
+          <div class="asp-user-name">{{ u.full_name }}</div>
+          <div class="asp-user-email">{{ u.email }}{% if u.phone_number %} &nbsp;·&nbsp; {{ u.phone_number }}{% endif %}</div>
+        </div>
+        <div class="asp-user-meta">
+          <span class="asp-user-badge {% if u.is_active %}active{% else %}inactive{% endif %}">
+            <svg width="6" height="6" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>
+            {{ 'Active' if u.is_active else 'Non-Active' }}
+          </span>
+          <button class="asp-user-edit-btn au-edit-row-btn" title="Edit user"
+            data-uid="{{ u.id }}"
+            data-fullname="{{ u.full_name | e }}"
+            data-email="{{ u.email | e }}"
+            data-password="{{ (u.password or '') | e }}"
+            data-phone="{{ (u.phone_number or '') | e }}"
+            data-isactive="{{ '1' if u.is_active else '0' }}">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Empty state -->
+    <div id="asp-users-empty" class="asp-users-empty"{% if asp_users %} style="display:none;"{% endif %}>
       <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
         <circle cx="9" cy="7" r="4"/>
         <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
         <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
       </svg>
-      <div class="users-empty-title">No users listed yet</div>
-      <div class="users-empty-sub">Users belonging to this ASP will appear here.</div>
-      <span class="users-coming-badge">Coming Soon</span>
+      <div class="asp-users-empty-title">No users added yet</div>
+      <div class="asp-users-empty-sub">Click <strong>Add User</strong> to create an ASP user account.</div>
+    </div>
+  </div>
+
+  <!-- ── Add / Edit User modal ── -->
+  <div class="au-overlay" id="au-overlay">
+    <div class="au-modal">
+      <div class="au-modal-header">
+        <div class="au-modal-title-wrap">
+          <div class="au-modal-icon" id="au-modal-icon-add">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82d4" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+          </div>
+          <div>
+            <div class="au-modal-title" id="au-modal-title">Add ASP User</div>
+            <div class="au-modal-subtitle" id="au-modal-subtitle">Create a new user account under this ASP</div>
+          </div>
+        </div>
+        <button class="au-modal-close" onclick="auCloseModal()">&#x2715;</button>
+      </div>
+
+      <div class="au-modal-body">
+        <div id="au-form-err" class="au-form-err"></div>
+
+        <!-- Full Name -->
+        <div class="au-field">
+          <label class="au-label" for="au-fullname">Full Name <span class="au-req">*</span></label>
+          <input id="au-fullname" class="au-input" type="text" placeholder="e.g. John Doe" autocomplete="off">
+        </div>
+
+        <!-- Email -->
+        <div class="au-field">
+          <label class="au-label" for="au-email">Email <span class="au-req">*</span></label>
+          <input id="au-email" class="au-input" type="email" placeholder="e.g. john@example.com" autocomplete="off">
+        </div>
+
+        <!-- Password -->
+        <div class="au-field">
+          <label class="au-label" for="au-password">Password <span id="au-pw-req" class="au-req">*</span></label>
+          <div class="au-pw-wrap">
+            <input id="au-password" class="au-input" type="password" placeholder="Min. 8 characters" autocomplete="new-password">
+            <button type="button" class="au-eye-btn" tabindex="-1" onclick="auToggleEye('au-password','au-eye1')">
+              <svg id="au-eye1" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Repeat Password -->
+        <div class="au-field" id="au-pw2-section">
+          <label class="au-label" for="au-password2">Repeat Password <span class="au-req">*</span></label>
+          <div class="au-pw-wrap">
+            <input id="au-password2" class="au-input" type="password" placeholder="Repeat password" autocomplete="new-password">
+            <button type="button" class="au-eye-btn" tabindex="-1" onclick="auToggleEye('au-password2','au-eye2')">
+              <svg id="au-eye2" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <div id="au-pw-match-msg" class="au-pw-match" style="display:none; margin-top:4px;"></div>
+        </div>
+
+        <!-- Optional fields divider -->
+        <div class="au-optional-divider">Optional</div>
+
+        <!-- Phone -->
+        <div class="au-field">
+          <label class="au-label" for="au-phone">Phone Number</label>
+          <input id="au-phone" class="au-input" type="tel" placeholder="e.g. +62 812 3456 7890" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="au-modal-footer">
+        <span class="au-footer-hint"><strong>*</strong> required fields</span>
+        <div class="au-footer-btns">
+          <button class="au-btn-cancel" onclick="auCloseModal()">Cancel</button>
+          <button class="au-btn-submit" id="au-submit-btn" onclick="auSubmit()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+            <span id="au-submit-label">Add User</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Edit User Drawer ── -->
+  <div class="au-dr-overlay" id="au-dr-overlay"></div>
+  <div class="au-drawer" id="au-drawer">
+    <div class="au-drawer-header">
+      <div>
+        <div class="au-drawer-title">Edit ASP User</div>
+        <div class="au-drawer-subtitle" id="au-dr-subtitle">Update user account details</div>
+      </div>
+      <button class="au-drawer-close" id="au-dr-close-x" title="Close">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="au-drawer-body">
+
+      <!-- ── Account section ── -->
+      <div class="au-sec" id="au-sec-account">
+        <div class="au-sec-header">
+          <div class="au-sec-title-wrap">
+            <span class="au-sec-icon account">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </span>
+            <span class="au-sec-title">Account</span>
+          </div>
+          <div class="au-sec-btns" id="au-sec-btns-account">
+            <!-- View mode: Edit button -->
+            <button type="button" class="au-sec-edit-btn" id="au-sec-edit-account">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              Edit
+            </button>
+            <!-- Edit mode: Save / Cancel (hidden by default) -->
+            <div class="au-sec-actions" id="au-sec-actions-account">
+              <button type="button" class="au-sec-save-btn"   id="au-sec-save-account">Save</button>
+              <button type="button" class="au-sec-cancel-btn" id="au-sec-cancel-account">Cancel</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- View mode: read-only display -->
+        <div class="au-sec-view" id="au-view-account">
+          <div class="au-sec-view-field">
+            <div class="au-sec-view-label">Full Name</div>
+            <div class="au-sec-view-value" id="au-vw-fullname">—</div>
+          </div>
+          <div class="au-sec-view-field">
+            <div class="au-sec-view-label">Email</div>
+            <div class="au-sec-view-value" id="au-vw-email">—</div>
+          </div>
+          <div class="au-sec-view-field">
+            <div class="au-sec-view-label">Password</div>
+            <div class="au-sec-view-value muted">••••••••</div>
+          </div>
+        </div>
+
+        <!-- Edit mode: inputs (hidden by default) -->
+        <div class="au-sec-inputs" id="au-inputs-account">
+          <div class="au-sec-form-stack">
+
+            <!-- Full Name -->
+            <div class="au-sec-form-field">
+              <label for="au-dr-fullname">Full Name <span style="color:#dc2626">*</span></label>
+              <input id="au-dr-fullname" type="text" placeholder="e.g. John Doe" autocomplete="off">
+            </div>
+
+            <!-- Email -->
+            <div class="au-sec-form-field">
+              <label for="au-dr-email">Email <span style="color:#dc2626">*</span></label>
+              <input id="au-dr-email" type="email" placeholder="e.g. john@example.com" autocomplete="off">
+            </div>
+
+            <!-- Current Password (pre-filled, with eye preview) -->
+            <div class="au-sec-form-field">
+              <label for="au-dr-cur-password">Password</label>
+              <div class="au-dr-pw-wrap">
+                <input id="au-dr-cur-password" type="password" autocomplete="current-password" readonly
+                  style="background:#f9fafb;color:#6b7280;cursor:default;">
+                <button type="button" class="au-dr-eye-btn" id="au-dr-cur-eye-btn">
+                  <svg id="au-dr-cur-eye" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Change Password toggle -->
+            <div>
+              <button type="button" class="au-dr-chpw-toggle" id="au-dr-pw-toggle-btn">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                Change Password
+              </button>
+              <div class="au-dr-chpw-section" id="au-dr-pw-fields">
+                <div class="au-dr-divider">New Password</div>
+                <div class="au-sec-form-stack">
+                  <div class="au-sec-form-field">
+                    <label for="au-dr-password">New Password <span style="color:#dc2626">*</span></label>
+                    <div class="au-dr-pw-wrap">
+                      <input id="au-dr-password" type="password" placeholder="Min. 8 characters" autocomplete="new-password">
+                      <button type="button" class="au-dr-eye-btn" id="au-dr-eye1-btn">
+                        <svg id="au-dr-eye1" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="au-sec-form-field">
+                    <label for="au-dr-password2">Repeat New Password <span style="color:#dc2626">*</span></label>
+                    <div class="au-dr-pw-wrap">
+                      <input id="au-dr-password2" type="password" placeholder="Repeat new password" autocomplete="new-password">
+                      <button type="button" class="au-dr-eye-btn" id="au-dr-eye2-btn">
+                        <svg id="au-dr-eye2" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      </button>
+                    </div>
+                  </div>
+                  <div id="au-dr-pw-match" class="au-dr-pw-match" style="display:none;"></div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+        <div class="au-sec-err" id="au-sec-err-account"></div>
+        <div class="au-sec-ok"  id="au-sec-ok-account"></div>
+      </div>
+
+      <!-- ── Contact section ── -->
+      <div class="au-sec" id="au-sec-contact">
+        <div class="au-sec-header">
+          <div class="au-sec-title-wrap">
+            <span class="au-sec-icon contact">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            </span>
+            <span class="au-sec-title">Contact</span>
+          </div>
+          <div class="au-sec-btns" id="au-sec-btns-contact">
+            <!-- View mode: Edit button -->
+            <button type="button" class="au-sec-edit-btn" id="au-sec-edit-contact">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              Edit
+            </button>
+            <!-- Edit mode: Save / Cancel (hidden by default) -->
+            <div class="au-sec-actions" id="au-sec-actions-contact">
+              <button type="button" class="au-sec-save-btn"   id="au-sec-save-contact">Save</button>
+              <button type="button" class="au-sec-cancel-btn" id="au-sec-cancel-contact">Cancel</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- View mode: read-only display -->
+        <div class="au-sec-view" id="au-view-contact">
+          <div class="au-sec-view-field">
+            <div class="au-sec-view-label">Phone Number</div>
+            <div class="au-sec-view-value" id="au-vw-phone">—</div>
+          </div>
+        </div>
+
+        <!-- Edit mode: inputs (hidden by default) -->
+        <div class="au-sec-inputs" id="au-inputs-contact">
+          <div class="au-sec-form-stack">
+            <div class="au-sec-form-field">
+              <label for="au-dr-phone">Phone Number</label>
+              <input id="au-dr-phone" type="tel" placeholder="e.g. +62 812 3456 7890" autocomplete="off">
+            </div>
+          </div>
+        </div>
+        <div class="au-sec-err" id="au-sec-err-contact"></div>
+        <div class="au-sec-ok"  id="au-sec-ok-contact"></div>
+      </div>
+
+    </div><!-- /au-drawer-body -->
+
+    <div class="au-drawer-footer">
+      <!-- icon + label injected by JS; class swaps between au-danger-btn-deactivate / au-danger-btn-activate -->
+      <button type="button" class="au-danger-btn" id="au-dr-toggle-status-btn"></button>
+      <button type="button" class="au-danger-btn au-danger-btn-remove" id="au-dr-remove-btn">
+        🗑️ Remove Account
+      </button>
+      <hr class="au-drawer-footer-sep">
+      <button class="au-drawer-close-btn" id="au-dr-close-btn">Close</button>
+    </div>
+  </div>
+
+  <!-- ── Confirmation modal ── -->
+  <div class="au-confirm-overlay" id="au-confirm-overlay">
+    <div class="au-confirm-modal">
+      <div class="au-confirm-header">
+        <div class="au-confirm-icon-wrap" id="au-confirm-icon-wrap"></div>
+        <div class="au-confirm-text">
+          <div class="au-confirm-title" id="au-confirm-title"></div>
+          <div class="au-confirm-body"  id="au-confirm-body"></div>
+        </div>
+      </div>
+      <div class="au-confirm-err" id="au-confirm-err"></div>
+      <div class="au-confirm-footer">
+        <button type="button" class="au-confirm-btn-cancel" id="au-confirm-cancel">Cancel</button>
+        <button type="button" class="au-confirm-btn-ok"     id="au-confirm-ok">Confirm</button>
+      </div>
     </div>
   </div>
   {% endif %}
 
 </div>
 
+{% if user.role == 'asp' %}
+<!-- ── Password Change Request modal ── -->
+<div class="pw-req-overlay" id="pw-req-overlay">
+  <div class="pw-req-modal">
+    <div class="pw-req-header">
+      <div class="pw-req-icon">🔑</div>
+      <div>
+        <div class="pw-req-title">Request Password Change</div>
+        <div class="pw-req-body">Enter your desired new password. An admin will review and approve it.</div>
+      </div>
+    </div>
+    <div class="pw-req-fields">
+      <div class="pw-req-field">
+        <label for="pw-req-new">New Password</label>
+        <div class="pw-req-pw-wrap">
+          <input id="pw-req-new" type="password" placeholder="Min. 8 characters" autocomplete="new-password">
+          <button type="button" class="pw-req-eye" id="pw-req-eye1">
+            <svg id="pw-req-eye1-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="pw-req-field">
+        <label for="pw-req-confirm">Confirm New Password</label>
+        <div class="pw-req-pw-wrap">
+          <input id="pw-req-confirm" type="password" placeholder="Repeat new password" autocomplete="new-password">
+          <button type="button" class="pw-req-eye" id="pw-req-eye2">
+            <svg id="pw-req-eye2-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+        <div class="pw-req-match" id="pw-req-match" style="display:none;"></div>
+      </div>
+    </div>
+    <div class="pw-req-err" id="pw-req-err"></div>
+    <div class="pw-req-footer">
+      <button class="pw-req-cancel" id="pw-req-cancel">Cancel</button>
+      <button class="pw-req-submit" id="pw-req-submit">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg>
+        Send Request
+      </button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <script>
 (function(){
+  /* ── Operational Support ─────────────────────────────────────────────────── */
+  var rawOpSupport = {{ (user.operation_support or '') | tojson }};
+
+  /* Normalise legacy values (CCI, ONS, CCI+ONS, etc.) → canonical labels */
+  function normaliseOpSupport(val) {
+    if (!val) return '';
+    var v = val.trim().toUpperCase();
+    if (v === 'CCI ONLY' || v === 'CCI') return 'CCI Only';
+    if (v === 'CCI & ONSITE' || v === 'CCI &amp; ONSITE' ||
+        v === 'CCI+ONSITE'  || v === 'CCI + ONSITE' ||
+        v === 'ONS'  || v === 'CCI,ONS' || v === 'CCI, ONS' ||
+        v === 'CCI ONS') return 'CCI & ONSITE';
+    /* Return as-is if already a recognised canonical form */
+    if (val === 'CCI Only' || val === 'CCI & ONSITE') return val;
+    return val; /* unknown – display as-is */
+  }
+
+  function renderOpSupportView(val) {
+    var canonical = normaliseOpSupport(val);
+    var badge = document.getElementById('ops-badge');
+    if (canonical === 'CCI Only') {
+      badge.className = 'op-support-badge cci-only';
+      badge.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> CCI Only';
+    } else if (canonical === 'CCI & ONSITE') {
+      badge.className = 'op-support-badge cci-onsite';
+      badge.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> CCI &amp; ONSITE';
+    } else {
+      badge.className = 'op-support-badge unknown';
+      badge.textContent = canonical || '—';
+    }
+  }
+
+  function opsEnterEdit() {
+    /* Switch inner grid → stacked layout for edit mode */
+    document.getElementById('ops-inner').classList.add('editing');
+    /* Operational support panel */
+    var canonical = normaliseOpSupport(rawOpSupport);
+    var sel = document.getElementById('ops-select');
+    sel.value = (canonical === 'CCI Only' || canonical === 'CCI & ONSITE') ? canonical : 'CCI Only';
+    document.getElementById('ops-view').style.display = 'none';
+    document.getElementById('ops-edit').style.display = 'block';
+    /* Working hours panel */
+    document.getElementById('wh-view').style.display = 'none';
+    document.getElementById('wh-edit').style.display = 'block';
+    renderEditRows(parseSegments(raw));
+    /* Shared controls */
+    document.getElementById('ops-edit-btn').style.display   = 'none';
+    document.getElementById('ops-action-bar').style.display = 'block';
+    document.getElementById('ops-save-msg').style.display   = 'none';
+    document.getElementById('ops-err-msg').style.display    = 'none';
+  }
+
+  function opsExitEdit() {
+    /* Restore two-column view layout */
+    document.getElementById('ops-inner').classList.remove('editing');
+    document.getElementById('ops-edit').style.display       = 'none';
+    document.getElementById('ops-view').style.display       = '';
+    document.getElementById('wh-edit').style.display        = 'none';
+    document.getElementById('wh-view').style.display        = 'block';
+    document.getElementById('ops-edit-btn').style.display   = '';
+    document.getElementById('ops-action-bar').style.display = 'none';
+  }
+
+  window.opsStartEdit  = opsEnterEdit;
+  window.whStartEdit   = opsEnterEdit;   /* keep alias in case anything still calls it */
+
+  window.opsCancelEdit = function() {
+    opsExitEdit();
+  };
+
+  window.whCancelEdit  = window.opsCancelEdit;
+
+  window.opsSaveAll = function() {
+    var saveMsg = document.getElementById('ops-save-msg');
+    var errMsg  = document.getElementById('ops-err-msg');
+    saveMsg.style.display = 'none';
+    errMsg.style.display  = 'none';
+
+    var opVal  = document.getElementById('ops-select').value;
+    var whStr  = buildString();
+
+    if (!whStr) {
+      errMsg.textContent = 'Please fill at least one working hours row.';
+      errMsg.style.display = 'block';
+      return;
+    }
+
+    var p1 = fetch('/asp/api/operation-support', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ operation_support: opVal })
+    }).then(function(r){ return r.json(); });
+
+    var p2 = fetch('/asp/api/working-hours', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ working_hours: whStr })
+    }).then(function(r){ return r.json(); });
+
+    Promise.all([p1, p2])
+      .then(function(results) {
+        var d1 = results[0], d2 = results[1];
+        if (d1.ok && d2.ok) {
+          rawOpSupport = d1.operation_support;
+          raw          = d2.working_hours;
+          renderOpSupportView(rawOpSupport);
+          renderView(raw);
+          opsExitEdit();
+          saveMsg.style.display = 'block';
+          setTimeout(function(){ saveMsg.style.display = 'none'; }, 3000);
+        } else {
+          errMsg.textContent = (d1.error || d2.error) || 'Failed to save.';
+          errMsg.style.display = 'block';
+        }
+      })
+      .catch(function(){ errMsg.textContent = 'Network error. Please try again.'; errMsg.style.display = 'block'; });
+  };
+
+  /* Legacy alias kept so nothing breaks */
+  window.whSave = window.opsSaveAll;
+
+  /* Init operational support view */
+  renderOpSupportView(rawOpSupport);
+
   /* ── Shared helpers ──────────────────────────────────────────────────────── */
   var raw       = {{ (user.working_hours or '') | tojson }};
   var clockSvg  = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
@@ -526,8 +1871,9 @@
   }
 
   /* ── Render view mode ───────────────────────────────────────────────────── */
-  function renderView(str) {
-    var wrap = document.getElementById('wh-wrap');
+  function renderView(str, wrapId) {
+    var wrap = document.getElementById(wrapId || 'wh-wrap');
+    if (!wrap) return;
     wrap.innerHTML = '';
     var segs = parseSegments(str);
     if (!segs.length) {
@@ -597,22 +1943,7 @@
     return parts.join(', ');
   }
 
-  /* ── Public handlers (called from onclick) ──────────────────────────────── */
-  window.whStartEdit = function() {
-    document.getElementById('wh-view').style.display = 'none';
-    document.getElementById('wh-edit').style.display = 'block';
-    document.getElementById('wh-edit-btn').style.display = 'none';
-    document.getElementById('wh-save-msg').style.display = 'none';
-    document.getElementById('wh-err-msg').style.display  = 'none';
-    renderEditRows(parseSegments(raw));
-  };
-
-  window.whCancelEdit = function() {
-    document.getElementById('wh-edit').style.display = 'none';
-    document.getElementById('wh-view').style.display = 'block';
-    document.getElementById('wh-edit-btn').style.display = '';
-  };
-
+  /* ── Working hours row helper ───────────────────────────────────────────── */
   window.whAddRow = function() {
     var container = document.getElementById('wh-rows-edit');
     var segs = [];
@@ -627,38 +1958,870 @@
     renderEditRows(segs);
   };
 
-  window.whSave = function() {
-    var str = buildString();
-    var saveMsg = document.getElementById('wh-save-msg');
-    var errMsg  = document.getElementById('wh-err-msg');
-    saveMsg.style.display = 'none';
-    errMsg.style.display  = 'none';
-    if (!str) { errMsg.textContent = 'Please fill at least one row.'; errMsg.style.display = 'block'; return; }
-    fetch('/asp/api/working-hours', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ working_hours: str })
+  /* ── Init: render view on load ──────────────────────────────────────────── */
+  renderView(raw);
+
+  /* Dim inactive rows on initial page load */
+  document.querySelectorAll('.asp-user-row').forEach(function(row) {
+    var btn = row.querySelector('.au-edit-row-btn');
+    if (btn && btn.dataset.isactive === '0') row.style.opacity = '0.5';
+  });
+
+  /* working hours for asp_user is rendered directly in Jinja — no JS needed */
+
+  /* ── Hero password eye toggle + request modal (ASP Admin only) ─────────── */
+  {% if user.role == 'asp' %}
+  (function() {
+    var _pwPlain  = {{ (user.password or '') | tojson }};
+    var _pwHidden = '••••••••';
+    var _showing  = false;
+    var eyeShow = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+    var eyeHide = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>'
+               + '<path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>'
+               + '<line x1="1" y1="1" x2="23" y2="23"/>';
+
+    var pwVal = document.getElementById('hero-pw-val');
+    var eyeBtn = document.getElementById('hero-pw-eye');
+    var eyeSvg = document.getElementById('hero-pw-eye-svg');
+
+    if (eyeBtn) {
+      eyeBtn.addEventListener('click', function() {
+        _showing = !_showing;
+        pwVal.textContent     = _showing ? (_pwPlain || '—') : _pwHidden;
+        pwVal.style.letterSpacing = _showing ? '0.5px' : '2px';
+        eyeSvg.innerHTML      = _showing ? eyeHide : eyeShow;
+      });
+    }
+
+    /* Request modal */
+    var overlay    = document.getElementById('pw-req-overlay');
+    var reqBtn     = document.getElementById('hero-pw-req-btn');
+    var cancelBtn  = document.getElementById('pw-req-cancel');
+    var submitBtn  = document.getElementById('pw-req-submit');
+    var errEl      = document.getElementById('pw-req-err');
+    var newInp     = document.getElementById('pw-req-new');
+    var confInp    = document.getElementById('pw-req-confirm');
+    var matchEl    = document.getElementById('pw-req-match');
+    var eyeIconShow = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+    var eyeIconHide = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>'
+                    + '<path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>'
+                    + '<line x1="1" y1="1" x2="23" y2="23"/>';
+
+    function _pwReqReset() {
+      newInp.value = ''; confInp.value = '';
+      newInp.type  = 'password'; confInp.type = 'password';
+      newInp.classList.remove('error'); confInp.classList.remove('error');
+      document.getElementById('pw-req-eye1-svg').innerHTML = eyeIconShow;
+      document.getElementById('pw-req-eye2-svg').innerHTML = eyeIconShow;
+      matchEl.style.display = 'none'; matchEl.className = 'pw-req-match';
+      errEl.style.display   = 'none';
+    }
+
+    function _pwReqCheckMatch() {
+      var pw = newInp.value, cf = confInp.value;
+      if (!cf) { matchEl.style.display = 'none'; return; }
+      if (pw === cf) {
+        matchEl.className = 'pw-req-match match';
+        matchEl.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Passwords match';
+        matchEl.style.display = 'flex';
+      } else {
+        matchEl.className = 'pw-req-match nomatch';
+        matchEl.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Passwords do not match';
+        matchEl.style.display = 'flex';
+      }
+    }
+
+    /* Eye toggles */
+    document.getElementById('pw-req-eye1').addEventListener('click', function() {
+      var show = newInp.type === 'text';
+      newInp.type = show ? 'password' : 'text';
+      document.getElementById('pw-req-eye1-svg').innerHTML = show ? eyeIconShow : eyeIconHide;
+    });
+    document.getElementById('pw-req-eye2').addEventListener('click', function() {
+      var show = confInp.type === 'text';
+      confInp.type = show ? 'password' : 'text';
+      document.getElementById('pw-req-eye2-svg').innerHTML = show ? eyeIconShow : eyeIconHide;
+    });
+
+    newInp.addEventListener('input',  _pwReqCheckMatch);
+    confInp.addEventListener('input', _pwReqCheckMatch);
+
+    if (reqBtn && overlay) {
+      reqBtn.addEventListener('click', function() { _pwReqReset(); overlay.classList.add('open'); });
+      cancelBtn.addEventListener('click', function() { overlay.classList.remove('open'); });
+      overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) overlay.classList.remove('open');
+      });
+      submitBtn.addEventListener('click', function() {
+        errEl.style.display = 'none';
+        newInp.classList.remove('error'); confInp.classList.remove('error');
+        var pw = newInp.value, cf = confInp.value;
+        if (!pw || pw.length < 8) {
+          errEl.textContent = 'Password must be at least 8 characters.';
+          errEl.style.display = 'block';
+          newInp.classList.add('error'); return;
+        }
+        if (pw !== cf) {
+          errEl.textContent = 'Passwords do not match.';
+          errEl.style.display = 'block';
+          confInp.classList.add('error'); return;
+        }
+        submitBtn.disabled = true;
+        fetch('/asp/api/request-password-change', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ new_password: pw })
+        })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            submitBtn.disabled = false;
+            if (data.ok) {
+              overlay.classList.remove('open');
+              reqBtn.className = 'hero-pw-req-btn pending';
+              reqBtn.disabled  = true;
+              reqBtn.innerHTML = '<svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg> Request Pending…';
+            } else {
+              errEl.textContent   = data.error || 'Failed to submit request.';
+              errEl.style.display = 'block';
+            }
+          })
+          .catch(function() {
+            submitBtn.disabled  = false;
+            errEl.textContent   = 'Network error. Please try again.';
+            errEl.style.display = 'block';
+          });
+      });
+    }
+  })();
+  {% endif %}
+
+  /* ── Location edit (ASP Admin only) ─────────────────────────────────────── */
+  (function() {
+    var locCard = document.getElementById('loc-card');
+    if (!locCard) return;   /* not rendered for non-ASP roles */
+
+    var _locSnap = {};
+
+    function locEnterEdit() {
+      _locSnap = {
+        store:   document.getElementById('loc-vw-store').textContent,
+        kota:    document.getElementById('loc-vw-kota').textContent,
+        island:  document.getElementById('loc-vw-island').textContent,
+        phone:   document.getElementById('loc-vw-phone').textContent,
+        address: document.getElementById('loc-vw-address').textContent,
+      };
+      document.getElementById('loc-view').style.display = 'none';
+      document.getElementById('loc-edit').style.display = '';
+      document.getElementById('loc-edit-btn').style.display = 'none';
+      document.getElementById('loc-save-msg').style.display = 'none';
+      document.getElementById('loc-err-msg').style.display  = 'none';
+      document.getElementById('loc-inp-store').focus();
+    }
+
+    function locExitEdit() {
+      document.getElementById('loc-edit').style.display = 'none';
+      document.getElementById('loc-view').style.display = '';
+      document.getElementById('loc-edit-btn').style.display = '';
+    }
+
+    function locCancel() {
+      /* restore input values to snapshot */
+      document.getElementById('loc-inp-store').value   = _locSnap.store   === '—' ? '' : _locSnap.store;
+      document.getElementById('loc-inp-kota').value    = _locSnap.kota    === '—' ? '' : _locSnap.kota;
+      document.getElementById('loc-inp-island').value  = _locSnap.island  === '—' ? '' : _locSnap.island;
+      document.getElementById('loc-inp-phone').value   = _locSnap.phone   === '—' ? '' : _locSnap.phone;
+      document.getElementById('loc-inp-address').value = _locSnap.address === '—' ? '' : _locSnap.address;
+      locExitEdit();
+    }
+
+    function locSave() {
+      var saveBtn = document.getElementById('loc-save-btn');
+      var saveMsg = document.getElementById('loc-save-msg');
+      var errMsg  = document.getElementById('loc-err-msg');
+      saveMsg.style.display = 'none';
+      errMsg.style.display  = 'none';
+      saveBtn.disabled = true;
+
+      var payload = {
+        store_name:   document.getElementById('loc-inp-store').value.trim(),
+        kota:         document.getElementById('loc-inp-kota').value.trim(),
+        island:       document.getElementById('loc-inp-island').value.trim(),
+        phone_number: document.getElementById('loc-inp-phone').value.trim(),
+        address:      document.getElementById('loc-inp-address').value.trim(),
+      };
+
+      fetch('/asp/api/location', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        saveBtn.disabled = false;
+        if (data.ok) {
+          var loc = data.location;
+          document.getElementById('loc-vw-store').textContent   = loc.store_name   || '—';
+          document.getElementById('loc-vw-kota').textContent    = loc.kota         || '—';
+          document.getElementById('loc-vw-island').textContent  = loc.island       || '—';
+          document.getElementById('loc-vw-phone').textContent   = loc.phone_number || '—';
+          document.getElementById('loc-vw-address').textContent = loc.address      || '—';
+          locExitEdit();
+          saveMsg.style.display = 'inline';
+          setTimeout(function() { saveMsg.style.display = 'none'; }, 3000);
+        } else {
+          errMsg.textContent    = data.error || 'Failed to save.';
+          errMsg.style.display  = 'inline';
+        }
+      })
+      .catch(function() {
+        saveBtn.disabled = false;
+        errMsg.textContent   = 'Network error. Please try again.';
+        errMsg.style.display = 'inline';
+      });
+    }
+
+    document.getElementById('loc-edit-btn').addEventListener('click',   locEnterEdit);
+    document.getElementById('loc-cancel-btn').addEventListener('click', locCancel);
+    document.getElementById('loc-save-btn').addEventListener('click',   locSave);
+  })();
+
+  /* ── ASP Users (only active when the ASP Users card is rendered) ─────────── */
+  if (!document.getElementById('au-overlay')) { return; }   /* guard for non-ASP roles */
+
+  /* Delegated click for server-rendered edit buttons (data-* avoids quoting issues) */
+  document.getElementById('asp-user-list').addEventListener('click', function(e) {
+    var btn = e.target.closest('.au-edit-row-btn');
+    if (!btn) return;
+    var d = btn.dataset;
+    window.auOpenEdit(parseInt(d.uid, 10), d.fullname, d.email, d.password, d.phone, d.isactive === '1');
+  });
+
+  var _auEditId = null;   /* null = add mode, integer = edit mode */
+
+  /* ── Eye toggle ──────────────────────────────────────────────────────────── */
+  var _eyeIconShow = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+  var _eyeIconHide = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>'
+                   + '<path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>'
+                   + '<line x1="1" y1="1" x2="23" y2="23"/>';
+
+  window.auToggleEye = function(inputId, svgId) {
+    var inp = document.getElementById(inputId);
+    var svg = document.getElementById(svgId);
+    if (!inp || !svg) return;
+    var showing = inp.type === 'text';
+    inp.type = showing ? 'password' : 'text';
+    svg.innerHTML = showing ? _eyeIconShow : _eyeIconHide;
+  };
+
+  /* ── Live password match check ───────────────────────────────────────────── */
+  function _auCheckMatch() {
+    var pw  = document.getElementById('au-password').value;
+    var pw2 = document.getElementById('au-password2').value;
+    var msg = document.getElementById('au-pw-match-msg');
+    if (!pw && !pw2) { msg.style.display = 'none'; return; }
+    if (!pw2) { msg.style.display = 'none'; return; }
+    if (pw === pw2) {
+      msg.className    = 'au-pw-match match';
+      msg.innerHTML    = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Passwords match';
+      msg.style.display = 'flex';
+    } else {
+      msg.className    = 'au-pw-match nomatch';
+      msg.innerHTML    = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Passwords do not match';
+      msg.style.display = 'flex';
+    }
+  }
+
+  document.getElementById('au-password').addEventListener('input',  _auCheckMatch);
+  document.getElementById('au-password2').addEventListener('input', _auCheckMatch);
+
+  function _esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  /* Append a new row to the DOM after create */
+  function auAddRowDOM(u) {
+    var listEl  = document.getElementById('asp-user-list');
+    var emptyEl = document.getElementById('asp-users-empty');
+    emptyEl.style.display = 'none';
+    listEl.style.display  = '';
+    var initials = u.full_name.trim().slice(0,2).toUpperCase();
+    var row = document.createElement('div');
+    row.className = 'asp-user-row';
+    row.dataset.uid = u.id;
+    var isActive = (u.is_active !== 0);
+    row.innerHTML =
+      '<div class="asp-user-avatar">' + initials + '</div>'
+      + '<div class="asp-user-info">'
+      +   '<div class="asp-user-name">' + _esc(u.full_name) + '</div>'
+      +   '<div class="asp-user-email">' + _esc(u.email) + (u.phone_number ? ' &nbsp;·&nbsp; ' + _esc(u.phone_number) : '') + '</div>'
+      + '</div>'
+      + '<div class="asp-user-meta">'
+      +   '<span class="asp-user-badge ' + (isActive ? 'active' : 'inactive') + '">'
+      +     '<svg width="6" height="6" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>'
+      +     (isActive ? 'Active' : 'Non-Active')
+      +   '</span>'
+      +   '<button class="asp-user-edit-btn au-edit-row-btn" title="Edit user"'
+      +     ' data-uid="'       + u.id                                   + '"'
+      +     ' data-fullname="'  + _esc(u.full_name)                      + '"'
+      +     ' data-email="'     + _esc(u.email)                          + '"'
+      +     ' data-password="'  + _esc(u.password || '')                 + '"'
+      +     ' data-phone="'     + _esc(u.phone_number || '')             + '"'
+      +     ' data-isactive="'  + (u.is_active === 0 ? '0' : '1')       + '">'
+      +   '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'
+      +   '</button>'
+      + '</div>';
+    listEl.appendChild(row);
+  }
+
+  /* Patch an existing row's display after update */
+  function auUpdateRowDOM(u) {
+    var row = document.querySelector('.asp-user-row[data-uid="' + u.id + '"]');
+    if (!row) return;
+    row.querySelector('.asp-user-avatar').textContent = u.full_name.trim().slice(0,2).toUpperCase();
+    row.querySelector('.asp-user-name').textContent   = u.full_name;
+    row.querySelector('.asp-user-email').innerHTML    = _esc(u.email) + (u.phone_number ? ' &nbsp;·&nbsp; ' + _esc(u.phone_number) : '');
+    /* Keep the edit-button data attributes in sync so re-opening the drawer shows fresh values */
+    var btn = row.querySelector('.au-edit-row-btn');
+    if (btn) {
+      btn.dataset.fullname = u.full_name   || '';
+      btn.dataset.email    = u.email       || '';
+      btn.dataset.password = u.password    || '';
+      btn.dataset.phone    = u.phone_number || '';
+    }
+  }
+
+  /* ── Add modal (unchanged — only for creating new users) ───────────────────── */
+  function _auOpenModal() {
+    /* Clear values and errors */
+    ['au-fullname','au-email','au-password','au-password2','au-phone'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) { el.value = ''; el.classList.remove('error'); el.disabled = false; }
+    });
+    /* Reset eye icons */
+    ['au-password','au-password2'].forEach(function(id){
+      var inp = document.getElementById(id);
+      if (inp) inp.type = 'password';
+    });
+    document.getElementById('au-eye1').innerHTML = _eyeIconShow;
+    document.getElementById('au-eye2').innerHTML = _eyeIconShow;
+    /* Reset match message */
+    var matchMsg = document.getElementById('au-pw-match-msg');
+    if (matchMsg) { matchMsg.style.display = 'none'; matchMsg.className = 'au-pw-match'; }
+    document.getElementById('au-pw2-section').style.display = 'block';
+    document.getElementById('au-eye1').parentElement.style.display = '';
+    var pwInp = document.getElementById('au-password');
+    pwInp.placeholder    = 'Min. 8 characters';
+    pwInp.style.paddingRight = '';
+    document.getElementById('au-pw-req').style.display = '';
+    document.getElementById('au-form-err').style.display = 'none';
+    document.getElementById('au-form-err').textContent   = '';
+    document.getElementById('au-modal-title').textContent    = 'Add ASP User';
+    document.getElementById('au-modal-subtitle').textContent = 'Create a new user account under this ASP';
+    document.getElementById('au-submit-label').textContent   = 'Add User';
+    document.getElementById('au-overlay').classList.add('open');
+    setTimeout(function(){ document.getElementById('au-fullname').focus(); }, 60);
+  }
+
+  window.auOpenModal = function() {
+    _auEditId = null;
+    _auOpenModal();
+  };
+
+  window.auCloseModal = function() {
+    document.getElementById('au-overlay').classList.remove('open');
+    _auEditId = null;
+  };
+
+  document.getElementById('au-overlay').addEventListener('click', function(e){
+    if (e.target === this) window.auCloseModal();
+  });
+
+  /* Add User submit */
+  window.auSubmit = function() {
+    var fullname = (document.getElementById('au-fullname').value || '').trim();
+    var email    = (document.getElementById('au-email').value    || '').trim();
+    var pw       = (document.getElementById('au-password').value  || '');
+    var pw2      = (document.getElementById('au-password2').value || '');
+    var phone    = (document.getElementById('au-phone').value     || '').trim();
+
+    ['au-fullname','au-email','au-password','au-password2'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) el.classList.remove('error');
+    });
+    var errEl = document.getElementById('au-form-err');
+    errEl.style.display = 'none';
+
+    var errors = [];
+    if (!fullname) { errors.push('Full Name is required.'); document.getElementById('au-fullname').classList.add('error'); }
+    if (!email)    { errors.push('Email is required.');     document.getElementById('au-email').classList.add('error'); }
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errors.push('Email format is invalid.'); document.getElementById('au-email').classList.add('error');
+    }
+    if (!pw)           { errors.push('Password is required.'); document.getElementById('au-password').classList.add('error'); }
+    else if (pw.length < 8) { errors.push('Password must be at least 8 characters.'); document.getElementById('au-password').classList.add('error'); }
+    if (!pw2)          { errors.push('Please repeat the password.'); document.getElementById('au-password2').classList.add('error'); }
+    else if (pw !== pw2) { errors.push('Passwords do not match.'); document.getElementById('au-password').classList.add('error'); document.getElementById('au-password2').classList.add('error'); }
+
+    if (errors.length) {
+      errEl.textContent = errors[0];
+      errEl.style.display = 'block';
+      return;
+    }
+
+    var btn = document.getElementById('au-submit-btn');
+    btn.disabled = true;
+    var payload = { full_name: fullname, email: email, phone_number: phone, password: pw };
+
+    fetch('/asp/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      .then(function(r){ return r.json(); })
+      .then(function(data) {
+        btn.disabled = false;
+        if (data.ok) { auAddRowDOM(data.user); window.auCloseModal(); }
+        else {
+          errEl.textContent = data.error || 'Failed to save.';
+          errEl.style.display = 'block';
+          if (data.field === 'email')     document.getElementById('au-email').classList.add('error');
+          if (data.field === 'full_name') document.getElementById('au-fullname').classList.add('error');
+        }
+      })
+      .catch(function() {
+        btn.disabled = false;
+        errEl.textContent = 'Network error. Please try again.';
+        errEl.style.display = 'block';
+      });
+  };
+
+  /* ── Edit User Drawer ────────────────────────────────────────────────────────── */
+  var _drEyeIconShow = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+  var _drEyeIconHide = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>'
+                     + '<path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>'
+                     + '<line x1="1" y1="1" x2="23" y2="23"/>';
+
+  /* Snapshot of data when drawer opens (for cancel revert) */
+  var _drSnap = {};
+
+  /* ── Per-section view / edit toggle helpers ───────────────────────────────── */
+  function _secEnterEdit(sec) {
+    document.getElementById('au-sec-edit-'    + sec).style.display = 'none';
+    document.getElementById('au-sec-actions-' + sec).classList.add('visible');
+    document.getElementById('au-view-'        + sec).style.display = 'none';
+    document.getElementById('au-inputs-'      + sec).classList.add('editing');
+    document.getElementById('au-sec-err-'     + sec).style.display = 'none';
+    document.getElementById('au-sec-ok-'      + sec).style.display = 'none';
+  }
+
+  function _secExitEdit(sec) {
+    document.getElementById('au-sec-edit-'    + sec).style.display = '';
+    document.getElementById('au-sec-actions-' + sec).classList.remove('visible');
+    document.getElementById('au-view-'        + sec).style.display = '';
+    document.getElementById('au-inputs-'      + sec).classList.remove('editing');
+  }
+
+  /* Populate view-mode display values for both sections */
+  function _drRenderView(fullname, email, phone) {
+    document.getElementById('au-vw-fullname').textContent = fullname || '—';
+    document.getElementById('au-vw-email').textContent    = email    || '—';
+    document.getElementById('au-vw-phone').textContent    = phone    || '—';
+  }
+
+  /* Helper: reset new-password section */
+  function _drResetChPw() {
+    var fields = document.getElementById('au-dr-pw-fields');
+    fields.classList.remove('open');
+    document.getElementById('au-dr-password').value  = '';
+    document.getElementById('au-dr-password2').value = '';
+    document.getElementById('au-dr-pw-match').style.display = 'none';
+    document.getElementById('au-dr-pw-match').className     = 'au-dr-pw-match';
+    ['au-dr-password','au-dr-password2'].forEach(function(id){
+      var inp = document.getElementById(id);
+      if (inp) inp.type = 'password';
+    });
+    document.getElementById('au-dr-eye1').innerHTML = _drEyeIconShow;
+    document.getElementById('au-dr-eye2').innerHTML = _drEyeIconShow;
+    var curInp = document.getElementById('au-dr-cur-password');
+    if (curInp) { curInp.type = 'password'; }
+    document.getElementById('au-dr-cur-eye').innerHTML = _drEyeIconShow;
+  }
+
+  /* Render the toggle-status button based on current active state */
+  function _drRenderStatusBtn(isActive) {
+    var btn = document.getElementById('au-dr-toggle-status-btn');
+    if (isActive) {
+      btn.className = 'au-danger-btn au-danger-btn-deactivate';
+      btn.innerHTML = '🔐 Deactivate Account';
+    } else {
+      btn.className = 'au-danger-btn au-danger-btn-activate';
+      btn.innerHTML = '🔓 Activate Account';
+    }
+  }
+
+  /* Open drawer — start both sections in VIEW mode */
+  window.auOpenEdit = function(id, fullname, email, password, phone, isActive) {
+    _auEditId = id;
+    _drSnap   = { fullname: fullname, email: email, password: password, phone: phone, isActive: !!isActive };
+
+    /* Populate view labels */
+    _drRenderView(fullname, email, phone);
+
+    /* Pre-fill edit inputs (ready for when user clicks Edit) */
+    document.getElementById('au-dr-fullname').value     = fullname || '';
+    document.getElementById('au-dr-email').value        = email    || '';
+    document.getElementById('au-dr-cur-password').value = password || '';
+    document.getElementById('au-dr-phone').value        = phone    || '';
+
+    /* Header subtitle */
+    document.getElementById('au-dr-subtitle').textContent = fullname || 'User';
+
+    /* Reset both sections to VIEW mode */
+    ['account', 'contact'].forEach(function(sec) {
+      _secExitEdit(sec);
+      document.getElementById('au-sec-err-' + sec).style.display = 'none';
+      document.getElementById('au-sec-ok-'  + sec).style.display = 'none';
+    });
+    _drResetChPw();
+    _drRenderStatusBtn(!!isActive);
+
+    /* Open overlay + drawer */
+    document.getElementById('au-dr-overlay').classList.add('open');
+    document.getElementById('au-drawer').classList.add('open');
+  };
+
+  function _drClose() {
+    /* Exit any open edit section cleanly */
+    ['account', 'contact'].forEach(_secExitEdit);
+    _drResetChPw();
+    document.getElementById('au-dr-overlay').classList.remove('open');
+    document.getElementById('au-drawer').classList.remove('open');
+    _auEditId = null;
+  }
+
+  document.getElementById('au-dr-close-x').addEventListener('click',   _drClose);
+  document.getElementById('au-dr-close-btn').addEventListener('click',  _drClose);
+  document.getElementById('au-dr-overlay').addEventListener('click',    _drClose);
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') {
+      if (document.getElementById('au-drawer').classList.contains('open')) _drClose();
+      else window.auCloseModal();
+    }
+  });
+
+  /* Edit buttons — enter edit mode per section */
+  document.getElementById('au-sec-edit-account').addEventListener('click', function(){
+    _secEnterEdit('account');
+    setTimeout(function(){ document.getElementById('au-dr-fullname').focus(); }, 40);
+  });
+  document.getElementById('au-sec-edit-contact').addEventListener('click', function(){
+    _secEnterEdit('contact');
+    setTimeout(function(){ document.getElementById('au-dr-phone').focus(); }, 40);
+  });
+
+  /* Cancel buttons — revert to snapshot values and return to view mode */
+  document.getElementById('au-sec-cancel-account').addEventListener('click', function(){
+    document.getElementById('au-dr-fullname').value     = _drSnap.fullname || '';
+    document.getElementById('au-dr-email').value        = _drSnap.email    || '';
+    document.getElementById('au-dr-cur-password').value = _drSnap.password || '';
+    ['au-dr-fullname','au-dr-email'].forEach(function(id){
+      document.getElementById(id).classList.remove('error');
+    });
+    _drResetChPw();
+    _secExitEdit('account');
+  });
+  document.getElementById('au-sec-cancel-contact').addEventListener('click', function(){
+    document.getElementById('au-dr-phone').value = _drSnap.phone || '';
+    _secExitEdit('contact');
+  });
+
+  /* Current-password eye toggle */
+  document.getElementById('au-dr-cur-eye-btn').addEventListener('click', function(){
+    var inp = document.getElementById('au-dr-cur-password');
+    var svg = document.getElementById('au-dr-cur-eye');
+    var show = inp.type === 'text';
+    inp.type      = show ? 'password' : 'text';
+    svg.innerHTML = show ? _drEyeIconShow : _drEyeIconHide;
+  });
+
+  /* Change Password toggle */
+  document.getElementById('au-dr-pw-toggle-btn').addEventListener('click', function(){
+    var fields = document.getElementById('au-dr-pw-fields');
+    var isOpen = fields.classList.contains('open');
+    if (isOpen) {
+      _drResetChPw();
+    } else {
+      fields.classList.add('open');
+      document.getElementById('au-dr-password').value  = '';
+      document.getElementById('au-dr-password2').value = '';
+      document.getElementById('au-dr-pw-match').style.display = 'none';
+      setTimeout(function(){ document.getElementById('au-dr-password').focus(); }, 40);
+    }
+  });
+
+  /* Eye toggles — new password fields */
+  document.getElementById('au-dr-eye1-btn').addEventListener('click', function(){
+    var inp = document.getElementById('au-dr-password');
+    var svg = document.getElementById('au-dr-eye1');
+    var show = inp.type === 'text';
+    inp.type      = show ? 'password' : 'text';
+    svg.innerHTML = show ? _drEyeIconShow : _drEyeIconHide;
+  });
+  document.getElementById('au-dr-eye2-btn').addEventListener('click', function(){
+    var inp = document.getElementById('au-dr-password2');
+    var svg = document.getElementById('au-dr-eye2');
+    var show = inp.type === 'text';
+    inp.type      = show ? 'password' : 'text';
+    svg.innerHTML = show ? _drEyeIconShow : _drEyeIconHide;
+  });
+
+  /* Live pw match in drawer */
+  function _drCheckMatch() {
+    var pw  = document.getElementById('au-dr-password').value;
+    var pw2 = document.getElementById('au-dr-password2').value;
+    var msg = document.getElementById('au-dr-pw-match');
+    if (!pw2) { msg.style.display = 'none'; return; }
+    if (pw === pw2) {
+      msg.className = 'au-dr-pw-match match';
+      msg.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Passwords match';
+      msg.style.display = 'flex';
+    } else {
+      msg.className = 'au-dr-pw-match nomatch';
+      msg.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Passwords do not match';
+      msg.style.display = 'flex';
+    }
+  }
+  document.getElementById('au-dr-password').addEventListener('input',  _drCheckMatch);
+  document.getElementById('au-dr-password2').addEventListener('input', _drCheckMatch);
+
+  /* Section Save — Account */
+  document.getElementById('au-sec-save-account').addEventListener('click', function(){
+    var fullname = (document.getElementById('au-dr-fullname').value || '').trim();
+    var email    = (document.getElementById('au-dr-email').value    || '').trim();
+    var pwOpen   = document.getElementById('au-dr-pw-fields').classList.contains('open');
+    var pw       = pwOpen ? (document.getElementById('au-dr-password').value  || '') : '';
+    var pw2      = pwOpen ? (document.getElementById('au-dr-password2').value || '') : '';
+    var errEl    = document.getElementById('au-sec-err-account');
+    var okEl     = document.getElementById('au-sec-ok-account');
+    errEl.style.display = 'none';
+    okEl.style.display  = 'none';
+    ['au-dr-fullname','au-dr-email','au-dr-password','au-dr-password2'].forEach(function(id){
+      var el = document.getElementById(id); if (el) el.classList.remove('error');
+    });
+
+    if (!fullname) { errEl.textContent = 'Full Name is required.'; errEl.style.display = 'block'; document.getElementById('au-dr-fullname').classList.add('error'); return; }
+    if (!email)    { errEl.textContent = 'Email is required.';     errEl.style.display = 'block'; document.getElementById('au-dr-email').classList.add('error');    return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errEl.textContent = 'Email format is invalid.'; errEl.style.display = 'block'; document.getElementById('au-dr-email').classList.add('error'); return; }
+    if (pwOpen) {
+      if (!pw || pw.length < 8) { errEl.textContent = 'New password must be at least 8 characters.'; errEl.style.display = 'block'; document.getElementById('au-dr-password').classList.add('error'); return; }
+      if (pw !== pw2)            { errEl.textContent = 'Passwords do not match.'; errEl.style.display = 'block'; document.getElementById('au-dr-password2').classList.add('error'); return; }
+    }
+
+    var saveBtn = document.getElementById('au-sec-save-account');
+    saveBtn.disabled = true;
+    var payload = { full_name: fullname, email: email };
+    if (pwOpen) payload.password = pw;
+
+    fetch('/asp/api/users/' + _auEditId, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
     })
     .then(function(r){ return r.json(); })
     .then(function(data){
+      saveBtn.disabled = false;
       if (data.ok) {
-        raw = data.working_hours;
-        renderView(raw);
-        document.getElementById('wh-edit').style.display  = 'none';
-        document.getElementById('wh-view').style.display  = 'block';
-        document.getElementById('wh-edit-btn').style.display = '';
-        saveMsg.style.display = 'block';
-        setTimeout(function(){ saveMsg.style.display = 'none'; }, 3000);
+        _drSnap.fullname = fullname;
+        _drSnap.email    = email;
+        if (pwOpen) {
+          _drSnap.password = pw;
+          document.getElementById('au-dr-cur-password').value = pw;
+        }
+        /* Refresh view labels */
+        _drRenderView(fullname, email, _drSnap.phone);
+        document.getElementById('au-dr-subtitle').textContent = fullname;
+        auUpdateRowDOM(data.user);
+        _drResetChPw();
+        _secExitEdit('account');
+        okEl.textContent = '✓ Saved successfully';
+        okEl.style.display = 'block';
+        setTimeout(function(){ okEl.style.display = 'none'; }, 3000);
       } else {
-        errMsg.textContent = data.error || 'Failed to save.';
-        errMsg.style.display = 'block';
+        errEl.textContent = data.error || 'Failed to save.';
+        errEl.style.display = 'block';
+        if (data.field === 'email')     document.getElementById('au-dr-email').classList.add('error');
+        if (data.field === 'full_name') document.getElementById('au-dr-fullname').classList.add('error');
       }
     })
-    .catch(function(){ errMsg.textContent = 'Network error. Please try again.'; errMsg.style.display = 'block'; });
-  };
+    .catch(function(){
+      saveBtn.disabled = false;
+      errEl.textContent = 'Network error. Please try again.';
+      errEl.style.display = 'block';
+    });
+  });
 
-  /* ── Init: render view on load ──────────────────────────────────────────── */
-  renderView(raw);
+  /* Section Save — Contact */
+  document.getElementById('au-sec-save-contact').addEventListener('click', function(){
+    var phone   = (document.getElementById('au-dr-phone').value || '').trim();
+    var errEl   = document.getElementById('au-sec-err-contact');
+    var okEl    = document.getElementById('au-sec-ok-contact');
+    errEl.style.display = 'none';
+    okEl.style.display  = 'none';
+
+    var saveBtn = document.getElementById('au-sec-save-contact');
+    saveBtn.disabled = true;
+
+    fetch('/asp/api/users/' + _auEditId, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone_number: phone })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      saveBtn.disabled = false;
+      if (data.ok) {
+        _drSnap.phone    = phone;
+        _drSnap.password = data.user.password || _drSnap.password;
+        /* Refresh view labels */
+        _drRenderView(_drSnap.fullname, _drSnap.email, phone);
+        auUpdateRowDOM(data.user);
+        _secExitEdit('contact');
+        okEl.textContent = '✓ Saved successfully';
+        okEl.style.display = 'block';
+        setTimeout(function(){ okEl.style.display = 'none'; }, 3000);
+      } else {
+        errEl.textContent = data.error || 'Failed to save.';
+        errEl.style.display = 'block';
+      }
+    })
+    .catch(function(){
+      saveBtn.disabled = false;
+      errEl.textContent = 'Network error. Please try again.';
+      errEl.style.display = 'block';
+    });
+  });
+
+  /* ── Confirm modal ───────────────────────────────────────────────────────── */
+  var _confirmAction = null;
+
+  function _confirmOpen(opts) {
+    /* opts: { type, iconSvg, title, body, okLabel, action } */
+    var wrap = document.getElementById('au-confirm-icon-wrap');
+    wrap.className = 'au-confirm-icon-wrap ' + (opts.type || 'danger');
+    wrap.innerHTML = opts.iconSvg || '';
+    document.getElementById('au-confirm-title').innerHTML = opts.title  || '';
+    document.getElementById('au-confirm-body').innerHTML  = opts.body   || '';
+    var okBtn = document.getElementById('au-confirm-ok');
+    okBtn.className   = 'au-confirm-btn-ok ' + (opts.type || 'danger');
+    okBtn.innerHTML   = opts.okLabel || 'Confirm';
+    document.getElementById('au-confirm-err').style.display = 'none';
+    _confirmAction = opts.action;
+    document.getElementById('au-confirm-overlay').classList.add('open');
+  }
+
+  function _confirmClose() {
+    document.getElementById('au-confirm-overlay').classList.remove('open');
+    _confirmAction = null;
+  }
+
+  document.getElementById('au-confirm-cancel').addEventListener('click', _confirmClose);
+  document.getElementById('au-confirm-overlay').addEventListener('click', function(e){
+    if (e.target === this) _confirmClose();
+  });
+  document.getElementById('au-confirm-ok').addEventListener('click', function(){
+    if (_confirmAction) _confirmAction();
+  });
+
+  /* ── Toggle status (Deactivate / Activate) ───────────────────────────────── */
+  document.getElementById('au-dr-toggle-status-btn').addEventListener('click', function(){
+    var isActive = _drSnap.isActive;
+    _confirmOpen({
+      type:    isActive ? 'warning' : 'success',
+      iconSvg: isActive ? '🔐' : '🔓',
+      title:   isActive ? 'Deactivate Account' : 'Activate Account',
+      body:    isActive
+        ? 'Are you sure you want to deactivate <strong>' + _esc(_drSnap.fullname) + '</strong>?<br><br>They will no longer be able to log in until reactivated.'
+        : 'Are you sure you want to activate <strong>' + _esc(_drSnap.fullname) + '</strong>?<br><br>They will be able to log in to the portal again.',
+      okLabel: isActive ? 'Deactivate' : 'Activate',
+      action: function() {
+        var newStatus = isActive ? 0 : 1;
+        var okBtn = document.getElementById('au-confirm-ok');
+        okBtn.disabled = true;
+        fetch('/asp/api/users/' + _auEditId + '/status', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ is_active: newStatus })
+        })
+        .then(function(r){ return r.json(); })
+        .then(function(data) {
+          okBtn.disabled = false;
+          if (data.ok) {
+            _drSnap.isActive = !!newStatus;
+            _drRenderStatusBtn(!!newStatus);
+            /* Update the edit button's data-isactive on the list row */
+            var row = document.querySelector('.asp-user-row[data-uid="' + _auEditId + '"]');
+            if (row) {
+              var btn = row.querySelector('.au-edit-row-btn');
+              if (btn) btn.dataset.isactive = newStatus ? '1' : '0';
+              /* Update status badge */
+              var badge = row.querySelector('.asp-user-badge');
+              if (badge) {
+                badge.className = 'asp-user-badge ' + (newStatus ? 'active' : 'inactive');
+                badge.innerHTML = '<svg width="6" height="6" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg> '
+                  + (newStatus ? 'Active' : 'Non-Active');
+              }
+              /* Dim the row visually when inactive */
+              row.style.opacity = newStatus ? '' : '0.5';
+            }
+            _confirmClose();
+          } else {
+            document.getElementById('au-confirm-err').textContent = data.error || 'Failed.';
+            document.getElementById('au-confirm-err').style.display = 'block';
+          }
+        })
+        .catch(function(){
+          okBtn.disabled = false;
+          document.getElementById('au-confirm-err').textContent = 'Network error. Please try again.';
+          document.getElementById('au-confirm-err').style.display = 'block';
+        });
+      }
+    });
+  });
+
+  /* ── Remove account ──────────────────────────────────────────────────────── */
+  document.getElementById('au-dr-remove-btn').addEventListener('click', function(){
+    _confirmOpen({
+      type:    'danger',
+      iconSvg: '🗑️',
+      title:   'Remove Account',
+      body:    'Are you sure you want to permanently delete <strong>' + _esc(_drSnap.fullname) + '</strong>?<br><br>This will remove their account and all associated data. This action <strong>cannot be undone</strong>.',
+      okLabel: 'Delete',
+      action: function() {
+        var okBtn = document.getElementById('au-confirm-ok');
+        okBtn.disabled = true;
+        fetch('/asp/api/users/' + _auEditId, { method: 'DELETE' })
+        .then(function(r){ return r.json(); })
+        .then(function(data) {
+          okBtn.disabled = false;
+          if (data.ok) {
+            /* Remove the row from the list */
+            var row = document.querySelector('.asp-user-row[data-uid="' + _auEditId + '"]');
+            if (row) row.remove();
+            /* Show empty state if no rows remain */
+            var listEl = document.getElementById('asp-user-list');
+            if (!listEl.querySelector('.asp-user-row')) {
+              listEl.style.display = 'none';
+              document.getElementById('asp-users-empty').style.display = '';
+            }
+            _confirmClose();
+            _drClose();
+          } else {
+            document.getElementById('au-confirm-err').textContent = data.error || 'Failed.';
+            document.getElementById('au-confirm-err').style.display = 'block';
+          }
+        })
+        .catch(function(){
+          okBtn.disabled = false;
+          document.getElementById('au-confirm-err').textContent = 'Network error. Please try again.';
+          document.getElementById('au-confirm-err').style.display = 'block';
+        });
+      }
+    });
+  });
+
 })();
 </script>
 {% endblock %}
