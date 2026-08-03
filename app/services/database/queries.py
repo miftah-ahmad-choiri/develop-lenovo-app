@@ -987,6 +987,7 @@ def get_asp_in_delivery_page(
     page: int = 1,
     page_size: int = 25,
     vendor_filter: str | None = None,
+    wo_type: str | None = None,
 ) -> dict:
     """
     In-Delivery Follow-Up — WOs whose latest active part line has been shipped
@@ -1045,13 +1046,18 @@ def get_asp_in_delivery_page(
         vendor_clause = " AND d.labor_vendor_related = ?"
         params.append(vendor_filter)
 
-    count_sql  = base_sql.format(cols="COUNT(*)") + search_clause + vendor_clause
+    wo_type_clause = ""
+    if wo_type:
+        wo_type_clause = " AND LOWER(s.work_order_type) = LOWER(?)"
+        params.append(wo_type)
+
+    count_sql  = base_sql.format(cols="COUNT(*)") + search_clause + vendor_clause + wo_type_clause
     total = conn.execute(count_sql, params).fetchone()[0]
     pages  = max(1, -(-total // page_size))
     offset = (max(1, page) - 1) * page_size
 
     rows = conn.execute(
-        base_sql.format(cols=_IN_DELIVERY_COLS) + search_clause + vendor_clause
+        base_sql.format(cols=_IN_DELIVERY_COLS) + search_clause + vendor_clause + wo_type_clause
         + " ORDER BY s.created_on DESC LIMIT ? OFFSET ?",
         params + [page_size, offset],
     ).fetchall()
@@ -1164,13 +1170,16 @@ def get_asp_in_repair_page(
 
 # ── In-Prepare Follow-Up ─────────────────────────────────────────────────────
 # A WO is "in prepare" when:
-#   - WO is still open (not closed/cancelled)
-#   - At least one non-cancelled part row EXISTS and has NOT been shipped yet
-#     (ship_pickup_time AND shipment_date are BOTH empty) AND has not been
-#     POD'd (ship_pou_pod_time AND delivery_date are BOTH empty).
-#   This covers parts at any pre-shipment stage: Released, ordered, or simply
-#   not yet dispatched. order_date/acceptance_date may or may not be filled.
-#   No follow-up state is computed — all rows are shown as-is.
+#   PATH A — WO is open AND has at least one non-cancelled part line that has
+#             not yet been shipped (ship_pickup_time / shipment_date both empty)
+#             and not yet POD'd (ship_pou_pod_time / delivery_date both empty).
+#             This covers parts at any pre-shipment stage: Released, ordered,
+#             or simply not yet dispatched.
+#   PATH B — WO is open AND has NO part lines at all in wo_product_detail
+#             (shipment data not yet synced from Lenovo). These WOs have active
+#             WO statuses (e.g. "Parts in Transit", "Order Released") but are
+#             invisible to every other tab because all other tabs require an
+#             INNER JOIN to a part line.  no_part_lines = 1 for these rows.
 _IN_PREPARE_COLS = """
     s.work_order_id, s.serial_number, s.created_on,
     s.committed_delivery_date, s.actual_committed_onsite_date,
@@ -1182,7 +1191,24 @@ _IN_PREPARE_COLS = """
     p.order_date             AS part_order_date,
     p.acceptance_date        AS part_acceptance_date,
     p.eta_parthold_backlog   AS part_eta_wh,
-    p.soid                   AS part_soid
+    p.soid                   AS part_soid,
+    0                        AS no_part_lines
+"""
+
+# Columns for PATH B (zero part lines) — part columns are all NULL / 0
+_IN_PREPARE_COLS_NO_PART = """
+    s.work_order_id, s.serial_number, s.created_on,
+    s.committed_delivery_date, s.actual_committed_onsite_date,
+    s.case_desc, s.work_order_type, s.contact_name,
+    s.customer, s.work_order_status, s.case_status,
+    d.completion_date, d.closing_date,
+    NULL AS part_product,
+    NULL AS part_description,
+    NULL AS part_order_date,
+    NULL AS part_acceptance_date,
+    NULL AS part_eta_wh,
+    NULL AS part_soid,
+    1    AS no_part_lines
 """
 
 
@@ -1193,59 +1219,72 @@ def get_asp_in_prepare_page(
     vendor_filter: str | None = None,
 ) -> dict:
     """
-    In-Prepare Follow-Up — WOs still open that have at least one non-cancelled
-    part row which has not yet been shipped (ship_pickup_time and shipment_date
-    both empty) and not yet POD'd (ship_pou_pod_time and delivery_date both
-    empty). order_date / acceptance_date are not required — a "Released" part
-    with no dates filled still qualifies.
+    In-Prepare Follow-Up — two paths combined via UNION ALL:
 
-    Excluded:
+    PATH A: WOs still open that have at least one non-cancelled part row which
+            has not yet been shipped and not yet POD'd.
+            no_part_lines = 0.
+
+    PATH B: WOs still open that have ZERO rows in wo_product_detail (shipment
+            data not yet synced from Lenovo).  These WOs are otherwise invisible
+            to every follow-up tab.  no_part_lines = 1.
+
+    Excluded from both paths:
       - Closed / cancelled WOs
-      - WOs already in In-Delivery (part shipped, not yet POD'd)
-      - WOs already in In-Repair  (part POD'd OR truly no part rows at all)
-
-    No follow-up_state column — rows are returned as-is.
+      - WOs with completion_date or closing_date filled in wo_details
     """
     conn   = get_db()
-    params: list = []
 
-    base_sql = """
-        SELECT {cols}
+    # ── shared open-WO guard ─────────────────────────────────────────────────
+    _open_guard = """
+        LOWER(COALESCE(s.work_order_status,'')) NOT LIKE '%cancel%'
+        AND LOWER(COALESCE(s.work_order_status,'')) NOT IN (
+            'closed','completed','rma in progress',
+            'unit returned to customer /awaiting for parts rma',
+            'repair completed','ready for pickup'
+        )
+        AND COALESCE(d.completion_date,'') = ''
+        AND COALESCE(d.closing_date,'')    = ''
+    """
+
+    # ── PATH A — has a pre-ship part line ────────────────────────────────────
+    path_a = f"""
+        SELECT {{cols}}
         FROM wo_summary s
         LEFT JOIN wo_details d USING (work_order_id)
-        -- Latest non-cancelled part line per WO that has not yet been shipped
-        -- (no ship_pickup_time / shipment_date) and not yet POD'd.
-        -- order_date / acceptance_date are NOT required — a "Released" part
-        -- with no dates filled still belongs here.
         JOIN (
             SELECT work_order_id,
                    MAX(soid) AS latest_soid
             FROM wo_product_detail
             WHERE LOWER(COALESCE(wo_product_status,'')) NOT LIKE '%cancel%'
-              -- not yet shipped
-              AND TRIM(COALESCE(ship_pickup_time,'')) = ''
-              AND TRIM(COALESCE(shipment_date,''))    = ''
-              -- not yet POD'd (exclude parts already received)
+              AND TRIM(COALESCE(ship_pickup_time,''))  = ''
+              AND TRIM(COALESCE(shipment_date,''))      = ''
               AND TRIM(COALESCE(ship_pou_pod_time,'')) = ''
               AND TRIM(COALESCE(delivery_date,''))     = ''
             GROUP BY work_order_id
         ) latest ON latest.work_order_id = s.work_order_id
-        JOIN wo_product_detail p
-             ON p.soid = latest.latest_soid
-        WHERE LOWER(COALESCE(s.work_order_status,'')) NOT LIKE '%cancel%'
-          AND LOWER(COALESCE(s.work_order_status,'')) NOT IN (
-              'closed','completed','rma in progress',
-              'unit returned to customer /awaiting for parts rma',
-              'repair completed','ready for pickup'
-          )
-          AND COALESCE(d.completion_date,'') = ''
-          AND COALESCE(d.closing_date,'')    = ''
+        JOIN wo_product_detail p ON p.soid = latest.latest_soid
+        WHERE {_open_guard}
     """
 
-    search_clause = ""
-    if search:
+    # ── PATH B — zero part lines at all ──────────────────────────────────────
+    path_b = f"""
+        SELECT {{cols_no_part}}
+        FROM wo_summary s
+        LEFT JOIN wo_details d USING (work_order_id)
+        WHERE {_open_guard}
+          AND NOT EXISTS (
+              SELECT 1 FROM wo_product_detail p2
+              WHERE p2.work_order_id = s.work_order_id
+          )
+    """
+
+    def _build_search(params: list) -> str:
+        if not search:
+            return ""
         term = f"%{search.lower()}%"
-        search_clause = """
+        params.extend([term, term, term, term, term])
+        return """
           AND (
             CAST(s.work_order_id AS TEXT) LIKE ?
             OR LOWER(s.serial_number)     LIKE ?
@@ -1254,22 +1293,47 @@ def get_asp_in_prepare_page(
             OR LOWER(s.case_desc)         LIKE ?
           )
         """
-        params.extend([term, term, term, term, term])
 
-    vendor_clause = ""
-    if vendor_filter:
-        vendor_clause = " AND d.labor_vendor_related = ?"
+    def _build_vendor(params: list) -> str:
+        if not vendor_filter:
+            return ""
         params.append(vendor_filter)
+        return " AND d.labor_vendor_related = ?"
 
-    count_sql = base_sql.format(cols="COUNT(*)") + search_clause + vendor_clause
-    total  = conn.execute(count_sql, params).fetchone()[0]
+    # ── COUNT — sum both paths ───────────────────────────────────────────────
+    params_cnt: list = []
+    sc_a = _build_search(params_cnt)
+    vc_a = _build_vendor(params_cnt)
+    sc_b = _build_search(params_cnt)
+    vc_b = _build_vendor(params_cnt)
+
+    count_sql = f"""
+        SELECT COUNT(*) FROM (
+            {path_a.format(cols='s.work_order_id')} {sc_a} {vc_a}
+            UNION ALL
+            {path_b.format(cols_no_part='s.work_order_id')} {sc_b} {vc_b}
+        )
+    """
+    total  = conn.execute(count_sql, params_cnt).fetchone()[0]
     pages  = max(1, -(-total // page_size))
     offset = (max(1, page) - 1) * page_size
 
-    rows = conn.execute(
-        base_sql.format(cols=_IN_PREPARE_COLS) + search_clause + vendor_clause
-        + " ORDER BY s.created_on DESC LIMIT ? OFFSET ?",
-        params + [page_size, offset],
-    ).fetchall()
+    # ── ROWS — both paths, ordered newest-first, paginated ──────────────────
+    params_rows: list = []
+    sc_a2 = _build_search(params_rows)
+    vc_a2 = _build_vendor(params_rows)
+    sc_b2 = _build_search(params_rows)
+    vc_b2 = _build_vendor(params_rows)
+
+    rows_sql = f"""
+        SELECT * FROM (
+            {path_a.format(cols=_IN_PREPARE_COLS)} {sc_a2} {vc_a2}
+            UNION ALL
+            {path_b.format(cols_no_part=_IN_PREPARE_COLS_NO_PART)} {sc_b2} {vc_b2}
+        )
+        ORDER BY created_on DESC
+        LIMIT ? OFFSET ?
+    """
+    rows = conn.execute(rows_sql, params_rows + [page_size, offset]).fetchall()
 
     return {"rows": [dict(r) for r in rows], "total": total, "page": page, "pages": pages}

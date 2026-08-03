@@ -582,9 +582,13 @@
     📋 In-Prepare
     <span class="tab-badge" id="tab-in-prepare-badge" style="display:none"></span>
   </button>
-  <button class="tab-btn" data-tab="tab-in-delivery">
-    🚚 In-Delivery
-    <span class="tab-badge" id="tab-in-delivery-badge" style="display:none"></span>
+  <button class="tab-btn" data-tab="tab-cci-delivery">
+    📦 Confirm CCI AWB
+    <span class="tab-badge" id="tab-cci-delivery-badge" style="display:none"></span>
+  </button>
+  <button class="tab-btn" data-tab="tab-ons-delivery">
+    📅 Set ONS Schedule
+    <span class="tab-badge" id="tab-ons-delivery-badge" style="display:none"></span>
   </button>
   <button class="tab-btn" data-tab="tab-in-repair">
     🔧 In-Repair
@@ -671,12 +675,12 @@
   </div>
 </div>
 
-<!-- ── TAB: In-Delivery Follow-Up ───────────────────────────────────────── -->
-<div class="tab-panel" id="tab-in-delivery">
+<!-- ── TAB: Confirm CCI AWB (Carry-In in-delivery) ──────────────────────── -->
+<div class="tab-panel" id="tab-cci-delivery">
   <div class="table-card">
     <div class="table-toolbar">
-      <input type="search" id="search-in-delivery" placeholder="Search WO, serial, contact, customer…" autocomplete="off" />
-      <span class="toolbar-count" id="count-in-delivery"></span>
+      <input type="search" id="search-cci-delivery" placeholder="Search WO, serial, contact, customer…" autocomplete="off" />
+      <span class="toolbar-count" id="count-cci-delivery"></span>
     </div>
     <div class="table-scroll">
       <table class="data-table">
@@ -688,11 +692,36 @@
           <th>Part</th><th>AWB</th><th>Shipped On</th><th>ETA</th>
           <th>Contact Name</th><th>ASP</th>
         </tr></thead>
-        <tbody id="tbody-in-delivery"><tr><td colspan="13" class="loading-state">Loading…</td></tr></tbody>
+        <tbody id="tbody-cci-delivery"><tr><td colspan="13" class="loading-state">Loading…</td></tr></tbody>
       </table>
     </div>
-    <div id="empty-in-delivery" class="empty-state" style="display:none">No in-delivery WOs found.</div>
-    <div class="pagination" id="pg-in-delivery"></div>
+    <div id="empty-cci-delivery" class="empty-state" style="display:none">No CCI in-delivery WOs found.</div>
+    <div class="pagination" id="pg-cci-delivery"></div>
+  </div>
+</div>
+
+<!-- ── TAB: Set ONS Schedule (Onsite in-delivery) ────────────────────────── -->
+<div class="tab-panel" id="tab-ons-delivery">
+  <div class="table-card">
+    <div class="table-toolbar">
+      <input type="search" id="search-ons-delivery" placeholder="Search WO, serial, contact, customer…" autocomplete="off" />
+      <span class="toolbar-count" id="count-ons-delivery"></span>
+    </div>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr>
+          <th style="width:40px;text-align:center">#</th>
+          <th>Created On</th><th>WO Number</th>
+          <th>Follow-Up State</th>
+          <th>WO Type</th><th>Case</th><th>WO Status</th>
+          <th>Part</th><th>AWB</th><th>Shipped On</th><th>ETA</th>
+          <th>Contact Name</th><th>ASP</th>
+        </tr></thead>
+        <tbody id="tbody-ons-delivery"><tr><td colspan="13" class="loading-state">Loading…</td></tr></tbody>
+      </table>
+    </div>
+    <div id="empty-ons-delivery" class="empty-state" style="display:none">No Onsite in-delivery WOs found.</div>
+    <div class="pagination" id="pg-ons-delivery"></div>
   </div>
 </div>
 
@@ -2274,20 +2303,15 @@ function renderTimeline(d, parts) {
     ? parts.filter(p => !isCancelled(p))
     : (parts || []);
 
-  /* Find the part line with the LATEST order_date (or acceptance_date).
-     When multiple lines share the same latest order_date (e.g. a batch
-     placed the same second) prefer the one with more date fields filled in.
-     This represents the most recently placed part order for the WO. */
-  const toTs = v => {
-    if (!v || isSentinel(v)) return -Infinity;
-    const t = new Date(String(v).replace(' ', 'T')).getTime();
-    return isNaN(t) ? -Infinity : t;
-  };
+  /* Find the part line with the HIGHEST soid (mirrors the SQL MAX(soid) used
+     by every follow-up tab query).  The highest soid is the most recently
+     created part order row — even if its order/acceptance dates are still
+     empty (e.g. a Pending replacement part).  Using order_date for this
+     comparison was wrong: an older delivered line always beat a newer
+     pending line whose dates hadn't been filled yet. */
   let latestPart = activeParts[0] || null;
-  let latestOrderTs = latestPart ? toTs(latestPart.order_date || latestPart.acceptance_date) : -Infinity;
   for (const p of activeParts) {
-    const ts = toTs(p.order_date || p.acceptance_date);
-    if (ts > latestOrderTs) { latestOrderTs = ts; latestPart = p; }
+    if (latestPart === null || (p.soid > latestPart.soid)) latestPart = p;
   }
 
   /* For the footnote — index of the chosen part in the original list */
@@ -2378,7 +2402,7 @@ function renderTimeline(d, parts) {
     <div class="tl-wrap">
       <div class="tl-scroll"><div class="tl-track">${nodeHtml}</div></div>
     </div>
-    ${parts.length > 1 ? `<div style="font-size:11px;color:#8c959f;margin-top:8px">* Part dates shown for line #${activePartIdx + 1} (latest part order). See Part Order History for all lines.</div>` : ''}
+    ${parts.length > 1 ? `<div style="font-size:11px;color:#8c959f;margin-top:8px">* Part dates shown for line #${activePartIdx + 1} (latest SOID / most recent part order). See Part Order History for all lines.</div>` : ''}
   </div>`;
 }
 
@@ -2783,10 +2807,12 @@ const inPrepareTable = makeTabTable({
     { key: 'work_order_type',   render: r => esc(r.work_order_type||'—') },
     { key: 'case_desc',         render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
     { key: 'work_order_status', render: r => statusBadge(r.work_order_status) },
-    { key: 'part_product',      render: r => `<span title="${esc(r.part_description||'')}" style="font-size:11px;color:#57606a">${esc(r.part_product||'—')}</span>` },
-    { key: 'part_order_date',   render: r => fmt(r.part_order_date || r.part_acceptance_date) },
+    { key: 'part_product',      render: r => r.no_part_lines
+        ? `<span class="fu-badge fu-wo-sla" style="font-size:11px;gap:4px">⏳ No Part Data</span>`
+        : `<span title="${esc(r.part_description||'')}" style="font-size:11px;color:#57606a">${esc(r.part_product||'—')}</span>` },
+    { key: 'part_order_date',   render: r => r.no_part_lines ? '<span style="color:#8c959f;font-style:italic">—</span>' : fmt(r.part_order_date || r.part_acceptance_date) },
     { key: 'part_eta_wh',       render: r => {
-        if (!r.part_eta_wh || isSentinel(r.part_eta_wh)) return '—';
+        if (r.no_part_lines || !r.part_eta_wh || isSentinel(r.part_eta_wh)) return '—';
         const etaDate = r.part_eta_wh.slice(0,10);
         const today   = new Date().toISOString().slice(0,10);
         const overdue = etaDate < today;
@@ -2852,11 +2878,8 @@ function inDeliveryFuBadge(r) {
   return `<button class="fu-badge fu-confirm fu-badge-btn" data-action="in-delivery-recv" data-wo="${wo}" data-wo-type="${woType}" data-eta="${eta}" data-pickup="${pickupEsc}" data-pod="${podEsc}" data-status="${status}" data-asp="${asp}">📬 Confirm Receipt</button>`;
 }
 
-const inDeliveryTable = makeTabTable({
-  apiUrl:  '/asp/api/in-delivery',
-  tbodyId: 'tbody-in-delivery', emptyId: 'empty-in-delivery',
-  pgId: 'pg-in-delivery', cntId: 'count-in-delivery',
-  colsFn: () => [
+function _makeDeliveryColsFn() {
+  return [
     { key: 'created_on',        render: r => fmt(r.created_on) },
     { key: 'work_order_id',     render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
     { key: 'followup_state',    render: r => inDeliveryFuBadge(r) },
@@ -2876,13 +2899,16 @@ const inDeliveryTable = makeTabTable({
     },
     { key: 'contact_name',      render: r => esc(r.contact_name||'—') },
     { key: 'customer',          render: r => esc(r.customer||'—') },
-  ],
-  onBind: rows => {
-    const badge = document.getElementById('tab-in-delivery-badge');
-    const cnt   = parseInt(document.getElementById('count-in-delivery').textContent, 10) || rows.length;
+  ];
+}
+
+function _makeDeliveryOnBind(tbodyId, badgeId, cntId) {
+  return rows => {
+    const badge = document.getElementById(badgeId);
+    const cnt   = parseInt(document.getElementById(cntId).textContent, 10) || rows.length;
     badge.textContent   = cnt;
     badge.style.display = cnt > 0 ? 'inline-block' : 'none';
-    const tbody = document.getElementById('tbody-in-delivery');
+    const tbody = document.getElementById(tbodyId);
     tbody.querySelectorAll('.wo-link').forEach(b =>
       b.addEventListener('click', () => openDetail(b.dataset.wo)));
     tbody.querySelectorAll('[data-action="in-delivery-recv"]').forEach(b =>
@@ -2891,14 +2917,40 @@ const inDeliveryTable = makeTabTable({
       b.addEventListener('click', () => openOnsiteRecv(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, b.dataset.origOnsite, b.dataset.deferDate, b.dataset.actualOnsite, b.dataset.pod)));
     tbody.querySelectorAll('[data-action="in-delivery-part-sla"]').forEach(b =>
       b.addEventListener('click', () => openPartSla(b.dataset.wo, b.dataset.woType, b.dataset.eta, b.dataset.pickup, b.dataset.pod, b.dataset.awb, b.dataset.status, b.dataset.asp, b.dataset.woType || 'cci')));
-  },
+  };
+}
+
+/* ── CCI Delivery tab (Carry-In WOs in In-Delivery) ── */
+const cciDeliveryTable = makeTabTable({
+  apiUrl:  '/asp/api/in-delivery',
+  tbodyId: 'tbody-cci-delivery', emptyId: 'empty-cci-delivery',
+  pgId: 'pg-cci-delivery', cntId: 'count-cci-delivery',
+  colsFn: _makeDeliveryColsFn,
+  onBind: _makeDeliveryOnBind('tbody-cci-delivery', 'tab-cci-delivery-badge', 'count-cci-delivery'),
 });
 
-let inDeliveryTimer = null;
-document.getElementById('search-in-delivery').addEventListener('input', () => {
-  clearTimeout(inDeliveryTimer);
-  inDeliveryTimer = setTimeout(() => {
-    inDeliveryTable.load({ q: document.getElementById('search-in-delivery').value.trim() });
+let cciDeliveryTimer = null;
+document.getElementById('search-cci-delivery').addEventListener('input', () => {
+  clearTimeout(cciDeliveryTimer);
+  cciDeliveryTimer = setTimeout(() => {
+    cciDeliveryTable.load({ q: document.getElementById('search-cci-delivery').value.trim(), wo_type: 'Carry-In' });
+  }, 350);
+});
+
+/* ── ONS Delivery tab (Onsite WOs in In-Delivery) ── */
+const onsDeliveryTable = makeTabTable({
+  apiUrl:  '/asp/api/in-delivery',
+  tbodyId: 'tbody-ons-delivery', emptyId: 'empty-ons-delivery',
+  pgId: 'pg-ons-delivery', cntId: 'count-ons-delivery',
+  colsFn: _makeDeliveryColsFn,
+  onBind: _makeDeliveryOnBind('tbody-ons-delivery', 'tab-ons-delivery-badge', 'count-ons-delivery'),
+});
+
+let onsDeliveryTimer = null;
+document.getElementById('search-ons-delivery').addEventListener('input', () => {
+  clearTimeout(onsDeliveryTimer);
+  onsDeliveryTimer = setTimeout(() => {
+    onsDeliveryTable.load({ q: document.getElementById('search-ons-delivery').value.trim(), wo_type: 'Onsite' });
   }, 350);
 });
 
@@ -3057,12 +3109,14 @@ document.getElementById('btn-export-return-part').addEventListener('click', func
 const tabLoaded = {
   'tab-all': false,
   'tab-in-prepare': false,
-  'tab-in-delivery': false, 'tab-in-repair': false, 'tab-return-part': false,
+  'tab-cci-delivery': false, 'tab-ons-delivery': false,
+  'tab-in-repair': false, 'tab-return-part': false,
 };
 const tabLoaders = {
   'tab-all':            () => loadAllWo(),
   'tab-in-prepare':     () => inPrepareTable.load({}),
-  'tab-in-delivery':    () => inDeliveryTable.load({}),
+  'tab-cci-delivery':   () => cciDeliveryTable.load({ wo_type: 'Carry-In' }),
+  'tab-ons-delivery':   () => onsDeliveryTable.load({ wo_type: 'Onsite' }),
   'tab-in-repair':      () => inRepairTable.load({}),
   'tab-return-part':    () => returnPartTable.load({ followup_state: 'input_dc' }),
 };
@@ -3095,7 +3149,8 @@ document.querySelectorAll('[data-goto]').forEach(c => c.addEventListener('click'
   const map = {
     'all':'tab-all',
     'in-prepare':'tab-in-prepare',
-    'in-delivery':'tab-in-delivery', 'in-repair':'tab-in-repair', 'return-part':'tab-return-part',
+    'cci-delivery':'tab-cci-delivery', 'ons-delivery':'tab-ons-delivery',
+    'in-repair':'tab-in-repair', 'return-part':'tab-return-part',
   };
   const p   = new URLSearchParams(location.search).get('tab');
   const id  = (p && map[p]) || 'tab-all';

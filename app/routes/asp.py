@@ -595,6 +595,7 @@ def api_in_delivery():
         page          = _int_arg("page", 1),
         page_size     = per_page,
         vendor_filter = _vendor_filter(),
+        wo_type       = request.args.get("wo_type", "").strip() or None,
     ))
 
 
