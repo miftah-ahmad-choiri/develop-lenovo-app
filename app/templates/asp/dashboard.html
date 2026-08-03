@@ -26,6 +26,7 @@
   .fu-badge-btn:hover { filter: brightness(.92); transform: translateY(-1px); }
   .fu-badge-btn:active { transform: translateY(0); filter: brightness(.85); }
   .fu-confirm        { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+  .fu-confirm-today  { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
   .fu-part-sla       { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
   .fu-wo-sla         { background: #fef3c7; color: #92400e; border: 1px solid #d97706; }
   .fu-input-dc       { background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; }
@@ -209,16 +210,6 @@
   /* Action modals (Part Received / Part Return / Reschedule) */
   .modal.narrow { max-width: 520px; }
   .modal.narrow .modal-body { padding: 0; }
-  /* SOID selector inside Part Received modal */
-  .recv-soid-select { width: 100%; padding: 9px 11px; border: 1px solid #d0d7de; border-radius: 7px; font-size: 13px; font-family: ui-monospace, monospace; color: #1f2328; background: #fff; box-sizing: border-box; }
-  .recv-soid-select:focus { outline: none; border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,.12); }
-  .recv-soid-detail { margin-top: 8px; padding: 8px 11px; background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 7px; font-size: 11px; color: #57606a; display: flex; flex-direction: column; gap: 3px; }
-  .recv-soid-detail .rsd-row { display: flex; align-items: baseline; gap: 8px; }
-  .recv-soid-detail .rsd-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #8c959f; white-space: nowrap; }
-  .recv-soid-detail .rsd-val { color: #1f2328; font-weight: 600; font-family: ui-monospace, monospace; font-size: 12px; }
-  .recv-soid-detail .rsd-desc { color: #57606a; font-weight: 400; font-family: inherit; }
-  .recv-soid-detail .rsd-awb  { color: #3b82d4; font-weight: 700; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 4px; padding: 1px 6px; }
-  .recv-soid-detail .rsd-noawb { color: #8c959f; font-style: italic; }
   .mf-group { margin-bottom: 14px; }
   .mf-group .mf-label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 5px; color: #374151; }
   .mf-group .mf-label .req { color: #dc2626; margin-left: 2px; }
@@ -276,6 +267,17 @@
   .part-soid-card .wo-strip-part-awb  { font-family: ui-monospace, monospace; font-size: 11px; color: #3b82d4; font-weight: 700; background: #eff6ff; border: 1px solid #bfdbfe; padding: 1px 6px; border-radius: 4px; margin-left: auto; }
   .part-soid-card .wo-strip-part-noawb { font-size: 11px; color: #8c959f; font-style: italic; margin-left: auto; }
   .part-soid-tl-track { display: flex; align-items: flex-start; gap: 0; }
+  /* Selectable card mode (radio inside Part Shipment cards) */
+  .part-soid-block.selectable .part-soid-card { cursor: pointer; padding-left: 6px; transition: border-color .12s, background .12s; }
+  .part-soid-block.selectable .part-soid-card:hover { border-color: #3b82d4; background: #f0f7ff; }
+  .part-soid-block.selectable.selected .part-soid-card { border-color: #3b82d4; background: #eff6ff; }
+  .part-soid-block.selectable.done-part .part-soid-card { opacity: .55; cursor: not-allowed; background: #f7f8fa; border-color: #e5e7eb; }
+  .part-soid-block.selectable.done-part .part-soid-card:hover { border-color: #e5e7eb; background: #f7f8fa; }
+  .psc-radio { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #d0d7de; flex-shrink: 0; display: flex; align-items: center; justify-content: center; margin-right: 2px; transition: border-color .12s; }
+  .part-soid-block.selectable.selected .psc-radio { border-color: #3b82d4; background: #3b82d4; }
+  .part-soid-block.selectable.selected .psc-radio::after { content: ''; display: block; width: 5px; height: 5px; border-radius: 50%; background: #fff; }
+  .part-soid-block.selectable.done-part .psc-radio { border-color: #d0d7de; background: #e5e7eb; }
+  .psc-done-tag { font-size: 10px; font-weight: 700; color: #6b7280; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 4px; padding: 1px 5px; margin-left: auto; flex-shrink: 0; }
   /* Modal header icon */
   .modal-hdr-icon { width: 36px; height: 36px; border-radius: 9px; background: #eff6ff; border: 1px solid #bfdbfe; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   /* Form section dividers */
@@ -582,6 +584,10 @@
     📋 In-Prepare
     <span class="tab-badge" id="tab-in-prepare-badge" style="display:none"></span>
   </button>
+  <button class="tab-btn" data-tab="tab-cci-followup">
+    🔧 CCI Follow-Up
+    <span class="tab-badge" id="tab-cci-followup-badge" style="display:none"></span>
+  </button>
   <button class="tab-btn" data-tab="tab-cci-delivery">
     📦 Confirm CCI AWB
     <span class="tab-badge" id="tab-cci-delivery-badge" style="display:none"></span>
@@ -606,9 +612,9 @@
     <div class="table-toolbar">
       <input type="search" id="search-all" placeholder="Search WO, serial, contact, customer…" autocomplete="off" />
       <select class="filter-select" id="filter-status-all">
-        <option value="" selected>All WO Status</option>
+        <option value="">All WO Status</option>
         <option value="active">Current Active WO</option>
-        <option value="open">All WO Open</option>
+        <option value="open" selected>All WO Open</option>
         <option value="closed">Closed / Completed / RMA</option>
         <option value="part_hold">Part On Hold</option>
         <option value="transit">Parts in Transit</option>
@@ -654,9 +660,17 @@
 <!-- ── TAB: In-Prepare Follow-Up ────────────────────────────────────────── -->
 <div class="tab-panel" id="tab-in-prepare">
   <div class="table-card">
-    <div class="table-toolbar">
-      <input type="search" id="search-in-prepare" placeholder="Search WO, serial, contact, customer…" autocomplete="off" />
-      <span class="toolbar-count" id="count-in-prepare"></span>
+    <div style="padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #e5e7eb;flex-wrap:wrap;">
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;" id="in-prepare-filter-pills">
+        <button class="subtab-pill active" data-prepfilter="">📋 All WO In-Prepare</button>
+        <button class="subtab-pill" data-prepfilter="part_on_hold">🔒 Part on Hold</button>
+        <button class="subtab-pill" data-prepfilter="no_part">🛒 Waiting Part Order</button>
+        <button class="subtab-pill" data-prepfilter="waiting_pickup">📦 Waiting for Pickup</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+        <input type="search" id="search-in-prepare" placeholder="Search WO, serial, contact, customer…" autocomplete="off" style="padding:7px 11px;border:1px solid #d0d7de;border-radius:6px;font-size:13px;width:240px;font-family:inherit;" />
+        <span class="toolbar-count" id="count-in-prepare"></span>
+      </div>
     </div>
     <div class="table-scroll">
       <table class="data-table">
@@ -697,6 +711,40 @@
     </div>
     <div id="empty-cci-delivery" class="empty-state" style="display:none">No CCI in-delivery WOs found.</div>
     <div class="pagination" id="pg-cci-delivery"></div>
+  </div>
+</div>
+
+<!-- ── TAB: CCI Follow-Up (Carry-In WO Carry-In in-repair) ──────────────── -->
+<div class="tab-panel" id="tab-cci-followup">
+  <div class="table-card">
+    <div style="padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #e5e7eb;flex-wrap:wrap;">
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;" id="cci-followup-filter-pills">
+        <button class="subtab-pill active" data-fufilter="">🔍 All CCI Follow-Up</button>
+        <button class="subtab-pill" data-fufilter="in_transit">🚚 CCI In-Transit</button>
+        <button class="subtab-pill" data-fufilter="in_repair">🔧 CCI In-Repair</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+        <input type="search" id="search-cci-followup" placeholder="Search WO, serial, contact, customer…" autocomplete="off" style="padding:7px 11px;border:1px solid #d0d7de;border-radius:6px;font-size:13px;width:240px;font-family:inherit;" />
+        <span class="toolbar-count" id="count-cci-followup"></span>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr>
+          <th style="width:40px;text-align:center">#</th>
+          <th>Created On</th><th>WO Number</th>
+          <th>Follow-Up State</th>
+          <th>Order Qty</th>
+          <th>ETA Target</th>
+          <th>WO Status</th>
+          <th>AWB</th><th>Shipped On</th><th>POD / Received On</th>
+          <th>WO Type</th><th>Case</th>
+        </tr></thead>
+        <tbody id="tbody-cci-followup"><tr><td colspan="12" class="loading-state">Loading…</td></tr></tbody>
+      </table>
+    </div>
+    <div id="empty-cci-followup" class="empty-state" style="display:none">No CCI in-repair WOs found.</div>
+    <div class="pagination" id="pg-cci-followup"></div>
   </div>
 </div>
 
@@ -1089,20 +1137,8 @@
         </div>
       </div>
 
-      <!-- SOID selector — shown when WO has multiple active part lines -->
-      <div class="mf-section" id="recv-soid-section" style="display:none">
-        <div class="mf-section-label" style="margin-bottom:10px">
-          <span class="sec-num" style="background:#57606a">⊙</span>
-          Select Part Order (SOID)
-        </div>
-        <div class="mf-group" style="margin-bottom:0">
-          <span class="mf-label">Part Order <span class="req">*</span></span>
-          <select id="recv-soid-select" class="recv-soid-select">
-            <option value="">— select part order —</option>
-          </select>
-          <div class="recv-soid-detail" id="recv-soid-detail" style="display:none"></div>
-        </div>
-      </div>
+      <!-- downstream form sections — hidden until a Part Shipment card is clicked (multi-part) -->
+      <div id="recv-form-sections">
 
       <!-- SECTION 1 — Receipt Details -->
       <div class="mf-section">
@@ -1187,6 +1223,8 @@
           The same AWB number and photo will be applied to all selected WOs above.
         </div>
       </div>
+
+      </div><!-- /#recv-form-sections -->
 
     </div><!-- /.modal-body -->
 
@@ -1299,6 +1337,9 @@
         </div>
       </div>
 
+      <!-- psla downstream sections — hidden until a Part Shipment card is clicked (multi-part) -->
+      <div id="psla-form-sections">
+
       <!-- SECTION 1 — Part Delivery Status -->
       <div class="mf-section">
         <div class="mf-section-label">
@@ -1356,6 +1397,8 @@
         </div>
       </div>
 
+      </div><!-- /#psla-form-sections -->
+
       <!-- Post-submit prompt — reschedule or exit (Onsite + part_arrived only) -->
       <div id="psla-reschedule-prompt" style="display:none;padding:20px 20px 24px">
         <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:18px">
@@ -1380,7 +1423,7 @@
       <div class="modal-footer-btns">
         <button class="btn btn-ghost" data-close="modal-part-sla">Cancel</button>
         <button class="btn btn-receipt-pill" id="btn-psla-confirm-receipt" style="display:none">
-          📬 Confirm Receipt
+          📬 Confirm AWB
         </button>
         <button class="btn btn-danger" id="btn-confirm-part-sla">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -2083,10 +2126,12 @@ function _cciHeroBtns(d) {
   const partHasOrder = !!(d.part_has_order);
   const partDcFilled = !!(d.part_dc_filled);
   /* Same overdue logic as inDeliveryFuBadge: part_eta filled + today >= part_eta */
-  const _cciEtaRaw  = (d.part_eta || '');
-  const _cciEtaDate = _cciEtaRaw && !isSentinel(_cciEtaRaw) ? _cciEtaRaw.slice(0, 10) : '';
+  const _cciEtaRaw   = (d.part_eta || '');
+  const _cciEtaDate  = _cciEtaRaw && !isSentinel(_cciEtaRaw) ? _cciEtaRaw.slice(0, 10) : '';
+  const _cciToday    = new Date().toISOString().slice(0, 10);
   const _cciTomorrow = (() => { const t = new Date(); t.setDate(t.getDate() + 1); return t.toISOString().slice(0, 10); })();
-  const partSlaOverdue = _cciEtaDate && _cciEtaDate < _cciTomorrow;
+  const partSlaOverdue   = _cciEtaDate && _cciEtaDate < _cciTomorrow;
+  const cciEtaIsToday    = _cciEtaDate === _cciToday;
 
   let state;
   if (partShipped && !partPod) {
@@ -2114,14 +2159,14 @@ function _cciHeroBtns(d) {
 
   const btns = [];
   if (state === 'confirm_receipt')
-    btns.push(`<button class="fu-badge fu-confirm fu-badge-btn" data-action="cci-recv" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-eta="${etaEsc}" data-pickup="${pickupEsc}" data-pod="${podEsc}" data-status="${stEsc}" data-asp="${aspEsc}">📬 Confirm Receipt</button>`);
+    btns.push(`<button class="fu-badge ${cciEtaIsToday ? 'fu-confirm-today' : 'fu-confirm'} fu-badge-btn" data-action="cci-recv" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-eta="${etaEsc}" data-pickup="${pickupEsc}" data-pod="${podEsc}" data-status="${stEsc}" data-asp="${aspEsc}">📬 Confirm AWB</button>`);
   if (state === 'part_sla')
     btns.push(`<button class="fu-badge fu-part-sla fu-badge-btn" data-action="cci-part-sla" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-eta="${etaEsc}" data-pickup="${pickupEsc}" data-pod="${podEsc}" data-awb="${esc(d.part_awb||'')}" data-status="${stEsc}" data-asp="${aspEsc}">⚠️ Part SLA Overdue</button>`);
   if (state === 'report_problem')
     btns.push(`<button class="fu-badge fu-wo-sla fu-badge-btn" data-action="cci-wo-sla" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-pod="${podEsc}" data-status="${stEsc}" data-asp="${aspEsc}">🔔 WO SLA Follow-Up</button>`);
   /* Part POD'd but AWB still blank — show receipt button regardless of current state */
   if (partPod && !isClosed && !partAwbFilled && state !== 'confirm_receipt')
-    btns.push(`<button class="fu-badge fu-confirm fu-badge-btn" data-action="cci-recv" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-eta="${etaEsc}" data-pickup="${pickupEsc}" data-pod="${podEsc}" data-status="${stEsc}" data-asp="${aspEsc}">📬 Confirm Receipt</button>`);
+    btns.push(`<button class="fu-badge ${cciEtaIsToday ? 'fu-confirm-today' : 'fu-confirm'} fu-badge-btn" data-action="cci-recv" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-eta="${etaEsc}" data-pickup="${pickupEsc}" data-pod="${podEsc}" data-status="${stEsc}" data-asp="${aspEsc}">📬 Confirm AWB</button>`);
 
   return btns.join('');
 }
@@ -2144,10 +2189,12 @@ function _onsiteHeroBtns(d) {
   const partDcFilled = !!(d.part_dc_filled);
 
   /* Same overdue logic as inDeliveryFuBadge: part_eta filled + today >= part_eta */
-  const _onsiteEtaRaw  = (d.part_eta || '');
-  const _onsiteEtaDate = _onsiteEtaRaw && !isSentinel(_onsiteEtaRaw) ? _onsiteEtaRaw.slice(0, 10) : '';
-  const _onsiteTomorrow = (() => { const t = new Date(); t.setDate(t.getDate() + 1); return t.toISOString().slice(0, 10); })();
+  const _onsiteEtaRaw    = (d.part_eta || '');
+  const _onsiteEtaDate   = _onsiteEtaRaw && !isSentinel(_onsiteEtaRaw) ? _onsiteEtaRaw.slice(0, 10) : '';
+  const _onsiteToday     = new Date().toISOString().slice(0, 10);
+  const _onsiteTomorrow  = (() => { const t = new Date(); t.setDate(t.getDate() + 1); return t.toISOString().slice(0, 10); })();
   const onsitePartSlaOverdue = _onsiteEtaDate && _onsiteEtaDate < _onsiteTomorrow;
+  const onsiteEtaIsToday     = _onsiteEtaDate === _onsiteToday;
 
   let state;
   if (partShipped && !partPod) {
@@ -2189,7 +2236,7 @@ function _onsiteHeroBtns(d) {
     btns.push(`<button class="fu-badge fu-wo-sla fu-badge-btn" data-action="onsite-wo-sla" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-pod="${podEsc}" data-defer-date="${deferDateEsc}" data-status="${stEsc}" data-asp="${aspEsc}">🔔 WO SLA Follow-Up</button>`);
   /* Part POD'd but AWB still blank — show receipt button alongside other buttons */
   if (partPod && !isClosed && !partAwbFilled)
-    btns.push(`<button class="fu-badge fu-confirm fu-badge-btn" data-action="cci-recv" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-eta="${etaEsc}" data-pickup="${pickupEsc}" data-pod="${podEsc}" data-status="${stEsc}" data-asp="${aspEsc}">📬 Confirm Receipt</button>`);
+    btns.push(`<button class="fu-badge ${onsiteEtaIsToday ? 'fu-confirm-today' : 'fu-confirm'} fu-badge-btn" data-action="cci-recv" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-eta="${etaEsc}" data-pickup="${pickupEsc}" data-pod="${podEsc}" data-status="${stEsc}" data-asp="${aspEsc}">📬 Confirm AWB</button>`);
 
   return btns.join('');
 }
@@ -2825,6 +2872,7 @@ const inPrepareTable = makeTabTable({
   onBind: rows => {
     const badge = document.getElementById('tab-in-prepare-badge');
     const cnt   = parseInt(document.getElementById('count-in-prepare').textContent, 10) || rows.length;
+    if (!inPrepareFilter) inPrepareTotalAll = cnt;   /* cache the unfiltered total */
     badge.textContent   = cnt;
     badge.style.display = cnt > 0 ? 'inline-block' : 'none';
     document.getElementById('tbody-in-prepare').querySelectorAll('.wo-link').forEach(b =>
@@ -2832,12 +2880,29 @@ const inPrepareTable = makeTabTable({
   },
 });
 
-let inPrepareTimer = null;
+let inPrepareTimer    = null;
+let inPrepareFilter   = '';   /* '' | 'part_on_hold' | 'no_part' | 'waiting_pickup' */
+let inPrepareTotalAll = 0;    /* cached total for the unfiltered view — keeps badge stable */
+
+function _inPrepareLoad() {
+  const q      = document.getElementById('search-in-prepare').value.trim();
+  const params = q ? { q } : {};
+  if (inPrepareFilter) params.prepare_filter = inPrepareFilter;
+  inPrepareTable.load(params);
+}
+
 document.getElementById('search-in-prepare').addEventListener('input', () => {
   clearTimeout(inPrepareTimer);
-  inPrepareTimer = setTimeout(() => {
-    inPrepareTable.load({ q: document.getElementById('search-in-prepare').value.trim() });
-  }, 350);
+  inPrepareTimer = setTimeout(_inPrepareLoad, 350);
+});
+
+document.querySelectorAll('#in-prepare-filter-pills [data-prepfilter]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#in-prepare-filter-pills [data-prepfilter]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    inPrepareFilter = btn.dataset.prepfilter;
+    _inPrepareLoad();
+  });
 });
 
 /* ═══════════════════════════════════════════════════════════════
@@ -2849,7 +2914,7 @@ document.getElementById('search-in-prepare').addEventListener('input', () => {
      1. part_eta (target col / SLA deadline from Shipment file) is filled
         AND current date > part_eta  →  ⚠️ Part SLA Overdue
      2. WO type is Onsite            →  📅 Set Onsite Schedule
-     3. Otherwise (CCI)              →  📬 Confirm Receipt */
+     3. Otherwise (CCI)              →  📬 Confirm AWB */
 function inDeliveryFuBadge(r) {
   const wo            = esc(r.work_order_id);
   const eta           = esc(r.part_eta        || '');   /* SLA deadline = target col from Shipment file */
@@ -2865,9 +2930,11 @@ function inDeliveryFuBadge(r) {
   /* Overdue = part_eta (target) is filled AND current date has passed it (target + 1 day grace) */
   const partEtaRaw  = (r.part_eta || '');
   const partEtaDate = partEtaRaw && !isSentinel(partEtaRaw) ? partEtaRaw.slice(0, 10) : '';
+  const _today      = new Date().toISOString().slice(0, 10);
   const _tomorrow   = new Date(); _tomorrow.setDate(_tomorrow.getDate() + 1);
   const tomorrow    = _tomorrow.toISOString().slice(0, 10);
-  const overdue     = partEtaDate && partEtaDate < tomorrow;
+  const overdue        = partEtaDate && partEtaDate < tomorrow;
+  const etaIsToday     = partEtaDate === _today;
   const isOnsite    = (r.work_order_type || '').toLowerCase().includes('onsite');
   const woType      = esc(r.work_order_type || (isOnsite ? 'Onsite' : 'CCI'));
 
@@ -2875,7 +2942,7 @@ function inDeliveryFuBadge(r) {
     return `<button class="fu-badge fu-part-sla fu-badge-btn" data-action="in-delivery-part-sla" data-wo="${wo}" data-wo-type="${woType}" data-eta="${eta}" data-pickup="${pickupEsc}" data-pod="${podEsc}" data-awb="${awb}" data-status="${status}" data-asp="${asp}">⚠️ Part SLA Overdue</button>`;
   if (isOnsite)
     return `<button class="fu-badge fu-reschedule fu-badge-btn" data-action="in-delivery-onsite-recv" data-wo="${wo}" data-wo-type="${woType}" data-status="${status}" data-asp="${asp}" data-orig-onsite="${origOnsiteEsc}" data-defer-date="${deferDateEsc}" data-actual-onsite="${actOnsiteEsc}" data-pod="${podEsc}">📅 Set Onsite Schedule</button>`;
-  return `<button class="fu-badge fu-confirm fu-badge-btn" data-action="in-delivery-recv" data-wo="${wo}" data-wo-type="${woType}" data-eta="${eta}" data-pickup="${pickupEsc}" data-pod="${podEsc}" data-status="${status}" data-asp="${asp}">📬 Confirm Receipt</button>`;
+  return `<button class="fu-badge ${etaIsToday ? 'fu-confirm-today' : 'fu-confirm'} fu-badge-btn" data-action="in-delivery-recv" data-wo="${wo}" data-wo-type="${woType}" data-eta="${eta}" data-pickup="${pickupEsc}" data-pod="${podEsc}" data-status="${status}" data-asp="${asp}">📬 Confirm AWB</button>`;
 }
 
 function _makeDeliveryColsFn() {
@@ -3036,6 +3103,143 @@ document.getElementById('search-in-repair').addEventListener('input', () => {
 });
 
 /* ═══════════════════════════════════════════════════════════════
+   TAB: CCI Follow-Up  (Carry-In WOs that are in-repair)
+   Query logic is separate from the In-Repair tab intentionally —
+   the In-Repair tab may be removed in the future.
+═══════════════════════════════════════════════════════════════ */
+
+/* Follow-Up State badge for CCI Follow-Up rows.
+   Reads the server-computed `followup_state` field from /asp/api/cci-followup:
+     confirm_receipt → 📬 Confirm AWB
+     part_sla        → ⚠️ Part SLA Overdue
+     wo_sla          → 📞 Escalate WO   (POD received, ≤ 24 h elapsed)
+     report_problem  → 🔔 WO SLA Follow-Up (POD received, > 24 h elapsed)
+   The API already covers both in-delivery and in-repair Carry-In rows. */
+function cciFuStateBadge(r) {
+  const wo        = esc(r.work_order_id);
+  const woType    = esc(r.work_order_type || '');
+  const status    = esc(r.work_order_status || '');
+  const asp       = esc(r.customer || '');
+  const deferDate = esc(r.customer_defer_date || '');
+  const pod       = esc(r.part_pod_time || '');
+  const state     = r.followup_state || '';
+
+  const _fuEtaDate   = r.part_eta && !isSentinel(r.part_eta) ? String(r.part_eta).slice(0, 10) : '';
+  const _fuToday     = new Date().toISOString().slice(0, 10);
+  const fuEtaIsToday = _fuEtaDate === _fuToday;
+
+  if (state === 'confirm_receipt')
+    return `<button class="fu-badge ${fuEtaIsToday ? 'fu-confirm-today' : 'fu-confirm'} fu-badge-btn" data-action="cci-fu-recv" data-wo="${wo}" data-wo-type="${woType}" data-status="${status}" data-asp="${asp}">📬 Confirm AWB</button>`;
+  if (state === 'part_sla')
+    return `<button class="fu-badge fu-part-sla fu-badge-btn" data-action="cci-fu-part-sla" data-wo="${wo}" data-wo-type="${woType}" data-status="${status}" data-asp="${asp}">⚠️ Part SLA Overdue</button>`;
+  if (state === 'wo_sla')
+    return `<button class="fu-badge fu-escalate fu-badge-btn" data-action="cci-fu-escalate" data-wo="${wo}" data-wo-type="${woType}" data-pod="${pod}" data-defer-date="${deferDate}" data-status="${status}" data-asp="${asp}">📞 Escalate WO</button>`;
+  if (state === 'report_problem')
+    return `<button class="fu-badge fu-wo-sla fu-badge-btn" data-action="cci-fu-wo-sla" data-wo="${wo}" data-wo-type="${woType}" data-pod="${pod}" data-defer-date="${deferDate}" data-status="${status}" data-asp="${asp}">🔔 WO SLA Follow-Up</button>`;
+  return '<span style="color:#8c959f;font-style:italic">—</span>';
+}
+
+const cciFollowUpTable = makeTabTable({
+  apiUrl:  '/asp/api/cci-followup',
+  tbodyId: 'tbody-cci-followup', emptyId: 'empty-cci-followup',
+  pgId: 'pg-cci-followup', cntId: 'count-cci-followup',
+  colsFn: () => [
+    { key: 'created_on',        render: r => fmt(r.created_on) },
+    { key: 'work_order_id',     render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
+    { key: '_followup_state',   render: r => cciFuStateBadge(r) },
+    { key: 'part_qty',          render: r => {
+        if (!r.part_qty || r.part_qty < 1) return '<span style="color:#8c959f;font-style:italic">—</span>';
+        const palettes = [
+          null,                                        /* 0 — unused */
+          { bg: '#dbeafe', color: '#1e40af' },         /* 1 — blue   */
+          { bg: '#dcfce7', color: '#15803d' },         /* 2 — green  */
+          { bg: '#fef3c7', color: '#92400e' },         /* 3 — amber  */
+          { bg: '#ede9fe', color: '#6d28d9' },         /* 4 — purple */
+          { bg: '#fee2e2', color: '#b91c1c' },         /* 5 — red    */
+          { bg: '#ffedd5', color: '#c2410c' },         /* 6 — orange */
+          { bg: '#f0fdfa', color: '#0f766e' },         /* 7 — teal   */
+          { bg: '#fdf4ff', color: '#86198f' },         /* 8 — pink   */
+        ];
+        const p = palettes[Math.min(r.part_qty, palettes.length - 1)] || { bg: '#f3f4f6', color: '#374151' };
+        return `<span style="display:inline-flex;align-items:center;background:${p.bg};color:${p.color};border-radius:10px;font-size:11px;font-weight:700;padding:2px 8px;white-space:nowrap">${r.part_qty} ${r.part_qty === 1 ? 'Part' : 'Parts'}</span>`;
+      }
+    },
+    { key: 'part_eta',          render: r => {
+        if (!r.part_eta || isSentinel(r.part_eta)) return '<span style="color:#8c959f;font-style:italic">—</span>';
+        const etaDate    = r.part_eta.slice(0, 10);
+        const today      = new Date().toISOString().slice(0, 10);
+        const tomorrowDt = new Date(); tomorrowDt.setDate(tomorrowDt.getDate() + 1);
+        const tomorrow   = tomorrowDt.toISOString().slice(0, 10);
+        const overdue    = etaDate < today;
+        const isToday    = etaDate === today;
+        const isTomorrow = etaDate === tomorrow;
+        if (overdue)
+          return `<span style="font-weight:700;color:#b91c1c">${esc(etaDate)}</span>`
+               + `<span style="margin-left:5px;font-size:10px;font-weight:700;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:1px 6px">OVERDUE</span>`;
+        if (isToday)
+          return `<span style="font-weight:700;color:#0f766e">${esc(etaDate)}</span>`
+               + `<span style="margin-left:5px;font-size:10px;font-weight:700;background:#ccfbf1;color:#0f766e;border:1px solid #99f6e4;border-radius:8px;padding:1px 6px">Arriving Today</span>`;
+        if (isTomorrow)
+          return `<span style="font-weight:700;color:#374151">${esc(etaDate)}</span>`
+               + `<span style="margin-left:5px;font-size:10px;font-weight:700;background:#f3f4f6;color:#4b5563;border:1px solid #9ca3af;border-radius:8px;padding:1px 6px">Tomorrow</span>`;
+        return `<span style="font-weight:700;color:#374151">${esc(etaDate)}</span>`;
+      }
+    },
+    { key: 'work_order_status', render: r => statusBadge(r.work_order_status) },
+    { key: 'part_awb',          render: r => r.part_awb ? `<span style="font-family:monospace;font-size:11px;color:#3b82d4;font-weight:700">${esc(r.part_awb)}</span>` : '<span style="color:#8c959f;font-style:italic">—</span>' },
+    { key: 'ship_pickup_time',  render: r => fmt(r.ship_pickup_time) },
+    { key: 'part_pod_time',     render: r => fmt(r.part_pod_time) },
+    { key: 'work_order_type',   render: r => esc(r.work_order_type||'—') },
+    { key: 'case_desc',         render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
+  ],
+  onBind: rows => {
+    const badge = document.getElementById('tab-cci-followup-badge');
+    const cnt   = parseInt(document.getElementById('count-cci-followup').textContent, 10) || rows.length;
+    if (!cciFollowUpFilter) cciFuTotalAll = cnt;   /* cache the unfiltered total */
+    badge.textContent   = cnt;
+    badge.style.display = cnt > 0 ? 'inline-block' : 'none';
+    const tbody = document.getElementById('tbody-cci-followup');
+    tbody.querySelectorAll('.wo-link').forEach(b =>
+      b.addEventListener('click', () => openDetail(b.dataset.wo)));
+    /* Stage 1 — in-delivery actions */
+    tbody.querySelectorAll('[data-action="cci-fu-recv"]').forEach(b =>
+      b.addEventListener('click', () => openRecv(b.dataset.wo, b.dataset.woType, b.dataset.eta, b.dataset.pickup, b.dataset.pod, b.dataset.status, b.dataset.asp)));
+    tbody.querySelectorAll('[data-action="cci-fu-part-sla"]').forEach(b =>
+      b.addEventListener('click', () => openPartSla(b.dataset.wo, b.dataset.woType, b.dataset.eta, b.dataset.pickup, b.dataset.pod, b.dataset.awb, b.dataset.status, b.dataset.asp, 'cci')));
+    /* Stage 2 — in-repair actions */
+    tbody.querySelectorAll('[data-action="cci-fu-wo-sla"]').forEach(b =>
+      b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, 'cci', b.dataset.pod, b.dataset.deferDate)));
+    tbody.querySelectorAll('[data-action="cci-fu-escalate"]').forEach(b =>
+      b.addEventListener('click', () => openEscalateWo(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, b.dataset.pod, b.dataset.deferDate)));
+  },
+});
+
+let cciFollowUpTimer  = null;
+let cciFollowUpFilter = '';   /* '' | 'in_transit' | 'in_repair' */
+let cciFuTotalAll     = 0;    /* cached total for the unfiltered view — keeps badge stable */
+
+function _cciFollowUpLoad() {
+  const q = document.getElementById('search-cci-followup').value.trim();
+  const params = q ? { q } : {};
+  if (cciFollowUpFilter) params.followup_state = cciFollowUpFilter;
+  cciFollowUpTable.load(params);
+}
+
+document.getElementById('search-cci-followup').addEventListener('input', () => {
+  clearTimeout(cciFollowUpTimer);
+  cciFollowUpTimer = setTimeout(_cciFollowUpLoad, 350);
+});
+
+document.querySelectorAll('#cci-followup-filter-pills [data-fufilter]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#cci-followup-filter-pills [data-fufilter]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    cciFollowUpFilter = btn.dataset.fufilter;
+    _cciFollowUpLoad();
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════
    TAB: Return Part Follow-Up
 ═══════════════════════════════════════════════════════════════ */
 const returnPartTable = makeTabTable({
@@ -3109,21 +3313,54 @@ document.getElementById('btn-export-return-part').addEventListener('click', func
 const tabLoaded = {
   'tab-all': false,
   'tab-in-prepare': false,
-  'tab-cci-delivery': false, 'tab-ons-delivery': false,
+  'tab-cci-delivery': false, 'tab-cci-followup': false, 'tab-ons-delivery': false,
   'tab-in-repair': false, 'tab-return-part': false,
 };
 const tabLoaders = {
   'tab-all':            () => loadAllWo(),
-  'tab-in-prepare':     () => inPrepareTable.load({}),
+  'tab-in-prepare':     () => _inPrepareLoad(),
   'tab-cci-delivery':   () => cciDeliveryTable.load({ wo_type: 'Carry-In' }),
+  'tab-cci-followup':   () => _cciFollowUpLoad(),
   'tab-ons-delivery':   () => onsDeliveryTable.load({ wo_type: 'Onsite' }),
   'tab-in-repair':      () => inRepairTable.load({}),
   'tab-return-part':    () => returnPartTable.load({ followup_state: 'input_dc' }),
 };
 
 function switchTab(id) {
+  /* Restore badge to cached "All" total when leaving a filtered tab */
+  const prevTab = document.querySelector('.tab-btn.active')?.dataset.tab;
+  if (prevTab !== id) {
+    if (prevTab === 'tab-in-prepare' && inPrepareFilter) {
+      const b = document.getElementById('tab-in-prepare-badge');
+      b.textContent   = inPrepareTotalAll;
+      b.style.display = inPrepareTotalAll > 0 ? 'inline-block' : 'none';
+    }
+    if (prevTab === 'tab-cci-followup' && cciFollowUpFilter) {
+      const b = document.getElementById('tab-cci-followup-badge');
+      b.textContent   = cciFuTotalAll;
+      b.style.display = cciFuTotalAll > 0 ? 'inline-block' : 'none';
+    }
+  }
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === id));
+  /* Reset CCI Follow-Up filter whenever the tab is (re-)activated */
+  if (id === 'tab-cci-followup') {
+    cciFollowUpFilter = '';
+    document.querySelectorAll('#cci-followup-filter-pills [data-fufilter]').forEach(b =>
+      b.classList.toggle('active', b.dataset.fufilter === ''));
+    if (!tabLoaded[id]) { tabLoaded[id] = true; }
+    _cciFollowUpLoad();
+    return;
+  }
+  /* Reset In-Prepare filter whenever the tab is (re-)activated */
+  if (id === 'tab-in-prepare') {
+    inPrepareFilter = '';
+    document.querySelectorAll('#in-prepare-filter-pills [data-prepfilter]').forEach(b =>
+      b.classList.toggle('active', b.dataset.prepfilter === ''));
+    if (!tabLoaded[id]) { tabLoaded[id] = true; }
+    _inPrepareLoad();
+    return;
+  }
   if (!tabLoaded[id]) { tabLoaded[id] = true; tabLoaders[id](); }
 }
 
@@ -3149,7 +3386,8 @@ document.querySelectorAll('[data-goto]').forEach(c => c.addEventListener('click'
   const map = {
     'all':'tab-all',
     'in-prepare':'tab-in-prepare',
-    'cci-delivery':'tab-cci-delivery', 'ons-delivery':'tab-ons-delivery',
+    'cci-delivery':'tab-cci-delivery', 'cci-followup':'tab-cci-followup',
+    'ons-delivery':'tab-ons-delivery',
     'in-repair':'tab-in-repair', 'return-part':'tab-return-part',
   };
   const p   = new URLSearchParams(location.search).get('tab');
@@ -3582,29 +3820,9 @@ function _applyRecvPartAwb(part) {
 }
 
 /* Render the detail hint below the SOID select */
-function _renderSoidDetail(part) {
-  const el = document.getElementById('recv-soid-detail');
-  if (!part) { el.style.display = 'none'; return; }
-  const awbHtml = part.awb
-    ? `<span class="rsd-awb">${esc(part.awb)}</span>`
-    : `<span class="rsd-noawb">No AWB on record</span>`;
-  const shipped = part.ship_pickup_time || part.shipment_date || '';
-  el.innerHTML = `
-    <div class="rsd-row">
-      <span class="rsd-lbl">SOID</span>
-      <span class="rsd-val">${esc(part.soid != null ? String(part.soid) : '—')}</span>
-    </div>
-    <div class="rsd-row">
-      <span class="rsd-lbl">Product</span>
-      <span class="rsd-val">${esc(part.product||'—')}</span>
-      <span class="rsd-desc">${esc(part.description||'')}</span>
-    </div>
-    <div class="rsd-row">
-      <span class="rsd-lbl">AWB</span>${awbHtml}
-      ${shipped ? `<span class="rsd-lbl" style="margin-left:8px">Shipped</span><span class="rsd-val">${esc(shipped.slice(0,16).replace('T',' '))}</span>` : ''}
-    </div>`;
-  el.style.display = 'flex';
-}
+/* _renderSoidDetail — detail hint below SOID picker (no-op: picker now lives
+   inside the Part Shipment cards; kept so call-sites don't need updating) */
+function _renderSoidDetail(_part) { /* intentionally empty */ }
 
 /* ── Part Received mini-timeline: Part Pickup → ETA → Part Received (POD) ── */
 function renderRecvTimeline(trackEl, pickupDate, etaDate, podDate) {
@@ -3616,18 +3834,24 @@ function renderRecvTimeline(trackEl, pickupDate, etaDate, podDate) {
     { label: 'Part Received\n(POD)',  val: podDate },
   ];
   const podFilled = !!(podDate && !isSentinel(podDate));
+  const todayDate = new Date().toISOString().slice(0, 10);
   trackEl.innerHTML = nodes.map((n, i) => {
-    const hasDate = !!(n.val && !isSentinel(n.val));
-    const ts      = hasDate ? new Date(String(n.val).replace(' ', 'T')).getTime() : null;
-    const isPast  = ts && ts <= now;
+    const hasDate  = !!(n.val && !isSentinel(n.val));
+    const ts       = hasDate ? new Date(String(n.val).replace(' ', 'T')).getTime() : null;
+    const isPast   = ts && ts <= now;
+    const nodeDate = hasDate ? String(n.val).slice(0, 10) : '';
+    const isToday  = n.isEta && hasDate && nodeDate === todayDate && !podFilled;
     let state;
     if (n.isEta) {
-      /* ETA node: overdue (red) when date has passed and POD not yet filled;
-         done (green) when POD is already filled (delivery confirmed);
-         active (blue) when date is set but still in the future;
-         future (grey) when no date set. */
+      /* ETA node:
+           done    — POD already filled (delivery confirmed)
+           today   — ETA date is today and no POD yet → "Arriving Today"
+           overdue — ETA date passed and no POD yet
+           active  — ETA date in the future
+           future  — no ETA date set */
       if (!hasDate)       state = 'future';
       else if (podFilled) state = 'done';
+      else if (isToday)   state = 'today';
       else                state = isPast ? 'overdue' : 'active';
     } else {
       state = hasDate ? (isPast ? 'done' : 'active') : 'future';
@@ -3637,18 +3861,33 @@ function renderRecvTimeline(trackEl, pickupDate, etaDate, podDate) {
       dotSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
     else if (state === 'active')
       dotSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/></svg>`;
+    else if (state === 'today')
+      dotSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0f766e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/></svg>`;
     else if (state === 'overdue')
       dotSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
     else
       dotSvg = `<div class="tl-dot-inner"></div>`;
-    const dateCls  = state === 'done' ? 'done-text' : state === 'active' ? 'active-text' : state === 'overdue' ? 'overdue-text' : 'future-text';
+    /* dot ring colour */
+    const dotWrapStyle = state === 'today'
+      ? 'background:#ccfbf1;border:2px solid #0f766e;'
+      : '';
+    const dateCls = state === 'done'    ? 'done-text'
+                  : state === 'active'  ? 'active-text'
+                  : state === 'overdue' ? 'overdue-text'
+                  : state === 'today'   ? 'active-text'   /* reuse active-text teal class */
+                  : 'future-text';
     const dateStr  = fmtShort(n.val);
+    /* "Arriving Today" sub-label shown below the date for today state */
+    const todayTag = state === 'today'
+      ? `<div style="margin-top:3px;font-size:9px;font-weight:700;color:#0f766e;background:#ccfbf1;border-radius:6px;padding:1px 5px;white-space:nowrap">Arriving Today</div>`
+      : '';
     const connector = i < nodes.length - 1
       ? `<div class="tl-connector${state === 'done' ? ' done' : ''}"></div>` : '';
     return `<div class="tl-node">
-        <div class="tl-dot-wrap ${state}">${dotSvg}</div>
+        <div class="tl-dot-wrap ${state === 'today' ? 'active' : state}" style="${dotWrapStyle}">${dotSvg}</div>
         <div class="tl-label">${n.label.replace(/\n/g, '<br>')}</div>
-        <div class="tl-date ${dateCls}">${dateStr ? dateStr.replace(/\n/g, '<br>') : '<span style="color:#d1d5db">—</span>'}</div>
+        <div class="tl-date ${dateCls}" style="${state === 'today' ? 'color:#0f766e;font-weight:700;' : ''}">${dateStr ? dateStr.replace(/\n/g, '<br>') : '<span style="color:#d1d5db">—</span>'}</div>
+        ${todayTag}
       </div>${connector}`;
   }).join('');
 }
@@ -3665,9 +3904,13 @@ function renderRecvTimeline(trackEl, pickupDate, etaDate, podDate) {
 
    Parts are sorted so same-AWB parts stay together (AWB asc, empty last).
    ─────────────────────────────────────────────────────────────────────────── */
-function _renderPartShipmentTimelines(containerEl, parts) {
+/* opts (optional) = { onSelect(part), isDone(part), containerForSelect }
+   When opts is provided the cards become radio-selectable inline. */
+function _renderPartShipmentTimelines(containerEl, parts, opts) {
   if (!containerEl) return;
   containerEl.innerHTML = '';
+
+  const selectable = !!(opts && opts.onSelect);
 
   /* Sort: non-empty AWB first (alphabetical), then empty/no-AWB */
   const sorted = [...parts].sort((a, b) => {
@@ -3678,6 +3921,9 @@ function _renderPartShipmentTimelines(containerEl, parts) {
     return ak < bk ? -1 : ak > bk ? 1 : 0;
   });
 
+  /* Keep a reference list of all selectable blocks for deselect-others */
+  const selectableBlocks = [];
+
   sorted.forEach(p => {
     const pickup = (p.ship_pickup_time  || p.shipment_date  || '').trim();
     const eta    = (p.target            || '').trim();
@@ -3686,20 +3932,35 @@ function _renderPartShipmentTimelines(containerEl, parts) {
     /* Skip parts with no shipment data at all */
     if (!pickup && !eta && !pod) return;
 
-    const awbKey = (p.awb || '').trim();
+    const awbKey  = (p.awb || '').trim();
+    const done    = selectable && opts.isDone && opts.isDone(p);
     const awbHtml = awbKey
       ? `<span class="wo-strip-part-awb">AWB: ${esc(awbKey)}</span>`
       : `<span class="wo-strip-part-noawb">No AWB on record</span>`;
+    const doneTag = done ? `<span class="psc-done-tag">Already recorded</span>` : '';
+    const radioHtml = selectable ? `<div class="psc-radio"></div>` : '';
 
     const pnLabel = esc(p.soid != null ? String(p.soid) : '—');
 
     const block = document.createElement('div');
-    block.className = 'part-soid-block';
+    block.className = 'part-soid-block' +
+      (selectable ? ' selectable' : '') +
+      (done       ? ' done-part'  : '');
     block.innerHTML = `<div class="part-soid-card">
+      ${radioHtml}
       <span class="wo-strip-part-pn">${pnLabel}</span>
       <span class="wo-strip-part-desc">${esc(p.description || '')}</span>
-      ${awbHtml}
+      ${awbHtml}${doneTag}
     </div>`;
+
+    if (selectable && !done) {
+      selectableBlocks.push(block);
+      block.querySelector('.part-soid-card').addEventListener('click', () => {
+        selectableBlocks.forEach(b => b.classList.remove('selected'));
+        block.classList.add('selected');
+        opts.onSelect(p);
+      });
+    }
 
     const track = document.createElement('div');
     track.className = 'part-soid-tl-track';
@@ -3708,6 +3969,9 @@ function _renderPartShipmentTimelines(containerEl, parts) {
 
     containerEl.appendChild(block);
   });
+
+  /* Return the block list so caller can programmatically trigger a click */
+  return selectableBlocks;
 }
 
 function openRecv(woId, woType, eta, pickupDate, podDate, woStatus, aspName) {
@@ -3732,12 +3996,9 @@ function openRecv(woId, woType, eta, pickupDate, podDate, woStatus, aspName) {
   document.getElementById('awb-compare-hint').style.display = 'none';
   _resetAwbWoList();
 
-  /* Reset SOID selector */
-  const soidSection = document.getElementById('recv-soid-section');
-  const soidSelect  = document.getElementById('recv-soid-select');
-  soidSection.style.display = 'none';
-  soidSelect.innerHTML = '<option value="">— select part order —</option>';
-  document.getElementById('recv-soid-detail').style.display = 'none';
+  /* Hide form sections — revealed only after user clicks a Part Shipment card */
+  const formSections = document.getElementById('recv-form-sections');
+  formSections.style.display = 'none';
 
   /* Reset no-AWB section */
   document.getElementById('no-awb-section').style.display  = 'none';
@@ -3760,55 +4021,41 @@ function openRecv(woId, woType, eta, pickupDate, podDate, woStatus, aspName) {
       const parts = data.filter(p => !(p.wo_product_status || '').toLowerCase().includes('cancel'));
       if (!parts.length) return;
 
-      /* ── Per-SOID card + timeline (sorted by AWB) ── */
+      /* A part is "done" when it has both an AWB and a POD date */
+      const _partDone = p =>
+        !!(p.awb && String(p.awb).trim()) &&
+        !!(p.ship_pou_pod_time || p.delivery_date);
+
+      const actionableParts = parts.filter(p => !_partDone(p));
+
+      /* ── Per-SOID card + timeline — always selectable so user must click ── */
       const groupsEl = document.getElementById('recv-part-tl-groups');
-      _renderPartShipmentTimelines(groupsEl, parts);
+      const selBlocks = _renderPartShipmentTimelines(groupsEl, parts, {
+        isDone: _partDone,
+        onSelect: p => {
+          _renderSoidDetail(p);
+          _applyRecvPartAwb(p);
+          formSections.style.display = '';
+        }
+      });
       document.getElementById('recv-part-timeline').style.display = '';
 
-      /* Qty pill only — individual rows are rendered inside the timeline block */
+      /* Qty pill */
       partsList.style.display = 'block';
       qtyPill.textContent = parts.length + (parts.length === 1 ? ' part' : ' parts');
 
-      /* Determine default selected part: latest active (highest soid) */
-      const activeParts = parts.filter(p =>
-        (p.order_date && String(p.order_date).trim()) ||
-        (p.acceptance_date && String(p.acceptance_date).trim())
-      );
-      const defaultPart = activeParts.reduce(
-        (best, p) => (!best || (p.soid > best.soid) ? p : best), null
-      ) || parts[parts.length - 1];
-
-      /* Build a lookup map soid → part */
-      const partBySoid = {};
-      parts.forEach(p => { if (p.soid != null) partBySoid[String(p.soid)] = p; });
-
-      if (parts.length > 1) {
-        /* Populate dropdown */
-        soidSelect.innerHTML = '';
-        parts.forEach(p => {
-          const opt = document.createElement('option');
-          opt.value = p.soid != null ? String(p.soid) : '';
-          const label = [
-            p.soid != null ? String(p.soid) : '—',
-            p.description || '',
-          ].filter(Boolean).join(' · ');
-          opt.textContent = label;
-          if (defaultPart && String(p.soid) === String(defaultPart.soid)) opt.selected = true;
-          soidSelect.appendChild(opt);
+      /* Always hide form until user clicks a card.
+         Exception: if there is exactly one actionable card, auto-click it only
+         when there are multiple parts (multi-part WO behaviour unchanged). */
+      formSections.style.display = 'none';
+      if (parts.length > 1 && actionableParts.length === 1) {
+        const autoLabel = String(actionableParts[0].soid != null ? actionableParts[0].soid : '—');
+        const autoBlock = selBlocks.find(b => {
+          const pn = b.querySelector('.wo-strip-part-pn');
+          return pn && pn.textContent === autoLabel;
         });
-        soidSection.style.display = 'block';
-
-        /* Wire change → update detail hint + AWB prefill */
-        soidSelect.onchange = function() {
-          const chosen = partBySoid[this.value] || null;
-          _renderSoidDetail(chosen);
-          _applyRecvPartAwb(chosen);
-        };
+        autoBlock?.querySelector('.part-soid-card')?.click();
       }
-
-      /* Apply AWB from default part immediately */
-      _renderSoidDetail(defaultPart);
-      _applyRecvPartAwb(defaultPart);
     })
     .catch(() => {});
 
@@ -4257,6 +4504,10 @@ function openPartSla(woId, woType, eta, pickupDate, podDate, awb, woStatus, aspN
   document.getElementById('psla-reschedule-prompt').style.display  = 'none';
   document.getElementById('psla-modal-footer').style.display       = '';
 
+  /* Hide form sections — revealed only after user clicks a Part Shipment card */
+  const pslaFormSections = document.getElementById('psla-form-sections');
+  pslaFormSections.style.display = 'none';
+
   /* Reset parts list */
   const partsList    = document.getElementById('psla-parts-list');
   const partsLoading = document.getElementById('psla-parts-loading');
@@ -4276,16 +4527,39 @@ function openPartSla(woId, woType, eta, pickupDate, podDate, awb, woStatus, aspN
       const parts = data.filter(p => !(p.wo_product_status || '').toLowerCase().includes('cancel'));
       if (!parts.length) return;
 
-      /* ── Per-SOID card + timeline (sorted by AWB) ── */
-      _renderPartShipmentTimelines(
+      /* A part is "done" when it has both AWB and POD */
+      const _pslaDone = p =>
+        !!(p.awb && String(p.awb).trim()) &&
+        !!(p.ship_pou_pod_time || p.delivery_date);
+
+      const pslaActionable = parts.filter(p => !_pslaDone(p));
+
+      /* ── Per-SOID card + timeline — always selectable so user must click ── */
+      const pslaSelBlocks = _renderPartShipmentTimelines(
         document.getElementById('psla-part-tl-groups'),
-        parts
+        parts,
+        {
+          isDone: _pslaDone,
+          onSelect: () => { pslaFormSections.style.display = ''; }
+        }
       );
       document.getElementById('psla-part-timeline').style.display = '';
 
-      /* Qty pill only — individual rows are rendered inside the timeline block */
+      /* Qty pill */
       qtyPill.textContent = parts.length + (parts.length === 1 ? ' PART' : ' PARTS');
       partsList.style.display = 'block';
+
+      /* Always hide form until user clicks a card.
+         Exception: multi-part WO with exactly one actionable → auto-click. */
+      pslaFormSections.style.display = 'none';
+      if (parts.length > 1 && pslaActionable.length === 1) {
+        const autoLabel = String(pslaActionable[0].soid != null ? pslaActionable[0].soid : '—');
+        const autoBlock = pslaSelBlocks.find(b => {
+          const pn = b.querySelector('.wo-strip-part-pn');
+          return pn && pn.textContent === autoLabel;
+        });
+        autoBlock?.querySelector('.part-soid-card')?.click();
+      }
     })
     .catch(() => { partsLoading.style.display = 'none'; });
 }

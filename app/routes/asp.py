@@ -577,10 +577,11 @@ def api_in_prepare():
     from app.services.database.queries import get_asp_in_prepare_page
     per_page = min(_int_arg("per_page", 25), 100)
     return jsonify(get_asp_in_prepare_page(
-        search        = request.args.get("q", "").strip(),
-        page          = _int_arg("page", 1),
-        page_size     = per_page,
-        vendor_filter = _vendor_filter(),
+        search          = request.args.get("q", "").strip(),
+        page            = _int_arg("page", 1),
+        page_size       = per_page,
+        vendor_filter   = _vendor_filter(),
+        prepare_filter  = request.args.get("prepare_filter", "").strip(),
     ))
 
 

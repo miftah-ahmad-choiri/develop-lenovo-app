@@ -436,6 +436,25 @@ _CCI_FOLLOWUP_COLS = """
      WHERE wo_product_detail.work_order_id = s.work_order_id
        AND TRIM(COALESCE(awb,'')) != ''
      ORDER BY soid DESC LIMIT 1) AS part_awb,
+    (SELECT COUNT(*)
+     FROM wo_product_detail p
+     WHERE p.work_order_id = s.work_order_id
+       AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
+       AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != ''
+       AND TRIM(COALESCE(p.ship_pou_pod_time,'')) = ''
+       AND TRIM(COALESCE(p.delivery_date,''))     = '') AS part_qty,
+    (SELECT COALESCE(NULLIF(TRIM(p.ship_pickup_time),''), NULLIF(TRIM(p.shipment_date),''))
+     FROM wo_product_detail p
+     WHERE p.work_order_id = s.work_order_id
+       AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
+       AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != ''
+     ORDER BY p.soid DESC LIMIT 1) AS ship_pickup_time,
+    (SELECT NULLIF(TRIM(p.target),'')
+     FROM wo_product_detail p
+     WHERE p.work_order_id = s.work_order_id
+       AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
+       AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != ''
+     ORDER BY p.soid DESC LIMIT 1) AS part_eta,
     (SELECT (TRIM(COALESCE(p.ship_pickup_time,'')) != ''
              OR TRIM(COALESCE(p.shipment_date,'')) != '')
      FROM wo_product_detail p
@@ -443,6 +462,12 @@ _CCI_FOLLOWUP_COLS = """
        AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
        AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != ''
      ORDER BY p.soid DESC LIMIT 1) AS part_shipped,
+    (SELECT COALESCE(NULLIF(TRIM(p.ship_pou_pod_time),''), NULLIF(TRIM(p.delivery_date),''))
+     FROM wo_product_detail p
+     WHERE p.work_order_id = s.work_order_id
+       AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
+       AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != ''
+     ORDER BY p.soid DESC LIMIT 1) AS part_pod_time,
     (SELECT (TRIM(COALESCE(p.ship_pou_pod_time,'')) != ''
              OR TRIM(COALESCE(p.delivery_date,'')) != '')
      FROM wo_product_detail p
@@ -512,38 +537,47 @@ def get_asp_cci_followup_page(
     now = datetime.datetime.utcnow()
 
     def _followup_state(r: dict) -> str:
-        eta          = (r.get("committed_delivery_date") or "")[:10]
+        # Use part_eta (target col from Shipment file), NOT committed_delivery_date
+        part_eta_raw = (r.get("part_eta") or "")[:10]
         today        = now.date().isoformat()
-        delivery_raw = r.get("actual_committed_onsite_date") or ""
+        # H+1 grace: part_sla only fires the day AFTER the ETA date
+        tomorrow     = (now.date() + datetime.timedelta(days=1)).isoformat()
+        pod_raw      = r.get("part_pod_time") or ""
         comp_date    = r.get("completion_date") or ""
         close_date   = r.get("closing_date") or ""
         is_closed    = bool(comp_date or close_date)
-        # part_shipped is None  → no part order (or all cancelled) → no order at all
-        # part_shipped is 0     → order exists but not yet shipped
-        # part_shipped is 1     → order shipped
-        part_has_order = r.get("part_shipped") is not None
-        part_shipped   = bool(r.get("part_shipped"))
+        part_shipped = bool(r.get("part_shipped"))
         # part pod = ship_pou_pod_time or delivery_date filled on the latest part order
-        part_pod       = bool(r.get("part_pod"))
-        # dc_number already filled (non-NULL, non-empty, non-'0') on the latest part order
-        part_dc_filled = bool(r.get("part_dc_filled"))
+        part_pod     = bool(r.get("part_pod"))
+        # AWB filled on any part line for this WO
+        part_awb     = bool(r.get("part_awb"))
 
-        # part shipped but NOT yet POD'd — prioritise over input_dc
+        # part shipped but NOT yet POD'd
         if part_shipped and not part_pod:
-            return "part_sla" if (eta and eta < today) else "confirm_receipt"
+            # part_sla only when:
+            #   - part_eta is filled (target date exists)
+            #   - AWB is absent (part not yet physically picked up / confirmed)
+            #   - no POD yet
+            #   - we are strictly past ETA + 1 day (H+1 grace)
+            is_sla_breach = (
+                part_eta_raw
+                and not part_awb
+                and part_eta_raw < tomorrow   # today > ETA means we're at least H+1
+            )
+            return "part_sla" if is_sla_breach else "confirm_receipt"
         # part received at ASP (POD filled) and WO still open — check WO completion SLA
         if part_pod and not is_closed:
             elapsed_h = 0
-            if delivery_raw and not isSentinel_py(delivery_raw):
+            if pod_raw and not isSentinel_py(pod_raw):
                 try:
-                    delivery_dt = datetime.datetime.fromisoformat(
-                        str(delivery_raw)[:16].replace(" ", "T")
+                    pod_dt    = datetime.datetime.fromisoformat(
+                        str(pod_raw)[:16].replace(" ", "T")
                     )
-                    elapsed_h = (now - delivery_dt).total_seconds() / 3600
+                    elapsed_h = (now - pod_dt).total_seconds() / 3600
                 except (ValueError, TypeError):
                     elapsed_h = 0
             return "report_problem" if elapsed_h > _CCI_SLA_HOURS else "wo_sla"
-        # no part order / all cancelled, dc_number already filled, or not yet shipped — no actionable CCI state
+        # no part order / all cancelled, dc already filled, or not yet shipped
         return ""
 
     all_rows = conn.execute(f"""
@@ -551,18 +585,42 @@ def get_asp_cci_followup_page(
         FROM wo_summary s
         LEFT JOIN wo_details d USING (work_order_id)
         {where_sql}
-        ORDER BY s.created_on DESC
+        ORDER BY
+            CASE WHEN NULLIF(TRIM(COALESCE(
+                     (SELECT target FROM wo_product_detail p2
+                      WHERE p2.work_order_id = s.work_order_id
+                        AND LOWER(COALESCE(p2.wo_product_status,'')) NOT LIKE '%cancel%'
+                        AND TRIM(COALESCE(p2.order_date, p2.acceptance_date,'')) != ''
+                      ORDER BY p2.soid DESC LIMIT 1)
+                 ,'')),'' ) IS NULL THEN 1 ELSE 0 END ASC,
+            NULLIF(TRIM(COALESCE(
+                     (SELECT target FROM wo_product_detail p2
+                      WHERE p2.work_order_id = s.work_order_id
+                        AND LOWER(COALESCE(p2.wo_product_status,'')) NOT LIKE '%cancel%'
+                        AND TRIM(COALESCE(p2.order_date, p2.acceptance_date,'')) != ''
+                      ORDER BY p2.soid DESC LIMIT 1)
+                 ,'')),'' ) ASC,
+            NULLIF(TRIM(COALESCE(
+                     (SELECT COALESCE(NULLIF(TRIM(p2.ship_pickup_time),''), NULLIF(TRIM(p2.shipment_date),''))
+                      FROM wo_product_detail p2
+                      WHERE p2.work_order_id = s.work_order_id
+                        AND LOWER(COALESCE(p2.wo_product_status,'')) NOT LIKE '%cancel%'
+                        AND TRIM(COALESCE(p2.order_date, p2.acceptance_date,'')) != ''
+                      ORDER BY p2.soid DESC LIMIT 1)
+                 ,'')),'' ) ASC
     """, params).fetchall()
 
     if followup_state:
-        # confirm_receipt pill covers both confirm_receipt and part_sla rows
-        # (part not yet received regardless of whether ETA has passed).
-        # Each row keeps its true computed state so the badge renders correctly.
-        filter_states = (
-            {"confirm_receipt", "part_sla"}
-            if followup_state == "confirm_receipt"
-            else {followup_state}
-        )
+        # Named filter groups:
+        #   in_transit  — part shipped, not yet received (confirm_receipt + part_sla)
+        #   in_repair   — part received, WO still open   (wo_sla + report_problem)
+        #   confirm_receipt — legacy alias, same as in_transit
+        if followup_state in ("in_transit", "confirm_receipt"):
+            filter_states = {"confirm_receipt", "part_sla"}
+        elif followup_state == "in_repair":
+            filter_states = {"wo_sla", "report_problem"}
+        else:
+            filter_states = {followup_state}
         filtered = []
         for r in all_rows:
             row = dict(r)
@@ -1217,6 +1275,7 @@ def get_asp_in_prepare_page(
     page: int = 1,
     page_size: int = 25,
     vendor_filter: str | None = None,
+    prepare_filter: str = "",
 ) -> dict:
     """
     In-Prepare Follow-Up — two paths combined via UNION ALL:
@@ -1232,6 +1291,13 @@ def get_asp_in_prepare_page(
     Excluded from both paths:
       - Closed / cancelled WOs
       - WOs with completion_date or closing_date filled in wo_details
+
+    prepare_filter values:
+      ''                — all (default, both paths)
+      'part_on_hold'    — PATH A only, WO status contains 'part hold'
+      'no_part'         — PATH B only (no part lines at all)
+      'waiting_pickup'  — PATH A only, has a part order but no ship_pickup_time
+                          or shipment_date, and NOT on part hold
     """
     conn   = get_db()
 
@@ -1300,37 +1366,63 @@ def get_asp_in_prepare_page(
         params.append(vendor_filter)
         return " AND d.labor_vendor_related = ?"
 
+    # ── sub-tab filter clauses ────────────────────────────────────────────────
+    # Extra WHERE appended to PATH A or PATH B depending on the filter.
+    # path_a_extra / path_b_extra are appended after search+vendor clauses.
+    if prepare_filter == "part_on_hold":
+        # PATH A only — WO status contains "part hold"
+        path_a_extra = " AND LOWER(COALESCE(s.work_order_status,'')) LIKE '%part%hold%'"
+        path_b_extra = None   # exclude PATH B entirely
+    elif prepare_filter == "no_part":
+        # PATH B only
+        path_a_extra = None   # exclude PATH A entirely
+        path_b_extra = ""
+    elif prepare_filter == "waiting_pickup":
+        # PATH A only — has a part line, NOT on part hold.
+        # PATH A already guarantees ship_pickup_time and shipment_date are empty,
+        # so every non-hold PATH A row is waiting for pickup regardless of order_date.
+        path_a_extra = (
+            " AND LOWER(COALESCE(s.work_order_status,'')) NOT LIKE '%part%hold%'"
+        )
+        path_b_extra = None   # exclude PATH B entirely
+    else:
+        path_a_extra = ""
+        path_b_extra = ""
+
+    def _union(col_a: str, col_b: str) -> str:
+        """Build the UNION ALL SQL for count or rows, respecting active paths."""
+        parts = []
+        if path_a_extra is not None:
+            parts.append(f"{path_a.format(cols=col_a)} {{sc_a}} {{vc_a}}{path_a_extra}")
+        if path_b_extra is not None:
+            parts.append(f"{path_b.format(cols_no_part=col_b)} {{sc_b}} {{vc_b}}{path_b_extra}")
+        return " UNION ALL ".join(parts) if parts else "SELECT NULL WHERE 0"
+
     # ── COUNT — sum both paths ───────────────────────────────────────────────
     params_cnt: list = []
-    sc_a = _build_search(params_cnt)
-    vc_a = _build_vendor(params_cnt)
-    sc_b = _build_search(params_cnt)
-    vc_b = _build_vendor(params_cnt)
+    sc_a  = _build_search(params_cnt) if path_a_extra is not None else ""
+    vc_a  = _build_vendor(params_cnt) if path_a_extra is not None else ""
+    sc_b  = _build_search(params_cnt) if path_b_extra is not None else ""
+    vc_b  = _build_vendor(params_cnt) if path_b_extra is not None else ""
 
-    count_sql = f"""
-        SELECT COUNT(*) FROM (
-            {path_a.format(cols='s.work_order_id')} {sc_a} {vc_a}
-            UNION ALL
-            {path_b.format(cols_no_part='s.work_order_id')} {sc_b} {vc_b}
-        )
-    """
+    union_cnt = _union('s.work_order_id', 's.work_order_id').format(
+        sc_a=sc_a, vc_a=vc_a, sc_b=sc_b, vc_b=vc_b)
+    count_sql = f"SELECT COUNT(*) FROM ({union_cnt})"
     total  = conn.execute(count_sql, params_cnt).fetchone()[0]
     pages  = max(1, -(-total // page_size))
     offset = (max(1, page) - 1) * page_size
 
     # ── ROWS — both paths, ordered newest-first, paginated ──────────────────
     params_rows: list = []
-    sc_a2 = _build_search(params_rows)
-    vc_a2 = _build_vendor(params_rows)
-    sc_b2 = _build_search(params_rows)
-    vc_b2 = _build_vendor(params_rows)
+    sc_a2 = _build_search(params_rows) if path_a_extra is not None else ""
+    vc_a2 = _build_vendor(params_rows) if path_a_extra is not None else ""
+    sc_b2 = _build_search(params_rows) if path_b_extra is not None else ""
+    vc_b2 = _build_vendor(params_rows) if path_b_extra is not None else ""
 
+    union_rows = _union(_IN_PREPARE_COLS, _IN_PREPARE_COLS_NO_PART).format(
+        sc_a=sc_a2, vc_a=vc_a2, sc_b=sc_b2, vc_b=vc_b2)
     rows_sql = f"""
-        SELECT * FROM (
-            {path_a.format(cols=_IN_PREPARE_COLS)} {sc_a2} {vc_a2}
-            UNION ALL
-            {path_b.format(cols_no_part=_IN_PREPARE_COLS_NO_PART)} {sc_b2} {vc_b2}
-        )
+        SELECT * FROM ({union_rows})
         ORDER BY created_on DESC
         LIMIT ? OFFSET ?
     """
