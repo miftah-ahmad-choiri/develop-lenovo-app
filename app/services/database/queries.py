@@ -956,7 +956,8 @@ def get_asp_onsite_followup_page(
         params.append(vendor_filter)
 
     where_sql = "WHERE " + " AND ".join(wheres)
-    now = datetime.datetime.utcnow()
+    # DB timestamps are in WIB (UTC+7) — use WIB now so elapsed_h is correct
+    now = datetime.datetime.utcnow() + datetime.timedelta(hours=7)
 
     def _followup_state(r: dict) -> str:
         eta          = (r.get("committed_delivery_date") or "")[:10]
@@ -997,12 +998,45 @@ def get_asp_onsite_followup_page(
         return ""
 
     def _ons_sort_key(row: dict):
-        """Sort by ETA asc (oldest first), no-ETA rows last sorted by ship_pickup_time asc."""
+        """Sort by ETA asc (oldest first), no-ETA rows last sorted by ship_pickup_time asc.
+        For wo_sla/report_problem rows sort by base+4days Target Fix asc (oldest first)."""
+        state = row.get("followup_state", "")
+        if state in ("wo_sla", "report_problem"):
+            base = (row.get("customer_defer_date") or row.get("part_pod_time")
+                    or row.get("actual_committed_onsite_date") or "").strip()[:16]
+            if base:
+                try:
+                    base_dt = datetime.datetime.fromisoformat(base.replace(" ", "T"))
+                    thresh  = base_dt + datetime.timedelta(days=4)
+                    return (0, thresh.isoformat()[:16], "")
+                except (ValueError, TypeError):
+                    pass
+            return (1, "", "")
         eta = (row.get("part_eta") or "")[:10].strip()
         pickup = (row.get("ship_pickup_time") or row.get("created_on") or "")[:16].strip()
         if eta:
             return (0, eta, pickup)
         return (1, "", pickup)
+
+    def _ons_all_sort_key(row: dict) -> str:
+        """All ONS Follow-Up sort: wo_sla/report_problem by base+4days exact datetime,
+        wo_reschedule/part_sla by part_eta padded to T23:59 so in-repair rows on the
+        same calendar day always sort above in-transit arriving-today rows."""
+        state = row.get("followup_state", "")
+        if state in ("wo_sla", "report_problem"):
+            base = (row.get("customer_defer_date") or row.get("part_pod_time")
+                    or row.get("actual_committed_onsite_date") or "").strip()[:16]
+            if base:
+                try:
+                    base_dt = datetime.datetime.fromisoformat(base.replace(" ", "T"))
+                    thresh  = base_dt + datetime.timedelta(days=4)
+                    return thresh.isoformat()[:16]
+                except (ValueError, TypeError):
+                    pass
+        if state in ("wo_reschedule", "part_sla"):
+            eta = (row.get("part_eta") or "")[:10].strip()
+            return f"{eta}T23:59" if eta else "9999"
+        return "9999"
 
     if followup_state:
         all_rows = conn.execute(f"""
@@ -1014,12 +1048,14 @@ def get_asp_onsite_followup_page(
         """, params).fetchall()
 
         # wo_reschedule sub-tab also includes part_sla rows (ETA-overdue variant)
-        # so they appear together under the same WO Reschedule filter
-        filter_states = (
-            {"wo_reschedule", "part_sla"}
-            if followup_state == "wo_reschedule"
-            else {followup_state}
-        )
+        # wo_sla sub-tab also includes report_problem rows (elapsed > 3.75 days)
+        # so both appear together under the same In-Repair filter
+        if followup_state == "wo_reschedule":
+            filter_states = {"wo_reschedule", "part_sla"}
+        elif followup_state == "wo_sla":
+            filter_states = {"wo_sla", "report_problem"}
+        else:
+            filter_states = {followup_state}
         filtered = []
         for r in all_rows:
             row = dict(r)
@@ -1053,7 +1089,7 @@ def get_asp_onsite_followup_page(
             row["followup_state"] = state
             result_rows.append(row)
 
-        result_rows.sort(key=_ons_sort_key)
+        result_rows.sort(key=_ons_all_sort_key)
         total  = len(result_rows)
         pages  = max(1, -(-total // page_size))
         offset = (max(1, page) - 1) * page_size
