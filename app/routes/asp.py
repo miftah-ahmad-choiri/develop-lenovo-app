@@ -89,6 +89,13 @@ def _int_arg(name: str, default: int) -> int:
         return default
 
 
+def _bool_arg(name: str, default: bool) -> bool:
+    value = request.args.get(name)
+    if value is None:
+        return default
+    return str(value).strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
 @asp_bp.route("/asp/api/all-wo", methods=["GET"])
 @login_required
 def api_all_wo():
@@ -611,6 +618,8 @@ def api_in_repair():
         page          = _int_arg("page", 1),
         page_size     = per_page,
         vendor_filter = _vendor_filter(),
+        wo_type       = request.args.get("wo_type", "").strip() or None,
+        shipped_only  = _bool_arg("shipped_only", False),
     ))
 
 

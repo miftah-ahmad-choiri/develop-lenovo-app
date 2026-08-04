@@ -431,7 +431,7 @@ _CCI_FOLLOWUP_COLS = """
     s.committed_delivery_date, s.actual_committed_onsite_date,
     s.case_desc, s.work_order_type, s.contact_name,
     s.customer, s.work_order_status, s.case_status,
-    d.completion_date, d.closing_date,
+    d.completion_date, d.closing_date, d.customer_defer_date,
     (SELECT awb FROM wo_product_detail
      WHERE wo_product_detail.work_order_id = s.work_order_id
        AND TRIM(COALESCE(awb,'')) != ''
@@ -455,26 +455,34 @@ _CCI_FOLLOWUP_COLS = """
        AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
        AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != ''
      ORDER BY p.soid DESC LIMIT 1) AS part_eta,
-    (SELECT (TRIM(COALESCE(p.ship_pickup_time,'')) != ''
-             OR TRIM(COALESCE(p.shipment_date,'')) != '')
-     FROM wo_product_detail p
-     WHERE p.work_order_id = s.work_order_id
-       AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
-       AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != ''
-     ORDER BY p.soid DESC LIMIT 1) AS part_shipped,
+    (SELECT EXISTS(
+         SELECT 1
+         FROM wo_product_detail p
+         WHERE p.work_order_id = s.work_order_id
+           AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
+           AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != ''
+           AND (
+             TRIM(COALESCE(p.ship_pickup_time,'')) != ''
+             OR TRIM(COALESCE(p.shipment_date,'')) != ''
+           )
+     )) AS part_shipped,
     (SELECT COALESCE(NULLIF(TRIM(p.ship_pou_pod_time),''), NULLIF(TRIM(p.delivery_date),''))
      FROM wo_product_detail p
      WHERE p.work_order_id = s.work_order_id
        AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
        AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != ''
      ORDER BY p.soid DESC LIMIT 1) AS part_pod_time,
-    (SELECT (TRIM(COALESCE(p.ship_pou_pod_time,'')) != ''
-             OR TRIM(COALESCE(p.delivery_date,'')) != '')
-     FROM wo_product_detail p
-     WHERE p.work_order_id = s.work_order_id
-       AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
-       AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != ''
-     ORDER BY p.soid DESC LIMIT 1) AS part_pod,
+    (SELECT EXISTS(
+         SELECT 1
+         FROM wo_product_detail p
+         WHERE p.work_order_id = s.work_order_id
+           AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
+           AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != ''
+           AND (
+             TRIM(COALESCE(p.ship_pou_pod_time,'')) != ''
+             OR TRIM(COALESCE(p.delivery_date,'')) != ''
+           )
+     )) AS part_pod,
     (SELECT (p.dc_number IS NOT NULL AND TRIM(COALESCE(p.dc_number,'')) != '')
      FROM wo_product_detail p
      WHERE p.work_order_id = s.work_order_id
@@ -542,13 +550,14 @@ def get_asp_cci_followup_page(
         today        = now.date().isoformat()
         # H+1 grace: part_sla only fires the day AFTER the ETA date
         tomorrow     = (now.date() + datetime.timedelta(days=1)).isoformat()
-        pod_raw      = r.get("part_pod_time") or ""
-        comp_date    = r.get("completion_date") or ""
-        close_date   = r.get("closing_date") or ""
-        is_closed    = bool(comp_date or close_date)
-        part_shipped = bool(r.get("part_shipped"))
-        # part pod = ship_pou_pod_time or delivery_date filled on the latest part order
-        part_pod     = bool(r.get("part_pod"))
+        pod_raw        = r.get("part_pod_time") or ""
+        comp_date      = r.get("completion_date") or ""
+        close_date     = r.get("closing_date") or ""
+        is_closed      = bool(comp_date or close_date)
+        part_shipped   = bool(r.get("part_shipped"))
+        latest_has_pod = bool(pod_raw)
+        # part pod = ship_pou_pod_time or delivery_date filled on any active part order
+        part_pod       = bool(r.get("part_pod"))
         # AWB filled on any part line for this WO
         part_awb     = bool(r.get("part_awb"))
 
@@ -565,8 +574,9 @@ def get_asp_cci_followup_page(
                 and part_eta_raw < tomorrow   # today > ETA means we're at least H+1
             )
             return "part_sla" if is_sla_breach else "confirm_receipt"
-        # part received at ASP (POD filled) and WO still open — check WO completion SLA
-        if part_pod and not is_closed:
+        # part received at ASP (POD filled) and WO still open — only treat as CCI follow-up
+        # when there is no newer unshipped part stage that should keep the WO in In-Prepare.
+        if part_pod and not is_closed and not (part_shipped and not latest_has_pod):
             elapsed_h = 0
             if pod_raw and not isSentinel_py(pod_raw):
                 try:
@@ -961,6 +971,14 @@ def get_asp_onsite_followup_page(
         # Everything else (no part shipped, WO closed, etc.) — no actionable state
         return ""
 
+    def _ons_sort_key(row: dict):
+        """Sort by ETA asc (oldest first), no-ETA rows last sorted by ship_pickup_time asc."""
+        eta = (row.get("part_eta") or "")[:10].strip()
+        pickup = (row.get("ship_pickup_time") or row.get("created_on") or "")[:16].strip()
+        if eta:
+            return (0, eta, pickup)
+        return (1, "", pickup)
+
     if followup_state:
         all_rows = conn.execute(f"""
             SELECT {_CCI_FOLLOWUP_COLS}
@@ -985,6 +1003,7 @@ def get_asp_onsite_followup_page(
                 row["followup_state"] = state
                 filtered.append(row)
 
+        filtered.sort(key=_ons_sort_key)
         total  = len(filtered)
         pages  = max(1, -(-total // page_size))
         offset = (max(1, page) - 1) * page_size
@@ -1009,6 +1028,7 @@ def get_asp_onsite_followup_page(
             row["followup_state"] = state
             result_rows.append(row)
 
+        result_rows.sort(key=_ons_sort_key)
         total  = len(result_rows)
         pages  = max(1, -(-total // page_size))
         offset = (max(1, page) - 1) * page_size
@@ -1152,13 +1172,19 @@ def get_asp_in_repair_page(
     page: int = 1,
     page_size: int = 25,
     vendor_filter: str | None = None,
+    wo_type: str | None = None,
+    shipped_only: bool = False,
 ) -> dict:
     """
     In-Repair Follow-Up — WO is still open (completion_date and closing_date
-    both empty) AND the latest active part line has delivery_date or
+    both empty).
+
+    Default behavior: latest active part line has delivery_date or
     ship_pou_pod_time filled (part already received / POD'd).
-    WOs with no part rows, or whose part is not yet POD'd, are excluded
-    (they belong to In-Prepare or In-Delivery).
+
+    When shipped_only is True: latest active part line has ship_pickup_time or
+    shipment_date filled, regardless of whether POD has already been recorded.
+    This is used by ONS Follow-Up to show all shipped open Onsite WOs.
     """
     conn = get_db()
     params: list = []
@@ -1186,12 +1212,7 @@ def get_asp_in_repair_page(
           )
           AND COALESCE(d.completion_date,'') = ''
           AND COALESCE(d.closing_date,'')    = ''
-          -- Latest ordered part line must be POD'd (delivery_date or ship_pou_pod_time filled)
           AND latest.latest_soid IS NOT NULL
-          AND (
-            TRIM(COALESCE(p.ship_pou_pod_time,'')) != ''
-            OR TRIM(COALESCE(p.delivery_date,''))  != ''
-          )
     """
 
     search_clause = ""
@@ -1213,13 +1234,30 @@ def get_asp_in_repair_page(
         vendor_clause = " AND d.labor_vendor_related = ?"
         params.append(vendor_filter)
 
-    count_sql = base_sql.format(cols="COUNT(*)") + search_clause + vendor_clause
+    wo_type_clause = ""
+    if wo_type:
+        wo_type_clause = " AND LOWER(s.work_order_type) = LOWER(?)"
+        params.append(wo_type)
+
+    shipped_clause = """
+          AND (
+            TRIM(COALESCE(p.ship_pickup_time,'')) != ''
+            OR TRIM(COALESCE(p.shipment_date,'')) != ''
+          )
+    """ if shipped_only else """
+          AND (
+            TRIM(COALESCE(p.ship_pou_pod_time,'')) != ''
+            OR TRIM(COALESCE(p.delivery_date,''))  != ''
+          )
+    """
+
+    count_sql = base_sql.format(cols="COUNT(*)") + search_clause + vendor_clause + wo_type_clause + shipped_clause
     total = conn.execute(count_sql, params).fetchone()[0]
     pages  = max(1, -(-total // page_size))
     offset = (max(1, page) - 1) * page_size
 
     rows = conn.execute(
-        base_sql.format(cols=_IN_REPAIR_COLS) + search_clause + vendor_clause
+        base_sql.format(cols=_IN_REPAIR_COLS) + search_clause + vendor_clause + wo_type_clause + shipped_clause
         + " ORDER BY s.created_on DESC LIMIT ? OFFSET ?",
         params + [page_size, offset],
     ).fetchall()

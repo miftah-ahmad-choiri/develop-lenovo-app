@@ -31,6 +31,7 @@
   .fu-wo-sla         { background: #fef3c7; color: #92400e; border: 1px solid #d97706; }
   .fu-input-dc       { background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; }
   .fu-reschedule     { background: #f0fdfa; color: #0f766e; border: 1px solid #99f6e4; }
+  .fu-set-schedule   { background: #dbeafe; color: #1d4ed8; border: 1px solid #93c5fd; }
   .fu-report-problem { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
   .fu-cancelled      { background: #f3f4f6; color: #6b7280; border: 1px solid #e5e7eb; }
   .fu-in-prepare     { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
@@ -588,6 +589,10 @@
     🔧 CCI Follow-Up
     <span class="tab-badge" id="tab-cci-followup-badge" style="display:none"></span>
   </button>
+  <button class="tab-btn" data-tab="tab-ons-followup">
+    📅 ONS Follow-Up
+    <span class="tab-badge" id="tab-ons-followup-badge" style="display:none"></span>
+  </button>
   <button class="tab-btn" data-tab="tab-cci-delivery">
     📦 Confirm CCI AWB
     <span class="tab-badge" id="tab-cci-delivery-badge" style="display:none"></span>
@@ -734,8 +739,8 @@
           <th style="width:40px;text-align:center">#</th>
           <th>Created On</th><th>WO Number</th>
           <th>Follow-Up State</th>
-          <th>Order Qty</th>
-          <th>ETA Target</th>
+          <th>Qty Part in-Transit</th>
+          <th>ETA Sampai</th>
           <th>WO Status</th>
           <th>AWB</th><th>Shipped On</th><th>POD / Received On</th>
           <th>WO Type</th><th>Case</th>
@@ -745,6 +750,40 @@
     </div>
     <div id="empty-cci-followup" class="empty-state" style="display:none">No CCI in-repair WOs found.</div>
     <div class="pagination" id="pg-cci-followup"></div>
+  </div>
+</div>
+
+<!-- ── TAB: ONS Follow-Up ────────────────────────────────────────────────── -->
+<div class="tab-panel" id="tab-ons-followup">
+  <div class="table-card">
+    <div style="padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #e5e7eb;flex-wrap:wrap;">
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;" id="ons-followup-filter-pills">
+        <button class="subtab-pill active" data-onsfilter="">🔍 All ONS Follow-Up</button>
+        <button class="subtab-pill" data-onsfilter="wo_reschedule">📅 ONS In-Transit</button>
+        <button class="subtab-pill" data-onsfilter="wo_sla">🔧 ONS In-Repair</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+        <input type="search" id="search-ons-followup" placeholder="Search WO, serial, contact, customer…" autocomplete="off" style="padding:7px 11px;border:1px solid #d0d7de;border-radius:6px;font-size:13px;width:240px;font-family:inherit;" />
+        <span class="toolbar-count" id="count-ons-followup"></span>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr>
+          <th style="width:40px;text-align:center">#</th>
+          <th>Created On</th><th>WO Number</th>
+          <th>Schedule Action</th><th>Escalation Action</th>
+          <th>Qty Part in-Transit</th>
+          <th>ETA Sampai</th>
+          <th>WO Status</th>
+          <th>AWB</th><th>Shipped On</th><th>POD / Received On</th>
+          <th>WO Type</th><th>Case</th><th>Defer Date</th>
+        </tr></thead>
+        <tbody id="tbody-ons-followup"><tr><td colspan="14" class="loading-state">Loading…</td></tr></tbody>
+      </table>
+    </div>
+    <div id="empty-ons-followup" class="empty-state" style="display:none">No ONS follow-up WOs found.</div>
+    <div class="pagination" id="pg-ons-followup"></div>
   </div>
 </div>
 
@@ -1784,6 +1823,33 @@ function esc(s) {
 }
 function isSentinel(s) { return s && String(s).slice(0, 4) === '2099'; }
 function fmt(s) { return (s && !isSentinel(s)) ? String(s).slice(0,16).replace('T',' ') : '—'; }
+function fmtFixBy(ms) {
+  const d = new Date(ms);
+  const YYYY = d.getFullYear();
+  const MM   = String(d.getMonth() + 1).padStart(2,'0');
+  const DD   = String(d.getDate()).padStart(2,'0');
+  const hh   = String(d.getHours()).padStart(2,'0');
+  const mm   = String(d.getMinutes()).padStart(2,'0');
+  return `${YYYY}-${MM}-${DD} ${hh}:${mm}`;
+}
+/* Returns an inline countdown label for Escalate WO / WO SLA Follow-Up buttons.
+   baseRaw  — base datetime string (local time, no TZ suffix); priority: defer_date > part_pod_time > fallback
+   offsetMs — SLA window in ms (e.g. 86400000 for CCI, 4*86400000 for ONS)
+   Shows "⏱ HH:MM" counting down to zero; "❌ HH:MM" counting up once overdue. */
+function slaCountdown(baseRaw, offsetMs) {
+  if (!baseRaw || isSentinel(baseRaw)) return '';
+  const baseMs     = new Date(String(baseRaw).replace(' ','T')).getTime();
+  if (isNaN(baseMs)) return '';
+  const deadlineMs = baseMs + offsetMs;
+  const remainMs   = deadlineMs - Date.now();
+  const absMs      = Math.abs(remainMs);
+  const totalMins  = Math.floor(absMs / 60000);
+  const hh         = String(Math.floor(totalMins / 60)).padStart(2,'0');
+  const mm         = String(totalMins % 60).padStart(2,'0');
+  const overdue    = remainMs < 0;
+  const emoji      = overdue ? '❌' : '⏱';
+  return `<span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;color:${overdue?'#b91c1c':'#57606a'};white-space:nowrap;margin-left:6px">${emoji} ${hh}:${mm}</span>`;
+}
 
 function statusBadge(s) {
   if (!s) return '<span class="badge badge-s-default">—</span>';
@@ -3132,10 +3198,14 @@ function cciFuStateBadge(r) {
     return `<button class="fu-badge ${fuEtaIsToday ? 'fu-confirm-today' : 'fu-confirm'} fu-badge-btn" data-action="cci-fu-recv" data-wo="${wo}" data-wo-type="${woType}" data-status="${status}" data-asp="${asp}">📬 Confirm AWB</button>`;
   if (state === 'part_sla')
     return `<button class="fu-badge fu-part-sla fu-badge-btn" data-action="cci-fu-part-sla" data-wo="${wo}" data-wo-type="${woType}" data-status="${status}" data-asp="${asp}">⚠️ Part SLA Overdue</button>`;
-  if (state === 'wo_sla')
-    return `<button class="fu-badge fu-escalate fu-badge-btn" data-action="cci-fu-escalate" data-wo="${wo}" data-wo-type="${woType}" data-pod="${pod}" data-defer-date="${deferDate}" data-status="${status}" data-asp="${asp}">📞 Escalate WO</button>`;
-  if (state === 'report_problem')
-    return `<button class="fu-badge fu-wo-sla fu-badge-btn" data-action="cci-fu-wo-sla" data-wo="${wo}" data-wo-type="${woType}" data-pod="${pod}" data-defer-date="${deferDate}" data-status="${status}" data-asp="${asp}">🔔 WO SLA Follow-Up</button>`;
+  if (state === 'wo_sla') {
+    const _cd = slaCountdown(r.part_pod_time, 86400000);
+    return `<span style="display:inline-flex;align-items:center;flex-wrap:wrap"><button class="fu-badge fu-escalate fu-badge-btn" data-action="cci-fu-escalate" data-wo="${wo}" data-wo-type="${woType}" data-pod="${pod}" data-defer-date="${deferDate}" data-status="${status}" data-asp="${asp}">📞 Escalate WO</button>${_cd}</span>`;
+  }
+  if (state === 'report_problem') {
+    const _cd = slaCountdown(r.part_pod_time, 86400000);
+    return `<span style="display:inline-flex;align-items:center;flex-wrap:wrap"><button class="fu-badge fu-wo-sla fu-badge-btn" data-action="cci-fu-wo-sla" data-wo="${wo}" data-wo-type="${woType}" data-pod="${pod}" data-defer-date="${deferDate}" data-status="${status}" data-asp="${asp}">🔔 WO SLA Follow-Up</button>${_cd}</span>`;
+  }
   return '<span style="color:#8c959f;font-style:italic">—</span>';
 }
 
@@ -3167,9 +3237,10 @@ const cciFollowUpTable = makeTabTable({
     { key: 'part_eta',          render: r => {
         if (!r.part_eta || isSentinel(r.part_eta)) return '<span style="color:#8c959f;font-style:italic">—</span>';
         const etaDate    = r.part_eta.slice(0, 10);
-        const today      = new Date().toISOString().slice(0, 10);
-        const tomorrowDt = new Date(); tomorrowDt.setDate(tomorrowDt.getDate() + 1);
-        const tomorrow   = tomorrowDt.toISOString().slice(0, 10);
+        const _now       = new Date();
+        const today      = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`;
+        const _tomorrowDt = new Date(_now); _tomorrowDt.setDate(_tomorrowDt.getDate() + 1);
+        const tomorrow   = `${_tomorrowDt.getFullYear()}-${String(_tomorrowDt.getMonth()+1).padStart(2,'0')}-${String(_tomorrowDt.getDate()).padStart(2,'0')}`;
         const overdue    = etaDate < today;
         const isToday    = etaDate === today;
         const isTomorrow = etaDate === tomorrow;
@@ -3236,6 +3307,145 @@ document.querySelectorAll('#cci-followup-filter-pills [data-fufilter]').forEach(
     btn.classList.add('active');
     cciFollowUpFilter = btn.dataset.fufilter;
     _cciFollowUpLoad();
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   TAB: ONS Follow-Up
+═══════════════════════════════════════════════════════════════ */
+const onsFollowUpTable = makeTabTable({
+  apiUrl:  '/asp/api/onsite-followup',
+  tbodyId: 'tbody-ons-followup', emptyId: 'empty-ons-followup',
+  pgId: 'pg-ons-followup', cntId: 'count-ons-followup',
+  colsFn: () => [
+    { key: 'created_on',        render: r => fmt(r.created_on) },
+    { key: 'work_order_id',     render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
+    { key: '_schedule_action',  render: r => {
+        const state         = r.followup_state || '';
+        /* Show for in-transit (wo_reschedule/part_sla) AND in-repair (wo_sla/report_problem) */
+        if (!['wo_reschedule', 'part_sla', 'wo_sla', 'report_problem'].includes(state))
+          return '<span style="color:#8c959f;font-style:italic">—</span>';
+        const wo            = esc(r.work_order_id);
+        const woType        = esc(r.work_order_type || '');
+        const status        = esc(r.work_order_status || '');
+        const asp           = esc(r.customer || '');
+        const deferDate     = esc(r.customer_defer_date || '');
+        const origOnsiteEsc = esc(r.committed_delivery_date || '');
+        const actOnsiteEsc  = esc(r.actual_committed_onsite_date || '');
+        const podEsc        = esc(r.actual_committed_onsite_date || '');
+        if (deferDate)
+          return `<button class="fu-badge fu-reschedule fu-badge-btn" data-action="ons-followup-schedule" data-wo="${wo}" data-wo-type="${woType}" data-status="${status}" data-asp="${asp}" data-orig-onsite="${origOnsiteEsc}" data-defer-date="${deferDate}" data-actual-onsite="${actOnsiteEsc}" data-pod="${podEsc}">📅 Reschedule ONS</button>`;
+        return `<button class="fu-badge fu-set-schedule fu-badge-btn" data-action="ons-followup-schedule" data-wo="${wo}" data-wo-type="${woType}" data-status="${status}" data-asp="${asp}" data-orig-onsite="${origOnsiteEsc}" data-defer-date="${deferDate}" data-actual-onsite="${actOnsiteEsc}" data-pod="${podEsc}">📅 Set ONS Schedule</button>`;
+      }
+    },
+    { key: '_escalation_action', render: r => {
+        const state     = r.followup_state || '';
+        if (state !== 'wo_sla' && state !== 'report_problem') return '<span style="color:#8c959f;font-style:italic">—</span>';
+        const wo        = esc(r.work_order_id);
+        const woType    = esc(r.work_order_type || '');
+        const status    = esc(r.work_order_status || '');
+        const asp       = esc(r.customer || '');
+        const pod       = esc(r.actual_committed_onsite_date || '');
+        const deferDate = esc(r.customer_defer_date || '');
+        /* Priority: defer_date → part_pod_time → actual_committed_onsite_date */
+        const _cdBase = r.customer_defer_date || r.part_pod_time || r.actual_committed_onsite_date || '';
+        const _cd = slaCountdown(_cdBase, 4 * 86400000);
+        if (state === 'wo_sla')
+          return `<span style="display:inline-flex;align-items:center;flex-wrap:wrap"><button class="fu-badge fu-escalate fu-badge-btn" data-action="ons-followup-escalate" data-wo="${wo}" data-wo-type="${woType}" data-pod="${pod}" data-defer-date="${deferDate}" data-status="${status}" data-asp="${asp}">📞 Escalate WO</button>${_cd}</span>`;
+        return `<span style="display:inline-flex;align-items:center;flex-wrap:wrap"><button class="fu-badge fu-wo-sla fu-badge-btn" data-action="ons-followup-wo-sla" data-wo="${wo}" data-wo-type="${woType}" data-pod="${pod}" data-defer-date="${deferDate}" data-status="${status}" data-asp="${asp}">🔔 WO SLA Follow-Up</button>${_cd}</span>`;
+      }
+    },
+    { key: 'part_qty',          render: r => {
+        if (!r.part_qty || r.part_qty < 1) return '<span style="color:#8c959f;font-style:italic">—</span>';
+        const palettes = [
+          null,
+          { bg: '#dbeafe', color: '#1e40af' },
+          { bg: '#dcfce7', color: '#15803d' },
+          { bg: '#fef3c7', color: '#92400e' },
+          { bg: '#ede9fe', color: '#6d28d9' },
+          { bg: '#fee2e2', color: '#b91c1c' },
+          { bg: '#ffedd5', color: '#c2410c' },
+          { bg: '#f0fdfa', color: '#0f766e' },
+          { bg: '#fdf4ff', color: '#86198f' },
+        ];
+        const p = palettes[Math.min(r.part_qty, palettes.length - 1)] || { bg: '#f3f4f6', color: '#374151' };
+        return `<span style="display:inline-flex;align-items:center;background:${p.bg};color:${p.color};border-radius:10px;font-size:11px;font-weight:700;padding:2px 8px;white-space:nowrap">${r.part_qty} ${r.part_qty === 1 ? 'Part' : 'Parts'}</span>`;
+      }
+    },
+    { key: 'part_eta',          render: r => {
+        if (!r.part_eta || isSentinel(r.part_eta)) return '<span style="color:#8c959f;font-style:italic">—</span>';
+        const etaDate    = r.part_eta.slice(0, 10);
+        const _now       = new Date();
+        const today      = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`;
+        const _tomorrowDt = new Date(_now); _tomorrowDt.setDate(_tomorrowDt.getDate() + 1);
+        const tomorrow   = `${_tomorrowDt.getFullYear()}-${String(_tomorrowDt.getMonth()+1).padStart(2,'0')}-${String(_tomorrowDt.getDate()).padStart(2,'0')}`;
+        const overdue    = etaDate < today;
+        const isToday    = etaDate === today;
+        const isTomorrow = etaDate === tomorrow;
+        if (overdue)
+          return `<span style="font-weight:700;color:#b91c1c">${esc(etaDate)}</span>`
+               + `<span style="margin-left:5px;font-size:10px;font-weight:700;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:1px 6px">OVERDUE</span>`;
+        if (isToday)
+          return `<span style="font-weight:700;color:#0f766e">${esc(etaDate)}</span>`
+               + `<span style="margin-left:5px;font-size:10px;font-weight:700;background:#ccfbf1;color:#0f766e;border:1px solid #99f6e4;border-radius:8px;padding:1px 6px">Arriving Today</span>`;
+        if (isTomorrow)
+          return `<span style="font-weight:700;color:#374151">${esc(etaDate)}</span>`
+               + `<span style="margin-left:5px;font-size:10px;font-weight:700;background:#f3f4f6;color:#4b5563;border:1px solid #9ca3af;border-radius:8px;padding:1px 6px">Tomorrow</span>`;
+        return `<span style="font-weight:700;color:#374151">${esc(etaDate)}</span>`;
+      }
+    },
+    { key: 'work_order_status', render: r => statusBadge(r.work_order_status) },
+    { key: 'part_awb',          render: r => r.part_awb ? `<span style="font-family:monospace;font-size:11px;color:#3b82d4;font-weight:700">${esc(r.part_awb)}</span>` : '<span style="color:#8c959f;font-style:italic">—</span>' },
+    { key: 'ship_pickup_time',  render: r => fmt(r.ship_pickup_time) },
+    { key: 'part_pod_time',     render: r => fmt(r.part_pod_time) },
+    { key: 'work_order_type',   render: r => esc(r.work_order_type||'—') },
+    { key: 'case_desc',         render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
+    { key: 'customer_defer_date', render: r => {
+        if (!r.customer_defer_date || isSentinel(r.customer_defer_date)) return '<span style="color:#8c959f;font-style:italic">—</span>';
+        return `<span style="font-weight:600;color:#0f766e">${fmt(r.customer_defer_date)}</span>`;
+      }
+    },
+  ],
+  onBind: rows => {
+    const badge = document.getElementById('tab-ons-followup-badge');
+    const cnt   = parseInt(document.getElementById('count-ons-followup').textContent, 10) || rows.length;
+    if (!onsFollowUpFilter) onsFuTotalAll = cnt;
+    badge.textContent   = cnt;
+    badge.style.display = cnt > 0 ? 'inline-block' : 'none';
+    const tbody = document.getElementById('tbody-ons-followup');
+    tbody.querySelectorAll('.wo-link').forEach(b =>
+      b.addEventListener('click', () => openDetail(b.dataset.wo)));
+    tbody.querySelectorAll('[data-action="ons-followup-schedule"]').forEach(b =>
+      b.addEventListener('click', () => openOnsiteRecv(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, b.dataset.origOnsite, b.dataset.deferDate, b.dataset.actualOnsite, b.dataset.pod)));
+    tbody.querySelectorAll('[data-action="ons-followup-wo-sla"]').forEach(b =>
+      b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, 'onsite', b.dataset.pod, b.dataset.deferDate)));
+    tbody.querySelectorAll('[data-action="ons-followup-escalate"]').forEach(b =>
+      b.addEventListener('click', () => openEscalateWo(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, b.dataset.pod, b.dataset.deferDate)));
+  },
+});
+
+let onsFollowUpTimer  = null;
+let onsFollowUpFilter = '';   /* '' | 'wo_reschedule' | 'wo_sla' */
+let onsFuTotalAll     = 0;
+
+function _onsFollowUpLoad() {
+  const q = document.getElementById('search-ons-followup').value.trim();
+  const params = q ? { q } : {};
+  if (onsFollowUpFilter) params.followup_state = onsFollowUpFilter;
+  onsFollowUpTable.load(params);
+}
+
+document.getElementById('search-ons-followup').addEventListener('input', () => {
+  clearTimeout(onsFollowUpTimer);
+  onsFollowUpTimer = setTimeout(_onsFollowUpLoad, 350);
+});
+
+document.querySelectorAll('#ons-followup-filter-pills [data-onsfilter]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#ons-followup-filter-pills [data-onsfilter]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    onsFollowUpFilter = btn.dataset.onsfilter;
+    _onsFollowUpLoad();
   });
 });
 
@@ -3313,7 +3523,7 @@ document.getElementById('btn-export-return-part').addEventListener('click', func
 const tabLoaded = {
   'tab-all': false,
   'tab-in-prepare': false,
-  'tab-cci-delivery': false, 'tab-cci-followup': false, 'tab-ons-delivery': false,
+  'tab-cci-delivery': false, 'tab-cci-followup': false, 'tab-ons-followup': false, 'tab-ons-delivery': false,
   'tab-in-repair': false, 'tab-return-part': false,
 };
 const tabLoaders = {
@@ -3321,6 +3531,7 @@ const tabLoaders = {
   'tab-in-prepare':     () => _inPrepareLoad(),
   'tab-cci-delivery':   () => cciDeliveryTable.load({ wo_type: 'Carry-In' }),
   'tab-cci-followup':   () => _cciFollowUpLoad(),
+  'tab-ons-followup':   () => _onsFollowUpLoad(),
   'tab-ons-delivery':   () => onsDeliveryTable.load({ wo_type: 'Onsite' }),
   'tab-in-repair':      () => inRepairTable.load({}),
   'tab-return-part':    () => returnPartTable.load({ followup_state: 'input_dc' }),
@@ -3344,6 +3555,14 @@ function switchTab(id) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === id));
   /* Reset CCI Follow-Up filter whenever the tab is (re-)activated */
+  if (id === 'tab-ons-followup') {
+    onsFollowUpFilter = '';
+    document.querySelectorAll('#ons-followup-filter-pills [data-onsfilter]').forEach(b =>
+      b.classList.toggle('active', b.dataset.onsfilter === ''));
+    if (!tabLoaded[id]) { tabLoaded[id] = true; }
+    _onsFollowUpLoad();
+    return;
+  }
   if (id === 'tab-cci-followup') {
     cciFollowUpFilter = '';
     document.querySelectorAll('#cci-followup-filter-pills [data-fufilter]').forEach(b =>
@@ -3387,7 +3606,7 @@ document.querySelectorAll('[data-goto]').forEach(c => c.addEventListener('click'
     'all':'tab-all',
     'in-prepare':'tab-in-prepare',
     'cci-delivery':'tab-cci-delivery', 'cci-followup':'tab-cci-followup',
-    'ons-delivery':'tab-ons-delivery',
+    'ons-followup':'tab-ons-followup', 'ons-delivery':'tab-ons-delivery',
     'in-repair':'tab-in-repair', 'return-part':'tab-return-part',
   };
   const p   = new URLSearchParams(location.search).get('tab');
