@@ -28,6 +28,9 @@ rebuild_active_open_wos(folder, db_path)   — re-query DB and overwrite the cac
 write_incomplete_prev_shipments(folder, rows)    — persist incomplete-shipment list
 read_incomplete_prev_shipments(folder)           — load list from JSON ([] on miss)
 rebuild_incomplete_prev_shipments(folder, db_path, excel_month) — re-query & overwrite
+
+write_wo_product_mismatch(folder, rows)    — persist WO-product mismatch list to JSON
+read_wo_product_mismatch(folder)           — load mismatch list from JSON ([] on miss)
 """
 from __future__ import annotations
 
@@ -38,6 +41,7 @@ import sqlite3
 _SUFFIX = ".meta.json"
 _ACTIVE_WO_FILE              = "active_open_wos.json"
 _INCOMPLETE_SHIPMENTS_FILE   = "incomplete_prev_shipments.json"
+_WO_PRODUCT_MISMATCH_FILE    = "wo_product_mismatch.json"
 
 
 def _meta_path(folder: str, filename: str) -> str:
@@ -293,3 +297,33 @@ def rebuild_incomplete_prev_shipments(
     else:
         write_incomplete_prev_shipments(folder, rows)
     return rows
+
+
+# ── WO-product mismatch cache ─────────────────────────────────────────────────
+# Stores work_order_ids found in a "Work Order Product Advance Find View" Excel
+# that do NOT exist in either wo_summary or wo_details in the database.
+# Written each time the SOID upsert-preview runs; read on every page GET so the
+# persistent warning card is shown without a DB hit.
+
+
+def write_wo_product_mismatch(folder: str, rows: list[dict]) -> None:
+    """Persist *rows* (list of dicts) as the WO-product mismatch cache JSON."""
+    path = os.path.join(folder, _WO_PRODUCT_MISMATCH_FILE)
+    try:
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(rows, fh)
+    except OSError:
+        pass
+
+
+def read_wo_product_mismatch(folder: str) -> list[dict]:
+    """Return the cached WO-product mismatch list, or [] if missing/corrupt."""
+    path = os.path.join(folder, _WO_PRODUCT_MISMATCH_FILE)
+    if not os.path.isfile(path):
+        return []
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, list) else []
+    except (OSError, json.JSONDecodeError):
+        return []

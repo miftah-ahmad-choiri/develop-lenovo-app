@@ -179,6 +179,40 @@
   }
   .active-wo-empty { padding: 40px; text-align: center; color: #57606a; font-size: 13px; }
 
+  /* ── WO-product mismatch card ────────────────────────────────────────────── */
+  .mismatch-card {
+    background: #fff; border: 1px solid #fca5a5; border-radius: 10px;
+    overflow: hidden; margin-top: 20px;
+  }
+  .mismatch-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px; border-bottom: 1px solid #fca5a5;
+    background: #fff0f0;
+  }
+  .mismatch-header-left { display: flex; align-items: center; gap: 10px; }
+  .mismatch-header h2 { font-size: 15px; font-weight: 700; color: #b91c1c; margin: 0; }
+  .mismatch-badge {
+    font-size: 11px; font-weight: 700; background: #fee2e2;
+    border: 1px solid #fca5a5; border-radius: 12px;
+    padding: 2px 10px; color: #b91c1c;
+  }
+  .mismatch-sub { font-size: 12px; color: #b91c1c; padding: 8px 20px 10px; background: #fff0f0; border-bottom: 1px solid #fca5a5; }
+  .mismatch-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .mismatch-table thead { background: #fee2e2; }
+  .mismatch-table th {
+    padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 700;
+    color: #b91c1c; text-transform: uppercase; letter-spacing: 0.04em;
+    border-bottom: 1px solid #fca5a5; white-space: nowrap;
+  }
+  .mismatch-table td { padding: 9px 16px; border-bottom: 1px solid #fee2e2; vertical-align: middle; }
+  .mismatch-table tr:last-child td { border-bottom: none; }
+  .mismatch-table tbody tr:hover { background: #fff0f0; }
+  .mismatch-info {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 20px; background: #fff7ed;
+    border-top: 1px solid #fed7aa; font-size: 12px; color: #92400e;
+  }
+
   /* ── Upsert Confirmation Modal ───────────────────────────────────────────── */
   .modal-backdrop {
     display: none; position: fixed; inset: 0;
@@ -262,9 +296,109 @@
   .modal-spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid #d0d7de; border-top-color: #3b82d4; border-radius: 50%; animation: spin 0.7s linear infinite; }
   .modal-loading { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 40px 0; color: #57606a; font-size: 13px; }
   .modal-error { padding: 20px; background: #fff0f0; border-radius: 8px; color: #b91c1c; font-size: 13px; }
+
+  /* ── Upsert progress overlay ─────────────────────────────────────────────── */
+  #upsert-progress-overlay {
+    display: none;
+    position: fixed; inset: 0; z-index: 2000;
+    background: rgba(15, 23, 42, 0.72);
+    backdrop-filter: blur(3px);
+    align-items: center; justify-content: center;
+    flex-direction: column;
+  }
+  #upsert-progress-overlay.show { display: flex; }
+  .upo-card {
+    background: #fff; border-radius: 16px;
+    padding: 36px 44px; width: 480px; max-width: 94vw;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.22);
+    display: flex; flex-direction: column; align-items: center; gap: 0;
+  }
+  .upo-icon {
+    width: 52px; height: 52px; border-radius: 50%;
+    background: #eff6ff; display: flex; align-items: center; justify-content: center;
+    margin-bottom: 18px; flex-shrink: 0;
+  }
+  .upo-title {
+    font-size: 16px; font-weight: 700; color: #1f2328;
+    margin-bottom: 4px; text-align: center;
+  }
+  .upo-filename {
+    font-size: 12px; color: #57606a; margin-bottom: 22px;
+    text-align: center; max-width: 360px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .upo-bar-wrap {
+    width: 100%; height: 10px; background: #e5e7eb;
+    border-radius: 99px; overflow: hidden; margin-bottom: 10px;
+  }
+  .upo-bar-fill {
+    height: 100%; width: 0%; border-radius: 99px;
+    background: linear-gradient(90deg, #3b82f6 0%, #06b6d4 100%);
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .upo-pct {
+    font-size: 24px; font-weight: 700; color: #1d4ed8;
+    margin-bottom: 4px; font-variant-numeric: tabular-nums;
+  }
+  .upo-stage {
+    font-size: 12px; color: #57606a; text-align: center;
+    min-height: 18px; margin-bottom: 20px;
+  }
+  .upo-steps {
+    width: 100%; display: flex; flex-direction: column; gap: 6px;
+  }
+  .upo-step {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 12px; color: #9ca3af; padding: 7px 12px;
+    border-radius: 7px; transition: background 0.2s, color 0.2s;
+  }
+  .upo-step.active  { background: #eff6ff; color: #1d4ed8; font-weight: 600; }
+  .upo-step.done    { background: #f0fdf4; color: #15803d; }
+  .upo-step.waiting { color: #d0d7de; }
+  .upo-step-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    background: currentColor;
+  }
+  .upo-step.active .upo-step-dot  { background: #3b82f6; }
+  .upo-step.done   .upo-step-dot  { background: #16a34a; }
+  .upo-step.waiting .upo-step-dot { background: #d0d7de; }
+  .upo-step-spinner {
+    width: 12px; height: 12px; border: 2px solid #bfdbfe;
+    border-top-color: #3b82f6; border-radius: 50%;
+    animation: spin 0.7s linear infinite; flex-shrink: 0;
+  }
+  @keyframes upo-pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.4; }
+  }
 {% endblock %}
 
 {% block content %}
+
+{# ── Upsert progress overlay (shown while form POST is in-flight) ──────────── #}
+<div id="upsert-progress-overlay">
+  <div class="upo-card">
+    <div class="upo-icon">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#3b82f6"
+           stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="16 16 12 12 8 16"/>
+        <line x1="12" y1="12" x2="12" y2="21"/>
+        <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+      </svg>
+    </div>
+    <div class="upo-title">Upsert in Progress</div>
+    <div class="upo-filename" id="upo-filename">—</div>
+
+    <div class="upo-pct" id="upo-pct">0%</div>
+    <div class="upo-bar-wrap">
+      <div class="upo-bar-fill" id="upo-bar-fill"></div>
+    </div>
+    <div class="upo-stage" id="upo-stage">Preparing…</div>
+
+    <div class="upo-steps" id="upo-steps"></div>
+  </div>
+</div>
+
 <div class="page-header">
   <h1>Data Import / Export</h1>
   <p>Upload WO spreadsheets and manage source files.</p>
@@ -623,6 +757,76 @@
 </div>
 {% endif %}
 
+{# ── WO-Product Mismatch Card (hidden when empty) ─────────────────────────── #}
+{% if wo_product_mismatch %}
+<div class="mismatch-card">
+  <div class="mismatch-header">
+    <div class="mismatch-header-left">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#b91c1c"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <h2>Work Order IDs Not Found in Database</h2>
+      <span class="mismatch-badge">{{ wo_product_mismatch | length }} WO{{ 's' if wo_product_mismatch | length != 1 }}</span>
+    </div>
+  </div>
+  <div class="mismatch-sub">
+    Work Order IDs present in the uploaded <strong>Work Order Product Advance Find View</strong> Excel
+    that do <strong>not exist</strong> in either <code>wo_summary</code> or <code>wo_details</code> in the database.
+    These rows are <strong>skipped</strong> during upsert. Please upload and upsert the matching
+    <strong>Work Order Advance Find View</strong> file first to create these Work Orders in the database.
+  </div>
+  <div style="overflow-x:auto;overflow-y:auto;max-height:400px;border-bottom:1px solid #fca5a5;">
+    <table class="mismatch-table">
+      <thead style="position:sticky;top:0;z-index:1;">
+        <tr>
+          <th>#</th>
+          <th style="background:#fca5a5;color:#b91c1c;">Reason</th>
+          <th>Created On</th>
+          <th>Work Order ID</th>
+          <th>Line Order</th>
+          <th>Product</th>
+          <th>Description</th>
+          <th>WO Product Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in wo_product_mismatch %}
+        <tr>
+          <td><span style="font-size:11px;color:#9ca3af;">{{ loop.index }}</span></td>
+          <td><span style="font-size:12px;font-weight:700;color:#b91c1c;white-space:nowrap;">{{ row['Reason'] }}</span></td>
+          <td><span style="font-size:12px;color:#57606a;white-space:nowrap;">{{ row['Created On'] or '—' }}</span></td>
+          <td><span style="font-weight:700;font-size:12px;color:#b91c1c;white-space:nowrap;">{{ row['Work Order ID'] }}</span></td>
+          <td><span style="font-size:12px;color:#57606a;">{{ row['Line Order'] or '—' }}</span></td>
+          <td><span style="font-size:12px;color:#57606a;">{{ row['Product'] or '—' }}</span></td>
+          <td><span style="font-size:12px;color:#57606a;">{{ row['Description'] or '—' }}</span></td>
+          <td><span style="font-size:12px;color:#57606a;">{{ row['WO Product Status'] or '—' }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="mismatch-info">
+    <svg style="flex-shrink:0;margin-top:1px;" width="14" height="14" viewBox="0 0 24 24"
+         fill="none" stroke="#c2410c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="12" y1="8" x2="12" y2="12"/>
+      <line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    <span>
+      <strong>Action required:</strong>
+      {{ wo_product_mismatch | length }} Work Order{{ 's' if wo_product_mismatch | length != 1 }}
+      listed above {{ 'were' if wo_product_mismatch | length != 1 else 'was' }} found in the
+      Work Order Product Excel but {{ 'are' if wo_product_mismatch | length != 1 else 'is' }} not yet
+      in the database. Please <strong>download and upload the latest Work Order Advance Find View from MSD</strong>,
+      upsert it first, then re-run the Work Order Product upsert to include these rows.
+    </span>
+  </div>
+</div>
+{% endif %}
+
 {% endblock %}
 
 {% block extra_scripts %}
@@ -721,7 +925,8 @@
     if (isWoid) {
       subDesc = 'Rows shown are Work Orders that qualify for upsert into <code>wo_summary</code> and <code>wo_details</code>. ' +
                 'A row qualifies when it is <strong>new</strong> (WO ID not in DB), any <strong>date column is newer</strong> than the DB value, ' +
-                'or any of the tracked <strong>status columns</strong> (Work Order Status, Case Status, Closing Code, Repeat Repair Reason, WO Cancellation Reason) has changed.';
+                'or any of the tracked <strong>status columns</strong> (Work Order Status, Case Status, Closing Code, Repeat Repair Reason, WO Cancellation Reason) has changed. ' +
+                'The <em>Reason</em> column shows exactly why each row was selected.';
     } else if (isSoid) {
       subDesc = 'Rows shown are Work Order Product lines whose Work Order ID matches <code>wo_summary</code> and that qualify for upsert into <code>wo_product_detail</code>. ' +
                 'A row qualifies when the <strong>SOID is new</strong>, any of <strong>Acceptance Date / Shipment Date / Delivery Date</strong> in Excel is strictly later than the DB value (or the DB value is NULL), ' +
@@ -815,20 +1020,22 @@
           zeroMsg +
         '</div>';
     } else {
+      var sortLabel = (isWoid || isSoid) ? '(oldest first)' : '(newest first)';
       html +=
         '<div class="modal-section-title" style="margin-bottom:8px;">' +
-          'All ' + impactedCount + ' impacted rows &mdash; sorted by ' + esc(dateCol) + ' (newest first)' +
+          'All ' + impactedCount + ' impacted rows &mdash; sorted by ' + esc(dateCol) + ' ' + sortLabel +
         '</div>' +
         '<div style="overflow-x:auto;max-height:340px;overflow-y:auto;margin-bottom:16px;border:1px solid #e5e7eb;border-radius:6px;">' +
           '<table class="modal-preview-table" style="margin-bottom:0;">' +
             '<thead style="position:sticky;top:0;z-index:1;background:#f0f2f5;"><tr>' +
               cols.map(function(c) {
                 var isInsert   = isGtaap && c === 'DC# (will be inserted)';
-                var isReason   = (isSoid || isShipment) && c === 'Upsert Reason';
+                var isReason   = (isWoid || isSoid || isShipment) && c === 'Reason';
+                var isUpsertReason = (isSoid || isShipment) && c === 'Upsert Reason';
                 var thStyle = isInsert
                   ? 'background:#dcfce7;color:#15803d;font-weight:700;'
-                  : isReason
-                    ? 'background:#eff6ff;color:#1d4ed8;font-weight:700;min-width:220px;white-space:nowrap;'
+                  : (isReason || isUpsertReason)
+                    ? 'background:#eff6ff;color:#1d4ed8;font-weight:700;min-width:260px;white-space:nowrap;'
                     : '';
                 return '<th style="' + thStyle + '">' + esc(c) + '</th>';
               }).join('') +
@@ -841,11 +1048,12 @@
                       cols.map(function(c) {
                         var v = row[c] !== undefined ? row[c] : '';
                         var isInsert = isGtaap && c === 'DC# (will be inserted)';
-                        var isReason = (isSoid || isShipment) && c === 'Upsert Reason';
+                        var isReason = (isWoid || isSoid || isShipment) && c === 'Reason';
+                        var isUpsertReason = (isSoid || isShipment) && c === 'Upsert Reason';
                         var style = isInsert
                           ? 'background:#f0fdf4;color:#15803d;font-weight:600;'
-                          : isReason
-                            ? 'background:#eff6ff;color:#1d4ed8;font-weight:600;min-width:220px;white-space:nowrap;'
+                          : (isReason || isUpsertReason)
+                            ? 'background:#eff6ff;color:#1d4ed8;font-weight:600;min-width:260px;white-space:nowrap;'
                             : '';
                         return '<td style="' + style + '" title="' + esc(v) + '">' + esc(v) + '</td>';
                       }).join('') +
@@ -869,37 +1077,29 @@
 
       html += '<hr class="modal-divider">';
 
-      // ── Sub-section A: SOIDs this Excel WILL fix ────────────────────────────
-      html +=
-        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
-          '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="2.5" ' +
-               'stroke-linecap="round" stroke-linejoin="round">' +
-            '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>' +
-            '<polyline points="22 4 12 14.01 9 11.01"/>' +
-          '</svg>' +
-          '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#15803d;">' +
-            'Fills previous-month gaps' +
-            (filledCount > 0
-              ? ' <span style=\'background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;border-radius:10px;padding:1px 8px;font-size:10px;\'>' + filledCount + '</span>'
-              : '') +
-          '</span>' +
-        '</div>';
-
-      html +=
-        '<div style="font-size:12px;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;' +
-             'border-radius:6px;padding:8px 12px;margin-bottom:8px;">' +
-          'SOIDs from the <strong>incomplete previous-month list</strong> that are present in this Excel file ' +
-          'with values that will fill the missing <code>AWB</code> and/or <code>Ship POU POD Time</code>. ' +
-          'These gaps <strong>will be resolved</strong> when you confirm this upsert.' +
-        '</div>';
-
-      if (filledCount === 0) {
+      // ── Sub-section A: SOIDs this Excel WILL fix — hidden when filledCount=0
+      if (filledCount > 0) {
         html +=
-          '<div style="padding:10px 12px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;' +
-               'font-size:12px;color:#57606a;margin-bottom:12px;">' +
-            'No previously-incomplete SOIDs are covered by this Excel file.' +
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
+            '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="2.5" ' +
+                 'stroke-linecap="round" stroke-linejoin="round">' +
+              '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>' +
+              '<polyline points="22 4 12 14.01 9 11.01"/>' +
+            '</svg>' +
+            '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#15803d;">' +
+              'Fills previous-month gaps' +
+              ' <span style=\'background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;border-radius:10px;padding:1px 8px;font-size:10px;\'>' + filledCount + '</span>' +
+            '</span>' +
           '</div>';
-      } else {
+
+        html +=
+          '<div style="font-size:12px;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;' +
+               'border-radius:6px;padding:8px 12px;margin-bottom:8px;">' +
+            'SOIDs from the <strong>incomplete previous-month list</strong> that are present in this Excel file ' +
+            'with values that will fill the missing <code>AWB</code> and/or <code>Ship POU POD Time</code>. ' +
+            'These gaps <strong>will be resolved</strong> when you confirm this upsert.' +
+          '</div>';
+
         html +=
           '<div style="overflow-x:auto;max-height:240px;overflow-y:auto;border:1px solid #bbf7d0;' +
                'border-radius:6px;margin-bottom:12px;">' +
@@ -937,37 +1137,29 @@
           '</div>';
       }
 
-      // ── Sub-section B: SOIDs still incomplete after this upsert ─────────────
-      html +=
-        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
-          '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2.5" ' +
-               'stroke-linecap="round" stroke-linejoin="round">' +
-            '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>' +
-            '<line x1="12" y1="16" x2="12.01" y2="16"/>' +
-          '</svg>' +
-          '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#92400e;">' +
-            'Still incomplete after this upsert' +
-            (prevCount > 0
-              ? ' <span style=\'background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:10px;padding:1px 8px;font-size:10px;\'>' + prevCount + '</span>'
-              : '') +
-          '</span>' +
-        '</div>';
-
-      html +=
-        '<div style="font-size:12px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;' +
-             'border-radius:6px;padding:8px 12px;margin-bottom:8px;">' +
-          'SOIDs that were previously incomplete and are <strong>still not covered</strong> by this Excel file ' +
-          '— <code>AWB</code> and/or <code>Ship POU POD Time</code> will remain empty in the database after this upsert. ' +
-          'Please upload the matching <strong>older monthly Shipment Report</strong> to fill these gaps.' +
-        '</div>';
-
-      if (prevCount === 0) {
+      // ── Sub-section B: SOIDs still incomplete — hidden when prevCount=0
+      if (prevCount > 0) {
         html +=
-          '<div style="padding:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;' +
-               'font-size:13px;color:#15803d;margin-bottom:8px;">' +
-            '<strong>All previously-incomplete SOIDs will be resolved by this upsert.</strong> The page card will be cleared.' +
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
+            '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2.5" ' +
+                 'stroke-linecap="round" stroke-linejoin="round">' +
+              '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>' +
+              '<line x1="12" y1="16" x2="12.01" y2="16"/>' +
+            '</svg>' +
+            '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#92400e;">' +
+              'Still incomplete after this upsert' +
+              ' <span style=\'background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:10px;padding:1px 8px;font-size:10px;\'>' + prevCount + '</span>' +
+            '</span>' +
           '</div>';
-      } else {
+
+        html +=
+          '<div style="font-size:12px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;' +
+               'border-radius:6px;padding:8px 12px;margin-bottom:8px;">' +
+            'SOIDs that were previously incomplete and are <strong>still not covered</strong> by this Excel file ' +
+            '— <code>AWB</code> and/or <code>Ship POU POD Time</code> will remain empty in the database after this upsert. ' +
+            'Please upload the matching <strong>older monthly Shipment Report</strong> to fill these gaps.' +
+          '</div>';
+
         html +=
           '<div style="overflow-x:auto;max-height:240px;overflow-y:auto;border:1px solid #fde68a;' +
                'border-radius:6px;margin-bottom:10px;">' +
@@ -1009,45 +1201,36 @@
       }
     }
 
-    // ── Active WOs not in this Excel (WOID only) ─────────────────────────────
+    // ── Active WOs not in this Excel (WOID only) — hidden when activeCount=0 ──
     if (isWoid) {
       var activeRows  = data.active_wo_not_in_excel || [];
       var activeCols  = data.active_wo_cols || [];
       var activeCount = activeRows.length;
 
-      html += '<hr class="modal-divider">';
+      if (activeCount > 0) {
+        html += '<hr class="modal-divider">';
 
-      // Section header — always visible, no toggle
-      html +=
-        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
-          '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2.5" ' +
-               'stroke-linecap="round" stroke-linejoin="round">' +
-            '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>' +
-            '<line x1="12" y1="16" x2="12.01" y2="16"/>' +
-          '</svg>' +
-          '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#92400e;">' +
-            'Active WOs not in this Excel' +
-            (activeCount > 0 ? ' <span style=\'background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:10px;padding:1px 8px;font-size:10px;\'>' + activeCount + '</span>' : '') +
-          '</span>' +
-        '</div>';
-
-      // Explanation note
-      html +=
-        '<div style="font-size:12px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;' +
-             'border-radius:6px;padding:8px 12px;margin-bottom:8px;">' +
-          'Work Orders that are <strong>open in the database</strong> (no completion date or closing date, ' +
-          'not cancelled) but are <strong>absent from the uploaded Excel file</strong>. ' +
-          'They will <em>not</em> be updated by this upsert &mdash; cancelled statuses are excluded.' +
-        '</div>';
-
-      if (activeCount === 0) {
         html +=
-          '<div style="padding:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;' +
-               'font-size:13px;color:#15803d;margin-bottom:8px;">' +
-            '<strong>All active (open) Work Orders are included in this Excel file.</strong> No gaps found.' +
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
+            '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2.5" ' +
+                 'stroke-linecap="round" stroke-linejoin="round">' +
+              '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>' +
+              '<line x1="12" y1="16" x2="12.01" y2="16"/>' +
+            '</svg>' +
+            '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#92400e;">' +
+              'Active WOs not in this Excel' +
+              ' <span style=\'background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:10px;padding:1px 8px;font-size:10px;\'>' + activeCount + '</span>' +
+            '</span>' +
           '</div>';
-      } else {
-        // Table
+
+        html +=
+          '<div style="font-size:12px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;' +
+               'border-radius:6px;padding:8px 12px;margin-bottom:8px;">' +
+            'Work Orders that are <strong>open in the database</strong> (no completion date or closing date, ' +
+            'not cancelled) but are <strong>absent from the uploaded Excel file</strong>. ' +
+            'They will <em>not</em> be updated by this upsert &mdash; cancelled statuses are excluded.' +
+          '</div>';
+
         html +=
           '<div style="overflow-x:auto;max-height:260px;overflow-y:auto;border:1px solid #fde68a;' +
                'border-radius:6px;margin-bottom:10px;">' +
@@ -1070,7 +1253,6 @@
             '</table>' +
           '</div>';
 
-        // Info alert — action required
         html +=
           '<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;' +
                'background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;margin-bottom:4px;">' +
@@ -1089,11 +1271,99 @@
       }
     }
 
-    // Footer buttons
+    // ── WO-product mismatch (SOID only) — hidden when mismatchCount=0 ────────
+    var _soidMismatchCount = 0;   // tracked so the force-upsert warning panel knows the count
+    if (isSoid) {
+      var mismatchRows  = data.wo_product_mismatch      || [];
+      var mismatchCols  = data.wo_product_mismatch_cols || [];
+      var mismatchCount = mismatchRows.length;
+      _soidMismatchCount = mismatchCount;
+
+      if (mismatchCount > 0) {
+        html += '<hr class="modal-divider">';
+
+        html +=
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
+            '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b91c1c" stroke-width="2.5" ' +
+                 'stroke-linecap="round" stroke-linejoin="round">' +
+              '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>' +
+              '<line x1="12" y1="16" x2="12.01" y2="16"/>' +
+            '</svg>' +
+            '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#b91c1c;">' +
+              'Work Order IDs not found in database' +
+              ' <span style=\'background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:10px;padding:1px 8px;font-size:10px;\'>' + mismatchCount + '</span>' +
+            '</span>' +
+          '</div>';
+
+        html +=
+          '<div style="font-size:12px;color:#b91c1c;background:#fff0f0;border:1px solid #fca5a5;' +
+               'border-radius:6px;padding:8px 12px;margin-bottom:8px;">' +
+            'Work Order IDs found in this Excel that do <strong>not exist</strong> in ' +
+            '<code>wo_summary</code> or <code>wo_details</code>. ' +
+            'These rows are <strong>skipped</strong> by the upsert &mdash; no data will be written for them. ' +
+            'One unique Work Order ID is shown per entry.' +
+          '</div>';
+
+        html +=
+          '<div style="overflow-x:auto;max-height:260px;overflow-y:auto;border:1px solid #fca5a5;' +
+               'border-radius:6px;margin-bottom:10px;">' +
+            '<table class="modal-preview-table" style="margin-bottom:0;">' +
+              '<thead style="position:sticky;top:0;z-index:1;background:#fee2e2;"><tr>' +
+                mismatchCols.map(function(c) {
+                  var isReason = (c === 'Reason');
+                  var isWoId   = (c === 'Work Order ID');
+                  return '<th style="color:#b91c1c;' +
+                    (isReason ? 'background:#fca5a5;font-weight:700;' : '') +
+                    (isWoId   ? 'font-weight:700;' : '') +
+                    '">' + esc(c) + '</th>';
+                }).join('') +
+              '</tr></thead>' +
+              '<tbody>' +
+                mismatchRows.map(function(row) {
+                  return '<tr>' +
+                    mismatchCols.map(function(c) {
+                      var v        = row[c] !== undefined ? row[c] : '';
+                      var isReason = (c === 'Reason');
+                      var isWoId   = (c === 'Work Order ID');
+                      var style = isReason
+                        ? 'color:#b91c1c;font-weight:700;white-space:nowrap;'
+                        : isWoId
+                          ? 'color:#b91c1c;font-weight:700;white-space:nowrap;'
+                          : '';
+                      return '<td style="' + style + '" title="' + esc(v) + '">' + esc(v) + '</td>';
+                    }).join('') +
+                  '</tr>';
+                }).join('') +
+              '</tbody>' +
+            '</table>' +
+          '</div>' +
+          '<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;' +
+               'background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;margin-bottom:4px;">' +
+            '<svg style="flex-shrink:0;margin-top:1px;" width="15" height="15" viewBox="0 0 24 24" fill="none" ' +
+                 'stroke="#c2410c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
+              '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>' +
+              '<line x1="12" y1="16" x2="12.01" y2="16"/>' +
+            '</svg>' +
+            '<div style="font-size:12px;color:#92400e;">' +
+              '<strong>Action required:</strong> ' + mismatchCount + ' Work Order ID' + (mismatchCount !== 1 ? 's' : '') +
+              ' listed above will be skipped. Please <strong>download the latest Work Order Advance Find View from MSD</strong>, ' +
+              'upload and upsert it first, then re-run this Work Order Product upsert to include these rows.' +
+            '</div>' +
+          '</div>';
+      }
+    }
+
+    // Footer buttons — the Confirm Upsert button triggers the in-page warning
+    // panel (for SOID with mismatches) instead of window.confirm().
+    // The panel is injected at the bottom of the modal and replaces the footer
+    // with Yes / No choices.
     html +=
-      '<div class="modal-footer">' +
+      '<div class="modal-footer" id="modal-footer-upsert">' +
         '<button class="modal-btn-cancel" onclick="closeUpsertModal()">Cancel</button>' +
-        '<button class="modal-btn-confirm" onclick="confirmUpsert(\'' + esc(categoryKey) + '\')">' +
+        '<button class="modal-btn-confirm"' +
+          ' data-mismatch="' + _soidMismatchCount + '"' +
+          ' data-category="' + esc(categoryKey) + '"' +
+          ' onclick="confirmUpsert(this)">' +
           '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>' +
           'Confirm Upsert' +
         '</button>' +
@@ -1102,12 +1372,288 @@
     modalBox.innerHTML = html;
   }
 
-  function confirmUpsert(categoryKey) {
-    var form = document.getElementById('upsert-form-' + categoryKey);
-    if (form) {
-      closeUpsertModal();
-      form.submit();
+  // ── confirmUpsert — in-page warning panel for SOID mismatches ───────────────
+  // When called with a button element:
+  //   • If SOID and mismatch > 0: hide the normal footer and inject a styled
+  //     warning panel at the bottom of the modal asking the user to confirm.
+  //   • Otherwise proceed directly to form submit.
+  function confirmUpsert(btn) {
+    var categoryKey = btn.getAttribute('data-category');
+    var mismatch    = parseInt(btn.getAttribute('data-mismatch') || '0', 10);
+
+    if (mismatch > 0) {
+      // Hide the normal footer so the warning panel takes its place
+      var footer = document.getElementById('modal-footer-upsert');
+      if (footer) footer.style.display = 'none';
+
+      // Build the in-page warning panel
+      var warningPanel = document.createElement('div');
+      warningPanel.id  = 'modal-force-upsert-panel';
+      warningPanel.innerHTML =
+        // ── Warning banner ──────────────────────────────────────────────────
+        '<div style="' +
+            'background:#fff0f0;border:2px solid #f87171;border-radius:10px;' +
+            'padding:20px 22px;margin-top:16px;' +
+        '">' +
+          // Icon + title row
+          '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">' +
+            '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b91c1c" stroke-width="2.5" ' +
+                 'stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">' +
+              '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>' +
+              '<line x1="12" y1="9" x2="12" y2="13"/>' +
+              '<line x1="12" y1="17" x2="12.01" y2="17"/>' +
+            '</svg>' +
+            '<span style="font-size:14px;font-weight:700;color:#b91c1c;">Force Upsert Confirmation</span>' +
+          '</div>' +
+          // Message body
+          '<div style="font-size:13px;color:#7f1d1d;line-height:1.6;margin-bottom:16px;">' +
+            'Are you sure you want to <strong>force upsert</strong> without uploading the ' +
+            '<strong>WO Advanced Report from MSD</strong>?<br>' +
+            '<span style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;' +
+                 'background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;' +
+                 'padding:6px 12px;font-size:12px;font-weight:600;color:#b91c1c;">' +
+              '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#b91c1c" stroke-width="2.5" ' +
+                   'stroke-linecap="round" stroke-linejoin="round">' +
+                '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>' +
+                '<line x1="12" y1="16" x2="12.01" y2="16"/>' +
+              '</svg>' +
+              mismatch + ' Work Order ID' + (mismatch !== 1 ? 's' : '') +
+              ' will <em>not</em> be recorded due to WO mismatch.' +
+            '</span>' +
+          '</div>' +
+          // Action buttons row
+          '<div style="display:flex;justify-content:flex-end;gap:10px;">' +
+            '<button onclick="cancelForceUpsert()" style="' +
+                'padding:9px 22px;background:#fff;color:#57606a;font-size:13px;font-weight:600;' +
+                'border:1px solid #d0d7de;border-radius:6px;cursor:pointer;font-family:inherit;' +
+            '">' +
+              'No, Go Back' +
+            '</button>' +
+            '<button onclick="doForceUpsert(\'' + esc(categoryKey) + '\')" style="' +
+                'padding:9px 22px;background:#b91c1c;color:#fff;font-size:13px;font-weight:600;' +
+                'border:none;border-radius:6px;cursor:pointer;font-family:inherit;' +
+                'display:inline-flex;align-items:center;gap:6px;' +
+            '">' +
+              '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" ' +
+                   'stroke-linecap="round" stroke-linejoin="round">' +
+                '<polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/>' +
+                '<path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>' +
+              '</svg>' +
+              'Yes, Force Upsert' +
+            '</button>' +
+          '</div>' +
+        '</div>';
+
+      document.getElementById('upsert-modal-box').appendChild(warningPanel);
+      // Scroll the modal box to show the panel
+      var box = document.getElementById('upsert-modal-box');
+      box.scrollTop = box.scrollHeight;
+      return;
     }
+
+    // No mismatches — proceed directly
+    _doUpsertSubmit(categoryKey);
+  }
+
+  function cancelForceUpsert() {
+    // Remove the warning panel and restore the footer
+    var panel = document.getElementById('modal-force-upsert-panel');
+    if (panel) panel.parentNode.removeChild(panel);
+    var footer = document.getElementById('modal-footer-upsert');
+    if (footer) footer.style.display = '';
+  }
+
+  function doForceUpsert(categoryKey) {
+    _doUpsertSubmit(categoryKey);
+  }
+
+  // ── Upsert progress overlay engine ──────────────────────────────────────────
+  //
+  // The server upsert is a synchronous POST — we can't get real byte-level
+  // progress from it.  Instead we drive a realistic animated bar through
+  // named "phases" whose durations are tuned to match the typical upsert time
+  // per category.  The bar slows and stalls near 95% until the page actually
+  // unloads (meaning the server responded), at which point we snap to 100%
+  // and let the browser navigate.
+  //
+  // Phases per category (label, target %, ms to reach target):
+  var _UPO_PHASES = {
+    WOID:       [
+      { label: 'Reading Excel file…',          pct: 12, ms: 600  },
+      { label: 'Snapshotting database…',        pct: 25, ms: 800  },
+      { label: 'Comparing WO records…',         pct: 52, ms: 2200 },
+      { label: 'Writing wo_summary…',           pct: 68, ms: 1400 },
+      { label: 'Writing wo_details…',           pct: 82, ms: 1200 },
+      { label: 'Rebuilding Active WO cache…',   pct: 92, ms: 900  },
+      { label: 'Finalising…',                   pct: 95, ms: 600  },
+    ],
+    SOID:       [
+      { label: 'Reading Excel file…',           pct: 12, ms: 500  },
+      { label: 'Loading valid WO IDs…',         pct: 24, ms: 600  },
+      { label: 'Comparing product lines…',      pct: 55, ms: 2000 },
+      { label: 'Writing wo_product_detail…',    pct: 78, ms: 1800 },
+      { label: 'Purging orphan rows…',          pct: 90, ms: 800  },
+      { label: 'Rebuilding mismatch cache…',    pct: 95, ms: 600  },
+    ],
+    SHIPMENT:   [
+      { label: 'Reading Excel file…',           pct: 12, ms: 500  },
+      { label: 'Loading valid WO IDs…',         pct: 22, ms: 600  },
+      { label: 'Matching shipment records…',    pct: 50, ms: 1800 },
+      { label: 'Writing shipment data…',        pct: 78, ms: 1800 },
+      { label: 'Rebuilding shipment cache…',    pct: 92, ms: 900  },
+      { label: 'Finalising…',                   pct: 95, ms: 600  },
+    ],
+    PARTONHOLD: [
+      { label: 'Reading Excel file…',           pct: 15, ms: 500  },
+      { label: 'Matching On Hold records…',     pct: 45, ms: 1500 },
+      { label: 'Writing ETA values…',           pct: 82, ms: 1800 },
+      { label: 'Finalising…',                   pct: 95, ms: 700  },
+    ],
+    GTAAP:      [
+      { label: 'Reading Excel file…',           pct: 15, ms: 500  },
+      { label: 'Matching SOID records…',        pct: 40, ms: 1400 },
+      { label: 'Writing DC# values…',           pct: 80, ms: 1800 },
+      { label: 'Finalising…',                   pct: 95, ms: 700  },
+    ],
+    DEFAULT:    [
+      { label: 'Reading file…',                 pct: 20, ms: 700  },
+      { label: 'Processing rows…',              pct: 65, ms: 2500 },
+      { label: 'Writing to database…',          pct: 88, ms: 1500 },
+      { label: 'Finalising…',                   pct: 95, ms: 700  },
+    ],
+  };
+
+  var _upoTimer      = null;   // interval handle
+  var _upoPhaseIdx   = 0;
+  var _upoCurPct     = 0;
+  var _upoPhases     = [];
+  var _upoStepEls    = [];     // DOM refs for step rows
+
+  // SVG icons reused in step rows
+  var _icoCheck =
+    '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16a34a" ' +
+         'stroke-width="3" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M20 6L9 17l-5-5"/>' +
+    '</svg>';
+
+  function _upoSetPct(pct) {
+    _upoCurPct = pct;
+    var p = Math.round(pct);
+    document.getElementById('upo-pct').textContent       = p + '%';
+    document.getElementById('upo-bar-fill').style.width  = pct + '%';
+  }
+
+  function _upoSetStage(label) {
+    document.getElementById('upo-stage').textContent = label;
+  }
+
+  function _upoMarkStep(idx, state) {
+    // state: 'waiting' | 'active' | 'done'
+    var el = _upoStepEls[idx];
+    if (!el) return;
+    el.className = 'upo-step ' + state;
+    var iconEl = el.querySelector('.upo-step-icon');
+    if (state === 'active') {
+      iconEl.innerHTML = '<span class="upo-step-spinner"></span>';
+    } else if (state === 'done') {
+      iconEl.innerHTML = _icoCheck;
+    } else {
+      iconEl.innerHTML = '<span class="upo-step-dot"></span>';
+    }
+  }
+
+  function _upoAdvance() {
+    if (_upoPhaseIdx >= _upoPhases.length) {
+      // All phases done — hold at 95% and slow-crawl to 97% while server finishes
+      _upoSetPct(Math.min(97, _upoCurPct + 0.05));
+      return;
+    }
+    var phase     = _upoPhases[_upoPhaseIdx];
+    var targetPct = phase.pct;
+    var stepMs    = phase.ms;
+
+    // Mark previous phase done, current active
+    if (_upoPhaseIdx > 0) _upoMarkStep(_upoPhaseIdx - 1, 'done');
+    _upoMarkStep(_upoPhaseIdx, 'active');
+    _upoSetStage(phase.label);
+
+    // Ease from current pct to targetPct over stepMs
+    var startPct  = _upoCurPct;
+    var startTime = Date.now();
+    var tickId    = setInterval(function () {
+      var elapsed = Date.now() - startTime;
+      var t       = Math.min(elapsed / stepMs, 1);
+      // ease-out cubic
+      var ease    = 1 - Math.pow(1 - t, 3);
+      _upoSetPct(startPct + (targetPct - startPct) * ease);
+      if (t >= 1) {
+        clearInterval(tickId);
+        _upoPhaseIdx++;
+        // Small pause between phases for readability
+        setTimeout(_upoAdvance, 180);
+      }
+    }, 30);
+  }
+
+  function startUpsertProgress(categoryKey, filename) {
+    // Populate filename
+    document.getElementById('upo-filename').textContent = filename || categoryKey;
+
+    // Pick phase plan
+    _upoPhases   = _UPO_PHASES[categoryKey] || _UPO_PHASES['DEFAULT'];
+    _upoPhaseIdx = 0;
+    _upoCurPct   = 0;
+
+    // Build step rows
+    var stepsEl  = document.getElementById('upo-steps');
+    stepsEl.innerHTML = '';
+    _upoStepEls  = [];
+    _upoPhases.forEach(function(ph) {
+      var row = document.createElement('div');
+      row.className = 'upo-step waiting';
+      row.innerHTML =
+        '<span class="upo-step-icon"><span class="upo-step-dot"></span></span>' +
+        '<span class="upo-step-label">' + ph.label + '</span>';
+      stepsEl.appendChild(row);
+      _upoStepEls.push(row);
+    });
+
+    // Reset bar + stage
+    _upoSetPct(0);
+    _upoSetStage('Preparing…');
+
+    // Show overlay
+    document.getElementById('upsert-progress-overlay').classList.add('show');
+
+    // Kick off animation on next frame so CSS transition fires
+    requestAnimationFrame(function() {
+      setTimeout(_upoAdvance, 120);
+    });
+
+    // On page unload (server responded, browser navigating) snap to 100%
+    window.addEventListener('pagehide', function() {
+      _upoSetPct(100);
+      _upoSetStage('Complete — loading results…');
+      if (_upoPhaseIdx > 0) _upoMarkStep(_upoPhaseIdx - 1, 'done');
+    }, { once: true });
+  }
+
+  function _doUpsertSubmit(categoryKey) {
+    var form = document.getElementById('upsert-form-' + categoryKey);
+    if (!form) return;
+
+    // Find the filename from the Upsert button's data-filename attribute
+    var upsertBtn = document.querySelector(
+      '.btn-upsert[data-category="' + categoryKey + '"]'
+    );
+    var filename = upsertBtn ? upsertBtn.getAttribute('data-filename') : categoryKey;
+
+    // Close the confirmation modal first, then show the progress overlay
+    closeUpsertModal();
+    startUpsertProgress(categoryKey, filename);
+
+    // Tiny delay so the overlay renders before the browser freezes on form submit
+    setTimeout(function() { form.submit(); }, 60);
   }
 
   function closeUpsertModal() {

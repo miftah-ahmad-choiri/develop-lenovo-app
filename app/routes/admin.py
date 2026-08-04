@@ -13,6 +13,7 @@ from app.services.upload.meta_cache import (
     write_meta, read_meta, delete_meta, mark_upserted,
     read_active_open_wos, rebuild_active_open_wos,
     read_incomplete_prev_shipments, rebuild_incomplete_prev_shipments,
+    write_wo_product_mismatch, read_wo_product_mismatch,
 )
 from app.services.upload.excel_to_df import (
     load_single_dataframe, DF_LABELS, _KEY_TO_DF,
@@ -251,11 +252,15 @@ def data_import():
                 "active_open_wos bootstrap failed:\n" + _tb.format_exc()
             )
 
+    # ── WO-product mismatch — read from JSON cache ────────────────────────────
+    wo_product_mismatch = read_wo_product_mismatch(meta_folder)
+
     return render_template("admin/data_import.html",
                            files=files,
                            category_rows=category_rows,
                            active_open_wos=active_open_wos,
                            incomplete_prev_shipments=incomplete_prev_shipments,
+                           wo_product_mismatch=wo_product_mismatch,
                            portal="admin", active_page="data_import")
 
 
@@ -615,9 +620,11 @@ def data_import_upsert_preview(category_key: str):
                     return _reason_woid(row) is not None
 
                 wo_id_col    = "Work Order ID"
-                date_col     = "Created On"
+                date_col     = "Modified On"
+                _woid_reason_col = "Reason"
                 preview_cols = [
-                    "Upsert Reason",
+                    _woid_reason_col,
+                    "Modified On",
                     "Work Order ID", "Serial Number", "Created On",
                     "Work Order Status", "Case Status (Case) (Case)",
                     "Closing Code", "Repeat Repair Reason", "WO Cancellation Reason",
@@ -628,9 +635,13 @@ def data_import_upsert_preview(category_key: str):
                     if wo_id_col in df.columns \
                     else pd.DataFrame()
 
-                # Inject synthetic "Upsert Reason" column
+                # Inject synthetic "Reason" column (first column — explains why each row qualifies)
+                # Also rename the raw Excel column "(Do Not Modify) Modified On" → "Modified On"
+                # so the display name is clean without changing the filter/sort logic.
                 if not new_df.empty:
-                    new_df["Upsert Reason"] = new_df.apply(_reason_woid, axis=1).fillna("")
+                    new_df[_woid_reason_col] = new_df.apply(_reason_woid, axis=1).fillna("")
+                    if "(Do Not Modify) Modified On" in new_df.columns:
+                        new_df = new_df.rename(columns={"(Do Not Modify) Modified On": "Modified On"})
 
                 # ── Active WOs not present in this Excel file ──────────────────
                 # Fetch all WOs from the DB that are still "open": no closing_date
@@ -719,10 +730,11 @@ def data_import_upsert_preview(category_key: str):
 
                 wo_col   = "Work Order"
                 line_col = "Line Order"
-                date_col = "Acceptance Date"
+                date_col = "Modified On"
                 _soid_reason_col = "Upsert Reason"
                 preview_cols = [
                     _soid_reason_col,
+                    "Modified On",
                     wo_col, line_col, "Product", "Description",
                     "Acceptance Date", "Shipment Date", "Delivery Date",
                     "Work Order Product Status",
@@ -792,8 +804,56 @@ def data_import_upsert_preview(category_key: str):
                     _soid_mask  = _soid_quals.apply(lambda x: x[0])
                     new_df      = df[_soid_mask].copy()
                     new_df[_soid_reason_col] = _soid_quals[_soid_mask].apply(lambda x: x[1])
+                    # Rename the raw Excel column to a clean display name
+                    if "(Do Not Modify) Modified On" in new_df.columns:
+                        new_df = new_df.rename(
+                            columns={"(Do Not Modify) Modified On": "Modified On"}
+                        )
                 else:
                     new_df = pd.DataFrame()
+
+                # ── WO-ID mismatch: Excel rows whose Work Order is not in either
+                # wo_summary or wo_details.  These rows are silently skipped by the
+                # upsert — surface them so the operator can investigate.
+                # "valid_wo_ids" is built from wo_summary above; cross-check against
+                # wo_details as well for completeness.
+                _detail_ids = {
+                    r[0] for r in db_conn.execute(
+                        "SELECT work_order_id FROM wo_details"
+                    ).fetchall()
+                }
+                _soid_mismatch_rows: list[dict] = []
+                if wo_col in df.columns:
+                    _seen_mismatch: set[int] = set()
+                    for _, _mr in df.iterrows():
+                        _mwo = _safe_int(_mr.get(wo_col))
+                        if _mwo is None:
+                            continue
+                        if _mwo not in valid_wo_ids and _mwo not in _detail_ids:
+                            if _mwo not in _seen_mismatch:
+                                _seen_mismatch.add(_mwo)
+                                # Normalise Created On to a plain date string
+                                _created_raw = _mr.get("Created On")
+                                try:
+                                    import pandas as _pd_mm
+                                    _created_str = str(_pd_mm.to_datetime(_created_raw).date()) \
+                                        if _created_raw is not None and str(_created_raw).strip() not in ("", "nan", "NaT") \
+                                        else ""
+                                except Exception:
+                                    _created_str = str(_created_raw or "").strip()[:10]
+                                _soid_mismatch_rows.append({
+                                    "Reason":            "WO Not Found",
+                                    "Created On":        _created_str,
+                                    "Work Order ID":     str(_mwo),
+                                    "Line Order":        str(_mr.get(line_col) or ""),
+                                    "Product":           str(_mr.get("Product") or ""),
+                                    "Description":       str(_mr.get("Description") or ""),
+                                    "WO Product Status": str(_mr.get("Work Order Product Status") or ""),
+                                })
+                # NOTE: _soid_mismatch_rows is NOT written to the JSON cache here.
+                # Writing only happens inside data_import_upsert() after the user
+                # confirms upsert — so cancelling the modal or refreshing the page
+                # leaves the previous cache intact and the page card unchanged.
 
             elif category_key == "SHIPMENT":
                 # Impacted rows = Excel rows where:
@@ -1111,13 +1171,16 @@ def data_import_upsert_preview(category_key: str):
 
         impacted_count = len(new_df)
 
-        # Return all impacted rows sorted by date_col descending (newest first)
+        # WOID and SOID: sort by Modified On ascending (oldest first).
+        # All other categories: sort by date_col descending (newest first).
+        _sort_asc = (category_key in ("WOID", "SOID"))
+
         def _all_rows_sorted(frame):
             if frame.empty or date_col not in frame.columns:
                 return []
             tmp = frame.copy()
             tmp["_sort_date"] = pd.to_datetime(tmp[date_col], errors="coerce")
-            tmp = tmp.sort_values("_sort_date", ascending=False, na_position="last")
+            tmp = tmp.sort_values("_sort_date", ascending=_sort_asc, na_position="last")
             tmp = tmp.drop(columns=["_sort_date"])
             cols = [c for c in preview_cols if c in tmp.columns]
             rows_out = []
@@ -1129,9 +1192,9 @@ def data_import_upsert_preview(category_key: str):
                 })
             return rows_out
 
-        # Use new_df for GTAAP, SOID, and SHIPMENT because they carry a synthetic
-        # "Upsert Reason" column (or "DC# (will be inserted)") not in the raw df.
-        _preview_col_source = new_df if (not new_df.empty and category_key in ("GTAAP", "SOID", "SHIPMENT")) else df
+        # Use new_df for WOID, GTAAP, SOID, and SHIPMENT because they carry a synthetic
+        # "Reason" / "Upsert Reason" / "DC# (will be inserted)" column not in the raw df.
+        _preview_col_source = new_df if (not new_df.empty and category_key in ("WOID", "GTAAP", "SOID", "SHIPMENT")) else df
         _resp = {
             "ok":               True,
             "category_key":     category_key,
@@ -1145,6 +1208,12 @@ def data_import_upsert_preview(category_key: str):
         if category_key == "WOID":
             _resp["active_wo_not_in_excel"] = active_wo_not_in_excel
             _resp["active_wo_cols"]         = active_wo_cols
+        if category_key == "SOID":
+            _resp["wo_product_mismatch"]      = _soid_mismatch_rows
+            _resp["wo_product_mismatch_cols"] = [
+                "Reason", "Created On", "Work Order ID", "Line Order",
+                "Product", "Description", "WO Product Status",
+            ]
         if category_key == "SHIPMENT":
             _resp["incomplete_prev_soids"]      = _incomplete_soids
             _resp["incomplete_prev_soid_cols"]  = _incomplete_soid_cols
@@ -1198,6 +1267,73 @@ def data_import_upsert(category_key: str):
         finally:
             db_conn.close()
         mark_upserted(meta_folder, target_file)
+        # ── SOID: rebuild the WO-product mismatch cache ───────────────────────
+        # Only written here (on confirmed upsert), never during preview-only.
+        # Cancel / refresh without confirming leaves the previous cache intact.
+        if category_key == "SOID":
+            try:
+                import io as _io_soid
+                import pandas as _pd_soid
+                from app.services.upload.upload_verification import (
+                    verify_uploaded_file as _vuf_soid,
+                )
+                from app.services.database.seed import _safe_int as _si_soid
+                _vr_soid = _vuf_soid(filepath)
+                _sn_soid = _vr_soid.get("sheet_name", "")
+                with open(filepath, "rb") as _fh_soid:
+                    _fb_soid = _io_soid.BytesIO(_fh_soid.read())
+                _df_soid = (
+                    _pd_soid.read_excel(_fb_soid, sheet_name=_sn_soid)
+                    if _sn_soid else _pd_soid.read_excel(_fb_soid)
+                )
+                _db_soid = sqlite3.connect(db_path)
+                _db_soid.row_factory = sqlite3.Row
+                try:
+                    _valid_ids_soid = {
+                        r[0] for r in _db_soid.execute(
+                            "SELECT work_order_id FROM wo_summary"
+                        ).fetchall()
+                    }
+                    _detail_ids_soid = {
+                        r[0] for r in _db_soid.execute(
+                            "SELECT work_order_id FROM wo_details"
+                        ).fetchall()
+                    }
+                finally:
+                    _db_soid.close()
+                _wo_col_soid  = "Work Order"
+                _ln_col_soid  = "Line Order"
+                _mismatch_soid: list[dict] = []
+                _seen_soid: set[int] = set()
+                if _wo_col_soid in _df_soid.columns:
+                    for _, _mr_s in _df_soid.iterrows():
+                        _mwo_s = _si_soid(_mr_s.get(_wo_col_soid))
+                        if _mwo_s is None:
+                            continue
+                        if _mwo_s not in _valid_ids_soid and _mwo_s not in _detail_ids_soid:
+                            if _mwo_s not in _seen_soid:
+                                _seen_soid.add(_mwo_s)
+                                _cr_raw = _mr_s.get("Created On")
+                                try:
+                                    _cr_str = str(_pd_soid.to_datetime(_cr_raw).date()) \
+                                        if _cr_raw is not None and str(_cr_raw).strip() not in ("", "nan", "NaT") \
+                                        else ""
+                                except Exception:
+                                    _cr_str = str(_cr_raw or "").strip()[:10]
+                                _mismatch_soid.append({
+                                    "Reason":            "WO Not Found",
+                                    "Created On":        _cr_str,
+                                    "Work Order ID":     str(_mwo_s),
+                                    "Line Order":        str(_mr_s.get(_ln_col_soid) or ""),
+                                    "Product":           str(_mr_s.get("Product") or ""),
+                                    "Description":       str(_mr_s.get("Description") or ""),
+                                    "WO Product Status": str(_mr_s.get("Work Order Product Status") or ""),
+                                })
+                write_wo_product_mismatch(meta_folder, _mismatch_soid)
+            except Exception:
+                current_app.logger.warning(
+                    "write_wo_product_mismatch failed after upsert:\n" + _tb.format_exc()
+                )
         # Rebuild the active-WO cache after a WOID upsert.
         # Pass the WO IDs from the Excel file so the cache only stores WOs
         # that were genuinely absent from this upload (matching the modal view).
