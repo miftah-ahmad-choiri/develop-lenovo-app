@@ -1331,3 +1331,102 @@ def get_asp_in_prepare_page(
     rows = conn.execute(rows_sql, params_rows + [page_size, offset]).fetchall()
 
     return {"rows": [dict(r) for r in rows], "total": total, "page": page, "pages": pages}
+
+
+# Completed Last 30 Days — WOs with completion_date within the past 30 days
+def get_asp_completed_last_30_days(
+    search: str = "",
+    type_filter: str = "",
+    no_awb: bool = False,
+    page: int = 1,
+    page_size: int = 25,
+    vendor_filter: str | None = None,
+) -> dict:
+    """
+    Return WOs where wo_details.completion_date falls within the last 30 calendar days
+    (WIB / UTC+7).  Ordered by completion_date DESC (most recently completed first).
+    """
+    import datetime
+    conn = get_db()
+
+    # WIB "today" cutoff: 30 days ago at 00:00:00 WIB
+    now_wib  = datetime.datetime.utcnow() + datetime.timedelta(hours=7)
+    cutoff   = (now_wib - datetime.timedelta(days=30)).strftime("%Y-%m-%d")
+
+    params: list = [cutoff]
+    wheres: list[str] = [
+        "TRIM(COALESCE(d.completion_date,'')) != ''",
+        "SUBSTR(d.completion_date,1,10) >= ?",
+    ]
+
+    if search:
+        term = f"%{search.lower()}%"
+        wheres.append("""(
+            CAST(s.work_order_id AS TEXT) LIKE ?
+            OR LOWER(s.serial_number)     LIKE ?
+            OR LOWER(s.contact_name)      LIKE ?
+            OR LOWER(s.customer)          LIKE ?
+            OR LOWER(s.case_desc)         LIKE ?
+        )""")
+        params.extend([term, term, term, term, term])
+
+    if type_filter:
+        wheres.append("LOWER(s.work_order_type) LIKE ?")
+        params.append(f"%{type_filter.lower()}%")
+
+    if no_awb:
+        # Keep only WOs that have at least one active (non-cancelled, ordered) part
+        # line with an empty AWB.
+        wheres.append("""EXISTS (
+            SELECT 1 FROM wo_product_detail p
+            WHERE p.work_order_id = s.work_order_id
+              AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
+              AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != ''
+              AND TRIM(COALESCE(p.awb,'')) = ''
+        )""")
+
+    if vendor_filter:
+        wheres.append("d.labor_vendor_related = ?")
+        params.append(vendor_filter)
+
+    where_sql = "WHERE " + " AND ".join(wheres)
+
+    base_sql = f"""
+        FROM wo_summary s
+        LEFT JOIN wo_details d USING (work_order_id)
+        {where_sql}
+    """
+
+    total  = conn.execute(f"SELECT COUNT(*) {base_sql}", params).fetchone()[0]
+    pages  = max(1, -(-total // page_size))
+    offset = (max(1, page) - 1) * page_size
+
+    rows = conn.execute(f"""
+        SELECT
+            s.work_order_id, s.serial_number, s.created_on,
+            s.work_order_type, s.case_desc,
+            s.work_order_status, s.case_status,
+            s.contact_name, s.customer,
+            d.completion_date,
+            d.closing_date,
+            d.case_number,
+            (SELECT COUNT(DISTINCT TRIM(p.awb))
+             FROM wo_product_detail p
+             WHERE p.work_order_id = s.work_order_id
+               AND TRIM(COALESCE(p.awb,'')) != '') AS awb_count,
+            (SELECT GROUP_CONCAT(DISTINCT TRIM(p.awb))
+             FROM wo_product_detail p
+             WHERE p.work_order_id = s.work_order_id
+               AND TRIM(COALESCE(p.awb,'')) != '') AS awb_list,
+            (SELECT COUNT(*)
+             FROM wo_product_detail p
+             WHERE p.work_order_id = s.work_order_id
+               AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
+               AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != ''
+               AND TRIM(COALESCE(p.awb,'')) = '') AS awb_missing_count
+        {base_sql}
+        ORDER BY d.completion_date DESC
+        LIMIT ? OFFSET ?
+    """, params + [page_size, offset]).fetchall()
+
+    return {"rows": [dict(r) for r in rows], "total": total, "page": page, "pages": pages}

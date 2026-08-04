@@ -577,6 +577,22 @@ def api_toggle_asp_user_status(user_id):
     return jsonify({"ok": True, "user": dict(row)})
 
 
+@asp_bp.route("/asp/api/completed-last-30days", methods=["GET"])
+@login_required
+def api_completed_last_30days():
+    """Completed Last 30 Days — WOs whose completion_date is within the past 30 days."""
+    from app.services.database.queries import get_asp_completed_last_30_days
+    per_page = min(_int_arg("per_page", 25), 100)
+    return jsonify(get_asp_completed_last_30_days(
+        search        = request.args.get("q", "").strip(),
+        type_filter   = request.args.get("wo_type", "").strip(),
+        no_awb        = _bool_arg("no_awb", False),
+        page          = _int_arg("page", 1),
+        page_size     = per_page,
+        vendor_filter = _vendor_filter(),
+    ))
+
+
 @asp_bp.route("/asp/api/in-prepare", methods=["GET"])
 @login_required
 def api_in_prepare():
