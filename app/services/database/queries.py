@@ -542,14 +542,13 @@ def get_asp_cci_followup_page(
         params.append(vendor_filter)
 
     where_sql = "WHERE " + " AND ".join(wheres)
-    now = datetime.datetime.utcnow()
+    # DB timestamps are in WIB (UTC+7) — use WIB now so elapsed_h is correct
+    now = datetime.datetime.utcnow() + datetime.timedelta(hours=7)
 
     def _followup_state(r: dict) -> str:
         # Use part_eta (target col from Shipment file), NOT committed_delivery_date
         part_eta_raw = (r.get("part_eta") or "")[:10]
         today        = now.date().isoformat()
-        # H+1 grace: part_sla only fires the day AFTER the ETA date
-        tomorrow     = (now.date() + datetime.timedelta(days=1)).isoformat()
         pod_raw        = r.get("part_pod_time") or ""
         comp_date      = r.get("completion_date") or ""
         close_date     = r.get("closing_date") or ""
@@ -567,11 +566,11 @@ def get_asp_cci_followup_page(
             #   - part_eta is filled (target date exists)
             #   - AWB is absent (part not yet physically picked up / confirmed)
             #   - no POD yet
-            #   - we are strictly past ETA + 1 day (H+1 grace)
+            #   - we are strictly past ETA (date has already passed — not same day)
             is_sla_breach = (
                 part_eta_raw
                 and not part_awb
-                and part_eta_raw < tomorrow   # today > ETA means we're at least H+1
+                and part_eta_raw < today      # overdue only when ETA date is in the past
             )
             return "part_sla" if is_sla_breach else "confirm_receipt"
         # part received at ASP (POD filled) and WO still open — only treat as CCI follow-up
@@ -653,6 +652,32 @@ def get_asp_cci_followup_page(
                 continue
             row["followup_state"] = state
             result_rows_all.append(row)
+
+        # Sort by the computed target datetime oldest-first:
+        #   confirm_receipt / part_sla  → part_eta (YYYY-MM-DD or datetime string)
+        #   wo_sla / report_problem     → part_pod_time + 1 day
+        #   rows with no computable target go last
+        def _target_sort_key(row: dict) -> str:
+            state = row.get("followup_state", "")
+            # wo_sla / report_problem: sort key = part_pod_time + 1 day (exact datetime)
+            # confirm_receipt / part_sla: sort key = part_eta date padded to T23:59
+            #   so that wo_sla/report_problem rows whose threshold falls on the same
+            #   calendar day always appear BEFORE confirm_receipt/part_sla rows.
+            if state in ("wo_sla", "report_problem"):
+                pod = (row.get("part_pod_time") or "").strip()[:16]
+                if pod:
+                    try:
+                        pod_dt = datetime.datetime.fromisoformat(pod.replace(" ", "T"))
+                        thresh = pod_dt + datetime.timedelta(days=1)
+                        return thresh.isoformat()[:16]
+                    except (ValueError, TypeError):
+                        pass
+            if state in ("confirm_receipt", "part_sla"):
+                eta = (row.get("part_eta") or "")[:10].strip()
+                return f"{eta}T23:59" if eta else "9999"
+            return "9999"
+
+        result_rows_all.sort(key=_target_sort_key)
         result_rows = result_rows_all
 
         total  = len(result_rows)
@@ -1288,7 +1313,25 @@ _IN_PREPARE_COLS = """
     p.acceptance_date        AS part_acceptance_date,
     p.eta_parthold_backlog   AS part_eta_wh,
     p.soid                   AS part_soid,
-    0                        AS no_part_lines
+    0                        AS no_part_lines,
+    (SELECT COUNT(*)
+     FROM wo_product_detail ph
+     WHERE ph.work_order_id = s.work_order_id
+       AND ph.wo_product_status = 'On Hold - Part Hold'
+       AND LOWER(COALESCE(ph.wo_product_status,'')) NOT LIKE '%cancel%'
+    )                        AS part_on_hold_count,
+    (SELECT COUNT(*)
+     FROM wo_product_detail pt
+     WHERE pt.work_order_id = s.work_order_id
+       AND LOWER(COALESCE(pt.wo_product_status,'')) NOT LIKE '%cancel%'
+    )                        AS part_total_order_count,
+    (SELECT COUNT(*)
+     FROM wo_product_detail pw
+     WHERE pw.work_order_id = s.work_order_id
+       AND LOWER(COALESCE(pw.wo_product_status,'')) NOT LIKE '%cancel%'
+       AND TRIM(COALESCE(pw.ship_pickup_time,'')) = ''
+       AND TRIM(COALESCE(pw.shipment_date,''))    = ''
+    )                        AS part_waiting_pickup_count
 """
 
 # Columns for PATH B (zero part lines) — part columns are all NULL / 0
@@ -1304,7 +1347,10 @@ _IN_PREPARE_COLS_NO_PART = """
     NULL AS part_acceptance_date,
     NULL AS part_eta_wh,
     NULL AS part_soid,
-    1    AS no_part_lines
+    1    AS no_part_lines,
+    0    AS part_on_hold_count,
+    0    AS part_total_order_count,
+    0    AS part_waiting_pickup_count
 """
 
 
@@ -1459,9 +1505,18 @@ def get_asp_in_prepare_page(
 
     union_rows = _union(_IN_PREPARE_COLS, _IN_PREPARE_COLS_NO_PART).format(
         sc_a=sc_a2, vc_a=vc_a2, sc_b=sc_b2, vc_b=vc_b2)
+    if prepare_filter == "part_on_hold":
+        order_by = """
+            CASE WHEN TRIM(COALESCE(part_eta_wh,'')) = '' THEN 1 ELSE 0 END ASC,
+            part_eta_wh ASC,
+            created_on  ASC
+        """
+    else:
+        order_by = "created_on DESC"
+
     rows_sql = f"""
         SELECT * FROM ({union_rows})
-        ORDER BY created_on DESC
+        ORDER BY {order_by}
         LIMIT ? OFFSET ?
     """
     rows = conn.execute(rows_sql, params_rows + [page_size, offset]).fetchall()

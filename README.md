@@ -272,15 +272,16 @@ bash: git: command not found
 
 **Cause:** The Windows `PATH` has `C:\Users\...\AppData\Local\Microsoft\WindowsApps` (WSL `bash.exe` stub) listed *before* Git's tool directories, so every call to `bash`, `sed`, or `uname` is intercepted by the broken WSL stub.
 
-**Immediate fix** — paste this into the broken Git Bash session:
+**Immediate fix** — paste this single line into the broken Git Bash session:
 ```bash
-export PATH="/mingw64/bin:/usr/bin:/bin:$PATH"
+export PATH="/mingw64/bin:/usr/bin:/bin:$PATH" && uname -a && sed --version && git --version
 ```
 
-Verify it worked:
-```bash
-uname -a && sed --version && git --version
-```
+What this does:
+- `export PATH="/mingw64/bin:/usr/bin:/bin:$PATH"` — prepends Git's tool directories to the front of `PATH` for the current session, so `git`, `sed`, `uname` etc. resolve to Git Bash's own binaries instead of the broken WSL stub
+- `&& uname -a && sed --version && git --version` — immediately verifies all three tools are working; if any command is still missing, it will stop and tell you which one failed
+
+> **Note:** This fix only lasts for the current terminal session. Open a new Git Bash window and it will be gone. Use the permanent fix below to make it stick.
 
 **Permanent fix** — run once in PowerShell (moves Git bins to front of user PATH):
 ```powershell
