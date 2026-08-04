@@ -690,6 +690,10 @@
         <button class="subtab-pill" data-prepfilter="waiting_pickup">📦 Waiting for Pickup</button>
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+        <button class="btn-export-xlsx" id="btn-export-in-prepare" title="Export all rows to Excel">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Export Excel
+        </button>
         <input type="search" id="search-in-prepare" placeholder="Search WO, serial, contact, customer…" autocomplete="off" style="padding:7px 11px;border:1px solid #d0d7de;border-radius:6px;font-size:13px;width:240px;font-family:inherit;" />
         <span class="toolbar-count" id="count-in-prepare"></span>
       </div>
@@ -724,6 +728,10 @@
         <button class="subtab-pill" data-fufilter="in_repair">🔧 CCI In-Repair</button>
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+        <button class="btn-export-xlsx" id="btn-export-cci-followup" title="Export all rows to Excel">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Export Excel
+        </button>
         <input type="search" id="search-cci-followup" placeholder="Search WO, serial, contact, customer…" autocomplete="off" style="padding:7px 11px;border:1px solid #d0d7de;border-radius:6px;font-size:13px;width:240px;font-family:inherit;" />
         <span class="toolbar-count" id="count-cci-followup"></span>
       </div>
@@ -759,6 +767,10 @@
         <button class="subtab-pill" data-onsfilter="wo_sla">🔧 ONS In-Repair</button>
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+        <button class="btn-export-xlsx" id="btn-export-ons-followup" title="Export all rows to Excel">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Export Excel
+        </button>
         <input type="search" id="search-ons-followup" placeholder="Search WO, serial, contact, customer…" autocomplete="off" style="padding:7px 11px;border:1px solid #d0d7de;border-radius:6px;font-size:13px;width:240px;font-family:inherit;" />
         <span class="toolbar-count" id="count-ons-followup"></span>
       </div>
@@ -790,12 +802,12 @@
 <div class="tab-panel" id="tab-return-part">
   <div class="table-card">
     <div class="table-toolbar">
-      <input type="search" id="search-return-part" placeholder="Search WO, serial, contact, customer…" autocomplete="off" />
-      <span class="toolbar-count" id="count-return-part"></span>
       <button class="btn-export-xlsx" id="btn-export-return-part" title="Export all rows to Excel">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         Export Excel
       </button>
+      <input type="search" id="search-return-part" placeholder="Search WO, serial, contact, customer…" autocomplete="off" />
+      <span class="toolbar-count" id="count-return-part"></span>
     </div>
     <div class="table-scroll">
       <table class="data-table">
@@ -3399,6 +3411,105 @@ document.getElementById('btn-export-return-part').addEventListener('click', func
       const cd = res.headers.get('Content-Disposition') || '';
       const match = cd.match(/filename[^;=\n]*=(?:(['"])(.+?)\1|([^;\n]*))/);
       const name = (match && (match[2] || match[3])) || 'Return_Part_InputDC.xlsx';
+      return res.blob().then(blob => ({ blob, name }));
+    })
+    .then(({ blob, name }) => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    })
+    .catch(() => toast('Export failed. Please try again.', 'err'))
+    .finally(() => {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Export Excel';
+    });
+});
+
+/* ─── Export: In-Prepare Follow-Up ───────────────────────────────────── */
+document.getElementById('btn-export-in-prepare').addEventListener('click', function () {
+  const btn = this;
+  btn.disabled = true;
+  btn.textContent = 'Exporting…';
+  const q  = document.getElementById('search-in-prepare').value.trim();
+  const pf = inPrepareFilter || '';
+  const params = new URLSearchParams();
+  if (q)  params.set('q', q);
+  if (pf) params.set('prepare_filter', pf);
+  const url = '/asp/api/in-prepare/export' + (params.toString() ? '?' + params.toString() : '');
+  fetch(url)
+    .then(res => {
+      if (!res.ok) throw new Error('Export failed');
+      const cd    = res.headers.get('Content-Disposition') || '';
+      const match = cd.match(/filename[^;=\n]*=(?:(['"])(.+?)\1|([^;\n]*))/);
+      const name  = (match && (match[2] || match[3])) || 'InPrepare_FollowUp.xlsx';
+      return res.blob().then(blob => ({ blob, name }));
+    })
+    .then(({ blob, name }) => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    })
+    .catch(() => toast('Export failed. Please try again.', 'err'))
+    .finally(() => {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Export Excel';
+    });
+});
+
+/* ─── Export: CCI Follow-Up ──────────────────────────────────────────── */
+document.getElementById('btn-export-cci-followup').addEventListener('click', function () {
+  const btn = this;
+  btn.disabled = true;
+  btn.textContent = 'Exporting…';
+  const q  = document.getElementById('search-cci-followup').value.trim();
+  const fs = cciFollowUpFilter || '';
+  const params = new URLSearchParams();
+  if (q)  params.set('q', q);
+  if (fs) params.set('followup_state', fs);
+  const url = '/asp/api/cci-followup/export' + (params.toString() ? '?' + params.toString() : '');
+  fetch(url)
+    .then(res => {
+      if (!res.ok) throw new Error('Export failed');
+      const cd    = res.headers.get('Content-Disposition') || '';
+      const match = cd.match(/filename[^;=\n]*=(?:(['"])(.+?)\1|([^;\n]*))/);
+      const name  = (match && (match[2] || match[3])) || 'CCI_FollowUp.xlsx';
+      return res.blob().then(blob => ({ blob, name }));
+    })
+    .then(({ blob, name }) => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    })
+    .catch(() => toast('Export failed. Please try again.', 'err'))
+    .finally(() => {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Export Excel';
+    });
+});
+
+/* ─── Export: ONS Follow-Up ──────────────────────────────────────────── */
+document.getElementById('btn-export-ons-followup').addEventListener('click', function () {
+  const btn = this;
+  btn.disabled = true;
+  btn.textContent = 'Exporting…';
+  const q  = document.getElementById('search-ons-followup').value.trim();
+  const fs = onsFollowUpFilter || '';
+  const params = new URLSearchParams();
+  if (q)  params.set('q', q);
+  if (fs) params.set('followup_state', fs);
+  const url = '/asp/api/onsite-followup/export' + (params.toString() ? '?' + params.toString() : '');
+  fetch(url)
+    .then(res => {
+      if (!res.ok) throw new Error('Export failed');
+      const cd    = res.headers.get('Content-Disposition') || '';
+      const match = cd.match(/filename[^;=\n]*=(?:(['"])(.+?)\1|([^;\n]*))/);
+      const name  = (match && (match[2] || match[3])) || 'ONS_FollowUp.xlsx';
       return res.blob().then(blob => ({ blob, name }));
     })
     .then(({ blob, name }) => {

@@ -770,3 +770,308 @@ def api_return_part_export():
         download_name=filename,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  In-Prepare Follow-Up — Export
+# ═══════════════════════════════════════════════════════════════════════════
+
+@asp_bp.route("/asp/api/in-prepare/export", methods=["GET"])
+@login_required
+def api_in_prepare_export():
+    """Export In-Prepare Follow-Up — all rows, one per WO, as .xlsx."""
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from app.services.database.queries import get_asp_in_prepare_page
+
+    result = get_asp_in_prepare_page(
+        search          = request.args.get("q", "").strip(),
+        prepare_filter  = request.args.get("prepare_filter", "").strip(),
+        page            = 1,
+        page_size       = 9999,
+        vendor_filter   = _vendor_filter(),
+    )
+    wo_rows = result.get("rows", [])
+
+    def _fd(val):
+        if not val: return ""
+        s = str(val).strip()
+        return s[:16] if len(s) > 16 else s
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "In-Prepare Follow-Up"
+
+    headers = [
+        "No.", "WO Number", "Created On", "WO Type", "Case",
+        "WO Status", "Part Product", "Part Description",
+        "Part Order Date", "ETA tiba di YCH", "Part SOID",
+        "On Hold", "Total Waiting Pickup",
+        "Contact Name", "ASP",
+    ]
+    col_keys = [
+        None,
+        "work_order_id", "created_on", "work_order_type", "case_desc",
+        "work_order_status", "part_product", "part_description",
+        "part_order_date", "part_eta_wh", "part_soid",
+        "part_on_hold_count", "part_waiting_pickup_count",
+        "contact_name", "customer",
+    ]
+    col_widths = [6, 16, 18, 14, 34, 26, 20, 34, 18, 18, 14, 12, 18, 24, 32]
+
+    hdr_fill   = PatternFill("solid", fgColor="1F2328")
+    hdr_font   = Font(bold=True, color="FFFFFF", size=11)
+    hdr_align  = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    thin_side  = Side(style="thin", color="E5E7EB")
+    thin_bdr   = Border(left=thin_side, right=thin_side, bottom=thin_side, top=thin_side)
+
+    for ci, (h, w) in enumerate(zip(headers, col_widths), start=1):
+        cell = ws.cell(row=1, column=ci, value=h)
+        cell.fill = hdr_fill; cell.font = hdr_font
+        cell.alignment = hdr_align; cell.border = thin_bdr
+        ws.column_dimensions[cell.column_letter].width = w
+    ws.row_dimensions[1].height = 22
+
+    even_fill  = PatternFill("solid", fgColor="F7F8FA")
+    data_font  = Font(size=11)
+    data_align = Alignment(vertical="center")
+
+    for ri, r in enumerate(wo_rows, start=2):
+        fill = even_fill if ri % 2 == 0 else PatternFill()
+        for ci, key in enumerate(col_keys, start=1):
+            if key is None:
+                value = ri - 1
+            elif key in ("created_on", "part_order_date", "part_eta_wh"):
+                value = _fd(r.get(key))
+            elif key == "part_soid":
+                raw = r.get(key)
+                value = str(int(raw)) if raw is not None else ""
+            else:
+                value = r.get(key) or ""
+            cell = ws.cell(row=ri, column=ci, value=value)
+            cell.font = data_font; cell.alignment = data_align; cell.border = thin_bdr
+            if fill.fill_type: cell.fill = fill
+        ws.row_dimensions[ri].height = 18
+
+    ws.freeze_panes = "A2"
+
+    report_dir = current_app.config["REPORT_DIR"]
+    os.makedirs(report_dir, exist_ok=True)
+    ts       = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"InPrepare_FollowUp_{ts}.xlsx"
+    filepath = os.path.join(report_dir, filename)
+    wb.save(filepath)
+
+    return send_file(
+        filepath,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  CCI Follow-Up — Export
+# ═══════════════════════════════════════════════════════════════════════════
+
+@asp_bp.route("/asp/api/cci-followup/export", methods=["GET"])
+@login_required
+def api_cci_followup_export():
+    """Export CCI Follow-Up — all rows as .xlsx."""
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from app.services.database.queries import get_asp_cci_followup_page
+
+    result = get_asp_cci_followup_page(
+        search         = request.args.get("q", "").strip(),
+        followup_state = request.args.get("followup_state", "").strip(),
+        page           = 1,
+        page_size      = 9999,
+        vendor_filter  = _vendor_filter(),
+    )
+    wo_rows = result.get("rows", [])
+
+    def _fd(val):
+        if not val: return ""
+        s = str(val).strip()
+        return s[:16] if len(s) > 16 else s
+
+    _state_labels = {
+        "confirm_receipt": "Confirm AWB",
+        "part_sla":        "Part SLA Overdue",
+        "wo_sla":          "Escalate WO",
+        "report_problem":  "WO SLA Follow-Up",
+    }
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "CCI Follow-Up"
+
+    headers = [
+        "No.", "WO Number", "Created On", "Follow-Up State",
+        "Part Qty (In Transit)", "Target Fix/Sampai",
+        "AWB", "WO Status", "Shipped On", "Case",
+        "Contact Name", "ASP",
+    ]
+    col_keys = [
+        None,
+        "work_order_id", "created_on", "_followup_label",
+        "part_qty", "part_eta",
+        "part_awb", "work_order_status", "ship_pickup_time", "case_desc",
+        "contact_name", "customer",
+    ]
+    col_widths = [6, 16, 18, 22, 18, 22, 20, 26, 20, 34, 24, 32]
+
+    hdr_fill   = PatternFill("solid", fgColor="1F2328")
+    hdr_font   = Font(bold=True, color="FFFFFF", size=11)
+    hdr_align  = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    thin_side  = Side(style="thin", color="E5E7EB")
+    thin_bdr   = Border(left=thin_side, right=thin_side, bottom=thin_side, top=thin_side)
+
+    for ci, (h, w) in enumerate(zip(headers, col_widths), start=1):
+        cell = ws.cell(row=1, column=ci, value=h)
+        cell.fill = hdr_fill; cell.font = hdr_font
+        cell.alignment = hdr_align; cell.border = thin_bdr
+        ws.column_dimensions[cell.column_letter].width = w
+    ws.row_dimensions[1].height = 22
+
+    even_fill  = PatternFill("solid", fgColor="F7F8FA")
+    data_font  = Font(size=11)
+    data_align = Alignment(vertical="center")
+
+    for ri, r in enumerate(wo_rows, start=2):
+        fill = even_fill if ri % 2 == 0 else PatternFill()
+        for ci, key in enumerate(col_keys, start=1):
+            if key is None:
+                value = ri - 1
+            elif key == "_followup_label":
+                value = _state_labels.get(r.get("followup_state", ""), r.get("followup_state", "") or "")
+            elif key in ("created_on", "part_eta", "ship_pickup_time"):
+                value = _fd(r.get(key))
+            else:
+                value = r.get(key) or ""
+            cell = ws.cell(row=ri, column=ci, value=value)
+            cell.font = data_font; cell.alignment = data_align; cell.border = thin_bdr
+            if fill.fill_type: cell.fill = fill
+        ws.row_dimensions[ri].height = 18
+
+    ws.freeze_panes = "A2"
+
+    report_dir = current_app.config["REPORT_DIR"]
+    os.makedirs(report_dir, exist_ok=True)
+    ts       = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"CCI_FollowUp_{ts}.xlsx"
+    filepath = os.path.join(report_dir, filename)
+    wb.save(filepath)
+
+    return send_file(
+        filepath,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  ONS (Onsite) Follow-Up — Export
+# ═══════════════════════════════════════════════════════════════════════════
+
+@asp_bp.route("/asp/api/onsite-followup/export", methods=["GET"])
+@login_required
+def api_onsite_followup_export():
+    """Export ONS Follow-Up — all rows as .xlsx."""
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from app.services.database.queries import get_asp_onsite_followup_page
+
+    result = get_asp_onsite_followup_page(
+        search         = request.args.get("q", "").strip(),
+        followup_state = request.args.get("followup_state", "").strip(),
+        page           = 1,
+        page_size      = 9999,
+        vendor_filter  = _vendor_filter(),
+    )
+    wo_rows = result.get("rows", [])
+
+    def _fd(val):
+        if not val: return ""
+        s = str(val).strip()
+        return s[:16] if len(s) > 16 else s
+
+    _state_labels = {
+        "wo_reschedule":  "ONS In-Transit",
+        "part_sla":       "Part SLA Overdue",
+        "wo_sla":         "Escalate WO",
+        "report_problem": "WO SLA Follow-Up",
+    }
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "ONS Follow-Up"
+
+    headers = [
+        "No.", "WO Number", "Created On", "Follow-Up State",
+        "Delivered On", "Part Qty (In Transit)", "Defer Date",
+        "Target Fix/Sampai",
+        "AWB", "WO Status", "Shipped On", "POD / Received On",
+        "Case", "Contact Name", "ASP",
+    ]
+    col_keys = [
+        None,
+        "work_order_id", "created_on", "_followup_label",
+        "part_pod_time", "part_qty", "customer_defer_date",
+        "part_eta",
+        "part_awb", "work_order_status", "ship_pickup_time", "part_pod_time",
+        "case_desc", "contact_name", "customer",
+    ]
+    col_widths = [6, 16, 18, 20, 20, 18, 18, 22, 20, 26, 20, 20, 34, 24, 32]
+
+    hdr_fill   = PatternFill("solid", fgColor="1F2328")
+    hdr_font   = Font(bold=True, color="FFFFFF", size=11)
+    hdr_align  = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    thin_side  = Side(style="thin", color="E5E7EB")
+    thin_bdr   = Border(left=thin_side, right=thin_side, bottom=thin_side, top=thin_side)
+
+    for ci, (h, w) in enumerate(zip(headers, col_widths), start=1):
+        cell = ws.cell(row=1, column=ci, value=h)
+        cell.fill = hdr_fill; cell.font = hdr_font
+        cell.alignment = hdr_align; cell.border = thin_bdr
+        ws.column_dimensions[cell.column_letter].width = w
+    ws.row_dimensions[1].height = 22
+
+    even_fill  = PatternFill("solid", fgColor="F7F8FA")
+    data_font  = Font(size=11)
+    data_align = Alignment(vertical="center")
+
+    for ri, r in enumerate(wo_rows, start=2):
+        fill = even_fill if ri % 2 == 0 else PatternFill()
+        for ci, key in enumerate(col_keys, start=1):
+            if key is None:
+                value = ri - 1
+            elif key == "_followup_label":
+                value = _state_labels.get(r.get("followup_state", ""), r.get("followup_state", "") or "")
+            elif key in ("created_on", "part_eta", "ship_pickup_time",
+                         "part_pod_time", "customer_defer_date"):
+                value = _fd(r.get(key))
+            else:
+                value = r.get(key) or ""
+            cell = ws.cell(row=ri, column=ci, value=value)
+            cell.font = data_font; cell.alignment = data_align; cell.border = thin_bdr
+            if fill.fill_type: cell.fill = fill
+        ws.row_dimensions[ri].height = 18
+
+    ws.freeze_panes = "A2"
+
+    report_dir = current_app.config["REPORT_DIR"]
+    os.makedirs(report_dir, exist_ok=True)
+    ts       = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"ONS_FollowUp_{ts}.xlsx"
+    filepath = os.path.join(report_dir, filename)
+    wb.save(filepath)
+
+    return send_file(
+        filepath,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
