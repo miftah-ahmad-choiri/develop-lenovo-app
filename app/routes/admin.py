@@ -12,6 +12,7 @@ from app.services.upload.upload_verification import verify_uploaded_file
 from app.services.upload.meta_cache import (
     write_meta, read_meta, delete_meta, mark_upserted,
     read_active_open_wos, rebuild_active_open_wos,
+    read_incomplete_prev_shipments, rebuild_incomplete_prev_shipments,
 )
 from app.services.upload.excel_to_df import (
     load_single_dataframe, DF_LABELS, _KEY_TO_DF,
@@ -192,6 +193,9 @@ def data_import():
             "upserted":      bool(uploaded.get("upserted"))            if uploaded else False,
         })
 
+    # ── Incomplete previous-month shipments — read from JSON cache ────────────
+    incomplete_prev_shipments = read_incomplete_prev_shipments(meta_folder)
+
     # ── Active open WOs — read from JSON cache (no DB hit on GET) ────────────
     # The cache is rebuilt after every WOID upsert.  On first visit (before any
     # upsert has ever run) the cache file does not exist yet, so we fall back to
@@ -251,6 +255,7 @@ def data_import():
                            files=files,
                            category_rows=category_rows,
                            active_open_wos=active_open_wos,
+                           incomplete_prev_shipments=incomplete_prev_shipments,
                            portal="admin", active_page="data_import")
 
 
@@ -862,6 +867,101 @@ def data_import_upsert_preview(category_key: str):
                     new_df[_ship_reason_col] = _ship_quals[_ship_mask].apply(lambda x: x[1])
                 else:
                     new_df = pd.DataFrame()
+
+                # ── Previous-month SOIDs with incomplete shipment data ─────────
+                # Uses the cached incomplete list (built from the latest-known anchor
+                # month).  Cross-references against the current Excel to split into:
+                #   A. filled_by_excel  — cached incomplete SOIDs present in this
+                #      Excel file with a non-empty value for the missing field(s)
+                #      → will be fixed by this upsert.
+                #   B. still_incomplete — cached incomplete SOIDs NOT covered by
+                #      this Excel (or still missing after it).
+                from datetime import datetime as _dt_ship
+                import math as _math_ship
+
+                _pickup_col = "Ship PickUp Time"
+                _incomplete_soid_cols = [
+                    "Missing Fields",
+                    "SOID", "SO (Work Order ID)", "Ship PN",
+                    "wo_product_status", "ship_pickup_time",
+                    "AWB", "Ship POU POD Time",
+                ]
+
+                # Step 1 — derive dominant month from this Excel's pickup dates
+                _excel_month: str | None = None   # "YYYY-MM"
+                if _pickup_col in df.columns:
+                    _months: dict[str, int] = {}
+                    for _v in df[_pickup_col]:
+                        if not _has_value(_v):
+                            continue
+                        try:
+                            _iso = str(pd.to_datetime(_v).date())[:7]
+                            _months[_iso] = _months.get(_iso, 0) + 1
+                        except Exception:
+                            pass
+                    if _months:
+                        _excel_month = max(_months, key=lambda k: _months[k])
+
+                # Step 2 — load the cached incomplete list (anchor = latest known month)
+                from app.services.upload.meta_cache import read_incomplete_prev_shipments as _read_inc
+                _cached_incomplete = _read_inc(meta_folder)
+
+                # Step 3 — build a lookup of what this Excel provides, keyed by SOID
+                #   excel_soid_vals[soid] = {"awb": val_or_None, "ship_pou_pod_time": val_or_None}
+                _excel_soid_vals: dict[int, dict] = {}
+                if soid_col in df.columns:
+                    for _, _er in df.iterrows():
+                        _esoid = _safe_int(_er.get(soid_col))
+                        if _esoid is None:
+                            continue
+                        _excel_soid_vals[_esoid] = {
+                            "awb":               _er.get("AWB"),
+                            "ship_pou_pod_time":  _er.get("Ship POU POD Time"),
+                            "ship_pn":           _er.get("Ship PN"),
+                        }
+
+                # Step 4 — split cached list into filled vs still-incomplete
+                _filled_by_excel:   list[dict] = []
+                _still_incomplete:  list[dict] = []
+
+                for _ci in _cached_incomplete:
+                    _csoid = _safe_int(_ci.get("SOID"))
+                    if _csoid is None:
+                        _still_incomplete.append(_ci)
+                        continue
+                    _ex = _excel_soid_vals.get(_csoid)
+                    if _ex is None:
+                        # SOID not in this Excel at all
+                        _still_incomplete.append(_ci)
+                        continue
+                    # Check whether Excel fills each missing field
+                    _fills_awb = (
+                        "AWB" in _ci.get("Missing Fields", "")
+                        and _has_value(_ex.get("awb"))
+                    )
+                    _fills_pod = (
+                        "Ship POU POD Time" in _ci.get("Missing Fields", "")
+                        and _has_value(_ex.get("ship_pou_pod_time"))
+                    )
+                    _needs_awb = "AWB" in _ci.get("Missing Fields", "")
+                    _needs_pod = "Ship POU POD Time" in _ci.get("Missing Fields", "")
+
+                    if (_needs_awb and not _fills_awb) or (_needs_pod and not _fills_pod):
+                        # Excel doesn't fully fill this row — stays incomplete
+                        _still_incomplete.append(_ci)
+                    else:
+                        # All missing fields will be filled by this Excel
+                        _filled = dict(_ci)
+                        # Show what Excel will write
+                        if _fills_awb:
+                            _filled["AWB"] = str(_ex["awb"])
+                        if _fills_pod:
+                            _filled["Ship POU POD Time"] = str(_ex["ship_pou_pod_time"])
+                        _filled_by_excel.append(_filled)
+
+                # _incomplete_soids shown in modal = still-incomplete after this upsert
+                _incomplete_soids: list[dict] = _still_incomplete
+
             elif category_key == "PARTONHOLD":
                 # Impacted rows = Excel rows where:
                 #   1. SOID exists in wo_product_detail AND
@@ -1045,6 +1145,12 @@ def data_import_upsert_preview(category_key: str):
         if category_key == "WOID":
             _resp["active_wo_not_in_excel"] = active_wo_not_in_excel
             _resp["active_wo_cols"]         = active_wo_cols
+        if category_key == "SHIPMENT":
+            _resp["incomplete_prev_soids"]      = _incomplete_soids
+            _resp["incomplete_prev_soid_cols"]  = _incomplete_soid_cols
+            _resp["excel_month"]                = _excel_month or ""
+            _resp["filled_by_excel"]            = _filled_by_excel
+            _resp["filled_by_excel_cols"]       = _incomplete_soid_cols
         return jsonify(_resp)
 
     except Exception:
@@ -1095,6 +1201,62 @@ def data_import_upsert(category_key: str):
         # Rebuild the active-WO cache after a WOID upsert.
         # Pass the WO IDs from the Excel file so the cache only stores WOs
         # that were genuinely absent from this upload (matching the modal view).
+        if category_key == "SHIPMENT":
+            # Rebuild the incomplete-prev-shipments cache after a SHIPMENT upsert.
+            # Derive the current Excel month from the uploaded file's pickup dates.
+            try:
+                import io as _io3
+                import pandas as _pd3
+                from app.services.upload.upload_verification import (
+                    verify_uploaded_file as _vuf3,
+                )
+                _vr3 = _vuf3(filepath)
+                _sn3 = _vr3.get("sheet_name", "")
+                with open(filepath, "rb") as _fh3:
+                    _fb3 = _io3.BytesIO(_fh3.read())
+                _df3 = (
+                    _pd3.read_excel(_fb3, sheet_name=_sn3)
+                    if _sn3 else _pd3.read_excel(_fb3)
+                )
+                _months3: dict[str, int] = {}
+                for _v3 in _df3.get("Ship PickUp Time", _pd3.Series(dtype=object)):
+                    try:
+                        _iso3 = str(_pd3.to_datetime(_v3).date())[:7]
+                        _months3[_iso3] = _months3.get(_iso3, 0) + 1
+                    except Exception:
+                        pass
+                # Use the MAXIMUM month across all months in the Excel so
+                # uploading an older monthly report never regresses the anchor.
+                _excel_month3 = max(_months3.keys()) if _months3 else ""
+                if _excel_month3:
+                    # Also compare against the existing cached anchor so we
+                    # never move the anchor backwards.
+                    from app.services.upload.meta_cache import (
+                        read_incomplete_prev_shipments as _read_inc3,
+                    )
+                    _cur_cache3 = _read_inc3(meta_folder)
+                    if _cur_cache3:
+                        # Infer current anchor from the highest ship_pickup_time in cache
+                        _cached_months3 = [
+                            r.get("ship_pickup_time", "")[:7]
+                            for r in _cur_cache3
+                            if r.get("ship_pickup_time", "")[:7]
+                        ]
+                        if _cached_months3:
+                            _anchor_from_cache = max(_cached_months3)
+                            # advance anchor by one month so cached rows are included
+                            import calendar as _cal3
+                            _y3, _m3 = int(_anchor_from_cache[:4]), int(_anchor_from_cache[5:7])
+                            _m3 += 1
+                            if _m3 > 12:
+                                _m3, _y3 = 1, _y3 + 1
+                            _cache_anchor_next = f"{_y3:04d}-{_m3:02d}"
+                            _excel_month3 = max(_excel_month3, _cache_anchor_next)
+                    rebuild_incomplete_prev_shipments(meta_folder, db_path, _excel_month3)
+            except Exception:
+                current_app.logger.warning(
+                    "rebuild_incomplete_prev_shipments failed after upsert:\n" + _tb.format_exc()
+                )
         if category_key == "WOID":
             try:
                 import io as _io2

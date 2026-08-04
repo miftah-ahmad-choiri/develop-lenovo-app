@@ -10,6 +10,10 @@ A separate file `active_open_wos.json` in the same folder caches the list
 of active (open, non-cancelled) Work Orders so the data-import page can
 render it without hitting the database on every GET.
 
+A second file `incomplete_prev_shipments.json` caches the list of SOIDs
+from previous months that are Delivered but still missing AWB / Ship POU
+POD Time.  Rebuilt after every SHIPMENT upsert.
+
 Public API
 ----------
 write_meta(folder, filename, result)       — called once after a successful upload
@@ -20,6 +24,10 @@ mark_upserted(folder, filename)            — marks a file as upserted in its s
 write_active_open_wos(folder, rows)        — persist active-WO list to JSON
 read_active_open_wos(folder)               — load active-WO list from JSON ([] on miss)
 rebuild_active_open_wos(folder, db_path)   — re-query DB and overwrite the cache
+
+write_incomplete_prev_shipments(folder, rows)    — persist incomplete-shipment list
+read_incomplete_prev_shipments(folder)           — load list from JSON ([] on miss)
+rebuild_incomplete_prev_shipments(folder, db_path, excel_month) — re-query & overwrite
 """
 from __future__ import annotations
 
@@ -28,7 +36,8 @@ import os
 import sqlite3
 
 _SUFFIX = ".meta.json"
-_ACTIVE_WO_FILE = "active_open_wos.json"
+_ACTIVE_WO_FILE              = "active_open_wos.json"
+_INCOMPLETE_SHIPMENTS_FILE   = "incomplete_prev_shipments.json"
 
 
 def _meta_path(folder: str, filename: str) -> str:
@@ -180,4 +189,107 @@ def rebuild_active_open_wos(
         pass  # non-fatal — keep the old cache intact if the query fails
     else:
         write_active_open_wos(folder, rows)
+    return rows
+
+
+# ── Incomplete previous-month shipments cache ─────────────────────────────────
+# A single JSON file stores the list of SOIDs from previous months whose
+# wo_product_status is 'Delivered', ship_pn is set, but awb and/or
+# ship_pou_pod_time are still NULL/empty.
+# Written once after every SHIPMENT upsert; read on every page GET.
+
+_INCOMPLETE_SHIPMENTS_QUERY = """
+    SELECT
+        wpd.soid,
+        wpd.work_order_id,
+        wpd.ship_pn,
+        wpd.wo_product_status,
+        wpd.ship_pickup_time,
+        wpd.awb,
+        wpd.ship_pou_pod_time
+    FROM wo_product_detail wpd
+    WHERE wpd.ship_pn IS NOT NULL
+      AND wpd.ship_pn != ''
+      AND LOWER(COALESCE(wpd.wo_product_status, '')) = 'delivered'
+      AND SUBSTR(COALESCE(wpd.ship_pickup_time, ''), 1, 7) < :excel_month
+      AND SUBSTR(COALESCE(wpd.ship_pickup_time, ''), 1, 7) != ''
+      AND (
+            wpd.awb              IS NULL OR wpd.awb              = ''
+         OR wpd.ship_pou_pod_time IS NULL OR wpd.ship_pou_pod_time = ''
+      )
+    ORDER BY wpd.ship_pickup_time ASC
+"""
+
+
+def write_incomplete_prev_shipments(folder: str, rows: list[dict]) -> None:
+    """Persist *rows* as the incomplete-shipments cache JSON."""
+    path = os.path.join(folder, _INCOMPLETE_SHIPMENTS_FILE)
+    try:
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(rows, fh)
+    except OSError:
+        pass
+
+
+def read_incomplete_prev_shipments(folder: str) -> list[dict]:
+    """Return the cached incomplete-shipments list, or [] on miss/corrupt."""
+    path = os.path.join(folder, _INCOMPLETE_SHIPMENTS_FILE)
+    if not os.path.isfile(path):
+        return []
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, list) else []
+    except (OSError, json.JSONDecodeError):
+        return []
+
+
+def rebuild_incomplete_prev_shipments(
+    folder: str,
+    db_path: str,
+    excel_month: str,
+) -> list[dict]:
+    """
+    Re-query the database for all previous-month Delivered SOIDs that are
+    still missing AWB and/or Ship POU POD Time, write the result to the JSON
+    cache, and return the list.
+
+    *excel_month* is a "YYYY-MM" string derived from the dominant pickup month
+    in the latest uploaded Shipment Excel (e.g. "2025-08").  Only SOIDs with
+    ship_pickup_time strictly earlier than this month are considered.
+
+    Call this once after every SHIPMENT upsert so the page cache stays fresh.
+    """
+    rows: list[dict] = []
+    if not excel_month:
+        return rows
+    try:
+        conn = sqlite3.connect(db_path)
+        try:
+            db_rows = conn.execute(
+                _INCOMPLETE_SHIPMENTS_QUERY,
+                {"excel_month": excel_month},
+            ).fetchall()
+            for r in db_rows:
+                _missing = []
+                if not r[5] or str(r[5]).strip() == "":
+                    _missing.append("AWB")
+                if not r[6] or str(r[6]).strip() == "":
+                    _missing.append("Ship POU POD Time")
+                rows.append({
+                    "Missing Fields":      "; ".join(_missing),
+                    "SOID":                str(r[0]),
+                    "SO (Work Order ID)":  str(r[1] or ""),
+                    "Ship PN":             str(r[2] or ""),
+                    "wo_product_status":   str(r[3] or ""),
+                    "ship_pickup_time":    str(r[4] or "")[:10],
+                    "AWB":                 str(r[5] or "") or "—",
+                    "Ship POU POD Time":   str(r[6] or "") or "—",
+                })
+        finally:
+            conn.close()
+    except Exception:
+        pass  # non-fatal — keep the old cache intact
+    else:
+        write_incomplete_prev_shipments(folder, rows)
     return rows

@@ -562,14 +562,14 @@ def get_asp_cci_followup_page(
 
         # part shipped but NOT yet POD'd
         if part_shipped and not part_pod:
-            # part_sla only when:
+            # part_sla when:
             #   - part_eta is filled (target date exists)
-            #   - AWB is absent (part not yet physically picked up / confirmed)
-            #   - no POD yet
             #   - we are strictly past ETA (date has already passed — not same day)
+            # AWB presence is NOT a gate — a part can have its AWB confirmed
+            # but still not have arrived (no ship_pou_pod_time / delivery_date).
+            # In that case, if ETA has passed it is still a Part SLA breach.
             is_sla_breach = (
-                part_eta_raw
-                and not part_awb
+                bool(part_eta_raw)
                 and part_eta_raw < today      # overdue only when ETA date is in the past
             )
             return "part_sla" if is_sla_breach else "confirm_receipt"

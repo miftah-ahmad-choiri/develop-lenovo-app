@@ -2144,7 +2144,7 @@ function _cciHeroBtns(d) {
   /* Same overdue logic as inDeliveryFuBadge: part_eta filled + ETA strictly before today */
   const _cciEtaRaw   = (d.part_eta || '');
   const _cciEtaDate  = _cciEtaRaw && !isSentinel(_cciEtaRaw) ? _cciEtaRaw.slice(0, 10) : '';
-  const _cciToday    = new Date().toISOString().slice(0, 10);
+  const _cciToday    = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10); /* WIB UTC+7 */
   const partSlaOverdue   = _cciEtaDate && _cciEtaDate < _cciToday;
   const cciEtaIsToday    = _cciEtaDate === _cciToday;
 
@@ -2206,7 +2206,7 @@ function _onsiteHeroBtns(d) {
   /* Same overdue logic as inDeliveryFuBadge: part_eta filled + ETA strictly before today */
   const _onsiteEtaRaw    = (d.part_eta || '');
   const _onsiteEtaDate   = _onsiteEtaRaw && !isSentinel(_onsiteEtaRaw) ? _onsiteEtaRaw.slice(0, 10) : '';
-  const _onsiteToday     = new Date().toISOString().slice(0, 10);
+  const _onsiteToday     = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10); /* WIB UTC+7 */
   const onsitePartSlaOverdue = _onsiteEtaDate && _onsiteEtaDate < _onsiteToday;
   const onsiteEtaIsToday     = _onsiteEtaDate === _onsiteToday;
 
@@ -2889,7 +2889,7 @@ const inPrepareTable = makeTabTable({
         { key: 'part_on_hold_count', render: r => {
             const n = r.part_on_hold_count || 0;
             if (!n) return '<span style="color:#8c959f">—</span>';
-            return `<span style="display:inline-block;background:#fee2e2;color:#b91c1c;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;white-space:nowrap">${n} ${n === 1 ? 'Part' : 'Parts'}</span>`;
+            return `<span style="display:inline-block;background:#fee2e2;color:#b91c1c;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;white-space:nowrap">🔒 ${n} ${n === 1 ? 'Part' : 'Parts'}</span>`;
           }
         }
       );
@@ -2909,7 +2909,7 @@ const inPrepareTable = makeTabTable({
             if (r.no_part_lines || !r.part_eta_wh || isSentinel(r.part_eta_wh))
               return '<span style="color:#8c959f;font-style:italic">—</span>';
             const etaDate = r.part_eta_wh.slice(0, 10);
-            const today   = new Date().toISOString().slice(0, 10);
+            const today   = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10); /* WIB UTC+7 */
             const overdue = etaDate < today;
             return `<span style="font-weight:700;color:${overdue ? '#b91c1c' : '#92400e'}">${esc(etaDate)}</span>${overdue ? ' <span style="font-size:10px;font-weight:700;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:1px 6px">OVERDUE</span>' : ''}`;
           }
@@ -3024,7 +3024,7 @@ function cciFuStateBadge(r) {
   const state     = r.followup_state || '';
 
   const _fuEtaDate   = r.part_eta && !isSentinel(r.part_eta) ? String(r.part_eta).slice(0, 10) : '';
-  const _fuToday     = new Date().toISOString().slice(0, 10);
+  const _fuToday     = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10); /* WIB UTC+7 */
   const fuEtaIsToday = _fuEtaDate === _fuToday;
 
   if (state === 'confirm_receipt')
@@ -3072,9 +3072,12 @@ const cciFollowUpTable = makeTabTable({
             return '<span style="color:#8c959f;font-style:italic">—</span>';
           const etaStr  = r.part_eta.slice(0, 10);
           const etaDate = esc(etaStr);
-          const _now    = new Date();
-          const today   = _now.toISOString().slice(0, 10);
-          const _tmrDt  = new Date(_now); _tmrDt.setDate(_tmrDt.getDate() + 1);
+          /* Use WIB (UTC+7) for today/tomorrow — same timezone the server uses.
+             toISOString() is UTC and would show "Arriving Today" until 07:00 WIB. */
+          const _wibOffsetMs = 7 * 3600000;
+          const _wibNow  = new Date(Date.now() + _wibOffsetMs);
+          const today    = _wibNow.toISOString().slice(0, 10);
+          const _tmrDt   = new Date(_wibNow.getTime() + 86400000);
           const tomorrow = _tmrDt.toISOString().slice(0, 10);
           if (etaStr < today)
             return `<span style="font-weight:700;color:#b91c1c">${etaDate}</span>`
@@ -3191,7 +3194,7 @@ const onsFollowUpTable = makeTabTable({
         const deferDate     = esc(r.customer_defer_date || '');
         const origOnsiteEsc = esc(r.committed_delivery_date || '');
         const actOnsiteEsc  = esc(r.actual_committed_onsite_date || '');
-        const podEsc        = esc(r.actual_committed_onsite_date || '');
+        const podEsc        = esc(r.part_pod_time || '');
         if (deferDate)
           return `<button class="fu-badge fu-reschedule fu-badge-btn" data-action="ons-followup-schedule" data-wo="${wo}" data-wo-type="${woType}" data-status="${status}" data-asp="${asp}" data-orig-onsite="${origOnsiteEsc}" data-defer-date="${deferDate}" data-actual-onsite="${actOnsiteEsc}" data-pod="${podEsc}">📅 Reschedule ONS</button>`;
         return `<button class="fu-badge fu-set-schedule fu-badge-btn" data-action="ons-followup-schedule" data-wo="${wo}" data-wo-type="${woType}" data-status="${status}" data-asp="${asp}" data-orig-onsite="${origOnsiteEsc}" data-defer-date="${deferDate}" data-actual-onsite="${actOnsiteEsc}" data-pod="${podEsc}">📅 Set ONS Schedule</button>`;
@@ -3442,6 +3445,11 @@ function switchTab(id) {
       const b = document.getElementById('tab-cci-followup-badge');
       b.textContent   = cciFuTotalAll;
       b.style.display = cciFuTotalAll > 0 ? 'inline-block' : 'none';
+    }
+    if (prevTab === 'tab-ons-followup' && onsFollowUpFilter) {
+      const b = document.getElementById('tab-ons-followup-badge');
+      b.textContent   = onsFuTotalAll;
+      b.style.display = onsFuTotalAll > 0 ? 'inline-block' : 'none';
     }
   }
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
@@ -3781,6 +3789,7 @@ document.getElementById('btn-confirm-input-dc').addEventListener('click', () => 
 
 /* ── Set Onsite Schedule modal ── */
 let activeOnsiteRecvWo = null, activeOnsiteRecvContact = '', activeOnsiteRecvStatus = '';
+let activeOnsiteRecvHasPod = false;
 
 /* Custom dropdown for the inline defer reason (or-by-dd) */
 const orByDd = (function() {
@@ -3869,6 +3878,7 @@ function openOnsiteRecv(woId, woType, woStatus, aspName, origOnsite, deferDate, 
   activeOnsiteRecvWo      = woId;
   activeOnsiteRecvContact = '';
   activeOnsiteRecvStatus  = woStatus || '';
+  activeOnsiteRecvHasPod  = !!(podDate && String(podDate).trim() && !isSentinel(String(podDate).trim()));
   document.getElementById('onsite-recv-wo-num').textContent        = woId;
   document.getElementById('onsite-recv-wo-type').textContent       = woType  || '';
   document.getElementById('onsite-recv-asp').textContent           = aspName || '—';
@@ -3877,6 +3887,15 @@ function openOnsiteRecv(woId, woType, woStatus, aspName, origOnsite, deferDate, 
   document.getElementById('or-rs-date').value                      = '';
   orByDd.reset();
   _clearOrEvidence();
+
+  /* Section 1 (Arrival Details) — hide when POD date already exists */
+  const arrivalSection = document.getElementById('onsite-recv-form-section');
+  arrivalSection.style.display = activeOnsiteRecvHasPod ? 'none' : '';
+  /* Renumber remaining sections accordingly */
+  const deferSecNum    = arrivalSection.nextElementSibling.querySelector('.sec-num');
+  const evidenceSecNum = arrivalSection.nextElementSibling.nextElementSibling.querySelector('.sec-num');
+  deferSecNum.textContent    = activeOnsiteRecvHasPod ? '1' : '2';
+  evidenceSecNum.textContent = activeOnsiteRecvHasPod ? '2' : '3';
 
   /* Show onsite timeline (always shown for onsite type modals) */
   const tlDiv   = document.getElementById('or-onsite-timeline');
@@ -3898,7 +3917,7 @@ document.getElementById('btn-confirm-onsite-recv').addEventListener('click', () 
   const reason = document.getElementById('or-by-value').value;
   const rsDate = document.getElementById('or-rs-date').value;
   const file   = document.getElementById('or-evidence-file').files && document.getElementById('or-evidence-file').files[0];
-  if (!dt)     { toast('Please enter the part arrival date and time.', 'err'); return; }
+  if (!dt && !activeOnsiteRecvHasPod) { toast('Please enter the part arrival date and time.', 'err'); return; }
   if (!reason) { toast('Please select a defer type and reason.', 'err'); return; }
   if (!rsDate) { toast('Please select a new appointment date.', 'err'); return; }
   if (new Date(rsDate) < new Date()) { toast('New appointment date must be in the future.', 'err'); return; }
@@ -3950,7 +3969,7 @@ function renderRecvTimeline(trackEl, pickupDate, etaDate, podDate) {
     { label: 'Part Received\n(POD)',  val: podDate },
   ];
   const podFilled = !!(podDate && !isSentinel(podDate));
-  const todayDate = new Date().toISOString().slice(0, 10);
+  const todayDate = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10); /* WIB UTC+7 */
   trackEl.innerHTML = nodes.map((n, i) => {
     const hasDate  = !!(n.val && !isSentinel(n.val));
     const ts       = hasDate ? new Date(String(n.val).replace(' ', 'T')).getTime() : null;
