@@ -592,36 +592,6 @@ def api_in_prepare():
     ))
 
 
-@asp_bp.route("/asp/api/in-delivery", methods=["GET"])
-@login_required
-def api_in_delivery():
-    """In-Delivery Follow-Up — WOs with part shipped but not yet POD'd."""
-    from app.services.database.queries import get_asp_in_delivery_page
-    per_page = min(_int_arg("per_page", 25), 100)
-    return jsonify(get_asp_in_delivery_page(
-        search        = request.args.get("q", "").strip(),
-        page          = _int_arg("page", 1),
-        page_size     = per_page,
-        vendor_filter = _vendor_filter(),
-        wo_type       = request.args.get("wo_type", "").strip() or None,
-    ))
-
-
-@asp_bp.route("/asp/api/in-repair", methods=["GET"])
-@login_required
-def api_in_repair():
-    """In-Repair Follow-Up — WOs with part POD'd but WO still open."""
-    from app.services.database.queries import get_asp_in_repair_page
-    per_page = min(_int_arg("per_page", 25), 100)
-    return jsonify(get_asp_in_repair_page(
-        search        = request.args.get("q", "").strip(),
-        page          = _int_arg("page", 1),
-        page_size     = per_page,
-        vendor_filter = _vendor_filter(),
-        wo_type       = request.args.get("wo_type", "").strip() or None,
-        shipped_only  = _bool_arg("shipped_only", False),
-    ))
-
 
 @asp_bp.route("/asp/api/return-part", methods=["GET"])
 @login_required
