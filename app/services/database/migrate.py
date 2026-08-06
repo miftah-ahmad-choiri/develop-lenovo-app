@@ -39,6 +39,7 @@ def run_migrations(app: Flask) -> None:
         _migrate_create_asp_users(conn)
         _migrate_asp_users_drop_tech_id(conn)
         _migrate_create_asp_pw_change_requests(conn)
+        _migrate_asp_details_add_office_type_wo_count(conn)
     finally:
         conn.close()
 
@@ -357,3 +358,88 @@ def _migrate_create_asp_pw_change_requests(conn: sqlite3.Connection) -> None:
         """
     )
     conn.commit()
+
+
+def _migrate_asp_details_add_office_type_wo_count(conn: sqlite3.Connection) -> None:
+    """Add office_type and wo_count columns to asp_details if they do not exist.
+
+    office_type — TEXT, e.g. 'ASP HQ' or 'ASP Branch' (manually set by admin)
+    wo_count    — INTEGER, cached count of WOs from wo_details matched by
+                  labor_vendor_related; refreshed on demand by the admin route.
+
+    On first run (column just added), backfills office_type using the known
+    HQ labor_vendor_related codes confirmed by the admin.  All other multi-ASP
+    group members default to 'ASP Branch'; single-member parent_groups get
+    'ASP HQ' automatically.
+    """
+    existing = {
+        row[1]
+        for row in conn.execute("PRAGMA table_info(asp_details)").fetchall()
+    }
+    added_office_type = False
+    if "office_type" not in existing:
+        conn.execute("ALTER TABLE asp_details ADD COLUMN office_type TEXT")
+        conn.commit()
+        added_office_type = True
+    if "wo_count" not in existing:
+        conn.execute("ALTER TABLE asp_details ADD COLUMN wo_count INTEGER DEFAULT 0")
+        conn.commit()
+
+    # Backfill office_type only on first add (all rows still NULL)
+    if added_office_type:
+        # Step 1: single-member parent_group → ASP HQ
+        conn.execute(
+            """
+            UPDATE asp_details
+            SET office_type = 'ASP HQ'
+            WHERE parent_group IS NOT NULL
+              AND parent_group IN (
+                  SELECT parent_group FROM asp_details
+                  GROUP BY parent_group HAVING COUNT(*) = 1
+              )
+            """
+        )
+        # Step 2: multi-member groups — default all to ASP Branch first
+        conn.execute(
+            """
+            UPDATE asp_details
+            SET office_type = 'ASP Branch'
+            WHERE parent_group IS NOT NULL
+              AND parent_group IN (
+                  SELECT parent_group FROM asp_details
+                  GROUP BY parent_group HAVING COUNT(*) > 1
+              )
+            """
+        )
+        # Step 3: designate confirmed HQs by labor_vendor_related
+        # (Infonet Depok, ITSC Jakarta, PT Mitra Infosarana Jakarta,
+        #  plus the single-HQ in each remaining multi-group)
+        _confirmed_hq_lvr = (
+            # PT IT Service Centre → ITSC Jakarta
+            '6002321678',
+            # PT Intikom Berlian Mustika → Intikom Berlian Mustika (Duren Tiga)
+            '6034339832',
+            # PT. Infonet Mitra Sejati → Infonet Depok
+            '6043498162',
+            # PT Mitra Infosarana → PT Mitra Infosarana Jakarta
+            '6036875579',
+            # CV AZZAHRA COMPUTER → Azzahra (Tegal)
+            '6059329522',
+            # PT IBM INDONESIA → IBM Indonesia
+            '6002321700',
+        )
+        placeholders = ",".join("?" for _ in _confirmed_hq_lvr)
+        conn.execute(
+            f"UPDATE asp_details SET office_type = 'ASP HQ' "
+            f"WHERE labor_vendor_related IN ({placeholders})",
+            _confirmed_hq_lvr,
+        )
+        # Step 4: NULL parent_group rows → ASP Branch (no group to belong to)
+        conn.execute(
+            """
+            UPDATE asp_details
+            SET office_type = 'ASP Branch'
+            WHERE parent_group IS NULL AND office_type IS NULL
+            """
+        )
+        conn.commit()

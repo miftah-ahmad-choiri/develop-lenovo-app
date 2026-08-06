@@ -125,6 +125,13 @@
     white-space: nowrap;
     position: sticky; top: 0; z-index: 2;
   }
+  thead th.sortable { cursor: pointer; user-select: none; }
+  thead th.sortable:hover { color: #3b82d4; }
+  thead th.sort-asc  { color: #3b82d4; }
+  thead th.sort-desc { color: #3b82d4; }
+  .sort-icon { margin-left: 4px; font-size: 10px; opacity: 0.5; }
+  thead th.sort-asc  .sort-icon,
+  thead th.sort-desc .sort-icon { opacity: 1; }
   tbody tr { border-bottom: 1px solid #f0f2f5; }
   tbody tr:last-child { border-bottom: none; }
   tbody tr:hover { background: #f0f6ff; }
@@ -187,6 +194,8 @@
   .badge-inactive { background: #f3f4f6; color: #6b7280; }
   .badge-continue { background: #eff6ff; color: #1d4ed8; }
   .badge-stop     { background: #fff0f0; color: #b91c1c; }
+  .badge-hq       { background: #dbeafe; color: #1d4ed8; }
+  .badge-branch   { background: #fef9c3; color: #854d0e; }
 
   /* ── asp name link ── */
   .asp-name-link { color: #3b82d4; text-decoration: none; cursor: pointer; font-size: 12.5px; }
@@ -456,6 +465,11 @@
     <option value="continue">Continue</option>
     <option value="stop">Stop</option>
   </select>
+  <select class="toolbar-filter" id="office-type-filter" onchange="filterTable()">
+    <option value="">All Office Types</option>
+    <option value="asp hq">ASP HQ</option>
+    <option value="asp branch">ASP Branch</option>
+  </select>
   <span class="toolbar-count" id="row-count">{{ asps | length }} records</span>
 </div>
 
@@ -464,14 +478,16 @@
   <table id="asp-table">
     <thead>
       <tr>
-        <th>#</th>
-        <th>Service Provider</th>
-        <th>Username</th>
-        <th>ASP Name</th>
+        <th class="sortable" id="th-id"    onclick="sortCol('id','num')"  title="Sort by #">#<span class="sort-icon" id="sort-icon-id">⇅</span></th>
+        <th class="sortable" id="th-sp"    onclick="sortCol('sp','str')"  title="Sort by Service Provider">Service Provider<span class="sort-icon" id="sort-icon-sp">⇅</span></th>
+        <th class="sortable" id="th-user"  onclick="sortCol('user','str')" title="Sort by Username">Username<span class="sort-icon" id="sort-icon-user">⇅</span></th>
+        <th class="sortable" id="th-name"  onclick="sortCol('name','str')" title="Sort by ASP Name">ASP Name<span class="sort-icon" id="sort-icon-name">⇅</span></th>
         <th>ASP ID</th>
         <th>Vendor Code</th>
         <th>Kota</th>
         <th>Region</th>
+        <th>Office Type</th>
+        <th class="sortable" id="th-wo"    onclick="sortCol('wo','num')"  title="Sort by WO Count">WO Count<span class="sort-icon" id="sort-icon-wo">⇅</span></th>
         <th>Working Hours</th>
         <th>Operational Status</th>
         <th>Future Status</th>
@@ -487,6 +503,12 @@
         data-region="{{ asp.region | lower }}"
         data-status="{{ asp.operational_status | lower if asp.operational_status else '' }}"
         data-future="{{ asp.future_status | lower if asp.future_status else '' }}"
+        data-officetype="{{ asp.office_type | lower if asp.office_type else '' }}"
+        data-wo="{{ asp.wo_count if asp.wo_count is not none else 0 }}"
+        data-id="{{ asp.id }}"
+        data-sp="{{ asp.service_provider | lower if asp.service_provider else '' }}"
+        data-user="{{ asp.username | lower if asp.username else '' }}"
+        data-name="{{ asp.customer_partner | lower if asp.customer_partner else '' }}"
       >
         <td class="mono nowrap">{{ asp.id }}</td>
         <td class="wrap">
@@ -503,6 +525,16 @@
         <td class="mono nowrap">{{ asp.vendor_code or '—' }}</td>
         <td class="nowrap">{{ asp.kota or '—' }}</td>
         <td class="nowrap">{{ asp.region }}</td>
+        <td class="nowrap">
+          {% if asp.office_type == 'ASP HQ' %}
+            <span class="badge badge-hq">HQ</span>
+          {% elif asp.office_type == 'ASP Branch' %}
+            <span class="badge badge-branch">Branch</span>
+          {% else %}
+            <span style="color:#d0d7de">—</span>
+          {% endif %}
+        </td>
+        <td class="nowrap" style="text-align:right;padding-right:16px">{{ asp.wo_count if asp.wo_count is not none else '—' }}</td>
         <td class="wrap" style="min-width:160px">{{ asp.working_hours or '—' }}</td>
         <td class="nowrap">
           {% if asp.operational_status == 'Active' %}
@@ -539,7 +571,7 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="14" class="empty-state">No ASP records found.</td></tr>
+      <tr><td colspan="16" class="empty-state">No ASP records found.</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -604,6 +636,8 @@
           <div class="detail-item"><span class="detail-label">Store Name</span><span class="detail-value" id="d-store_name"></span></div>
           <div class="detail-item"><span class="detail-label">ASP ID</span><span class="detail-value mono" id="d-labor_vendor_related"></span></div>
           <div class="detail-item"><span class="detail-label">Vendor Code</span><span class="detail-value mono" id="d-vendor_code"></span></div>
+          <div class="detail-item"><span class="detail-label">Office Type</span><span class="detail-value" id="d-office_type"></span></div>
+          <div class="detail-item"><span class="detail-label">WO Count</span><span class="detail-value mono" id="d-wo_count"></span></div>
         </div>
       </div>
 
@@ -709,6 +743,14 @@
             <div class="create-field">
               <label>Vendor Code</label>
               <input type="text" name="vendor_code" id="c-vendor_code" class="mono-input" placeholder="e.g. 30000933" />
+            </div>
+            <div class="create-field">
+              <label>Office Type</label>
+              <select name="office_type" id="c-office_type">
+                <option value="">— Not set —</option>
+                <option value="ASP HQ">ASP HQ</option>
+                <option value="ASP Branch">ASP Branch</option>
+              </select>
             </div>
           </div>
         </div>
@@ -877,6 +919,8 @@
           <div class="view-item"><span class="view-label">Store Name</span><span class="view-val" id="v-store_name"></span></div>
           <div class="view-item"><span class="view-label">ASP ID</span><span class="view-val mono" id="v-labor_vendor_related"></span></div>
           <div class="view-item"><span class="view-label">Vendor Code</span><span class="view-val mono" id="v-vendor_code"></span></div>
+          <div class="view-item"><span class="view-label">Office Type</span><span class="view-val" id="v-office_type"></span></div>
+          <div class="view-item"><span class="view-label">WO Count</span><span class="view-val mono" id="v-wo_count"></span></div>
         </div>
         <!-- edit inputs -->
         <div class="sec-inputs-wrap" id="inputs-identity" style="display:none">
@@ -887,6 +931,13 @@
             <div class="form-field"><label>Store Name</label><input type="text" name="store_name" id="f-store_name" /></div>
             <div class="form-field"><label>ASP ID</label><input type="text" name="labor_vendor_related" id="f-labor_vendor_related" class="mono-input" /></div>
             <div class="form-field"><label>Vendor Code</label><input type="text" name="vendor_code" id="f-vendor_code" class="mono-input" /></div>
+            <div class="form-field"><label>Office Type</label>
+              <select name="office_type" id="f-office_type">
+                <option value="">— Not set —</option>
+                <option value="ASP HQ">ASP HQ</option>
+                <option value="ASP Branch">ASP Branch</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -994,22 +1045,62 @@
 <script>
   /* ── filter ── */
   function filterTable() {
-    var q      = document.getElementById('search-input').value.toLowerCase().trim();
-    var region = document.getElementById('region-filter').value.toLowerCase();
-    var status = document.getElementById('status-filter').value.toLowerCase();
-    var future = document.getElementById('future-filter').value.toLowerCase();
-    var rows   = document.querySelectorAll('#asp-tbody tr[data-search]');
+    var q          = document.getElementById('search-input').value.toLowerCase().trim();
+    var region     = document.getElementById('region-filter').value.toLowerCase();
+    var status     = document.getElementById('status-filter').value.toLowerCase();
+    var future     = document.getElementById('future-filter').value.toLowerCase();
+    var officeType = document.getElementById('office-type-filter').value.toLowerCase();
+    var rows       = document.querySelectorAll('#asp-tbody tr[data-search]');
     var shown  = 0;
     rows.forEach(function(row) {
-      var matchQ      = !q      || row.dataset.search.includes(q);
-      var matchRegion = !region || row.dataset.region === region;
-      var matchStatus = !status || row.dataset.status === status;
-      var matchFuture = !future || row.dataset.future === future;
-      var visible = matchQ && matchRegion && matchStatus && matchFuture;
+      var matchQ          = !q          || row.dataset.search.includes(q);
+      var matchRegion     = !region     || row.dataset.region === region;
+      var matchStatus     = !status     || row.dataset.status === status;
+      var matchFuture     = !future     || row.dataset.future === future;
+      var matchOfficeType = !officeType || row.dataset.officetype === officeType;
+      var visible = matchQ && matchRegion && matchStatus && matchFuture && matchOfficeType;
       row.style.display = visible ? '' : 'none';
       if (visible) shown++;
     });
     document.getElementById('row-count').textContent = shown + ' record' + (shown !== 1 ? 's' : '');
+  }
+
+  /* ── Column sort ── */
+  var _sortState = {}; // key → 'asc' | 'desc'
+
+  function sortCol(key, type) {
+    // Cycle: first click → desc, second → asc, alternates thereafter
+    var dir = (_sortState[key] === 'desc') ? 'asc' : 'desc';
+    _sortState[key] = dir;
+
+    // Reset all sort headers, then mark the active one
+    ['id','sp','user','name','wo'].forEach(function(k) {
+      var th   = document.getElementById('th-' + k);
+      var icon = document.getElementById('sort-icon-' + k);
+      if (!th) return;
+      th.classList.remove('sort-asc', 'sort-desc');
+      if (icon) icon.textContent = '⇅';
+    });
+    var activeTh   = document.getElementById('th-' + key);
+    var activeIcon = document.getElementById('sort-icon-' + key);
+    activeTh.classList.add(dir === 'desc' ? 'sort-desc' : 'sort-asc');
+    if (activeIcon) activeIcon.textContent = dir === 'desc' ? '↓' : '↑';
+
+    var tbody = document.getElementById('asp-tbody');
+    var rows  = Array.prototype.slice.call(tbody.querySelectorAll('tr[data-' + key + ']'));
+    rows.sort(function(a, b) {
+      var av = a.getAttribute('data-' + key) || '';
+      var bv = b.getAttribute('data-' + key) || '';
+      if (type === 'num') {
+        av = parseFloat(av) || 0;
+        bv = parseFloat(bv) || 0;
+        return dir === 'desc' ? bv - av : av - bv;
+      }
+      return dir === 'desc'
+        ? bv.localeCompare(av)
+        : av.localeCompare(bv);
+    });
+    rows.forEach(function(row) { tbody.appendChild(row); });
   }
 
   /* ── helpers ── */
@@ -1111,7 +1202,8 @@
     var textFields = [
       'username','customer_partner',
       'store_name','labor_vendor_related','vendor_code',
-      'kota','island','phone_number','address'
+      'kota','island','phone_number','address',
+      'office_type','wo_count'
     ];
     textFields.forEach(function(f) {
       var el = document.getElementById('d-' + f);
@@ -1151,7 +1243,7 @@
   /* ── section toggle helpers ── */
   var _secFields = {
     account:    ['username','password'],
-    identity:   ['service_provider','parent_group','customer_partner','store_name','labor_vendor_related','vendor_code'],
+    identity:   ['service_provider','parent_group','customer_partner','store_name','labor_vendor_related','vendor_code','office_type'],
     location:   ['kota','island','phone_number','lat_long','address','link_map'],
     operations: ['operational_status','future_status','operation_support','working_hours']
   };
@@ -1208,7 +1300,7 @@
       'username','password','vendor_code','service_provider','parent_group',
       'labor_vendor_related','customer_partner','store_name','kota','address',
       'lat_long','link_map','phone_number','island','working_hours',
-      'operational_status','future_status','operation_support'
+      'operational_status','future_status','operation_support','office_type','wo_count'
     ];
     allFields.forEach(function(f) {
       var v = _val(asp, f);

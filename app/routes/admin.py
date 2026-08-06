@@ -1535,6 +1535,20 @@ def asp_directory():
     db_path = current_app.config["DATABASE_PATH"]
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
+
+    # Refresh wo_count for all ASPs in one UPDATE pass
+    conn.execute(
+        """
+        UPDATE asp_details
+        SET wo_count = (
+            SELECT COUNT(*)
+            FROM wo_details
+            WHERE wo_details.labor_vendor_related = asp_details.labor_vendor_related
+        )
+        """
+    )
+    conn.commit()
+
     rows = conn.execute(
         "SELECT * FROM asp_details ORDER BY id"
     ).fetchall()
@@ -1566,7 +1580,7 @@ def asp_directory_edit(asp_id):
         "parent_group", "labor_vendor_related", "customer_partner",
         "store_name", "kota", "address", "lat_long", "link_map",
         "phone_number", "island", "working_hours", "operational_status",
-        "future_status", "operation_support",
+        "future_status", "operation_support", "office_type",
     ]
     values = {f: request.form.get(f, "").strip() or None for f in fields}
     set_clause = ", ".join(f"{f} = ?" for f in fields)
@@ -1592,7 +1606,7 @@ def asp_directory_create():
         "parent_group", "labor_vendor_related", "customer_partner",
         "store_name", "kota", "address", "lat_long", "link_map",
         "phone_number", "island", "working_hours", "operational_status",
-        "future_status", "operation_support",
+        "future_status", "operation_support", "office_type",
     ]
     values = {f: request.form.get(f, "").strip() or None for f in fields}
 

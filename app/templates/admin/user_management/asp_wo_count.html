@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASP Directory — Total WO Count</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; font-size: 13px; line-height: 1.5; background: #ffffff; color: #1f2328; padding: 24px 16px 48px; }
+  .page { max-width: 1060px; margin: 0 auto; }
+  h1 { font-size: 19px; font-weight: 700; margin-bottom: 4px; }
+  .subtitle { color: #57606a; font-size: 12.5px; margin-bottom: 18px; }
+  .stats { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+  .stat-box { background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px 18px; min-width: 130px; }
+  .stat-box .label { font-size: 11px; color: #57606a; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-box .value { font-size: 22px; font-weight: 700; color: #1f2328; margin-top: 2px; }
+  .filter-row { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+  .filter-row label { font-size: 12px; color: #57606a; }
+  select, input[type=text] { font-size: 12.5px; border: 1px solid #d0d7de; border-radius: 5px; padding: 4px 8px; background: #fff; color: #1f2328; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  thead th { background: #f7f8fa; border-bottom: 2px solid #d0d7de; padding: 8px 10px; text-align: left; font-weight: 600; color: #57606a; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap; }
+  tbody tr { border-bottom: 1px solid #f0f0f0; }
+  tbody tr:hover { background: #f7f8fa; }
+  td { padding: 7px 10px; vertical-align: middle; }
+  .rank { color: #57606a; font-size: 11px; font-weight: 600; text-align: center; width: 32px; }
+  .badge { display: inline-block; font-size: 10.5px; font-weight: 600; padding: 2px 7px; border-radius: 10px; white-space: nowrap; }
+  .badge-hq { background: #dbeafe; color: #1d4ed8; }
+  .badge-branch { background: #fef9c3; color: #854d0e; }
+  .wo-bar { display: flex; align-items: center; gap: 6px; }
+  .bar-track { background: #e5e7eb; border-radius: 3px; height: 8px; flex: 0 0 90px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 3px; background: #3b82d4; }
+  .wo-num { font-weight: 600; color: #1f2328; min-width: 42px; text-align: right; }
+  .asp-name { font-weight: 500; }
+  .asp-store { color: #57606a; font-size: 11.5px; }
+  .kota { color: #1f2328; }
+  .parent { color: #57606a; font-size: 11.5px; }
+  .vendor, .lvr { font-family: monospace; color: #57606a; font-size: 11px; }
+  tfoot td { padding: 8px 10px; color: #57606a; font-size: 11.5px; border-top: 2px solid #d0d7de; font-style: italic; }
+  #countLabel { color: #57606a; font-size: 12px; margin-left: 4px; }
+  .footer { margin-top: 36px; padding-top: 12px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 11px; color: #57606a; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>ASP Directory — Total Work Orders per ASP</h1>
+  <p class="subtitle">
+    Source: <strong>asp_details</strong> &#215; <strong>wo_details</strong> joined on <code>labor_vendor_related</code>
+    &nbsp;|&nbsp; Sorted: Total WO highest &#8594; lowest
+    &nbsp;|&nbsp; HQ/Branch: single ASP in <code>parent_group</code> = HQ; for multi-ASP groups, the designated HQ is specified per group
+  </p>
+
+  <div class="stats">
+    <div class="stat-box"><div class="label">Total ASPs</div><div class="value">89</div></div>
+    <div class="stat-box"><div class="label">ASP HQ</div><div class="value" style="color:#1d4ed8">68</div></div>
+    <div class="stat-box"><div class="label">ASP Branch</div><div class="value" style="color:#854d0e">21</div></div>
+    <div class="stat-box"><div class="label">Total WOs</div><div class="value">23,162</div></div>
+  </div>
+
+  <div class="filter-row">
+    <label>Type:</label>
+    <select id="filterType" onchange="applyFilters()">
+      <option value="">All</option>
+      <option value="ASP HQ">ASP HQ only</option>
+      <option value="ASP Branch">ASP Branch only</option>
+    </select>
+    <label>Search:</label>
+    <input type="text" id="searchBox" placeholder="ASP name / city / parent…" oninput="applyFilters()" style="width:220px">
+    <span id="countLabel"></span>
+  </div>
+
+  <table id="aspTable">
+    <thead>
+      <tr>
+        <th class="rank">#</th>
+        <th>ASP Name / Store</th>
+        <th>City</th>
+        <th>Parent Group</th>
+        <th>Vendor Code</th>
+        <th>Labor Vendor</th>
+        <th>Type</th>
+        <th>Total WO</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+    <tfoot>
+      <tr><td colspan="8" id="footerNote"></td></tr>
+    </tfoot>
+  </table>
+</div>
+
+<div class="footer">Generated from lenovo_asp.db &nbsp;|&nbsp; Made with IBM Bob</div>
+
+<script>
+const MAX_WO = 1735;
+const data = [
+  {rank:1,vendor:"30076759",sp:"CV. Vicmic",store:"INTEL Sponsored Store Serpong by Vicmic",kota:"Tangerang",parent:"CV. Vicmic",lvr:"6048562975",wo:1735,type:"ASP HQ"},
+  {rank:2,vendor:"30000954",sp:"ITSC Jakarta",store:"IT Service Centre | Service Center Laptop Tanah Abang",kota:"Jakarta Pusat",parent:"PT IT Service Centre",lvr:"6002321678",wo:1632,type:"ASP HQ"},
+  {rank:3,vendor:"30000976",sp:"Perkom Indah Murni",store:"PT Perkom Indah Murni",kota:"Jakarta Pusat",parent:"PT Perkom Indah Murni",lvr:"6002321637",wo:1317,type:"ASP HQ"},
+  {rank:4,vendor:"30000959",sp:"ITSC Surabaya",store:"it Service Centre",kota:"Surabaya",parent:"PT IT Service Centre",lvr:"6002321365",wo:1240,type:"ASP Branch"},
+  {rank:5,vendor:"30011810",sp:"Intikom Berlian Mustika",store:"RUMAH INTIKOM (Intikom Duren Tiga)",kota:"Jakarta Selatan",parent:"PT Intikom Berlian Mustika",lvr:"6034339832",wo:1045,type:"ASP HQ"},
+  {rank:6,vendor:"30000933",sp:"IBM Indonesia",store:"IBM Indonesia",kota:"Jakarta Pusat",parent:"PT IBM INDONESIA",lvr:"6002321700",wo:858,type:"ASP HQ"},
+  {rank:7,vendor:"30068998",sp:"Infonet Depok",store:"Infonet Depok",kota:"Depok",parent:"PT. Infonet Mitra Sejati",lvr:"6043498162",wo:794,type:"ASP HQ"},
+  {rank:8,vendor:"30000956",sp:"ITSC Bandung",store:"ITSC Lenovo Servis Center",kota:"Bandung",parent:"PT IT Service Centre",lvr:"6002321713",wo:731,type:"ASP Branch"},
+  {rank:9,vendor:"30000930",sp:"Faasri Utama Sakti",store:"PT. Faasri Utama Sakti",kota:"Jakarta Utara",parent:"PT. Faasri Utama Sakti",lvr:"6002321532",wo:685,type:"ASP HQ"},
+  {rank:10,vendor:"30000966",sp:"Maxima Global",store:"LENOVO SERVICE CENTER MALANG (By ASP MaxGlo)",kota:"Malang",parent:"CV DWI TUNGGAL PAMENANG",lvr:"6002321630",wo:625,type:"ASP HQ"},
+  {rank:11,vendor:"30008460",sp:"Global Smart Service Centre Bekasi",store:"PT. Global Smart Solusindo",kota:"Jakarta Timur",parent:"PT. Global Smart Service Centre",lvr:"6002359426",wo:570,type:"ASP HQ"},
+  {rank:12,vendor:"30000957",sp:"ITSC Semarang",store:"Asus Service Centre Semarang by ITSC",kota:"Semarang",parent:"PT IT Service Centre",lvr:"6002321276",wo:525,type:"ASP Branch"},
+  {rank:13,vendor:"30000982",sp:"Wahyu Utama Lestari",store:"Service Centre Lenovo Resmi | Bumidata | Service Laptop Bali",kota:"Denpasar",parent:"PT. BUMIDHATTA LESTARI NUSANTARA",lvr:"6002325123",wo:519,type:"ASP HQ"},
+  {rank:14,vendor:"30009465",sp:"MDP IT SUPERSTORE",store:"MDP Superstore",kota:"Palembang",parent:"PT.MULTI DATA PALEMBANG",lvr:"6002390145",wo:493,type:"ASP HQ"},
+  {rank:15,vendor:"30000925",sp:"CV Platinum",store:"Platinum Store | Bandung",kota:"Bandung",parent:"CV Platinum",lvr:"6002321684",wo:431,type:"ASP HQ"},
+  {rank:16,vendor:"30000927",sp:"Dayamega Pratama",store:"Lenovo Service Center Dayamega Pratama",kota:"Medan",parent:"PT. Dayamega Pratama",lvr:"6002321297",wo:419,type:"ASP HQ"},
+  {rank:17,vendor:"30000961",sp:"ITSC Makassar",store:"IT Service Centre | Service Center Laptop Makassar",kota:"Makassar",parent:"PT IT Service Centre",lvr:"6002321440",wo:419,type:"ASP Branch"},
+  {rank:18,vendor:"30000929",sp:"Duta Computer",store:"Duta Computer, PT",kota:"Batam",parent:"CV Duta Computer",lvr:"6002321482",wo:406,type:"ASP HQ"},
+  {rank:19,vendor:"30000980",sp:"Retyan Computer",store:"RETYAN COMPUTER",kota:"Riau",parent:"CV SARANA KENCANA",lvr:"6002325119",wo:351,type:"ASP HQ"},
+  {rank:20,vendor:"30000920",sp:"Bhineka",store:"Bhinneka.com",kota:"Jakarta Pusat",parent:"PT. Bhineka Mentari",lvr:"6002321436",wo:343,type:"ASP HQ"},
+  {rank:21,vendor:"30001032",sp:"ITSC Point Square",store:"ASUS - LENOVO Service Center Poins Square by ITSC",kota:"Jakarta Selatan",parent:"PT IT Service Centre",lvr:"6002359177",wo:337,type:"ASP Branch"},
+  {rank:22,vendor:"30011345",sp:"Bintang Jaya Samarinda",store:"Bintang Jaya Computer",kota:"Samarinda",parent:"CV Bintang Jaya",lvr:"6031794568",wo:294,type:"ASP HQ"},
+  {rank:23,vendor:"30009926",sp:"Alvatech",store:"Alvatech",kota:"Makassar",parent:"CV ALVATECH",lvr:"6002393954",wo:291,type:"ASP HQ"},
+  {rank:24,vendor:"30008157",sp:"Azzahra",store:"Azzahra Computer Authorized Multibrand Service Center Tegal",kota:"Tegal",parent:"CV AZZAHRA COMPUTER",lvr:"6059329522",wo:288,type:"ASP HQ"},
+  {rank:25,vendor:"30010081",sp:"ITSC Kudus",store:"Authorized Service Center by ITSC",kota:"Kudus",parent:"PT IT Service Centre",lvr:"6002394122",wo:269,type:"ASP Branch"},
+  {rank:26,vendor:"30076794",sp:"Agres.id Jogjatronik",store:"Agres.id Jogjatronik",kota:"Yogyakarta",parent:"PT Agres Jogja Teknologi",lvr:"6048719838",wo:260,type:"ASP HQ"},
+  {rank:27,vendor:"30000958",sp:"ITSC Yogya",store:"IT Service Centre",kota:"Yogyakarta",parent:"PT IT Service Centre",lvr:"6002321325",wo:259,type:"ASP Branch"},
+  {rank:28,vendor:"30009876",sp:"Sadar Djaya",store:"Sadar Djaya Komputer",kota:"Surakarta",parent:"CV. Sadar Djaya Komputer",lvr:"6002394133",wo:256,type:"ASP HQ"},
+  {rank:29,vendor:"30011542",sp:"Bismacindo",store:"PT Bismacindo Perkasa",kota:"Jakarta Barat",parent:"PT BISMACINDO PERKASA",lvr:"6033554611",wo:248,type:"ASP HQ"},
+  {rank:30,vendor:"30000955",sp:"ITSC Medan",store:"Lenovo Service center by ITSC",kota:"Medan",parent:"PT IT Service Centre",lvr:"6002321698",wo:240,type:"ASP Branch"},
+  {rank:31,vendor:"30000932",sp:"HND Computer",store:"HND Computer Ince Nurdin",kota:"Makassar",parent:"PT. KAWAUSO TEKNOLOGI INDONESIA",lvr:"6002321677",wo:239,type:"ASP HQ"},
+  {rank:32,vendor:"30004372",sp:"ITSC Denpasar",store:"INDOTEK SERVICE CENTER by PT. IT Service Center",kota:"Denpasar",parent:"PT IT Service Centre",lvr:"6002341647",wo:238,type:"ASP Branch"},
+  {rank:33,vendor:"30004371",sp:"Planet Computer",store:"IT Service Provider by Planet Computer",kota:"Tasikmalaya",parent:"CV SEMESTA KOMPUTAMA",lvr:"6002341588",wo:235,type:"ASP HQ"},
+  {rank:34,vendor:"30000918",sp:"Angkasa Putera Abadi",store:"Angkasa Putera Abadi",kota:"Banda Aceh",parent:"CV Angkasa Putera Abadi",lvr:"6002321338",wo:232,type:"ASP HQ"},
+  {rank:35,vendor:"30012125",sp:"PT Mitra Infosarana Jakarta",store:"PT. Mitra Infosarana",kota:"Jakarta Selatan",parent:"PT Mitra Infosarana",lvr:"6036875579",wo:222,type:"ASP HQ"},
+  {rank:36,vendor:"30011112",sp:"JBROS SERVICE CENTER",store:"J-Bros Computer - ASUS Store",kota:"Padang",parent:"JBROS SERVICE CENTER",lvr:"6020996056",wo:209,type:"ASP HQ"},
+  {rank:37,vendor:"39000429",sp:"Azzahra Computer Cibubur",store:"Azzahra Authorized Service Center Cibubur",kota:"Bogor",parent:"CV AZZAHRA COMPUTER",lvr:"6002359297",wo:207,type:"ASP Branch"},
+  {rank:38,vendor:"30009875",sp:"IT Care",store:"IT CARE INDONESIA (Penjualan dan Service Komputer Mataram)",kota:"NTB",parent:"CV RINJANI MANDIRI SEJAHTERA",lvr:"6002394089",wo:207,type:"ASP HQ"},
+  {rank:39,vendor:"30000921",sp:"Cahaya Surya",store:"Cahaya Indokom",kota:"Makassar",parent:"PT CAHAYA INDOKOM",lvr:"6002321489",wo:192,type:"ASP HQ"},
+  {rank:40,vendor:"30009407",sp:"CV Max Indo",store:"CV.MAX-INDO",kota:"Padang",parent:"CV Max Indo",lvr:"6002390291",wo:190,type:"ASP HQ"},
+  {rank:41,vendor:"30000963",sp:"Khatulistiwa Jayasakti Abadi",store:"Pt Khatulistiwa Jayasakti Abadi",kota:"Jakarta Pusat",parent:"PT. Khatulistiwa Jayasakti Abadi",lvr:"6002321533",wo:185,type:"ASP HQ"},
+  {rank:42,vendor:"30008461",sp:"Think Computer",store:"Think Computer / Service Center Lenovo/Hawlett Packard",kota:"Pontianak",parent:"CV THINK SINERGI CEMERLANG",lvr:"6002359466",wo:181,type:"ASP HQ"},
+  {rank:43,vendor:"30039098",sp:"PT. Suka Guna Indonesia",store:"Surya Motor Banjarmasin",kota:"Banjarmasin",parent:"PT. Suka Guna Indonesia",lvr:"6040581181",wo:165,type:"ASP HQ"},
+  {rank:44,vendor:"30008291",sp:"Dutacom PP",store:"Duta Computer",kota:"Bangka Belitung",parent:"CV DUTA BINTANG UTAMA",lvr:"6002359136",wo:159,type:"ASP HQ"},
+  {rank:45,vendor:"30004502",sp:"Info Computer Center",store:"Info Computer Banjarmasin",kota:"Banjarmasin",parent:"CV INFO TECHNIC",lvr:"6002341730",wo:154,type:"ASP HQ"},
+  {rank:46,vendor:"30068257",sp:"Sentral Komputer Karawang",store:"Sentral Komputer Karawang",kota:"Karawang",parent:"Sentral Komputer",lvr:"6041986664",wo:146,type:"ASP HQ"},
+  {rank:47,vendor:"30004500",sp:"KJB Surabaya",store:"Asus Service Partner Surabaya",kota:"Surabaya",parent:"KJB",lvr:"6002341644",wo:140,type:"ASP HQ"},
+  {rank:48,vendor:"30008292",sp:"An's Comp",store:"An's Comp / Ans Computer",kota:"Cirebon",parent:"CV ANEKA NIAGA SENTOSA",lvr:"6002359170",wo:132,type:"ASP HQ"},
+  {rank:49,vendor:"30006412",sp:"Eleven Komputer",store:"Eleven Komputer",kota:"Jambi",parent:"PT.Eleven Komputer",lvr:"6002350290",wo:122,type:"ASP HQ"},
+  {rank:50,vendor:"30011361",sp:"Metrokom Lampung",store:"Metro Komputer",kota:"Lampung",parent:"CV Global Djaya",lvr:"6032066339",wo:118,type:"ASP HQ"},
+  {rank:51,vendor:"30010548",sp:"Master Computer",store:"Master Computer",kota:"Jayapura",parent:"CV Master Computer",lvr:"6002394912",wo:114,type:"ASP HQ"},
+  {rank:52,vendor:"30090465",sp:"Infonet Mitra Sejati Bogor",store:"Infonet Bogor Jambu 2",kota:"Bogor",parent:"PT. Infonet Mitra Sejati",lvr:"6052266227",wo:113,type:"ASP Branch"},
+  {rank:53,vendor:"30008941",sp:"Multi Prima",store:"CV. Multi Prima",kota:"Banjarmasin",parent:"CV. MULTIPRIMA",lvr:"6002389587",wo:100,type:"ASP HQ"},
+  {rank:54,vendor:"30008290",sp:"Pati IT Klinik",store:"PATI IT KLINIK",kota:"Pati",parent:"CV Pati IT Klinik",lvr:"6002359101",wo:100,type:"ASP HQ"},
+  {rank:55,vendor:"30008290",sp:"Kodoes Computer Pati",store:"Kodoes Computer Pati",kota:"Pati",parent:"CV. PRIBUMI JAYA KOMPUTAMA",lvr:"6002359101",wo:100,type:"ASP HQ"},
+  {rank:56,vendor:"30090385",sp:"Mahadewa Computer",store:"Mahadewa ID Bone",kota:"Sulawesi Selatan",parent:"Mahadewa Computer",lvr:"6052078391",wo:98,type:"ASP HQ"},
+  {rank:57,vendor:"30000924",sp:"CV Persada Duta",store:"HERO COMPUTER - SERVICE LAPTOP, COMPUTER DAN PRINTER",kota:"Bengkulu",parent:"CV Hero Adiperkasa",lvr:"6002321657",wo:89,type:"ASP HQ"},
+  {rank:58,vendor:"30010293",sp:"PJTECH",store:"Primajaya Multi Technology, PT",kota:"Medan",parent:"PT PRIMAJAYA MULTI TECHNOLOGY",lvr:"6002394510",wo:85,type:"ASP HQ"},
+  {rank:59,vendor:"30010322",sp:"DATACOM SERVICE CENTER",store:"DATACOMDIGITAL",kota:"Pontianak",parent:"DATACOM SERVICE CENTER",lvr:"6002394430",wo:80,type:"ASP HQ"},
+  {rank:60,vendor:"30006474",sp:"Esacom",store:"Esa Com (Esa Genangku)",kota:"Manado",parent:"CV MULIA HARAPAN BERKAT",lvr:"6002350920",wo:75,type:"ASP HQ"},
+  {rank:61,vendor:"30010744",sp:"Kreatif Komputer",store:"Kreatif Komputer",kota:"Banten",parent:"PT IBM INDONESIA",lvr:"6002398050",wo:73,type:"ASP Branch"},
+  {rank:62,vendor:"30076512",sp:"Infonet Ambasador",store:"Infonet Ambasador",kota:"Jakarta Selatan",parent:"PT. Infonet Mitra Sejati",lvr:"6047084724",wo:65,type:"ASP Branch"},
+  {rank:63,vendor:"30010576",sp:"Hi Tech",store:"Hitech Computer",kota:"Maluku",parent:"Hi Tech",lvr:"6002394709",wo:62,type:"ASP HQ"},
+  {rank:64,vendor:"30076472",sp:"Indotech",store:"INDOTECH",kota:"Bali",parent:"CV Indotech Global",lvr:"6046836040",wo:55,type:"ASP HQ"},
+  {rank:65,vendor:"30009222",sp:"Square Gorontalo",store:"Square Computer",kota:"Gorontalo",parent:"PT Square Gorontalo",lvr:"6002390277",wo:47,type:"ASP HQ"},
+  {rank:66,vendor:"30076785",sp:"Megatama COMPUTINDO",store:"Megatama Computindo",kota:"Karawang",parent:"CV Megatama Solusindo",lvr:"6048562974",wo:35,type:"ASP HQ"},
+  {rank:67,vendor:"30006510",sp:"Crystal Computer",store:"Crystal Computer",kota:"Kep. Riau",parent:"PT KRISTAL KOMPUTERINDO PERKASA",lvr:"6002350996",wo:33,type:"ASP HQ"},
+  {rank:68,vendor:"30010321",sp:"GALERINDO KOMPUTAMA",store:"ITECH Store Toko Hp dan Laptop",kota:"Manokwari",parent:"GALERINDO KOMPUTAMA",lvr:"6002394418",wo:33,type:"ASP HQ"},
+  {rank:69,vendor:"30076364",sp:"Toho Komputer",store:"TOHO Komputer",kota:"Papua Barat",parent:"CV Toho Komputer",lvr:"6046148081",wo:28,type:"ASP HQ"},
+  {rank:70,vendor:"30008778",sp:"DMC KUPANG",store:"DMC COMPUTER",kota:"Kupang",parent:"CV Duta Multi Komputer",lvr:"6002389527",wo:27,type:"ASP HQ"},
+  {rank:71,vendor:"30000974",sp:"PT XDC Indonesia",store:"XDC Indonesia",kota:"Jakarta Barat",parent:"PT XDC Indonesia",lvr:"6002321578",wo:27,type:"ASP HQ"},
+  {rank:72,vendor:"30008914",sp:"Venes Padang",store:"CV.VENES JAYA",kota:"Padang",parent:"CV Venes Jaya",lvr:"6002389702",wo:24,type:"ASP HQ"},
+  {rank:73,vendor:"30040100",sp:"Intikom Medan",store:"INTIKOM MEDAN",kota:"Medan",parent:"PT Intikom Berlian Mustika",lvr:"6041431896",wo:22,type:"ASP Branch"},
+  {rank:74,vendor:"30040105",sp:"Intikom Surabaya",store:"INTIKOM SURABAYA",kota:"Surabaya",parent:"PT Intikom Berlian Mustika",lvr:"6041431901",wo:20,type:"ASP Branch"},
+  {rank:75,vendor:"30008368",sp:"VTECH KOMPUTER",store:"V-Tech Computer",kota:"Jambi",parent:"PT VICTORY TECHNOLOGY ABADI",lvr:"6002359460",wo:19,type:"ASP HQ"},
+  {rank:76,vendor:"30008952",sp:"Adi Wahana",store:"Adi Wahana Computer & IT Store",kota:"Kediri",parent:"CV Adi Wahana",lvr:"6002389520",wo:13,type:"ASP HQ"},
+  {rank:77,vendor:"30010304",sp:"CV.INDO BISNIS SC",store:"INDOCOMPUTER STORE & LAYANAN SERVICE RESMI EPSON-LENOVO-CANON-HP-BROTHER",kota:"Payakumbuh",parent:"CV.INDO BISNIS SC",lvr:"6002394492",wo:11,type:"ASP HQ"},
+  {rank:78,vendor:"30076540",sp:"Intikom Karawang",store:"Intikom Service Center - Karawang",kota:"Karawang",parent:"PT Intikom Berlian Mustika",lvr:"6047431287",wo:11,type:"ASP Branch"},
+  {rank:79,vendor:"39000894",sp:"Mega Komputer Bengkulu",store:"Mega Komputer #2",kota:"Bengkulu",parent:"Mega Komputer",lvr:"6060304421",wo:11,type:"ASP HQ"},
+  {rank:80,vendor:"30010627",sp:"Dimensi Computer",store:"DIMENSI COMPUTER",kota:"Marauke",parent:"Dimensi Computer",lvr:"6002394614",wo:10,type:"ASP HQ"},
+  {rank:81,vendor:"30006511",sp:"Tekno Komputer",store:"Tekno Komputer",kota:"Riau",parent:"—",lvr:"6002350587",wo:10,type:"ASP Branch"},
+  {rank:82,vendor:"30040101",sp:"Intikom Bandung",store:"INTIKOM BANDUNG",kota:"Bandung",parent:"PT Intikom Berlian Mustika",lvr:"6041431904",wo:8,type:"ASP Branch"},
+  {rank:83,vendor:"30011151",sp:"WHITE KNIGHT COMPUTER",store:"Johan Foto Computer",kota:"NTB",parent:"CV Tiga Nusa Computer",lvr:"6020996226",wo:7,type:"ASP HQ"},
+  {rank:84,vendor:"30039833",sp:"Intikom Denpasar",store:"INTIKOM DENPASAR",kota:"Bali",parent:"PT Intikom Berlian Mustika",lvr:"6041414615",wo:2,type:"ASP Branch"},
+  {rank:85,vendor:"30076374",sp:"PT. Alya Prima Vera",store:"Sara Komputer",kota:"Palu",parent:"PT. Alya Prima Vera",lvr:"6046500541",wo:2,type:"ASP HQ"},
+  {rank:86,vendor:"30010995",sp:"KOMDISC-CLINIC",store:"KOMDISC",kota:"Kalimantan Barat",parent:"CV.KOMDISC CLINIC",lvr:"6002398859",wo:0,type:"ASP HQ"},
+  {rank:87,vendor:"30012119",sp:"PT Mitra Infosarana Bandung",store:"PT Mitra Infosarana",kota:"Bandung",parent:"PT Mitra Infosarana",lvr:"6037011644",wo:0,type:"ASP Branch"},
+  {rank:88,vendor:"30012118",sp:"PT Mitra Infosarana Surabaya",store:"PT. Mitra Infosarana",kota:"Surabaya",parent:"PT Mitra Infosarana",lvr:"6037011647",wo:0,type:"ASP Branch"},
+  {rank:89,vendor:"30036839",sp:"PT Solusi Inti Pratama",store:"PT. Solusi Inti Pratama - Lenovo Service Center & Chubbsafes Dealer",kota:"Denpasar",parent:"PT Solusi Inti Pratama",lvr:"6039285047",wo:0,type:"ASP HQ"}
+];
+
+let filtered = [...data];
+
+function applyFilters() {
+  const typeVal = document.getElementById('filterType').value;
+  const search = document.getElementById('searchBox').value.toLowerCase().trim();
+  filtered = data.filter(function(d) {
+    if (typeVal && d.type !== typeVal) return false;
+    if (search) {
+      var hay = (d.sp + ' ' + d.store + ' ' + d.kota + ' ' + d.parent).toLowerCase();
+      if (hay.indexOf(search) === -1) return false;
+    }
+    return true;
+  });
+  render();
+}
+
+function render() {
+  var tbody = document.getElementById('tbody');
+  var note = document.getElementById('footerNote');
+  var totalShown = filtered.reduce(function(a,d){ return a + d.wo; }, 0);
+  tbody.innerHTML = filtered.map(function(d) {
+    var pct = MAX_WO > 0 ? Math.round((d.wo / MAX_WO) * 100) : 0;
+    var badge = d.type === 'ASP HQ'
+      ? '<span class="badge badge-hq">HQ</span>'
+      : '<span class="badge badge-branch">Branch</span>';
+    return '<tr>' +
+      '<td class="rank">' + d.rank + '</td>' +
+      '<td><div class="asp-name">' + esc(d.sp) + '</div><div class="asp-store">' + esc(d.store) + '</div></td>' +
+      '<td class="kota">' + esc(d.kota) + '</td>' +
+      '<td class="parent">' + esc(d.parent) + '</td>' +
+      '<td class="vendor">' + d.vendor + '</td>' +
+      '<td class="lvr">' + d.lvr + '</td>' +
+      '<td>' + badge + '</td>' +
+      '<td><div class="wo-bar"><div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div><span class="wo-num">' + d.wo.toLocaleString() + '</span></div></td>' +
+      '</tr>';
+  }).join('');
+  document.getElementById('countLabel').textContent = filtered.length + ' ASPs shown \u00b7 ' + totalShown.toLocaleString() + ' total WOs';
+  note.textContent = 'Showing ' + filtered.length + ' of 89 records \u00b7 Total WOs in view: ' + totalShown.toLocaleString();
+}
+
+function esc(s) {
+  if (!s || s === 'null') return '\u2014';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+render();
+</script>
+</body>
+</html>
