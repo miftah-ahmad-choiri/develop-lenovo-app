@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-from flask import Blueprint, render_template, request, jsonify, send_file, current_app, session, redirect, url_for
+from flask import Blueprint, render_template, request, jsonify, send_file, current_app, session, redirect, url_for, flash
 from app.services.database.queries import get_wo_summary_stats
 from app.routes.auth import login_required
 
@@ -78,6 +78,129 @@ def escalation():
     ctx = _stat_ctx()
     ctx["active_page"] = "escalation"
     return render_template("asp/escalation.html", **ctx)
+
+
+@asp_bp.route("/asp/switch-branch/<string:username>", methods=["GET"])
+@login_required
+def switch_branch(username: str):
+    """Switch the current ASP session context to a sibling branch office.
+
+    Only the ASP HQ of the same parent_group (or superadmin) may switch.
+    Updates the session's labor_vendor and display_name so all pages filter
+    correctly for the chosen branch.
+    """
+    from app.services.database.db import get_db
+    role        = session.get("role", "")
+    own_username = session.get("username", "")
+
+    if role not in ("superadmin", "asp"):
+        flash("You do not have permission to switch offices.", "danger")
+        return redirect(url_for("asp.dashboard"))
+
+    db = get_db()
+
+    # Fetch the target branch
+    target = db.execute(
+        "SELECT username, service_provider, labor_vendor_related, parent_group, office_type "
+        "FROM asp_details WHERE username = ?",
+        (username,),
+    ).fetchone()
+
+    if not target:
+        flash("Branch office not found.", "danger")
+        return redirect(url_for("asp.dashboard"))
+
+    if role == "asp":
+        # Always verify against the original HQ username (handles mid-branch switches)
+        hq_username = session.get("original_username") or own_username
+        own = db.execute(
+            "SELECT parent_group FROM asp_details WHERE username = ?",
+            (hq_username,),
+        ).fetchone()
+        if not own or own["parent_group"] != target["parent_group"]:
+            flash("You can only switch to offices in your own group.", "danger")
+            return redirect(url_for("asp.dashboard"))
+
+    # Preserve the original HQ identity on first switch so the user can always go back
+    if "original_username" not in session:
+        session["original_username"]     = session.get("username")
+        session["original_display_name"] = session.get("display_name")
+        session["original_labor_vendor"] = session.get("labor_vendor")
+
+    # If switching back to the original HQ, restore the saved identity
+    if username == session.get("original_username"):
+        session["username"]             = session.pop("original_username")
+        session["display_name"]         = session.pop("original_display_name")
+        session["labor_vendor"]         = session.pop("original_labor_vendor")
+        # is_hq_with_branches stays True — was set at login and never changed
+    else:
+        session["username"]    = target["username"]
+        session["display_name"] = target["service_provider"] or target["username"]
+        session["labor_vendor"] = target["labor_vendor_related"]
+        # is_hq_with_branches intentionally kept True so the switcher stays visible
+
+    return redirect(url_for("asp.dashboard"))
+
+
+@asp_bp.route("/asp/branch-office", methods=["GET"])
+@login_required
+def branch_office():
+    """List all ASPs that share the same parent_group as the current ASP HQ user.
+    Superadmin may pass ?parent_group=<name> to view any group."""
+    from app.services.database.db import get_db
+    role     = session.get("role", "")
+    username = session.get("username", "")
+
+    # Access control: only superadmin or an ASP HQ with branches
+    if role not in ("superadmin", "asp"):
+        flash("You do not have permission to access that page.", "danger")
+        return redirect(url_for("asp.dashboard"))
+
+    db = get_db()
+
+    if role == "superadmin":
+        # Superadmin may specify any parent_group via query string
+        parent_group = request.args.get("parent_group", "").strip() or None
+        current_asp  = None
+    else:
+        # asp role: look up own parent_group and verify HQ + branches exist
+        row = db.execute(
+            "SELECT parent_group, office_type FROM asp_details WHERE username = ?",
+            (username,),
+        ).fetchone()
+        if not row or row["office_type"] != "ASP HQ":
+            flash("This page is only available for ASP HQ accounts.", "danger")
+            return redirect(url_for("asp.dashboard"))
+        parent_group = row["parent_group"]
+        current_asp  = username
+
+    if not parent_group:
+        flash("No parent group configured for your account.", "warning")
+        return redirect(url_for("asp.dashboard"))
+
+    # Fetch all members of the group, HQ first then branches alphabetically
+    members = db.execute(
+        """
+        SELECT username, service_provider, store_name, kota, island,
+               vendor_code, labor_vendor_related, office_type,
+               operational_status, operation_support, wo_count, phone_number
+        FROM asp_details
+        WHERE parent_group = ?
+        ORDER BY
+            CASE WHEN office_type = 'ASP HQ' THEN 0 ELSE 1 END,
+            service_provider COLLATE NOCASE
+        """,
+        (parent_group,),
+    ).fetchall()
+
+    ctx = _stat_ctx()
+    ctx.update(
+        active_page  = "branch_office",
+        parent_group = parent_group,
+        members      = [dict(r) for r in members],
+        current_asp  = current_asp,
+    )
+    return render_template("asp/branch_office.html", **ctx)
 
 
 # ── API: tab data endpoints (server-side pagination) ─────────────────────────
@@ -331,7 +454,7 @@ def api_save_operation_support():
 @asp_bp.route("/asp/api/request-password-change", methods=["POST"])
 @login_required
 def api_request_password_change():
-    """Submit a password change request for the logged-in ASP account."""
+    """Submit and auto-approve a password change for the logged-in ASP account."""
     from app.services.database.db import get_db
     uid      = session.get("user_id")
     username = session.get("username")
@@ -349,12 +472,20 @@ def api_request_password_change():
         "WHERE asp_username=? AND status='pending'",
         (username,)
     )
+    # Record the request and immediately mark it as approved (auto)
     db.execute(
-        "INSERT INTO asp_pw_change_requests (asp_username, new_password) VALUES (?, ?)",
+        "INSERT INTO asp_pw_change_requests "
+        "(asp_username, new_password, status, reviewed_by, reviewed_at) "
+        "VALUES (?, ?, 'approved', 'auto', datetime('now'))",
         (username, new_password)
     )
+    # Apply the new password directly
+    db.execute(
+        "UPDATE asp_details SET password=? WHERE username=?",
+        (new_password, username)
+    )
     db.commit()
-    return jsonify({"ok": True, "message": "Password change request submitted."})
+    return jsonify({"ok": True, "message": "Password changed successfully."})
 
 
 @asp_bp.route("/asp/api/location", methods=["PATCH"])

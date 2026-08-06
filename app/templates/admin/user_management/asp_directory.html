@@ -403,6 +403,71 @@
   .form-field textarea { resize: vertical; min-height: 64px; }
   .form-field input.mono-input { font-family: "IBM Plex Mono", monospace; font-size: 12px; }
 
+  /* ── users popup ── */
+  .users-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.42); z-index: 1050;
+    align-items: center; justify-content: center;
+  }
+  .users-overlay.open { display: flex; }
+  .users-box {
+    background: #fff; border-radius: 10px; width: 560px; max-width: 96vw;
+    max-height: 86vh; display: flex; flex-direction: column;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.2);
+  }
+  .users-box-header {
+    padding: 16px 20px 14px; border-bottom: 1px solid #e5e7eb;
+    display: flex; align-items: flex-start; justify-content: space-between; flex-shrink: 0;
+  }
+  .users-box-title { font-size: 15px; font-weight: 700; color: #1f2328; }
+  .users-box-sub   { font-size: 12px; color: #57606a; margin-top: 2px; }
+  .users-count-pill {
+    display: inline-block; font-size: 11px; font-weight: 700;
+    background: #eff6ff; color: #3b82d4; border: 1px solid #bfdbfe;
+    border-radius: 20px; padding: 1px 9px; margin-left: 7px; vertical-align: middle;
+  }
+  .users-box-body  { flex: 1; overflow-y: auto; padding: 12px 16px; background: #f7f8fa; }
+  .users-box-footer {
+    padding: 12px 20px; border-top: 1px solid #e5e7eb; display: flex;
+    justify-content: flex-end; flex-shrink: 0; background: #fff;
+  }
+  /* card-based user list */
+  .user-card {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 8px;
+    padding: 12px 14px; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .user-card:last-child { margin-bottom: 0; }
+  .user-card:hover { border-color: #bfdbfe; background: #f8fbff; }
+  .user-card-avatar {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: #eff6ff; color: #3b82d4;
+    font-size: 13px; font-weight: 700; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .user-card-avatar.inactive { background: #f3f4f6; color: #9ca3af; }
+  .user-card-body { flex: 1; min-width: 0; }
+  .user-card-name  { font-size: 13.5px; font-weight: 600; color: #1f2328; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .user-card-meta  { font-size: 12px; color: #57606a; margin-top: 2px; display: flex; flex-wrap: wrap; gap: 0 12px; }
+  .user-card-meta span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .user-card-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
+  .user-card-date  { font-size: 11px; color: #9ca3af; white-space: nowrap; }
+  .users-empty     { padding: 48px 20px; text-align: center; color: #9ca3af; font-size: 13px; }
+  .badge-u-active   { background:#dcfce7; color:#15803d; border:1px solid #bbf7d0; font-size:10.5px; font-weight:700; padding:2px 9px; border-radius:20px; white-space:nowrap; }
+  .badge-u-inactive { background:#f3f4f6; color:#6b7280; border:1px solid #d1d5db; font-size:10.5px; font-weight:700; padding:2px 9px; border-radius:20px; white-space:nowrap; }
+  .btn-view-users {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 9px; font-size: 11.5px; font-weight: 600;
+    border: 1px solid #d0d7de; border-radius: 5px;
+    background: #fff; color: #1f2328; cursor: pointer;
+    font-family: inherit; white-space: nowrap; line-height: 1;
+  }
+  .btn-view-users:hover { background: #eff6ff; border-color: #3b82d4; color: #3b82d4; }
+  /* match the Edit button size when used inside the detail modal header */
+  #modal-users-btn {
+    padding: 7px 16px; font-size: 13px; border-radius: 6px;
+  }
+
   /* ── drawer footer buttons ── */
   .btn-save {
     flex: 1; padding: 8px 16px; font-size: 13px; font-weight: 600;
@@ -493,6 +558,7 @@
         <th>Future Status</th>
         <th>Operation Support</th>
         <th>Map</th>
+        <th>Users</th>
         <th></th>
       </tr>
     </thead>
@@ -562,6 +628,17 @@
         </td>
         <td class="nowrap">
           <button
+            class="btn-view-users"
+            data-username="{{ asp.username | e }}"
+            data-sp="{{ asp.service_provider | e }}"
+            title="View users"
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Users
+          </button>
+        </td>
+        <td class="nowrap">
+          <button
             class="btn-edit"
             data-asp="{{ asp | tojson | forceescape }}"
             title="Edit"
@@ -571,7 +648,7 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="16" class="empty-state">No ASP records found.</td></tr>
+      <tr><td colspan="17" class="empty-state">No ASP records found.</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -595,6 +672,10 @@
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:12px">
+        <button class="btn-view-users" id="modal-users-btn" title="View users of this ASP">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          View Users
+        </button>
         <button class="btn-modal-edit" id="modal-edit-btn" title="Edit this ASP">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:5px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Edit
         </button>
@@ -1042,6 +1123,29 @@
   </div>
 </div>
 
+<!-- ── ASP Users popup ── -->
+<div class="users-overlay" id="users-overlay">
+  <div class="users-box">
+    <div class="users-box-header">
+      <div>
+        <div class="users-box-title" id="users-box-title">
+          ASP Users<span class="users-count-pill" id="users-count-pill" style="display:none"></span>
+        </div>
+        <div class="users-box-sub" id="users-box-sub"></div>
+      </div>
+      <button class="modal-close" id="users-close-btn" title="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="users-box-body" id="users-box-body">
+      <div class="users-empty" id="users-loading">Loading…</div>
+    </div>
+    <div class="users-box-footer">
+      <button class="btn-modal-close" id="users-close-footer-btn">Close</button>
+    </div>
+  </div>
+</div>
+
 <script>
   /* ── filter ── */
   function filterTable() {
@@ -1438,12 +1542,107 @@
       });
     });
 
+    // ── Users popup: table-row buttons ──
+    document.querySelectorAll('.btn-view-users[data-username]').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        openUsersPopup(btn.dataset.username, btn.dataset.sp || btn.dataset.username);
+      });
+    });
+
+    // ── Users popup: detail-modal button ──
+    document.getElementById('modal-users-btn').addEventListener('click', function() {
+      if (!_currentAsp) return;
+      openUsersPopup(_val(_currentAsp, 'username'), _val(_currentAsp, 'service_provider') || _val(_currentAsp, 'username'));
+    });
+
+    // ── Users popup: close buttons ──
+    document.getElementById('users-close-btn').addEventListener('click', closeUsersPopup);
+    document.getElementById('users-close-footer-btn').addEventListener('click', closeUsersPopup);
+    document.getElementById('users-overlay').addEventListener('click', function(e) {
+      if (e.target === this) closeUsersPopup();
+    });
+
     // Escape key (intentionally does NOT close the create modal — use Cancel/×)
     document.addEventListener('keydown', function(e) {
       if (e.key !== 'Escape') return;
+      if (document.getElementById('users-overlay').classList.contains('open')) { closeUsersPopup(); return; }
       if (document.getElementById('detail-overlay').classList.contains('open')) closeDetailModal();
       else closeDrawer();
     });
   });
+
+  /* ── Users popup ── */
+  function openUsersPopup(username, label) {
+    var overlay = document.getElementById('users-overlay');
+    var body    = document.getElementById('users-box-body');
+    var countPill = document.getElementById('users-count-pill');
+    countPill.style.display = 'none';
+    document.getElementById('users-box-sub').textContent = label + ' · @' + username;
+    body.innerHTML = '<div class="users-empty" style="padding:32px 20px">Loading…</div>';
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+
+    fetch('/admin/users/asp-directory/' + encodeURIComponent(username) + '/users')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var iconUsers = '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:#d1d5db;display:block;margin:0 auto 10px"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
+        if (!data.ok) {
+          body.innerHTML = '<div class="users-empty">' + iconUsers + 'Failed to load users.</div>';
+          return;
+        }
+        if (!data.users || !data.users.length) {
+          body.innerHTML = '<div class="users-empty">' + iconUsers
+            + '<div style="font-weight:600;color:#57606a;font-size:13.5px;margin-bottom:4px">No users yet</div>'
+            + '<div style="font-size:12px">This ASP has not created any user accounts.</div>'
+            + '</div>';
+          return;
+        }
+        /* show count pill */
+        countPill.textContent = data.users.length;
+        countPill.style.display = '';
+        /* render cards */
+        var html = '';
+        data.users.forEach(function(u) {
+          var initials  = (u.full_name || '?').slice(0, 2).toUpperCase();
+          var active    = !!u.is_active;
+          var badge     = active
+            ? '<span class="badge-u-active">Active</span>'
+            : '<span class="badge-u-inactive">Inactive</span>';
+          var avatarCls = active ? 'user-card-avatar' : 'user-card-avatar inactive';
+          var created   = u.created_at ? u.created_at.slice(0, 10) : '';
+          var phone     = u.phone_number ? _esc(u.phone_number) : '';
+          var meta      = '<span>' + _esc(u.email) + '</span>'
+                        + (phone ? '<span>' + phone + '</span>' : '');
+          html += '<div class="user-card">'
+            + '<div class="' + avatarCls + '">' + initials + '</div>'
+            + '<div class="user-card-body">'
+            +   '<div class="user-card-name">' + _esc(u.full_name) + '</div>'
+            +   '<div class="user-card-meta">' + meta + '</div>'
+            + '</div>'
+            + '<div class="user-card-right">'
+            +   badge
+            +   (created ? '<span class="user-card-date">' + created + '</span>' : '')
+            + '</div>'
+            + '</div>';
+        });
+        body.innerHTML = html;
+      })
+      .catch(function() {
+        body.innerHTML = '<div class="users-empty">Network error. Please try again.</div>';
+      });
+  }
+
+  function closeUsersPopup() {
+    document.getElementById('users-overlay').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  function _esc(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
 </script>
 {% endblock %}

@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}Branch Offices — {{ parent_group }}{% endblock %}
+
+{% block extra_styles %}
+  /* ── page header ── */
+  .branch-header-meta {
+    font-size: 12.5px; color: #57606a; margin-top: 4px;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .branch-group-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: #f0f2f5; border: 1px solid #e5e7eb;
+    border-radius: 20px; padding: 2px 10px;
+    font-size: 12px; font-weight: 600; color: #1f2328;
+  }
+
+  /* ── cards grid ── */
+  .branch-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 14px;
+    margin-top: 8px;
+  }
+
+  .branch-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 18px 18px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .branch-card:hover {
+    border-color: #93c5fd;
+    box-shadow: 0 2px 10px rgba(59,130,212,0.08);
+  }
+  .branch-card.is-current {
+    border-color: #6fb3f5;
+    background: #f0f6ff;
+  }
+
+  /* card top row */
+  .bc-top {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
+  }
+  .bc-name { font-size: 14px; font-weight: 700; color: #1f2328; line-height: 1.35; }
+  .bc-store { font-size: 12px; color: #57606a; margin-top: 2px; line-height: 1.4; }
+
+  /* badges */
+  .badge {
+    display: inline-flex; align-items: center;
+    padding: 2px 8px; border-radius: 10px;
+    font-size: 11px; font-weight: 600; white-space: nowrap; flex-shrink: 0;
+  }
+  .badge-hq     { background: #dbeafe; color: #1d4ed8; }
+  .badge-branch { background: #fef9c3; color: #854d0e; }
+  .badge-you    { background: #dcfce7; color: #15803d; }
+  .badge-active   { background: #dcfce7; color: #15803d; }
+  .badge-inactive { background: #f3f4f6; color: #6b7280; }
+
+  /* badge row */
+  .bc-badges { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+
+  /* detail rows */
+  .bc-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 12px;
+    font-size: 12px;
+  }
+  .bc-detail-item { display: flex; flex-direction: column; gap: 1px; }
+  .bc-detail-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; color: #57606a;
+  }
+  .bc-detail-val { color: #1f2328; font-size: 12.5px; }
+  .bc-detail-val.mono { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: #57606a; }
+  .bc-detail-val.muted { color: #adb5bd; }
+
+  /* WO count bar */
+  .bc-wo-row {
+    display: flex; align-items: center; gap: 8px;
+    padding-top: 10px; border-top: 1px solid #f0f2f5;
+  }
+  .bc-wo-label { font-size: 11px; font-weight: 600; color: #57606a; white-space: nowrap; }
+  .bc-bar-track {
+    flex: 1; height: 6px; background: #e5e7eb;
+    border-radius: 3px; overflow: hidden;
+  }
+  .bc-bar-fill { height: 100%; border-radius: 3px; background: #3b82d4; }
+  .bc-wo-num { font-size: 13px; font-weight: 700; color: #1f2328; white-space: nowrap; min-width: 36px; text-align: right; }
+
+  /* empty state */
+  .empty-state {
+    text-align: center; padding: 60px 24px;
+    background: #fff; border: 1px solid #e5e7eb;
+    border-radius: 10px; color: #57606a; font-size: 13px;
+  }
+  .empty-state svg { margin-bottom: 12px; color: #d0d7de; }
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-row">
+    <div>
+      <h1>Branch Offices</h1>
+      <div class="branch-header-meta">
+        <span>All service locations under the same parent group</span>
+        <span class="branch-group-pill">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+          {{ parent_group }}
+        </span>
+        <span>{{ members | length }} location{{ 's' if members | length != 1 else '' }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if members %}
+  {# compute max wo_count for bar scaling #}
+  {% set max_wo = namespace(val=1) %}
+  {% for m in members %}
+    {% if (m.wo_count or 0) > max_wo.val %}
+      {% set max_wo.val = m.wo_count %}
+    {% endif %}
+  {% endfor %}
+
+  <div class="branch-grid">
+    {% for m in members %}
+    {% set is_current = (current_asp and m.username == current_asp) %}
+    {% set wo = m.wo_count or 0 %}
+    {% set pct = ((wo / max_wo.val) * 100) | round | int if max_wo.val > 0 else 0 %}
+
+    <div class="branch-card {% if is_current %}is-current{% endif %}">
+
+      <div>
+        <div class="bc-top">
+          <div>
+            <div class="bc-name">{{ m.service_provider or m.username }}</div>
+            {% if m.store_name and m.store_name != m.service_provider %}
+              <div class="bc-store">{{ m.store_name }}</div>
+            {% endif %}
+          </div>
+          <div style="flex-shrink:0; margin-top:2px">
+            {% if m.office_type == 'ASP HQ' %}
+              <span class="badge badge-hq">HQ</span>
+            {% else %}
+              <span class="badge badge-branch">Branch</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="bc-badges" style="margin-top:8px">
+          {% if is_current %}
+            <span class="badge badge-you">You</span>
+          {% endif %}
+          {% if m.operational_status == 'Operational' or m.operational_status == 'Continue' %}
+            <span class="badge badge-active">{{ m.operational_status }}</span>
+          {% elif m.operational_status %}
+            <span class="badge badge-inactive">{{ m.operational_status }}</span>
+          {% endif %}
+          {% if m.operation_support %}
+            <span class="badge" style="background:#f3e8ff;color:#7e22ce">{{ m.operation_support }}</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="bc-details">
+        <div class="bc-detail-item">
+          <span class="bc-detail-label">City</span>
+          <span class="bc-detail-val">{{ m.kota or '—' }}</span>
+        </div>
+        <div class="bc-detail-item">
+          <span class="bc-detail-label">Island</span>
+          <span class="bc-detail-val">{{ m.island or '—' }}</span>
+        </div>
+        <div class="bc-detail-item">
+          <span class="bc-detail-label">Vendor Code</span>
+          <span class="bc-detail-val mono">{{ m.vendor_code or '—' }}</span>
+        </div>
+        <div class="bc-detail-item">
+          <span class="bc-detail-label">Labor Vendor</span>
+          <span class="bc-detail-val mono">{{ m.labor_vendor_related or '—' }}</span>
+        </div>
+        {% if m.phone_number %}
+        <div class="bc-detail-item" style="grid-column: span 2">
+          <span class="bc-detail-label">Phone</span>
+          <span class="bc-detail-val">{{ m.phone_number }}</span>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="bc-wo-row">
+        <span class="bc-wo-label">Work Orders</span>
+        <div class="bc-bar-track">
+          <div class="bc-bar-fill" style="width:{{ pct }}%"></div>
+        </div>
+        <span class="bc-wo-num">{{ wo | thousands if wo else '0' }}</span>
+      </div>
+
+    </div>
+    {% endfor %}
+  </div>
+
+{% else %}
+  <div class="empty-state">
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    <p>No branch offices found under this parent group.</p>
+  </div>
+{% endif %}
+{% endblock %}

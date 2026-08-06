@@ -1634,33 +1634,40 @@ def asp_directory_create():
     return redirect(url_for("admin.asp_directory"))
 
 
+# ── ASP Users (admin read) ───────────────────────────────────────────────────
+
+@admin_bp.route("/admin/users/asp-directory/<asp_username>/users", methods=["GET"])
+def asp_directory_users(asp_username):
+    """Return the asp_users list for a given ASP as JSON (admin use)."""
+    from app.services.database.db import get_db
+    db = get_db()
+    rows = db.execute(
+        """SELECT id, full_name, email, phone_number, is_active, created_at
+           FROM asp_users
+           WHERE asp_username = ?
+           ORDER BY id""",
+        (asp_username,)
+    ).fetchall()
+    return jsonify({"ok": True, "users": [dict(r) for r in rows]})
+
+
 # ── ASP Password Change Requests ─────────────────────────────────────────────
 
 @admin_bp.route("/admin/users/pw-change-requests", methods=["GET"])
 def pw_change_requests():
-    """List pending and historical ASP password change requests."""
+    """List the auto-approved ASP password change history."""
     from app.services.database.db import get_db
     db = get_db()
-    pending_rows = db.execute(
-        """SELECT r.id, r.asp_username, r.requested_at, r.status,
-                  r.new_password, d.service_provider
-           FROM asp_pw_change_requests r
-           LEFT JOIN asp_details d ON d.username = r.asp_username
-           WHERE r.status = 'pending'
-           ORDER BY r.requested_at DESC"""
-    ).fetchall()
     history_rows = db.execute(
         """SELECT r.id, r.asp_username, r.requested_at, r.status,
                   r.new_password, r.reviewed_by, r.reviewed_at,
                   d.service_provider
            FROM asp_pw_change_requests r
            LEFT JOIN asp_details d ON d.username = r.asp_username
-           WHERE r.status != 'pending'
-           ORDER BY r.reviewed_at DESC"""
+           ORDER BY r.requested_at DESC"""
     ).fetchall()
     return render_template(
         "admin/user_management/pw_change_requests.html",
-        requests=[dict(r) for r in pending_rows],
         history=[dict(r) for r in history_rows],
         portal="admin", active_page="user_management"
     )

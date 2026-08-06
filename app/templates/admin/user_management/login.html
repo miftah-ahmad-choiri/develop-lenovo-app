@@ -128,6 +128,37 @@
     .btn-login:hover { background: #2d3340; }
     .btn-login:active { background: #111317; }
 
+    /* ── Forgot password ── */
+    .forgot-wrap {
+      margin-top: 14px;
+      text-align: center;
+    }
+    .forgot-link {
+      font-size: 12.5px;
+      color: #3b82d4;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      font-family: inherit;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .forgot-link:hover { color: #2563b0; }
+    .forgot-info {
+      display: none;
+      margin-top: 10px;
+      background: #f0f6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e40af;
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 12.5px;
+      line-height: 1.55;
+      text-align: left;
+    }
+    .forgot-info.visible { display: block; }
+
     /* ── Footer ── */
     .page-footer {
       margin-top: 24px;
@@ -148,7 +179,6 @@
     </div>
 
     <h1>Sign in</h1>
-    <p class="subtitle">Enter your credentials to access the portal.<br>ASP staff users: use your <strong>email address</strong> as the username.</p>
 
     <!-- Error banner -->
     {% if error %}
@@ -194,9 +224,24 @@
 
       <button type="submit" class="btn-login">Sign in</button>
     </form>
+
+    <div class="forgot-wrap">
+      <button type="button" class="forgot-link" onclick="toggleForgot()">Forgot password?</button>
+      <div class="forgot-info" id="forgotInfo">
+        Please submit your request to IBM Admin email:
+        <strong>xxxx@ibm.com</strong><br>
+        by informing your <strong>username</strong>.
+      </div>
+    </div>
   </div>
 
   <p class="page-footer">Lenovo Authorized Service Provider Portal &mdash; IBM &copy; {{ now.year }}</p>
 
+  <script>
+    function toggleForgot() {
+      var el = document.getElementById('forgotInfo');
+      el.classList.toggle('visible');
+    }
+  </script>
 </body>
 </html>

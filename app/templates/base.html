@@ -301,6 +301,102 @@
     .sidebar-profile-label { transition: opacity 0.15s; }
     .sidebar.collapsed .sidebar-profile-label { opacity: 0; width: 0; overflow: hidden; }
     .sidebar.collapsed .sidebar-profile-btn { justify-content: center; padding: 8px; }
+    /* ── Branch switcher flyout ───────────────────────────────────────────── */
+    .branch-switcher { }
+    .sidebar-branch-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #c9d0d8;
+      background: none;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: left;
+      white-space: nowrap;
+      overflow: hidden;
+      font-family: inherit;
+      transition: background 0.13s, color 0.13s;
+    }
+    .sidebar-branch-btn:hover,
+    .sidebar-branch-btn.open { background: rgba(124,92,216,0.2); color: #c4b5fd; }
+    .sidebar-branch-label { transition: opacity 0.15s; flex: 1; }
+    .sidebar.collapsed .sidebar-branch-label { opacity: 0; width: 0; overflow: hidden; }
+    .sidebar.collapsed .sidebar-branch-btn { justify-content: center; padding: 8px; }
+    .branch-chevron {
+      flex-shrink: 0;
+      color: rgba(255,255,255,0.3);
+      transition: transform 0.2s, opacity 0.15s;
+    }
+    .sidebar-branch-btn.open .branch-chevron { transform: rotate(180deg); color: #c4b5fd; }
+    .sidebar.collapsed .branch-chevron { opacity: 0; width: 0; }
+
+    /* The flyout panel — fixed to viewport so it escapes sidebar overflow:hidden */
+    .branch-flyout {
+      position: fixed;
+      background: #1e2533;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      width: 212px;
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transition: max-height 0.22s ease, opacity 0.18s ease;
+      z-index: 200;
+    }
+    .branch-flyout.open {
+      max-height: 320px;
+      opacity: 1;
+      pointer-events: auto;
+      overflow-y: auto;
+    }
+    .branch-flyout::-webkit-scrollbar { width: 3px; }
+    .branch-flyout::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+
+    .branch-flyout-header {
+      padding: 8px 12px 6px;
+      font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.07em;
+      color: rgba(255,255,255,0.3);
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+    .branch-flyout-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px;
+      font-size: 12.5px; font-weight: 500;
+      color: #b0bac8;
+      text-decoration: none;
+      transition: background 0.12s, color 0.12s;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .branch-flyout-item:last-child { border-bottom: none; }
+    .branch-flyout-item:hover { background: rgba(255,255,255,0.07); color: #fff; }
+    .branch-flyout-item.current-office {
+      background: rgba(59,130,212,0.15);
+      color: #6fb3f5;
+    }
+    .branch-flyout-item.current-office:hover { background: rgba(59,130,212,0.22); }
+    .branch-item-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: rgba(255,255,255,0.15); flex-shrink: 0;
+    }
+    .branch-flyout-item.current-office .branch-item-dot { background: #6fb3f5; }
+    .branch-item-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .branch-item-name { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .branch-item-city { font-size: 11px; color: rgba(255,255,255,0.35); white-space: nowrap; }
+    .branch-flyout-item.current-office .branch-item-city { color: rgba(111,179,245,0.7); }
+    .branch-item-badge {
+      margin-left: auto; flex-shrink: 0;
+      font-size: 9.5px; font-weight: 700; padding: 1px 6px;
+      border-radius: 8px;
+    }
+    .branch-item-badge.hq     { background: rgba(29,78,216,0.25); color: #93c5fd; }
+    .branch-item-badge.branch { background: rgba(133,77,14,0.25); color: #fcd34d; }
     .sidebar-logout-btn {
       display: flex;
       align-items: center;
@@ -597,6 +693,44 @@
 
     <!-- ── Sidebar footer: profile + logout ──────────────────────────────── -->
     <div class="sidebar-footer">
+      {% if session_role == 'superadmin' or (session_role == 'asp' and session_is_hq_with_branches) %}
+      <div class="branch-switcher" id="branch-switcher">
+
+        <!-- Flyout list — renders above the button -->
+        <div class="branch-flyout" id="branch-flyout">
+          <div class="branch-flyout-header">Select office</div>
+          {% for m in session_branch_members %}
+          {% set is_current = (m.username == session_username) %}
+          <a href="/asp/switch-branch/{{ m.username }}"
+             class="branch-flyout-item {% if is_current %}current-office{% endif %}">
+            <span class="branch-item-dot"></span>
+            <span class="branch-item-info">
+              <span class="branch-item-name">{{ m.service_provider or m.username }}</span>
+              {% if m.kota %}<span class="branch-item-city">{{ m.kota }}</span>{% endif %}
+            </span>
+            <span class="branch-item-badge {% if m.office_type == 'ASP HQ' %}hq{% else %}branch{% endif %}">
+              {{ 'HQ' if m.office_type == 'ASP HQ' else 'Branch' }}
+            </span>
+          </a>
+          {% endfor %}
+        </div>
+
+        <!-- Toggle button -->
+        <button type="button" class="sidebar-branch-btn" id="branch-toggle-btn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+          <span class="sidebar-branch-label">Switch to Branch Office</span>
+          <svg class="branch-chevron" width="11" height="11" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="18 15 12 9 6 15"/>
+          </svg>
+        </button>
+
+      </div>
+      {% endif %}
       <a href="/profile" class="sidebar-profile-btn {% if active_page == 'profile' %}active{% endif %}">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
@@ -699,6 +833,60 @@
       }
     });
   });
+
+  // ── Branch office flyout ───────────────────────────────────────────────────
+  const branchToggle  = document.getElementById('branch-toggle-btn');
+  const branchFlyout  = document.getElementById('branch-flyout');
+
+  if (branchToggle && branchFlyout) {
+
+    function positionFlyout() {
+      const rect = branchToggle.getBoundingClientRect();
+      // Place flyout just above the button, aligned to button's left edge
+      branchFlyout.style.left   = rect.left + 'px';
+      branchFlyout.style.width  = rect.width + 'px';
+      branchFlyout.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+      branchFlyout.style.top    = 'auto';
+    }
+
+    function openFlyout() {
+      positionFlyout();
+      branchFlyout.classList.add('open');
+      branchToggle.classList.add('open');
+    }
+
+    function closeFlyout() {
+      branchFlyout.classList.remove('open');
+      branchToggle.classList.remove('open');
+    }
+
+    branchToggle.addEventListener('click', function (e) {
+      e.stopPropagation();
+      // If sidebar is collapsed, expand it first, then open flyout
+      if (sidebar.classList.contains('collapsed')) {
+        applyState(false);
+        setTimeout(() => openFlyout(), 230);
+        return;
+      }
+      branchFlyout.classList.contains('open') ? closeFlyout() : openFlyout();
+    });
+
+    // Reposition on scroll or resize so it tracks the button
+    window.addEventListener('resize', function () {
+      if (branchFlyout.classList.contains('open')) positionFlyout();
+    });
+
+    // Close flyout when clicking anywhere outside
+    document.addEventListener('click', function (e) {
+      const switcher = document.getElementById('branch-switcher');
+      if (switcher && !switcher.contains(e.target) && e.target !== branchFlyout && !branchFlyout.contains(e.target)) {
+        closeFlyout();
+      }
+    });
+
+    // Close flyout when sidebar collapses
+    toggle.addEventListener('click', closeFlyout);
+  }
 })();
 </script>
 

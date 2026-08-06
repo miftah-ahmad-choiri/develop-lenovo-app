@@ -59,11 +59,45 @@ def create_app():
     @app.context_processor
     def inject_globals():
         from flask import session as _sess
+        role               = _sess.get("role", "")
+        is_hq_with_branches = _sess.get("is_hq_with_branches", False)
+        branch_members     = []
+
+        # Populate branch list for ASP HQ accounts that have sibling branches.
+        # Superadmin sees no dropdown (they'd span every group — not useful here).
+        if role == "asp" and is_hq_with_branches:
+            try:
+                from app.services.database.db import get_db
+                # Use original_username when switched to a branch so the group
+                # lookup always resolves against the real HQ account.
+                hq_username = _sess.get("original_username") or _sess.get("username", "")
+                row = get_db().execute(
+                    "SELECT parent_group FROM asp_details WHERE username = ?",
+                    (hq_username,),
+                ).fetchone()
+                if row and row["parent_group"]:
+                    rows = get_db().execute(
+                        """
+                        SELECT username, service_provider, kota, office_type
+                        FROM asp_details
+                        WHERE parent_group = ?
+                        ORDER BY
+                            CASE WHEN office_type = 'ASP HQ' THEN 0 ELSE 1 END,
+                            service_provider COLLATE NOCASE
+                        """,
+                        (row["parent_group"],),
+                    ).fetchall()
+                    branch_members = [dict(r) for r in rows]
+            except Exception:
+                branch_members = []
+
         return {
-            "now":                  datetime.utcnow(),
-            "session_role":         _sess.get("role", ""),
-            "session_username":     _sess.get("username", ""),
-            "session_display_name": _sess.get("display_name", ""),
+            "now":                         datetime.utcnow(),
+            "session_role":                role,
+            "session_username":            _sess.get("username", ""),
+            "session_display_name":        _sess.get("display_name", ""),
+            "session_is_hq_with_branches": is_hq_with_branches,
+            "session_branch_members":      branch_members,
         }
 
     # Register blueprints

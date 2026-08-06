@@ -94,18 +94,30 @@ def login():
             else:
                 # ── 2. Try asp_details ────────────────────────────────────────
                 asp_row = conn.execute(
-                    "SELECT id, username, password, service_provider, labor_vendor_related "
+                    "SELECT id, username, password, service_provider, labor_vendor_related, "
+                    "       office_type, parent_group "
                     "FROM asp_details WHERE LOWER(username) = LOWER(?)",
                     (username,),
                 ).fetchone()
 
                 if asp_row and str(asp_row["password"]) == password:
+                    # Determine if this ASP is an HQ with sibling branch offices
+                    is_hq_with_branches = False
+                    if asp_row["office_type"] == "ASP HQ" and asp_row["parent_group"]:
+                        branch_count = conn.execute(
+                            "SELECT COUNT(*) FROM asp_details "
+                            "WHERE parent_group = ? AND office_type = 'ASP Branch'",
+                            (asp_row["parent_group"],),
+                        ).fetchone()[0]
+                        is_hq_with_branches = branch_count > 0
+
                     session.clear()
-                    session["user_id"]      = asp_row["id"]
-                    session["username"]     = asp_row["username"]
-                    session["role"]         = "asp"
-                    session["display_name"] = asp_row["service_provider"] or asp_row["username"]
-                    session["labor_vendor"] = asp_row["labor_vendor_related"]
+                    session["user_id"]            = asp_row["id"]
+                    session["username"]           = asp_row["username"]
+                    session["role"]               = "asp"
+                    session["display_name"]       = asp_row["service_provider"] or asp_row["username"]
+                    session["labor_vendor"]       = asp_row["labor_vendor_related"]
+                    session["is_hq_with_branches"] = is_hq_with_branches
                     next_url = request.form.get("next") or url_for("asp.dashboard")
                     return redirect(next_url)
 
