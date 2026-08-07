@@ -892,26 +892,17 @@
 
 {% if session_role %}
 <script>
-/* ── Auto sign-out at 23:59:00 local time ─────────────────────────────────── */
+/* ── Auto sign-out after 1 week (7 days) ──────────────────────────────────── */
 (function () {
-  function scheduleSignOut() {
-    var now    = new Date();
-    var target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 0, 0);
-    if (target <= now) {
-      /* Already past 23:59 today — schedule for tomorrow */
-      target.setDate(target.getDate() + 1);
-    }
-    var msUntil = target - now;
-    setTimeout(function () {
-      /* POST to /logout via a hidden form so the session is properly cleared */
-      var form = document.createElement('form');
-      form.method = 'POST';
-      form.action = '/logout';
-      document.body.appendChild(form);
-      form.submit();
-    }, msUntil);
-  }
-  scheduleSignOut();
+  var msUntil = 7 * 24 * 60 * 60 * 1000; /* 604 800 000 ms */
+  setTimeout(function () {
+    /* POST to /logout via a hidden form so the session is properly cleared */
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/logout';
+    document.body.appendChild(form);
+    form.submit();
+  }, msUntil);
 })();
 </script>
 {% endif %}

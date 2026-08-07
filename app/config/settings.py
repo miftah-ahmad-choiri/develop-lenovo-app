@@ -16,8 +16,8 @@ class Config:
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB
 
     # ── Session ────────────────────────────────────────────────────────────────
-    # Sessions expire after 24 hours; client-side JS signs out at 23:59
-    PERMANENT_SESSION_LIFETIME = 86400          # seconds (24 h)
+    # Sessions expire after 1 week; client-side JS signs out after 7 days
+    PERMANENT_SESSION_LIFETIME = 604800         # seconds (7 days)
 
     # ── Upload folders ─────────────────────────────────────────────────────────
     # Evidence files (images / PDFs submitted with tickets)

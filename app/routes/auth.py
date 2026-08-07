@@ -253,6 +253,17 @@ def profile():
         ).fetchall()
         asp_users = [dict(r) for r in asp_user_rows]
 
+    # Load all OTHER superadmin accounts (excluding self) for the superadmin profile card
+    superadmin_users = []
+    if role == "superadmin":
+        sa_rows = conn.execute(
+            "SELECT id, username, full_name, email, is_active, created_at "
+            "FROM admin_users WHERE role = 'superadmin' AND id != ? ORDER BY id",
+            (uid,)
+        ).fetchall()
+        superadmin_users = [dict(r) for r in sa_rows]
+
     portal = "admin" if role in ("admin", "superadmin") else "asp"
     return render_template("profile.html", user=user, portal=portal,
-                           active_page="profile", asp_users=asp_users)
+                           active_page="profile", asp_users=asp_users,
+                           superadmin_users=superadmin_users)

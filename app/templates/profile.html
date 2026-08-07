@@ -907,6 +907,194 @@
 .pw-req-err  { margin: 0 24px 4px; font-size: 12px; color: #dc2626; font-weight: 600;
   padding: 6px 10px; background: #fff0f0; border: 1px solid #fca5a5;
   border-radius: 6px; display: none; }
+
+/* ── Superadmin Users card ──────────────────────────────────────────────────── */
+.sa-users-empty {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 44px 24px; gap: 10px; color: #9ca3af;
+}
+.sa-users-empty svg { color: #d1d5db; }
+.sa-users-empty-title { font-size: 13.5px; font-weight: 600; color: #57606a; }
+.sa-users-empty-sub   { font-size: 12px; color: #9ca3af; }
+.sa-add-user-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 13px; border-radius: 6px;
+  border: none; background: #7c3aed; color: #fff;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  font-family: inherit; transition: background 0.12s;
+}
+.sa-add-user-btn:hover { background: #6d28d9; }
+.sa-user-list { display: flex; flex-direction: column; padding: 8px 0; }
+.sa-user-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 11px 24px; border-bottom: 1px solid #f3f4f6; transition: background 0.1s;
+}
+.sa-user-row:last-child { border-bottom: none; }
+.sa-user-row:hover { background: #fafafa; }
+.sa-user-avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: #7c3aed; color: #fff;
+  font-size: 13px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.sa-user-info { flex: 1; min-width: 0; }
+.sa-user-name  { font-size: 13.5px; font-weight: 600; color: #1f2328; }
+.sa-user-meta  { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.sa-user-meta .sa-user-username { font-size: 11.5px; color: #8c959f; }
+.sa-user-badge {
+  font-size: 10.5px; font-weight: 700; padding: 2px 8px;
+  border-radius: 20px; letter-spacing: 0.3px;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.sa-user-badge.active   { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+.sa-user-badge.inactive { background: #fff4f4; color: #b91c1c; border: 1px solid #fecaca; }
+.sa-user-edit-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 6px;
+  border: 1px solid #d0d7de; background: #fff; color: #57606a;
+  cursor: pointer; flex-shrink: 0; font-family: inherit;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.sa-user-edit-btn:hover { background: #f3f4f6; border-color: #9ca3af; color: #1f2328; }
+
+/* ── Add Superadmin modal ────────────────────────────────────────────────────── */
+.sa-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.48); z-index: 300;
+  align-items: flex-start; justify-content: center;
+  padding: 40px 12px 40px; overflow-y: auto;
+}
+.sa-overlay.open { display: flex; }
+.sa-modal {
+  background: #fff; border-radius: 12px;
+  width: 100%; max-width: 480px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+}
+.sa-modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px 14px; border-bottom: 1px solid #e5e7eb;
+}
+.sa-modal-title-wrap { display: flex; align-items: center; gap: 10px; }
+.sa-modal-icon {
+  width: 34px; height: 34px; border-radius: 8px;
+  background: #f5f3ff; border: 1px solid #ddd6fe;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.sa-modal-title    { font-size: 15px; font-weight: 700; color: #1f2328; }
+.sa-modal-subtitle { font-size: 12px; color: #57606a; margin-top: 2px; }
+.sa-modal-close {
+  background: none; border: none; cursor: pointer;
+  color: #8c959f; font-size: 20px; line-height: 1; padding: 2px 6px; font-family: inherit;
+}
+.sa-modal-close:hover { color: #1f2328; }
+.sa-modal-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.sa-modal-footer {
+  padding: 14px 20px; border-top: 1px solid #e5e7eb;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.sa-footer-btns { display: flex; gap: 8px; }
+.sa-btn-cancel {
+  padding: 7px 16px; border-radius: 6px; border: 1px solid #d0d7de;
+  background: #fff; color: #374151; font-size: 13px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: background 0.12s;
+}
+.sa-btn-cancel:hover { background: #f3f4f6; }
+.sa-btn-submit {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 18px; border-radius: 6px; border: none;
+  background: #7c3aed; color: #fff; font-size: 13px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: background 0.12s;
+}
+.sa-btn-submit:hover { background: #6d28d9; }
+.sa-form-err {
+  font-size: 12px; color: #dc2626; font-weight: 600;
+  padding: 8px 12px; background: #fff0f0;
+  border: 1px solid #fca5a5; border-radius: 6px; display: none;
+}
+
+/* ── Edit Superadmin Drawer ──────────────────────────────────────────────────── */
+.sa-dr-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.4); z-index: 900; backdrop-filter: blur(2px);
+}
+.sa-dr-overlay.open { display: block; }
+.sa-drawer {
+  position: fixed; top: 0; right: -520px; width: 480px; max-width: 96vw;
+  height: 100vh; background: #f7f8fa; z-index: 901;
+  box-shadow: -6px 0 32px rgba(0,0,0,0.14);
+  display: flex; flex-direction: column;
+  transition: right 0.28s cubic-bezier(0.4,0,0.2,1);
+}
+.sa-drawer.open { right: 0; }
+.sa-drawer-header {
+  padding: 16px 20px 14px; border-bottom: 1px solid #e5e7eb;
+  background: #fff; display: flex; align-items: center;
+  justify-content: space-between; flex-shrink: 0;
+}
+.sa-drawer-title    { font-size: 15px; font-weight: 700; color: #1f2328; }
+.sa-drawer-subtitle { font-size: 11.5px; color: #57606a; margin-top: 4px; }
+.sa-drawer-close {
+  background: none; border: 1px solid #e5e7eb; cursor: pointer; color: #57606a;
+  padding: 5px 7px; border-radius: 6px; line-height: 1; flex-shrink: 0;
+}
+.sa-drawer-close:hover { background: #f0f2f5; color: #1f2328; border-color: #d0d7de; }
+.sa-drawer-body { flex: 1; overflow-y: auto; padding: 12px; background: #e4e7eb; }
+.sa-drawer-footer {
+  padding: 14px 16px 16px; border-top: 1px solid #e5e7eb; background: #fff;
+  display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;
+}
+.sa-drawer-footer-sep { border: none; border-top: 1px solid #e5e7eb; margin: 4px 0; }
+.sa-drawer-close-btn {
+  width: 100%; padding: 9px 16px; font-size: 13px; font-weight: 600;
+  background: #fff; color: #57606a; border: 1px solid #d0d7de;
+  border-radius: 6px; cursor: pointer; font-family: inherit;
+}
+.sa-drawer-close-btn:hover { background: #f0f2f5; }
+
+/* ── Confirm modal (sa) ──────────────────────────────────────────────────────── */
+.sa-confirm-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55); z-index: 1000;
+  align-items: center; justify-content: center; padding: 24px;
+}
+.sa-confirm-overlay.open { display: flex; }
+.sa-confirm-modal {
+  background: #fff; border-radius: 14px; width: 100%; max-width: 480px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.28); overflow: hidden;
+}
+.sa-confirm-header { padding: 28px 28px 0; display: flex; align-items: flex-start; gap: 18px; }
+.sa-confirm-icon-wrap { width: 52px; height: 52px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 36px; line-height: 1; }
+.sa-confirm-text { flex: 1; padding-top: 4px; }
+.sa-confirm-title { font-size: 17px; font-weight: 700; color: #1f2328; margin-bottom: 8px; }
+.sa-confirm-body  { font-size: 14px; color: #57606a; line-height: 1.7; }
+.sa-confirm-body strong { color: #1f2328; }
+.sa-confirm-footer {
+  padding: 24px 28px; display: flex; gap: 10px; justify-content: flex-end;
+  border-top: 1px solid #f0f1f3; margin-top: 24px;
+}
+.sa-confirm-btn-cancel {
+  padding: 10px 22px; border-radius: 7px; border: 1px solid #d0d7de;
+  background: #fff; color: #374151; font-size: 14px; font-weight: 600;
+  cursor: pointer; font-family: inherit;
+}
+.sa-confirm-btn-cancel:hover { background: #f3f4f6; }
+.sa-confirm-btn-ok {
+  padding: 10px 22px; border-radius: 7px; border: none;
+  font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+  display: inline-flex; align-items: center; gap: 7px;
+}
+.sa-confirm-btn-ok.danger  { background: #dc2626; color: #fff; }
+.sa-confirm-btn-ok.danger:hover  { background: #b91c1c; }
+.sa-confirm-btn-ok.warning { background: #d97706; color: #fff; }
+.sa-confirm-btn-ok.warning:hover { background: #b45309; }
+.sa-confirm-btn-ok.success { background: #16a34a; color: #fff; }
+.sa-confirm-btn-ok.success:hover { background: #15803d; }
+.sa-confirm-err {
+  margin: 0 28px 4px; font-size: 12px; color: #dc2626; font-weight: 600;
+  padding: 7px 10px; background: #fff0f0; border: 1px solid #fca5a5;
+  border-radius: 6px; display: none;
+}
+@media (max-width: 640px) { .sa-drawer { width: 100%; } }
 {% endblock %}
 
 {% block content %}
@@ -1024,6 +1212,263 @@
       </div>
     </div>
   </div>
+
+  {% if session_role == 'superadmin' %}
+  <!-- ── Superadmin: Manage Superadmin Users ── -->
+  <div class="profile-info-card" id="sa-users-card">
+    <div class="profile-section-title" style="justify-content: space-between;">
+      <span style="display:flex;align-items:center;gap:8px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Superadmin Users
+        {% if superadmin_users %}<span style="font-size:11px;font-weight:700;background:#f5f3ff;color:#7c3aed;border:1px solid #ddd6fe;border-radius:20px;padding:1px 8px;margin-left:4px;">{{ superadmin_users|length }}</span>{% endif %}
+      </span>
+      <button class="sa-add-user-btn" onclick="saOpenModal()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Superadmin
+      </button>
+    </div>
+
+    <!-- User list -->
+    <div id="sa-user-list" class="sa-user-list"{% if not superadmin_users %} style="display:none;"{% endif %}>
+      {% for su in superadmin_users %}
+      <div class="sa-user-row" data-uid="{{ su.id }}">
+        <div class="sa-user-avatar">{{ ((su.full_name or su.username)[:2])|upper }}</div>
+        <div class="sa-user-info">
+          <div class="sa-user-name">{{ su.full_name or su.username }}</div>
+        </div>
+        <div class="sa-user-meta">
+          <span class="sa-user-username">@{{ su.username }}</span>
+          <span class="sa-user-badge {% if su.is_active %}active{% else %}inactive{% endif %}">
+            <svg width="6" height="6" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>
+            {{ 'Active' if su.is_active else 'Inactive' }}
+          </span>
+          <button class="sa-user-edit-btn sa-edit-row-btn" title="Edit superadmin"
+            data-uid="{{ su.id }}"
+            data-username="{{ su.username | e }}"
+            data-fullname="{{ (su.full_name or '') | e }}"
+            data-email="{{ (su.email or '') | e }}"
+            data-isactive="{{ '1' if su.is_active else '0' }}">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Empty state -->
+    <div id="sa-users-empty" class="sa-users-empty"{% if superadmin_users %} style="display:none;"{% endif %}>
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <div class="sa-users-empty-title">No additional superadmin accounts</div>
+      <div class="sa-users-empty-sub">Click <strong>Add Superadmin</strong> to create a new account.</div>
+    </div>
+  </div>
+
+  <!-- ── Add Superadmin modal ── -->
+  <div class="sa-overlay" id="sa-overlay">
+    <div class="sa-modal">
+      <div class="sa-modal-header">
+        <div class="sa-modal-title-wrap">
+          <div class="sa-modal-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <div>
+            <div class="sa-modal-title">Add Superadmin User</div>
+            <div class="sa-modal-subtitle">Create a new superadmin account</div>
+          </div>
+        </div>
+        <button class="sa-modal-close" onclick="saCloseModal()">&#x2715;</button>
+      </div>
+
+      <div class="sa-modal-body">
+        <div id="sa-form-err" class="sa-form-err"></div>
+
+        <!-- Username -->
+        <div class="au-field">
+          <label class="au-label" for="sa-username">Username <span class="au-req">*</span></label>
+          <input id="sa-username" class="au-input" type="text" placeholder="e.g. superadmin2" autocomplete="off">
+        </div>
+
+        <!-- Full Name -->
+        <div class="au-field">
+          <label class="au-label" for="sa-fullname">Full Name</label>
+          <input id="sa-fullname" class="au-input" type="text" placeholder="e.g. John Doe" autocomplete="off">
+        </div>
+
+        <!-- Email -->
+        <div class="au-field">
+          <label class="au-label" for="sa-email">Email</label>
+          <input id="sa-email" class="au-input" type="email" placeholder="e.g. john@example.com" autocomplete="off">
+        </div>
+
+        <!-- Password -->
+        <div class="au-field">
+          <label class="au-label" for="sa-password">Password <span class="au-req">*</span></label>
+          <div class="au-pw-wrap">
+            <input id="sa-password" class="au-input" type="password" placeholder="Min. 8 characters" autocomplete="new-password">
+            <button type="button" class="au-eye-btn" tabindex="-1" onclick="saToggleEye('sa-password','sa-eye1')">
+              <svg id="sa-eye1" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Repeat Password -->
+        <div class="au-field">
+          <label class="au-label" for="sa-password2">Repeat Password <span class="au-req">*</span></label>
+          <div class="au-pw-wrap">
+            <input id="sa-password2" class="au-input" type="password" placeholder="Repeat password" autocomplete="new-password">
+            <button type="button" class="au-eye-btn" tabindex="-1" onclick="saToggleEye('sa-password2','sa-eye2')">
+              <svg id="sa-eye2" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <div id="sa-pw-match-msg" class="au-pw-match" style="display:none; margin-top:4px;"></div>
+        </div>
+      </div>
+
+      <div class="sa-modal-footer">
+        <span class="au-footer-hint"><strong>*</strong> required fields</span>
+        <div class="sa-footer-btns">
+          <button class="sa-btn-cancel" onclick="saCloseModal()">Cancel</button>
+          <button class="sa-btn-submit" id="sa-submit-btn" onclick="saSubmit()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Add Superadmin
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Edit Superadmin Drawer ── -->
+  <div class="sa-dr-overlay" id="sa-dr-overlay"></div>
+  <div class="sa-drawer" id="sa-drawer">
+    <div class="sa-drawer-header">
+      <div>
+        <div class="sa-drawer-title">Edit Superadmin User</div>
+        <div class="sa-drawer-subtitle" id="sa-dr-subtitle">Update account details</div>
+      </div>
+      <button class="sa-drawer-close" id="sa-dr-close-x" title="Close">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="sa-drawer-body">
+      <!-- Account section -->
+      <div class="au-sec" id="sa-sec-account">
+        <div class="au-sec-header">
+          <div class="au-sec-title-wrap">
+            <span class="au-sec-icon account">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </span>
+            <span class="au-sec-title">Account</span>
+          </div>
+          <div class="au-sec-btns">
+            <button type="button" class="au-sec-edit-btn" id="sa-sec-edit-account">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              Edit
+            </button>
+            <div class="au-sec-actions" id="sa-sec-actions-account">
+              <button type="button" class="au-sec-save-btn"   id="sa-sec-save-account">Save</button>
+              <button type="button" class="au-sec-cancel-btn" id="sa-sec-cancel-account">Cancel</button>
+            </div>
+          </div>
+        </div>
+        <div class="au-sec-view" id="sa-view-account">
+          <div class="au-sec-view-field">
+            <div class="au-sec-view-label">Username</div>
+            <div class="au-sec-view-value" id="sa-vw-username">—</div>
+          </div>
+          <div class="au-sec-view-field">
+            <div class="au-sec-view-label">Full Name</div>
+            <div class="au-sec-view-value" id="sa-vw-fullname">—</div>
+          </div>
+          <div class="au-sec-view-field">
+            <div class="au-sec-view-label">Email</div>
+            <div class="au-sec-view-value" id="sa-vw-email">—</div>
+          </div>
+          <div class="au-sec-view-field">
+            <div class="au-sec-view-label">Password</div>
+            <div class="au-sec-view-value muted">••••••••</div>
+          </div>
+        </div>
+        <div class="au-sec-inputs" id="sa-inputs-account">
+          <div class="au-sec-form-stack">
+            <div class="au-sec-form-field">
+              <label for="sa-dr-username">Username <span style="color:#dc2626">*</span></label>
+              <input id="sa-dr-username" type="text" placeholder="e.g. superadmin2" autocomplete="off">
+            </div>
+            <div class="au-sec-form-field">
+              <label for="sa-dr-fullname">Full Name</label>
+              <input id="sa-dr-fullname" type="text" placeholder="e.g. John Doe" autocomplete="off">
+            </div>
+            <div class="au-sec-form-field">
+              <label for="sa-dr-email">Email</label>
+              <input id="sa-dr-email" type="email" placeholder="e.g. john@example.com" autocomplete="off">
+            </div>
+            <!-- Change Password toggle -->
+            <div>
+              <button type="button" class="au-dr-chpw-toggle" id="sa-dr-pw-toggle-btn">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                Change Password
+              </button>
+              <div class="au-dr-chpw-section" id="sa-dr-pw-fields">
+                <div class="au-dr-divider">New Password</div>
+                <div class="au-sec-form-stack">
+                  <div class="au-sec-form-field">
+                    <label for="sa-dr-password">New Password <span style="color:#dc2626">*</span></label>
+                    <div class="au-dr-pw-wrap">
+                      <input id="sa-dr-password" type="password" placeholder="Min. 8 characters" autocomplete="new-password">
+                      <button type="button" class="au-dr-eye-btn" id="sa-dr-eye1-btn">
+                        <svg id="sa-dr-eye1" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="au-sec-form-field">
+                    <label for="sa-dr-password2">Repeat New Password <span style="color:#dc2626">*</span></label>
+                    <div class="au-dr-pw-wrap">
+                      <input id="sa-dr-password2" type="password" placeholder="Repeat new password" autocomplete="new-password">
+                      <button type="button" class="au-dr-eye-btn" id="sa-dr-eye2-btn">
+                        <svg id="sa-dr-eye2" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      </button>
+                    </div>
+                  </div>
+                  <div id="sa-dr-pw-match" class="au-dr-pw-match" style="display:none;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="au-sec-err" id="sa-sec-err-account"></div>
+        <div class="au-sec-ok"  id="sa-sec-ok-account"></div>
+      </div>
+    </div><!-- /sa-drawer-body -->
+
+    <div class="sa-drawer-footer">
+      <button type="button" class="au-danger-btn" id="sa-dr-toggle-status-btn"></button>
+      <button type="button" class="au-danger-btn au-danger-btn-remove" id="sa-dr-remove-btn">
+        🗑️ Remove Account
+      </button>
+      <hr class="sa-drawer-footer-sep">
+      <button class="sa-drawer-close-btn" id="sa-dr-close-btn">Close</button>
+    </div>
+  </div>
+
+  <!-- ── Superadmin Confirm modal ── -->
+  <div class="sa-confirm-overlay" id="sa-confirm-overlay">
+    <div class="sa-confirm-modal">
+      <div class="sa-confirm-header">
+        <div class="sa-confirm-icon-wrap" id="sa-confirm-icon-wrap"></div>
+        <div class="sa-confirm-text">
+          <div class="sa-confirm-title" id="sa-confirm-title"></div>
+          <div class="sa-confirm-body"  id="sa-confirm-body"></div>
+        </div>
+      </div>
+      <div class="sa-confirm-err" id="sa-confirm-err"></div>
+      <div class="sa-confirm-footer">
+        <button type="button" class="sa-confirm-btn-cancel" id="sa-confirm-cancel">Cancel</button>
+        <button type="button" class="sa-confirm-btn-ok"     id="sa-confirm-ok">Confirm</button>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 
   {% elif user.role == 'asp_user' %}
   <!-- ── ASP User: Account Information ── -->
@@ -1706,6 +2151,7 @@
   function renderOpSupportView(val) {
     var canonical = normaliseOpSupport(val);
     var badge = document.getElementById('ops-badge');
+    if (!badge) return;
     if (canonical === 'CCI Only') {
       badge.className = 'op-support-badge cci-only';
       badge.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> CCI Only';
@@ -2816,6 +3262,510 @@
         });
       }
     });
+  });
+
+})();
+
+/* ── Superadmin Users section (only active when logged in as superadmin) ─── */
+(function(){
+  if (!document.getElementById('sa-overlay')) return;
+
+  var _saEditId = null;  /* null = add mode, integer = edit mode */
+  var _saSnap   = {};
+
+  var _eyeShow = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+  var _eyeHide = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>'
+               + '<path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>'
+               + '<line x1="1" y1="1" x2="23" y2="23"/>';
+
+  function _esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  /* ── Eye toggle helper ──────────────────────────────────────────────────── */
+  window.saToggleEye = function(inputId, svgId) {
+    var inp = document.getElementById(inputId);
+    var svg = document.getElementById(svgId);
+    if (!inp || !svg) return;
+    var showing = inp.type === 'text';
+    inp.type      = showing ? 'password' : 'text';
+    svg.innerHTML = showing ? _eyeShow : _eyeHide;
+  };
+
+  /* ── Live password match (add modal) ────────────────────────────────────── */
+  function _saCheckMatch() {
+    var pw  = document.getElementById('sa-password').value;
+    var pw2 = document.getElementById('sa-password2').value;
+    var msg = document.getElementById('sa-pw-match-msg');
+    if (!pw2) { msg.style.display = 'none'; return; }
+    if (pw === pw2) {
+      msg.className = 'au-pw-match match';
+      msg.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Passwords match';
+      msg.style.display = 'flex';
+    } else {
+      msg.className = 'au-pw-match nomatch';
+      msg.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Passwords do not match';
+      msg.style.display = 'flex';
+    }
+  }
+  document.getElementById('sa-password').addEventListener('input',  _saCheckMatch);
+  document.getElementById('sa-password2').addEventListener('input', _saCheckMatch);
+
+  /* ── Add modal ──────────────────────────────────────────────────────────── */
+  window.saOpenModal = function() {
+    _saEditId = null;
+    ['sa-username','sa-fullname','sa-email','sa-password','sa-password2'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) { el.value = ''; el.classList.remove('error'); }
+    });
+    ['sa-password','sa-password2'].forEach(function(id){
+      var inp = document.getElementById(id);
+      if (inp) inp.type = 'password';
+    });
+    document.getElementById('sa-eye1').innerHTML = _eyeShow;
+    document.getElementById('sa-eye2').innerHTML = _eyeShow;
+    var matchMsg = document.getElementById('sa-pw-match-msg');
+    if (matchMsg) { matchMsg.style.display = 'none'; matchMsg.className = 'au-pw-match'; }
+    document.getElementById('sa-form-err').style.display = 'none';
+    document.getElementById('sa-overlay').classList.add('open');
+    setTimeout(function(){ document.getElementById('sa-username').focus(); }, 60);
+  };
+
+  window.saCloseModal = function() {
+    document.getElementById('sa-overlay').classList.remove('open');
+  };
+
+  document.getElementById('sa-overlay').addEventListener('click', function(e){
+    if (e.target === this) window.saCloseModal();
+  });
+
+  /* Add Superadmin submit */
+  window.saSubmit = function() {
+    var username = (document.getElementById('sa-username').value || '').trim();
+    var fullname = (document.getElementById('sa-fullname').value || '').trim();
+    var email    = (document.getElementById('sa-email').value    || '').trim();
+    var pw       = (document.getElementById('sa-password').value  || '');
+    var pw2      = (document.getElementById('sa-password2').value || '');
+
+    ['sa-username','sa-password','sa-password2'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) el.classList.remove('error');
+    });
+    var errEl = document.getElementById('sa-form-err');
+    errEl.style.display = 'none';
+
+    if (!username) {
+      errEl.textContent = 'Username is required.'; errEl.style.display = 'block';
+      document.getElementById('sa-username').classList.add('error'); return;
+    }
+    if (!pw || pw.length < 8) {
+      errEl.textContent = 'Password must be at least 8 characters.'; errEl.style.display = 'block';
+      document.getElementById('sa-password').classList.add('error'); return;
+    }
+    if (pw !== pw2) {
+      errEl.textContent = 'Passwords do not match.'; errEl.style.display = 'block';
+      document.getElementById('sa-password2').classList.add('error'); return;
+    }
+
+    var btn = document.getElementById('sa-submit-btn');
+    btn.disabled = true;
+    fetch('/admin/api/superadmin-users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: username, full_name: fullname, email: email, password: pw })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      btn.disabled = false;
+      if (data.ok) {
+        _saAddRowDOM(data.user);
+        window.saCloseModal();
+      } else {
+        errEl.textContent = data.error || 'Failed to save.';
+        errEl.style.display = 'block';
+        if (data.field === 'username') document.getElementById('sa-username').classList.add('error');
+        if (data.field === 'password') document.getElementById('sa-password').classList.add('error');
+      }
+    })
+    .catch(function() {
+      btn.disabled = false;
+      errEl.textContent = 'Network error. Please try again.';
+      errEl.style.display = 'block';
+    });
+  };
+
+  /* ── Add row to DOM ─────────────────────────────────────────────────────── */
+  function _saAddRowDOM(u) {
+    var listEl  = document.getElementById('sa-user-list');
+    var emptyEl = document.getElementById('sa-users-empty');
+    emptyEl.style.display = 'none';
+    listEl.style.display  = '';
+    var initials = ((u.full_name || u.username) + '  ').trim().slice(0,2).toUpperCase();
+    var row = document.createElement('div');
+    row.className = 'sa-user-row';
+    row.dataset.uid = u.id;
+    var active = (u.is_active !== 0);
+    row.innerHTML =
+      '<div class="sa-user-avatar">' + initials + '</div>'
+      + '<div class="sa-user-info"><div class="sa-user-name">' + _esc(u.full_name || u.username) + '</div></div>'
+      + '<div class="sa-user-meta">'
+      +   '<span class="sa-user-username">@' + _esc(u.username) + '</span>'
+      +   '<span class="sa-user-badge ' + (active ? 'active' : 'inactive') + '">'
+      +     '<svg width="6" height="6" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>'
+      +     (active ? 'Active' : 'Inactive')
+      +   '</span>'
+      +   '<button class="sa-user-edit-btn sa-edit-row-btn" title="Edit superadmin"'
+      +     ' data-uid="'      + u.id                          + '"'
+      +     ' data-username="' + _esc(u.username)              + '"'
+      +     ' data-fullname="' + _esc(u.full_name || '')       + '"'
+      +     ' data-email="'    + _esc(u.email || '')           + '"'
+      +     ' data-isactive="' + (active ? '1' : '0')         + '">'
+      +   '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'
+      +   '</button>'
+      + '</div>';
+    listEl.appendChild(row);
+  }
+
+  /* ── Update row in DOM ──────────────────────────────────────────────────── */
+  function _saUpdateRowDOM(u) {
+    var row = document.querySelector('.sa-user-row[data-uid="' + u.id + '"]');
+    if (!row) return;
+    row.querySelector('.sa-user-avatar').textContent = ((u.full_name || u.username) + '  ').trim().slice(0,2).toUpperCase();
+    row.querySelector('.sa-user-name').textContent   = u.full_name || u.username;
+    row.querySelector('.sa-user-username').textContent = '@' + u.username;
+    var btn = row.querySelector('.sa-edit-row-btn');
+    if (btn) {
+      btn.dataset.username = u.username  || '';
+      btn.dataset.fullname = u.full_name || '';
+      btn.dataset.email    = u.email     || '';
+    }
+  }
+
+  /* ── Delegated click for edit buttons (server-rendered rows) ─────────────── */
+  document.getElementById('sa-user-list').addEventListener('click', function(e) {
+    var btn = e.target.closest('.sa-edit-row-btn');
+    if (!btn) return;
+    var d = btn.dataset;
+    _saOpenEdit(parseInt(d.uid, 10), d.username, d.fullname, d.email, d.isactive === '1');
+  });
+
+  /* ── Drawer helpers ─────────────────────────────────────────────────────── */
+  function _saSecEnterEdit() {
+    document.getElementById('sa-sec-edit-account').style.display = 'none';
+    document.getElementById('sa-sec-actions-account').classList.add('visible');
+    document.getElementById('sa-view-account').style.display    = 'none';
+    document.getElementById('sa-inputs-account').classList.add('editing');
+    document.getElementById('sa-sec-err-account').style.display = 'none';
+    document.getElementById('sa-sec-ok-account').style.display  = 'none';
+  }
+  function _saSecExitEdit() {
+    document.getElementById('sa-sec-edit-account').style.display = '';
+    document.getElementById('sa-sec-actions-account').classList.remove('visible');
+    document.getElementById('sa-view-account').style.display    = '';
+    document.getElementById('sa-inputs-account').classList.remove('editing');
+  }
+  function _saRenderView(username, fullname, email) {
+    document.getElementById('sa-vw-username').textContent = username || '—';
+    document.getElementById('sa-vw-fullname').textContent = fullname || '—';
+    document.getElementById('sa-vw-email').textContent    = email    || '—';
+  }
+  function _saResetChPw() {
+    document.getElementById('sa-dr-pw-fields').classList.remove('open');
+    document.getElementById('sa-dr-password').value  = '';
+    document.getElementById('sa-dr-password2').value = '';
+    document.getElementById('sa-dr-pw-match').style.display  = 'none';
+    document.getElementById('sa-dr-pw-match').className = 'au-dr-pw-match';
+    ['sa-dr-password','sa-dr-password2'].forEach(function(id){
+      var inp = document.getElementById(id);
+      if (inp) inp.type = 'password';
+    });
+    document.getElementById('sa-dr-eye1').innerHTML = _eyeShow;
+    document.getElementById('sa-dr-eye2').innerHTML = _eyeShow;
+  }
+  function _saRenderStatusBtn(isActive) {
+    var btn = document.getElementById('sa-dr-toggle-status-btn');
+    if (isActive) {
+      btn.className = 'au-danger-btn au-danger-btn-deactivate';
+      btn.innerHTML = '🔐 Deactivate Account';
+    } else {
+      btn.className = 'au-danger-btn au-danger-btn-activate';
+      btn.innerHTML = '🔓 Activate Account';
+    }
+  }
+
+  function _saOpenEdit(id, username, fullname, email, isActive) {
+    _saEditId = id;
+    _saSnap   = { username: username, fullname: fullname, email: email, isActive: !!isActive };
+    _saRenderView(username, fullname, email);
+    document.getElementById('sa-dr-username').value = username || '';
+    document.getElementById('sa-dr-fullname').value = fullname || '';
+    document.getElementById('sa-dr-email').value    = email    || '';
+    document.getElementById('sa-dr-subtitle').textContent = fullname || username || 'Superadmin';
+    _saSecExitEdit();
+    _saResetChPw();
+    document.getElementById('sa-sec-err-account').style.display = 'none';
+    document.getElementById('sa-sec-ok-account').style.display  = 'none';
+    _saRenderStatusBtn(!!isActive);
+    document.getElementById('sa-dr-overlay').classList.add('open');
+    document.getElementById('sa-drawer').classList.add('open');
+  }
+
+  function _saClose() {
+    _saSecExitEdit();
+    _saResetChPw();
+    document.getElementById('sa-dr-overlay').classList.remove('open');
+    document.getElementById('sa-drawer').classList.remove('open');
+    _saEditId = null;
+  }
+
+  document.getElementById('sa-dr-close-x').addEventListener('click',   _saClose);
+  document.getElementById('sa-dr-close-btn').addEventListener('click',  _saClose);
+  document.getElementById('sa-dr-overlay').addEventListener('click',    _saClose);
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && document.getElementById('sa-drawer').classList.contains('open')) _saClose();
+  });
+
+  /* Edit button in drawer */
+  document.getElementById('sa-sec-edit-account').addEventListener('click', function(){
+    _saSecEnterEdit();
+    setTimeout(function(){ document.getElementById('sa-dr-username').focus(); }, 40);
+  });
+
+  /* Cancel button in drawer */
+  document.getElementById('sa-sec-cancel-account').addEventListener('click', function(){
+    document.getElementById('sa-dr-username').value = _saSnap.username || '';
+    document.getElementById('sa-dr-fullname').value = _saSnap.fullname || '';
+    document.getElementById('sa-dr-email').value    = _saSnap.email    || '';
+    ['sa-dr-username'].forEach(function(id){ document.getElementById(id).classList.remove('error'); });
+    _saResetChPw();
+    _saSecExitEdit();
+  });
+
+  /* Change Password toggle in drawer */
+  document.getElementById('sa-dr-pw-toggle-btn').addEventListener('click', function(){
+    var fields = document.getElementById('sa-dr-pw-fields');
+    if (fields.classList.contains('open')) {
+      _saResetChPw();
+    } else {
+      fields.classList.add('open');
+      document.getElementById('sa-dr-password').value  = '';
+      document.getElementById('sa-dr-password2').value = '';
+      document.getElementById('sa-dr-pw-match').style.display = 'none';
+      setTimeout(function(){ document.getElementById('sa-dr-password').focus(); }, 40);
+    }
+  });
+
+  /* Eye toggles in drawer */
+  document.getElementById('sa-dr-eye1-btn').addEventListener('click', function(){
+    var inp = document.getElementById('sa-dr-password');
+    var svg = document.getElementById('sa-dr-eye1');
+    var show = inp.type === 'text';
+    inp.type = show ? 'password' : 'text';
+    svg.innerHTML = show ? _eyeShow : _eyeHide;
+  });
+  document.getElementById('sa-dr-eye2-btn').addEventListener('click', function(){
+    var inp = document.getElementById('sa-dr-password2');
+    var svg = document.getElementById('sa-dr-eye2');
+    var show = inp.type === 'text';
+    inp.type = show ? 'password' : 'text';
+    svg.innerHTML = show ? _eyeShow : _eyeHide;
+  });
+
+  /* Live pw match in drawer */
+  function _saDrCheckMatch() {
+    var pw  = document.getElementById('sa-dr-password').value;
+    var pw2 = document.getElementById('sa-dr-password2').value;
+    var msg = document.getElementById('sa-dr-pw-match');
+    if (!pw2) { msg.style.display = 'none'; return; }
+    if (pw === pw2) {
+      msg.className = 'au-dr-pw-match match';
+      msg.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Passwords match';
+      msg.style.display = 'flex';
+    } else {
+      msg.className = 'au-dr-pw-match nomatch';
+      msg.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Passwords do not match';
+      msg.style.display = 'flex';
+    }
+  }
+  document.getElementById('sa-dr-password').addEventListener('input',  _saDrCheckMatch);
+  document.getElementById('sa-dr-password2').addEventListener('input', _saDrCheckMatch);
+
+  /* Save — Account section */
+  document.getElementById('sa-sec-save-account').addEventListener('click', function(){
+    var username = (document.getElementById('sa-dr-username').value || '').trim();
+    var fullname = (document.getElementById('sa-dr-fullname').value || '').trim();
+    var email    = (document.getElementById('sa-dr-email').value    || '').trim();
+    var pwOpen   = document.getElementById('sa-dr-pw-fields').classList.contains('open');
+    var pw       = pwOpen ? (document.getElementById('sa-dr-password').value  || '') : '';
+    var pw2      = pwOpen ? (document.getElementById('sa-dr-password2').value || '') : '';
+    var errEl    = document.getElementById('sa-sec-err-account');
+    var okEl     = document.getElementById('sa-sec-ok-account');
+    errEl.style.display = 'none'; okEl.style.display = 'none';
+    document.getElementById('sa-dr-username').classList.remove('error');
+
+    if (!username) {
+      errEl.textContent = 'Username is required.'; errEl.style.display = 'block';
+      document.getElementById('sa-dr-username').classList.add('error'); return;
+    }
+    if (pwOpen) {
+      if (!pw || pw.length < 8) { errEl.textContent = 'New password must be at least 8 characters.'; errEl.style.display = 'block'; document.getElementById('sa-dr-password').classList.add('error'); return; }
+      if (pw !== pw2)            { errEl.textContent = 'Passwords do not match.'; errEl.style.display = 'block'; document.getElementById('sa-dr-password2').classList.add('error'); return; }
+    }
+
+    var saveBtn = document.getElementById('sa-sec-save-account');
+    saveBtn.disabled = true;
+    var payload = { username: username, full_name: fullname, email: email };
+    if (pwOpen) payload.password = pw;
+
+    fetch('/admin/api/superadmin-users/' + _saEditId, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      saveBtn.disabled = false;
+      if (data.ok) {
+        _saSnap.username = username; _saSnap.fullname = fullname; _saSnap.email = email;
+        _saRenderView(username, fullname, email);
+        document.getElementById('sa-dr-subtitle').textContent = fullname || username;
+        _saUpdateRowDOM(data.user);
+        _saResetChPw();
+        _saSecExitEdit();
+        okEl.textContent = '✓ Saved successfully'; okEl.style.display = 'block';
+        setTimeout(function(){ okEl.style.display = 'none'; }, 3000);
+      } else {
+        errEl.textContent = data.error || 'Failed to save.'; errEl.style.display = 'block';
+        if (data.field === 'username') document.getElementById('sa-dr-username').classList.add('error');
+      }
+    })
+    .catch(function(){
+      saveBtn.disabled = false;
+      errEl.textContent = 'Network error. Please try again.'; errEl.style.display = 'block';
+    });
+  });
+
+  /* ── Confirm modal ──────────────────────────────────────────────────────── */
+  var _saConfirmAction = null;
+
+  function _saConfirmOpen(opts) {
+    document.getElementById('sa-confirm-icon-wrap').innerHTML = opts.iconSvg || '';
+    document.getElementById('sa-confirm-title').innerHTML     = opts.title   || '';
+    document.getElementById('sa-confirm-body').innerHTML      = opts.body    || '';
+    var okBtn = document.getElementById('sa-confirm-ok');
+    okBtn.className = 'sa-confirm-btn-ok ' + (opts.type || 'danger');
+    okBtn.innerHTML = opts.okLabel || 'Confirm';
+    document.getElementById('sa-confirm-err').style.display = 'none';
+    _saConfirmAction = opts.action;
+    document.getElementById('sa-confirm-overlay').classList.add('open');
+  }
+  function _saConfirmClose() {
+    document.getElementById('sa-confirm-overlay').classList.remove('open');
+    _saConfirmAction = null;
+  }
+
+  document.getElementById('sa-confirm-cancel').addEventListener('click', _saConfirmClose);
+  document.getElementById('sa-confirm-overlay').addEventListener('click', function(e){
+    if (e.target === this) _saConfirmClose();
+  });
+  document.getElementById('sa-confirm-ok').addEventListener('click', function(){
+    if (_saConfirmAction) _saConfirmAction();
+  });
+
+  /* Toggle status (Deactivate / Activate) */
+  document.getElementById('sa-dr-toggle-status-btn').addEventListener('click', function(){
+    var isActive = _saSnap.isActive;
+    _saConfirmOpen({
+      type:    isActive ? 'warning' : 'success',
+      iconSvg: isActive ? '🔐' : '🔓',
+      title:   isActive ? 'Deactivate Account' : 'Activate Account',
+      body:    isActive
+        ? 'Are you sure you want to deactivate <strong>' + _esc(_saSnap.username) + '</strong>?<br><br>They will no longer be able to log in until reactivated.'
+        : 'Are you sure you want to activate <strong>' + _esc(_saSnap.username) + '</strong>?<br><br>They will be able to log in to the portal again.',
+      okLabel: isActive ? 'Deactivate' : 'Activate',
+      action: function() {
+        var newStatus = isActive ? 0 : 1;
+        var okBtn = document.getElementById('sa-confirm-ok');
+        okBtn.disabled = true;
+        fetch('/admin/api/superadmin-users/' + _saEditId + '/status', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ is_active: newStatus })
+        })
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+          okBtn.disabled = false;
+          if (data.ok) {
+            _saSnap.isActive = !!newStatus;
+            _saRenderStatusBtn(!!newStatus);
+            var row = document.querySelector('.sa-user-row[data-uid="' + _saEditId + '"]');
+            if (row) {
+              var btn = row.querySelector('.sa-edit-row-btn');
+              if (btn) btn.dataset.isactive = newStatus ? '1' : '0';
+              var badge = row.querySelector('.sa-user-badge');
+              if (badge) {
+                badge.className = 'sa-user-badge ' + (newStatus ? 'active' : 'inactive');
+                badge.innerHTML = '<svg width="6" height="6" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg> '
+                  + (newStatus ? 'Active' : 'Inactive');
+              }
+              row.style.opacity = newStatus ? '' : '0.5';
+            }
+            _saConfirmClose();
+          } else {
+            document.getElementById('sa-confirm-err').textContent = data.error || 'Failed.';
+            document.getElementById('sa-confirm-err').style.display = 'block';
+          }
+        })
+        .catch(function(){
+          okBtn.disabled = false;
+          document.getElementById('sa-confirm-err').textContent = 'Network error. Please try again.';
+          document.getElementById('sa-confirm-err').style.display = 'block';
+        });
+      }
+    });
+  });
+
+  /* Remove account */
+  document.getElementById('sa-dr-remove-btn').addEventListener('click', function(){
+    _saConfirmOpen({
+      type:    'danger',
+      iconSvg: '🗑️',
+      title:   'Remove Superadmin Account',
+      body:    'Are you sure you want to permanently delete <strong>' + _esc(_saSnap.username) + '</strong>?<br><br>This action <strong>cannot be undone</strong>.',
+      okLabel: 'Delete',
+      action: function() {
+        var okBtn = document.getElementById('sa-confirm-ok');
+        okBtn.disabled = true;
+        fetch('/admin/api/superadmin-users/' + _saEditId, { method: 'DELETE' })
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+          okBtn.disabled = false;
+          if (data.ok) {
+            var row = document.querySelector('.sa-user-row[data-uid="' + _saEditId + '"]');
+            if (row) row.remove();
+            var listEl = document.getElementById('sa-user-list');
+            if (!listEl.querySelector('.sa-user-row')) {
+              listEl.style.display = 'none';
+              document.getElementById('sa-users-empty').style.display = '';
+            }
+            _saConfirmClose();
+            _saClose();
+          } else {
+            document.getElementById('sa-confirm-err').textContent = data.error || 'Failed.';
+            document.getElementById('sa-confirm-err').style.display = 'block';
+          }
+        })
+        .catch(function(){
+          okBtn.disabled = false;
+          document.getElementById('sa-confirm-err').textContent = 'Network error. Please try again.';
+          document.getElementById('sa-confirm-err').style.display = 'block';
+        });
+      }
+    });
+  });
+
+  /* Dim inactive rows on page load */
+  document.querySelectorAll('.sa-user-row').forEach(function(row) {
+    var btn = row.querySelector('.sa-edit-row-btn');
+    if (btn && btn.dataset.isactive === '0') row.style.opacity = '0.5';
   });
 
 })();

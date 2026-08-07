@@ -1749,3 +1749,154 @@ def archive_download(filename):
         return redirect(url_for("admin.archive"))
     return send_file(filepath, as_attachment=True, download_name=safe,
                      mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
+# ── Superadmin Users (admin_users table, role = 'superadmin') ────────────────
+
+@admin_bp.route("/admin/api/superadmin-users", methods=["GET"])
+def api_superadmin_users_list():
+    """Return all superadmin accounts (role = 'superadmin') for the profile page."""
+    from flask import session as _session
+    if _session.get("role") != "superadmin":
+        return jsonify({"ok": False, "error": "Forbidden"}), 403
+    from app.services.database.db import get_db
+    db = get_db()
+    rows = db.execute(
+        "SELECT id, username, full_name, email, is_active, created_at "
+        "FROM admin_users WHERE role = 'superadmin' ORDER BY id"
+    ).fetchall()
+    return jsonify({"ok": True, "users": [dict(r) for r in rows]})
+
+
+@admin_bp.route("/admin/api/superadmin-users", methods=["POST"])
+def api_superadmin_users_create():
+    """Create a new superadmin account in admin_users."""
+    from flask import session as _session
+    if _session.get("role") != "superadmin":
+        return jsonify({"ok": False, "error": "Forbidden"}), 403
+    from app.services.database.db import get_db
+    data     = request.get_json(silent=True) or {}
+    username = (data.get("username") or "").strip()
+    fullname = (data.get("full_name") or "").strip()
+    email    = (data.get("email") or "").strip()
+    password = (data.get("password") or "").strip()
+
+    if not username:
+        return jsonify({"ok": False, "error": "Username is required.", "field": "username"})
+    if not password or len(password) < 8:
+        return jsonify({"ok": False, "error": "Password must be at least 8 characters.", "field": "password"})
+
+    db = get_db()
+    existing = db.execute(
+        "SELECT id FROM admin_users WHERE LOWER(username) = LOWER(?)", (username,)
+    ).fetchone()
+    if existing:
+        return jsonify({"ok": False, "error": "Username already exists.", "field": "username"})
+
+    db.execute(
+        "INSERT INTO admin_users (username, password, full_name, email, role, is_active) "
+        "VALUES (?, ?, ?, ?, 'superadmin', 1)",
+        (username, password, fullname or None, email or None),
+    )
+    db.commit()
+    row = db.execute(
+        "SELECT id, username, full_name, email, is_active, created_at "
+        "FROM admin_users WHERE LOWER(username) = LOWER(?)", (username,)
+    ).fetchone()
+    return jsonify({"ok": True, "user": dict(row)})
+
+
+@admin_bp.route("/admin/api/superadmin-users/<int:uid>", methods=["PUT"])
+def api_superadmin_users_update(uid):
+    """Update username / full_name / email / password for a superadmin account."""
+    from flask import session as _session
+    if _session.get("role") != "superadmin":
+        return jsonify({"ok": False, "error": "Forbidden"}), 403
+    # Prevent a superadmin from editing themselves via this endpoint (use profile page instead)
+    if _session.get("user_id") == uid:
+        return jsonify({"ok": False, "error": "Cannot edit your own account here."})
+    from app.services.database.db import get_db
+    data     = request.get_json(silent=True) or {}
+    username = (data.get("username") or "").strip()
+    fullname = (data.get("full_name") or "").strip()
+    email    = (data.get("email") or "").strip()
+    password = (data.get("password") or "").strip()
+
+    if not username:
+        return jsonify({"ok": False, "error": "Username is required.", "field": "username"})
+
+    db = get_db()
+    # Confirm target exists and is superadmin
+    target = db.execute(
+        "SELECT id FROM admin_users WHERE id = ? AND role = 'superadmin'", (uid,)
+    ).fetchone()
+    if not target:
+        return jsonify({"ok": False, "error": "User not found."})
+
+    # Uniqueness check (excluding self)
+    clash = db.execute(
+        "SELECT id FROM admin_users WHERE LOWER(username) = LOWER(?) AND id != ?",
+        (username, uid)
+    ).fetchone()
+    if clash:
+        return jsonify({"ok": False, "error": "Username already taken.", "field": "username"})
+
+    if password:
+        if len(password) < 8:
+            return jsonify({"ok": False, "error": "Password must be at least 8 characters.", "field": "password"})
+        db.execute(
+            "UPDATE admin_users SET username=?, full_name=?, email=?, password=? WHERE id=?",
+            (username, fullname or None, email or None, password, uid),
+        )
+    else:
+        db.execute(
+            "UPDATE admin_users SET username=?, full_name=?, email=? WHERE id=?",
+            (username, fullname or None, email or None, uid),
+        )
+    db.commit()
+    row = db.execute(
+        "SELECT id, username, full_name, email, is_active, created_at FROM admin_users WHERE id=?", (uid,)
+    ).fetchone()
+    return jsonify({"ok": True, "user": dict(row)})
+
+
+@admin_bp.route("/admin/api/superadmin-users/<int:uid>/status", methods=["PATCH"])
+def api_superadmin_users_status(uid):
+    """Toggle is_active for a superadmin account."""
+    from flask import session as _session
+    if _session.get("role") != "superadmin":
+        return jsonify({"ok": False, "error": "Forbidden"}), 403
+    if _session.get("user_id") == uid:
+        return jsonify({"ok": False, "error": "Cannot change your own account status."})
+    from app.services.database.db import get_db
+    data      = request.get_json(silent=True) or {}
+    is_active = 1 if data.get("is_active") else 0
+    db = get_db()
+    target = db.execute(
+        "SELECT id FROM admin_users WHERE id = ? AND role = 'superadmin'", (uid,)
+    ).fetchone()
+    if not target:
+        return jsonify({"ok": False, "error": "User not found."})
+    db.execute("UPDATE admin_users SET is_active=? WHERE id=?", (is_active, uid))
+    db.commit()
+    return jsonify({"ok": True, "is_active": is_active})
+
+
+@admin_bp.route("/admin/api/superadmin-users/<int:uid>", methods=["DELETE"])
+def api_superadmin_users_delete(uid):
+    """Permanently delete a superadmin account."""
+    from flask import session as _session
+    if _session.get("role") != "superadmin":
+        return jsonify({"ok": False, "error": "Forbidden"}), 403
+    if _session.get("user_id") == uid:
+        return jsonify({"ok": False, "error": "Cannot delete your own account."})
+    from app.services.database.db import get_db
+    db = get_db()
+    target = db.execute(
+        "SELECT id FROM admin_users WHERE id = ? AND role = 'superadmin'", (uid,)
+    ).fetchone()
+    if not target:
+        return jsonify({"ok": False, "error": "User not found."})
+    db.execute("DELETE FROM admin_users WHERE id=?", (uid,))
+    db.commit()
+    return jsonify({"ok": True})
