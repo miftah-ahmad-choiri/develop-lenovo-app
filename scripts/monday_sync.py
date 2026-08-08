@@ -142,8 +142,7 @@ def _incremental_limit(item_count: int) -> int:
 def _fetch_group_items(board_id: str, group: dict,
                        since_dt: datetime | None,
                        incremental: bool = False) -> list[dict]:
-    group_id    = group["id"]
-    group_title = group["title"]
+    group_id = group["id"]
     items: list[dict] = []
     cursor = None
     page   = 0
@@ -163,16 +162,10 @@ def _fetch_group_items(board_id: str, group: dict,
             matching = [i for i in batch if
                         datetime.fromisoformat(i["updated_at"].replace("Z", "+00:00")) >= since_dt]
             items.extend(matching)
-            log.info("  [%s] page %d — %d/%d matched (total: %d)",
-                     group_title, page, len(matching), len(batch), len(items))
         else:
             items.extend(batch)
-            log.info("  [%s] page %d — %d items (total: %d)",
-                     group_title, page, len(batch), len(items))
 
         if incremental:
-            log.info("  [%s] incremental — fetched top %d (group has %d total)",
-                     group_title, page_limit, group.get("items_count") or 0)
             break
 
         if not cursor:
@@ -196,10 +189,9 @@ def _should_refresh_stats(conn: sqlite3.Connection, board_id: str) -> bool:
 
 
 def refresh_board_stats(conn: sqlite3.Connection, board_id: str) -> None:
-    log.info("  Refreshing board_stats for board %s...", board_id)
-    meta       = gql(BOARD_META_QUERY, {"boardId": board_id})
-    board_meta = meta["data"]["boards"][0]
-    groups     = board_meta.get("groups", [])
+    meta        = gql(BOARD_META_QUERY, {"boardId": board_id})
+    board_meta  = meta["data"]["boards"][0]
+    groups      = [g for g in board_meta.get("groups", []) if (g.get("title") or "").strip() != "New Group"]
     board_total = board_meta.get("items_count") or 0
     num_groups  = max(len(groups), 1)
     est_per_group = board_total // num_groups
@@ -215,17 +207,19 @@ def refresh_board_stats(conn: sqlite3.Connection, board_id: str) -> None:
             "  counted_at  = excluded.counted_at",
             (board_id, group["id"], group["title"], est_per_group, now)
         )
+    conn.execute(
+        "DELETE FROM board_stats WHERE board_id = ? AND group_title = ?",
+        (board_id, "New Group")
+    )
     conn.commit()
-    log.info("  board_stats updated: %d groups, ~%d items/group (board total=%d)",
-             len(groups), est_per_group, board_total)
 
 
 def get_board_group_stats(conn: sqlite3.Connection, board_id: str) -> dict[str, int]:
     if _should_refresh_stats(conn, board_id):
         refresh_board_stats(conn, board_id)
     rows = conn.execute(
-        "SELECT group_id, items_count FROM board_stats WHERE board_id = ?",
-        (board_id,)
+        "SELECT group_id, items_count FROM board_stats WHERE board_id = ? AND group_title <> ?",
+        (board_id, "New Group")
     ).fetchall()
     return {r["group_id"]: r["items_count"] for r in rows}
 
@@ -238,7 +232,7 @@ def fetch_all_items(board_id: str, since: str | None = None,
     meta        = gql(BOARD_META_QUERY, {"boardId": board_id})
     board_meta  = meta["data"]["boards"][0]
     col_map     = {c["title"]: c["id"] for c in board_meta.get("columns", [])}
-    groups      = board_meta.get("groups", [])
+    groups      = [g for g in board_meta.get("groups", []) if (g.get("title") or "").strip() != "New Group"]
     board_total = board_meta.get("items_count") or 0
     num_groups  = max(len(groups), 1)
 
@@ -248,27 +242,20 @@ def fetch_all_items(board_id: str, since: str | None = None,
         est = board_total // num_groups
         group_counts = {g["id"]: est for g in groups}
 
-    if incremental:
-        parts = []
-        for g in groups:
-            cnt   = group_counts.get(g["id"], board_total // num_groups)
-            limit = _incremental_limit(cnt)
-            parts.append(f"'{g['title']}' ({cnt} items → top {limit})")
-        log.info("  incremental — %s", ", ".join(parts))
-    else:
-        log.info("  groups (%d): %s  [full — all pages]",
-                 len(groups), [g["title"] for g in groups])
-
     all_items: list[dict] = []
+    group_summaries: list[dict[str, int | str]] = []
     for group in groups:
         cnt              = group_counts.get(group["id"], board_total // num_groups)
         group_with_count = dict(group, items_count=cnt)
         group_items      = _fetch_group_items(board_id, group_with_count, since_dt,
                                               incremental=incremental)
-        log.info("  group '%s' → %d items collected", group["title"], len(group_items))
         all_items.extend(group_items)
+        group_summaries.append({
+            "title": group.get("title") or "(untitled group)",
+            "items": len(group_items),
+        })
 
-    return all_items, col_map
+    return all_items, col_map, group_summaries
 
 
 # ─── Board list ──────────────────────────────────────────────────────────────
@@ -836,17 +823,12 @@ def run_sync_board(conn: sqlite3.Connection, state: dict, board: dict,
     last_sync = board_state.get("last_sync")
     run_type  = "incremental" if last_sync else "full"
 
-    log.info("─" * 60)
-    log.info("Board: %s (ID: %s)", asp_board, board_id)
-    log.info("Starting %s sync (last_sync=%s)", run_type, last_sync or "never")
+    log.info("Mode:\t%s", run_type.capitalize())
 
     run_started_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
-    items, col_map = fetch_all_items(board_id, since=last_sync, conn=conn)
-    log.info("Fetched %d items to process", len(items))
-
+    items, col_map, group_summaries = fetch_all_items(board_id, since=last_sync, conn=conn)
     upserted = upsert_items(conn, items, board_id, asp_board, col_map) if items else 0
-    log.info("Upserted %d rows", upserted)
 
     total_updates = 0
     total_items   = len(items)
@@ -857,12 +839,16 @@ def run_sync_board(conn: sqlite3.Connection, state: dict, board: dict,
         updates = fetch_item_updates(item["id"])
         n = upsert_updates(conn, item["id"], updates)
         total_updates += n
-        log.info("  [%d/%d] item %-15s  %-55s  → %d posts/replies",
-                 idx, total_items, item["id"], (item.get("name") or "")[:55], n)
-    if items:
-        log.info("Updates done: %d posts/replies across %d items", total_updates, total_items)
-
     duration = time.monotonic() - t0
+    rows_per_group = upserted if len(group_summaries) == 1 else 0
+    for group_summary in group_summaries:
+        log.info("  Groups:\t%s", group_summary["title"])
+        log.info("  Done:\t%.1fs\titems:\t%d\trows:\t%d",
+                 duration, group_summary["items"], rows_per_group)
+
+    if items:
+        log.info("[%s]\tUpdates:\t%d across %d item(s)", asp_board, total_updates, total_items)
+
     conn.execute(
         "INSERT INTO sync_log "
         "(run_at, board_id, asp_board, run_type, items_found, items_upserted, duration_sec) "
@@ -876,22 +862,22 @@ def run_sync_board(conn: sqlite3.Connection, state: dict, board: dict,
     board_state["last_sync"]    = run_started_at
     board_state["total_synced"] = board_state.get("total_synced", 0) + upserted
     save_state(state)
-    log.info("Board '%s' sync complete in %.1fs", asp_board, duration)
 
 
 def run_sync_all(conn: sqlite3.Connection, state: dict, boards: list[dict],
                  force_full: bool = False, stop_event=None) -> None:
-    log.info("Starting sequential sync of %d boards.", len(boards))
+    log.info("Starting sync for %d board(s)", len(boards))
     for idx, board in enumerate(boards, 1):
         if stop_event and stop_event.is_set():
             log.info("Stop requested — aborting before board %d (%s)", idx, board["asp_board"])
             break
-        log.info("[%d/%d] Syncing board: %s", idx, len(boards), board["asp_board"])
+        log.info("--------------------------------------------")
+        log.info("[%d/%d]\tBoard:\t%s", idx, len(boards), board["asp_board"])
         try:
             run_sync_board(conn, state, board, force_full=force_full, stop_event=stop_event)
         except Exception as exc:
             log.error("Board '%s' failed: %s — skipping.", board["asp_board"], exc)
-    log.info("All boards done.")
+    log.info("All boards completed")
 
 
 def _backfill_updates(conn: sqlite3.Connection, stop_event=None) -> None:

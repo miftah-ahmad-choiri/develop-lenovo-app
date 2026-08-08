@@ -8,6 +8,7 @@ from flask import (
     url_for, flash, current_app, send_file, jsonify,
 )
 from werkzeug.utils import secure_filename
+from app.services.database.db import get_db
 from app.services.upload.excel import allowed_excel, save_excel_upload, list_excel_uploads
 from app.services.upload.upload_verification import verify_uploaded_file
 from app.services.upload.meta_cache import (
@@ -2202,19 +2203,38 @@ def escalation_center():
         state = {}
     board_states = state.get("boards", {})
 
+    board_meta = {}
+    try:
+        db = get_db()
+        rows = db.execute(
+            "SELECT monday_board_id, labor_vendor_related, customer_partner "
+            "FROM asp_details WHERE monday_board_id IS NOT NULL"
+        ).fetchall()
+        board_meta = {
+            str(row["monday_board_id"]): {
+                "asp_id": row["labor_vendor_related"],
+                "asp_name": row["customer_partner"],
+            }
+            for row in rows
+        }
+    except Exception:
+        board_meta = {}
+
     # Enrich boards with per-board state
     boards = []
     for b in boards_raw:
-        bid = b["board_id"]
+        bid = str(b["board_id"])
         bs  = board_states.get(bid, {})
+        meta = board_meta.get(bid, {})
         boards.append({
-            "no":         b.get("no"),
-            "asp_board":  b["asp_board"],
-            "board_id":   bid,
-            "asp_id":     b.get("asp_id"),
-            "last_sync":  bs.get("last_sync"),
+            "no":           b.get("no"),
+            "asp_board":    b["asp_board"],
+            "board_id":     bid,
+            "asp_id":       meta.get("asp_id") or "—",
+            "asp_name":     meta.get("asp_name") or "—",
+            "last_sync":    bs.get("last_sync"),
             "total_synced": bs.get("total_synced", 0),
-            "synced":     bool(bs.get("last_sync")),
+            "synced":       bool(bs.get("last_sync")),
         })
 
     # DB stats from lenovo_asp.db
@@ -2247,9 +2267,10 @@ def escalation_center():
         is_running = _sync_thread is not None and _sync_thread.is_alive()
 
     return render_template(
-        "admin/escalation_center.html",
+        "admin/monday_collector.html",
         portal="admin",
-        active_page="escalation_center",
+        active_page="monday_collector",
+        active_group="escalation_center",
         boards=boards,
         board_count=board_count,
         synced_count=synced_count,
@@ -2267,15 +2288,6 @@ def escalation_center_trigger():
     data     = request.get_json(silent=True) or {}
     mode     = data.get("mode", "incremental")
     board_id = data.get("board_id")  # optional — None means all boards
-
-    # Block manual triggers outside the active window
-    if not _is_active_window():
-        return jsonify({
-            "ok":             False,
-            "error":          "Outside active sync window (Mon–Fri 06:00–20:00 WIB)",
-            "out_of_window":  True,
-            "window_opens_at": _next_window_open_ts(),
-        }), 403
 
     with _sync_lock:
         if _sync_thread is not None and _sync_thread.is_alive():
@@ -2388,15 +2400,34 @@ def escalation_center_boards():
         state = {}
     board_states = state.get("boards", {})
 
+    board_meta = {}
+    try:
+        db = get_db()
+        rows = db.execute(
+            "SELECT monday_board_id, labor_vendor_related, customer_partner "
+            "FROM asp_details WHERE monday_board_id IS NOT NULL"
+        ).fetchall()
+        board_meta = {
+            str(row["monday_board_id"]): {
+                "asp_id": row["labor_vendor_related"],
+                "asp_name": row["customer_partner"],
+            }
+            for row in rows
+        }
+    except Exception:
+        board_meta = {}
+
     boards = []
     for b in boards_raw:
-        bid = b["board_id"]
+        bid = str(b["board_id"])
         bs  = board_states.get(bid, {})
+        meta = board_meta.get(bid, {})
         boards.append({
             "no":           b.get("no"),
             "asp_board":    b["asp_board"],
             "board_id":     bid,
-            "asp_id":       b.get("asp_id"),
+            "asp_id":       meta.get("asp_id") or "—",
+            "asp_name":     meta.get("asp_name") or "—",
             "last_sync":    bs.get("last_sync"),
             "total_synced": bs.get("total_synced", 0),
             "synced":       bool(bs.get("last_sync")),
@@ -2421,116 +2452,128 @@ def escalation_center_boards():
     return jsonify({"ok": True, "boards": boards, "sync_history": sync_history})
 
 
-# ── Board Group Map ───────────────────────────────────────────────────────────
 
-@admin_bp.route("/admin/board-group-map", methods=["GET"])
-def board_group_map():
-    rows = []
-    stats = {"total_boards": 0, "total_groups": 0, "mapped": 0, "unmapped": 0}
+
+# ── Monday Data page ──────────────────────────────────────────────────────────
+
+@admin_bp.route("/admin/monday-data", methods=["GET"])
+def monday_data():
+    import json as _json
     edb = _get_monday_sync_db()
+    rows_list   = []
+    boards_list = []
+    total_count = 0
+    board_count = 0
+
     if edb:
         try:
-            raw = edb.execute(
-                """
+            # All rows with discussion counts + all detail fields
+            raw = edb.execute("""
                 SELECT
-                    bs.board_id,
-                    ad.asp_id            AS asp_board,
-                    ad.operation_support,
-                    bs.group_id,
-                    bs.group_title,
-                    bs.items_count,
-                    bs.counted_at
-                FROM board_stats AS bs
-                LEFT JOIN asp_details AS ad
-                    ON ad.monday_board_id = bs.board_id
-                ORDER BY
-                    CASE WHEN ad.asp_id IS NULL THEN 1 ELSE 0 END,
-                    ad.asp_id COLLATE NOCASE,
-                    bs.group_title COLLATE NOCASE
-                """
-            ).fetchall()
-            rows = [dict(r) for r in raw]
+                    te.monday_item_id,
+                    te.board_id,
+                    te.asp_board,
+                    te.item_name,
+                    te.item_created_at,
+                    te.item_updated_at,
+                    te.db_synced_at,
+                    te.status,
+                    te.work_order_type,
+                    te.wo_case_id,
+                    te.serial_number,
+                    te.location,
+                    te.ppsn_category,
+                    te.rrr_category,
+                    te.diag_datetime,
+                    te.diag_agent_ce,
+                    te.diag_model,
+                    te.diag_warranty,
+                    te.diag_problem,
+                    te.diag_esc_approval,
+                    te.diag_parts_request,
+                    te.diagnose_note,
+                    te.repair_note,
+                    c.creator_name,
+                    COUNT(DISTINCT u.update_id) + COUNT(DISTINCT r.reply_id) AS disc_count
+                FROM technical_escalation te
+                LEFT JOIN creators c ON te.creator_id = c.creator_id
+                LEFT JOIN item_updates u ON te.monday_item_id = u.monday_item_id
+                LEFT JOIN item_update_replies r ON u.update_id = r.update_id
+                GROUP BY te.monday_item_id
+                ORDER BY te.item_created_at DESC
+            """).fetchall()
+            rows_list = [dict(r) for r in raw]
+            total_count = len(rows_list)
 
-            board_ids   = {r["board_id"] for r in rows}
-            mapped_ids  = {r["board_id"] for r in rows if r["asp_board"]}
-            stats["total_boards"] = len(board_ids)
-            stats["total_groups"] = len(rows)
-            stats["mapped"]       = len(mapped_ids)
-            stats["unmapped"]     = len(board_ids) - len(mapped_ids)
+            # Board summary (for sidebar filter)
+            board_raw = edb.execute("""
+                SELECT asp_board, board_id, COUNT(*) AS item_count
+                FROM technical_escalation
+                GROUP BY board_id
+                ORDER BY asp_board
+            """).fetchall()
+            boards_list = [dict(r) for r in board_raw]
+            board_count = len(boards_list)
         except Exception:
             pass
         finally:
             edb.close()
+
+    # Build board_names map: {board_id: asp_board}
+    board_names = {b["board_id"]: b["asp_board"] for b in boards_list}
 
     return render_template(
-        "admin/board_group_map.html",
+        "admin/monday_data.html",
         portal="admin",
-        active_page="board_group_map",
-        rows=rows,
-        stats=stats,
+        active_page="monday_data",
+        active_group="escalation_center",
+        rows_json=_json.dumps(rows_list),
+        board_names_json=_json.dumps(board_names),
+        boards=boards_list,
+        total_count=total_count,
+        board_count=board_count,
     )
 
 
-@admin_bp.route("/admin/board-group-map/export", methods=["GET"])
-def board_group_map_export():
-    import csv, io, os as _os
-    from datetime import datetime as _dt
-    from flask import make_response as _mkr
+# ── Monday Data: discussion JSON API ─────────────────────────────────────────
 
+@admin_bp.route("/admin/monday-data/discussion/<item_id>", methods=["GET"])
+def monday_data_discussion(item_id):
     edb = _get_monday_sync_db()
-    rows = []
-    if edb:
-        try:
-            raw = edb.execute(
-                """
-                SELECT
-                    bs.board_id,
-                    ad.asp_id            AS asp_board,
-                    ad.operation_support,
-                    bs.group_id,
-                    bs.group_title,
-                    bs.items_count,
-                    bs.counted_at
-                FROM board_stats AS bs
-                LEFT JOIN asp_details AS ad
-                    ON ad.monday_board_id = bs.board_id
-                ORDER BY
-                    CASE WHEN ad.asp_id IS NULL THEN 1 ELSE 0 END,
-                    ad.asp_id COLLATE NOCASE,
-                    bs.group_title COLLATE NOCASE
-                """
-            ).fetchall()
-            rows = [dict(r) for r in raw]
-        except Exception:
-            pass
-        finally:
-            edb.close()
+    result = {"updates": []}
+    if not edb:
+        return jsonify(result)
 
-    # Write CSV to files/report/
-    project_root = _os.path.normpath(
-        _os.path.join(_os.path.dirname(__file__), "..", "..")
-    )
-    report_dir = _os.path.join(project_root, "files", "report")
-    _os.makedirs(report_dir, exist_ok=True)
-    ts       = _dt.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"board_group_map_{ts}.csv"
-    filepath = _os.path.join(report_dir, filename)
+    try:
+        # Load all updates for this item
+        updates = edb.execute("""
+            SELECT u.update_id, u.body_text, u.created_at, u.updated_at,
+                   u.creator_id, c.creator_name
+            FROM item_updates u
+            LEFT JOIN creators c ON u.creator_id = c.creator_id
+            WHERE u.monday_item_id = ?
+            ORDER BY u.created_at ASC
+        """, (item_id,)).fetchall()
 
-    fieldnames = ["board_id", "asp_board", "operation_support",
-                  "group_id", "group_title", "items_count", "counted_at"]
-    with open(filepath, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=fieldnames)
-        w.writeheader()
-        for r in rows:
-            w.writerow({k: r.get(k, "") for k in fieldnames})
+        updates_out = []
+        for upd in updates:
+            upd_dict = dict(upd)
+            # Load replies for this update
+            replies = edb.execute("""
+                SELECT r.reply_id, r.body_text, r.created_at,
+                       r.creator_id, c.creator_name
+                FROM item_update_replies r
+                LEFT JOIN creators c ON r.creator_id = c.creator_id
+                WHERE r.update_id = ?
+                ORDER BY r.created_at ASC
+            """, (upd_dict["update_id"],)).fetchall()
+            upd_dict["replies"] = [dict(r) for r in replies]
+            updates_out.append(upd_dict)
 
-    # Also stream back as download
-    buf = io.StringIO()
-    w2 = csv.DictWriter(buf, fieldnames=fieldnames)
-    w2.writeheader()
-    for r in rows:
-        w2.writerow({k: r.get(k, "") for k in fieldnames})
-    resp = _mkr(buf.getvalue())
-    resp.headers["Content-Type"]        = "text/csv; charset=utf-8"
-    resp.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
-    return resp
+        result["updates"] = updates_out
+    except Exception:
+        pass
+    finally:
+        edb.close()
+
+    return jsonify(result)

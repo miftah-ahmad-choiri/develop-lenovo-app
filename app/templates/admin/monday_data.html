@@ -1,0 +1,1015 @@
+{% extends "base.html" %}
+{% block title %}Monday Data — Admin Portal{% endblock %}
+
+{% block extra_styles %}
+/* ── Layout: sidebar filter + main table ─────────────────── */
+.md-layout          { display: flex; gap: 18px; align-items: flex-start; }
+.md-filter-sidebar  { width: 230px; flex-shrink: 0; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; position: sticky; top: 16px; max-height: calc(100vh - 120px); display: flex; flex-direction: column; transition: width 0.2s cubic-bezier(.4,0,.2,1); }
+.md-filter-sidebar.collapsed { width: 38px; }
+.md-filter-header   { padding: 10px 12px; font-size: 11px; font-weight: 700; color: #57606a; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid #e5e7eb; background: #f7f8fa; display: flex; align-items: center; gap: 6px; flex-shrink: 0; cursor: pointer; user-select: none; }
+.md-filter-header:hover { background: #f0f2f5; }
+.md-filter-header .fh-title { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; }
+.md-filter-sidebar.collapsed .fh-title,
+.md-filter-sidebar.collapsed .md-filter-search,
+.md-filter-sidebar.collapsed .md-filter-body { display: none; }
+.md-filter-toggle   { margin-left: auto; flex-shrink: 0; color: #8b95a1; transition: transform 0.2s; }
+.md-filter-sidebar.collapsed .md-filter-toggle { transform: rotate(180deg); }
+.md-filter-search   { padding: 8px 10px; border-bottom: 1px solid #e5e7eb; flex-shrink: 0; }
+.md-filter-search input { width: 100%; padding: 5px 8px; border: 1px solid #d0d7de; border-radius: 5px; font-size: 12px; font-family: inherit; box-sizing: border-box; }
+.md-filter-search input:focus { outline: none; border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,.1); }
+/* body wraps list + index side by side */
+.md-filter-body     { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+.md-filter-list     { overflow-y: auto; flex: 1; padding: 4px 0; }
+.md-filter-list::-webkit-scrollbar { width: 4px; }
+.md-filter-list::-webkit-scrollbar-thumb { background: #d0d7de; border-radius: 2px; }
+.md-filter-item     { display: flex; align-items: center; gap: 8px; padding: 6px 12px; cursor: pointer; font-size: 12.5px; color: #374151; border-left: 2px solid transparent; transition: background 0.1s; user-select: none; }
+.md-filter-item:hover { background: #f3f4f6; }
+.md-filter-item.active { background: rgba(59,130,212,.08); color: #1d4ed8; border-left-color: #3b82d4; font-weight: 600; }
+.md-filter-item .fi-dot { width: 6px; height: 6px; border-radius: 50%; background: #d0d7de; flex-shrink: 0; }
+.md-filter-item.active .fi-dot { background: #3b82d4; }
+.md-filter-item .fi-count { margin-left: auto; font-size: 11px; color: #9ca3af; font-weight: 400; }
+.md-filter-item.active .fi-count { color: #3b82d4; }
+.md-filter-all { font-weight: 600; }
+/* A–Z letter index strip */
+.md-filter-index    { display: flex; flex-direction: column; align-items: center; padding: 4px 2px; gap: 1px; background: #f7f8fa; border-left: 1px solid #e5e7eb; overflow-y: auto; flex-shrink: 0; scrollbar-width: none; }
+.md-filter-index::-webkit-scrollbar { display: none; }
+.md-idx-letter      { font-size: 9.5px; font-weight: 700; color: #8b95a1; cursor: pointer; padding: 2px 4px; border-radius: 3px; line-height: 1.3; user-select: none; }
+.md-idx-letter:hover { background: #e5e7eb; color: #1f2328; }
+.md-idx-letter.has-items { color: #374151; }
+.md-idx-letter.active    { background: #3b82d4; color: #fff; }
+/* letter group separator inside list */
+.md-filter-letter-sep { padding: 4px 12px 2px; font-size: 9.5px; font-weight: 800; color: #3b82d4; text-transform: uppercase; letter-spacing: 0.1em; background: #f0f6ff; border-top: 1px solid #dbeafe; border-bottom: 1px solid #dbeafe; }
+
+/* ── Main table area ───────────────────────────────────────── */
+.md-main   { flex: 1; min-width: 0; }
+.md-header { margin-bottom: 14px; }
+.md-title  { font-size: 16px; font-weight: 700; color: #1f2328; display: flex; align-items: center; gap: 8px; }
+.md-subtitle { font-size: 12.5px; color: #57606a; margin-top: 3px; }
+.md-board-label { font-size: 12px; color: #3b82d4; font-weight: 600; margin-left: 4px; }
+
+/* ── Table card ───────────────────────────────────────────── */
+.table-card  { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; margin-bottom: 20px; }
+.table-toolbar { padding: 10px 14px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap; }
+.table-toolbar input[type="search"] { padding: 6px 10px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 13px; width: 200px; font-family: inherit; }
+.table-toolbar input[type="search"]:focus { outline: none; border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,.1); }
+.toolbar-count { font-size: 12px; color: #57606a; white-space: nowrap; margin-left: auto; }
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.data-table   { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.data-table thead { background: #f7f8fa; position: sticky; top: 0; z-index: 1; }
+.data-table th { padding: 8px 10px; text-align: left; font-size: 11px; font-weight: 700; color: #57606a; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+.data-table td { padding: 8px 10px; border-bottom: 1px solid #f0f2f5; vertical-align: middle; }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: #f9fafb; }
+.data-table .td-task { min-width: 240px; }
+.data-table .td-task .task-name { font-weight: 500; display: block; color: #1f2328; word-break: break-word; line-height: 1.45; }
+.data-table .td-task .task-sub  { font-size: 11px; color: #9ca3af; display: block; margin-top: 2px; }
+
+/* ── Status badges ─────────────────────────────────────────── */
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.badge-complete   { background: #dcfce7; color: #15803d; }
+.badge-approved   { background: #dbeafe; color: #1d4ed8; }
+.badge-tech-esc   { background: #ede9fe; color: #6d28d9; }
+.badge-reject     { background: #fee2e2; color: #b91c1c; }
+.badge-default    { background: #f0f2f5; color: #57606a; }
+.badge-inprogress { background: #fef3c7; color: #92400e; }
+.mono { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11.5px; }
+
+/* ── Discussion button ─────────────────────────────────────── */
+.btn-disc { display: inline-flex; align-items: center; gap: 4px; padding: 4px 9px; border: 1px solid #d0d7de; border-radius: 5px; background: #fff; cursor: pointer; font-size: 11.5px; font-family: inherit; color: #374151; transition: background 0.1s, border-color 0.1s; white-space: nowrap; }
+.btn-disc:hover { background: #f3f4f6; border-color: #9ca3af; }
+.btn-disc.has-disc { border-color: #3b82d4; color: #1d4ed8; background: rgba(59,130,212,.06); }
+.btn-disc.has-disc:hover { background: rgba(59,130,212,.12); }
+.disc-count { font-size: 10px; background: #3b82d4; color: #fff; border-radius: 9px; padding: 0 5px; min-width: 16px; text-align: center; line-height: 16px; }
+
+/* ── Discussion drawer (slide-in from right) ──────────────── */
+.disc-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 1000; }
+.disc-overlay.open { display: block; }
+.disc-drawer  { position: fixed; top: 52px; right: -540px; width: 520px; max-width: 96vw; height: calc(100vh - 52px); height: calc(100dvh - 52px); background: #fff; box-shadow: -4px 0 24px rgba(0,0,0,.12); z-index: 1001; display: flex; flex-direction: column; overflow: hidden; transition: right 0.25s cubic-bezier(.4,0,.2,1); }
+.disc-drawer.open  { right: 0; }
+.disc-drawer-head  { padding: 16px 18px; border-bottom: 1px solid #e5e7eb; display: flex; align-items: flex-start; gap: 10px; flex-shrink: 0; }
+.disc-drawer-title { flex: 1; min-width: 0; }
+.disc-drawer-title h3 { font-size: 14px; font-weight: 700; margin: 0 0 2px; line-height: 1.4; }
+.disc-drawer-title p  { font-size: 12px; color: #57606a; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.disc-close { border: none; background: none; cursor: pointer; color: #57606a; padding: 4px; border-radius: 4px; flex-shrink: 0; margin-top: -2px; }
+.disc-close:hover { background: #f3f4f6; color: #1f2328; }
+.disc-body  { flex: 1 1 0; min-height: 0; overflow-y: scroll; padding: 16px 18px; background: #e8edf2; display: flex; flex-direction: column; gap: 14px; }
+.disc-body::-webkit-scrollbar { width: 8px; }
+.disc-body::-webkit-scrollbar-track { background: #d1d7de; }
+.disc-body::-webkit-scrollbar-thumb { background: #8b95a1; border-radius: 4px; }
+.disc-body::-webkit-scrollbar-thumb:hover { background: #57606a; }
+.disc-empty { text-align: center; padding: 40px 20px; color: #9ca3af; font-size: 13px; }
+.disc-loading { text-align: center; padding: 40px 20px; color: #9ca3af; font-size: 13px; }
+.disc-link { color: #2563eb; text-decoration: underline; word-break: break-all; }
+.disc-link:hover { color: #1d4ed8; }
+
+/* ── Discussion thread item ─────────────────────────────── */
+.disc-update { background: #fff; border: 1px solid #c8d0da; border-radius: 10px; overflow: clip; box-shadow: 0 1px 4px rgba(0,0,0,.07); }
+.disc-update-head { padding: 10px 14px; background: #f0f4f8; border-bottom: 1px solid #dde3ea; display: flex; align-items: center; gap: 8px; }
+.disc-avatar { width: 28px; height: 28px; border-radius: 50%; background: #3b82d4; color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.disc-meta   { flex: 1; min-width: 0; }
+.disc-author { font-size: 12px; font-weight: 700; color: #1f2328; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.disc-time   { font-size: 11px; color: #8b95a1; }
+.disc-update-body { padding: 12px 14px; font-size: 12.5px; color: #2d3748; line-height: 1.65; white-space: pre-wrap; word-break: break-word; background: #fff; }
+
+/* ── Reply items ─────────────────────────────────────────── */
+.disc-replies { border-top: 2px solid #e8edf2; background: #f5f7fa; }
+.disc-reply   { display: flex; gap: 8px; padding: 9px 14px; border-top: 1px solid #dde3ea; }
+.disc-reply:first-child { border-top: none; }
+.disc-reply-avatar { width: 22px; height: 22px; border-radius: 50%; background: #7c5cd8; color: #fff; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+.disc-reply-content { flex: 1; min-width: 0; }
+.disc-reply-author  { font-size: 11.5px; font-weight: 700; color: #1f2328; }
+.disc-reply-time    { font-size: 10.5px; color: #8b95a1; margin-left: 6px; }
+.disc-reply-body    { font-size: 12px; color: #374151; line-height: 1.55; white-space: pre-wrap; word-break: break-word; margin-top: 3px; }
+
+/* ── Detail modal (centred popup) ────────────────────────── */
+.detail-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
+.detail-overlay.open { display: flex; }
+.detail-drawer  { position: relative; width: 760px; max-width: 100%; max-height: 90vh; background: #fff; border-radius: 14px; box-shadow: 0 12px 48px rgba(0,0,0,.28); z-index: 1001; display: flex; flex-direction: column; animation: modalIn 0.2s cubic-bezier(.4,0,.2,1); }
+@keyframes modalIn { from { opacity: 0; transform: scale(.97) translateY(10px); } to { opacity: 1; transform: none; } }
+.detail-head    { padding: 18px 22px 16px; border-bottom: 1px solid #e5e7eb; display: flex; align-items: flex-start; gap: 12px; flex-shrink: 0; background: #fff; border-radius: 14px 14px 0 0; }
+.detail-head-title { flex: 1; min-width: 0; }
+.detail-head-title h3 { font-size: 16px; font-weight: 700; margin: 0 0 2px; line-height: 1.4; color: #1f2328; }
+.detail-head-title p  { font-size: 12.5px; color: #57606a; margin: 0; }
+.detail-close { border: none; background: none; cursor: pointer; color: #57606a; padding: 6px; border-radius: 6px; flex-shrink: 0; }
+.detail-close:hover { background: #f3f4f6; color: #1f2328; }
+.detail-body  { overflow-y: auto; padding: 22px; background: #f0f4f8; display: flex; flex-direction: column; gap: 14px; border-radius: 0 0 14px 14px; max-height: calc(90vh - 72px); }
+.detail-body::-webkit-scrollbar { width: 6px; }
+.detail-body::-webkit-scrollbar-track { background: transparent; }
+.detail-body::-webkit-scrollbar-thumb { background: #b0bac5; border-radius: 3px; }
+
+/* ── Detail: status banner ───────────────────────────────── */
+.detail-banner { border-radius: 10px; padding: 14px 18px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border: 1px solid #e5e7eb; }
+.detail-banner-badge { flex-shrink: 0; }
+.detail-banner-meta  { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.detail-banner-meta span { font-size: 12px; color: #57606a; display: flex; align-items: center; gap: 5px; }
+.detail-banner-meta strong { color: #1f2328; font-weight: 600; }
+
+/* ── Detail: info tiles (key fields) ─────────────────────── */
+.detail-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.detail-tile  { background: #fff; border: 1px solid #e5e7eb; border-radius: 9px; padding: 13px 15px; }
+.detail-tile .dt-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #8b95a1; margin-bottom: 5px; }
+.detail-tile .dt-value { font-size: 14px; font-weight: 600; color: #1f2328; word-break: break-word; line-height: 1.4; }
+.detail-tile .dt-value.mono { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 13px; }
+.detail-tile .dt-value.muted { color: #9ca3af; font-weight: 400; font-style: italic; }
+.detail-tile .dt-value.blue  { color: #2563eb; }
+
+/* ── Detail sections & fields ─────────────────────────────── */
+.detail-section { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; overflow: clip; }
+.detail-section-head { padding: 11px 16px; background: #f7f8fa; border-bottom: 1px solid #e5e7eb; font-size: 11px; font-weight: 700; color: #57606a; text-transform: uppercase; letter-spacing: 0.07em; display: flex; align-items: center; gap: 7px; }
+.detail-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+.detail-field  { padding: 12px 16px; border-bottom: 1px solid #f0f2f5; }
+.detail-field:last-child, .detail-field.full:last-child { border-bottom: none; }
+.detail-field.full { grid-column: 1 / -1; }
+.detail-field .df-label { font-size: 10.5px; font-weight: 700; color: #8b95a1; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+.detail-field .df-value { font-size: 13px; color: #1f2328; line-height: 1.55; word-break: break-word; font-weight: 500; }
+.detail-field .df-value.mono { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12.5px; }
+.detail-field .df-value.muted { color: #9ca3af; font-weight: 400; font-style: italic; }
+
+/* ── Detail: note block (diagnose note, parts, repair) ───── */
+.detail-note-block { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; overflow: clip; }
+.detail-note-head  { padding: 11px 16px; background: #f7f8fa; border-bottom: 1px solid #e5e7eb; font-size: 11px; font-weight: 700; color: #57606a; text-transform: uppercase; letter-spacing: 0.07em; display: flex; align-items: center; gap: 7px; }
+.detail-note-body  { padding: 16px; font-size: 13px; color: #374151; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
+
+/* ── Task name link in table ──────────────────────────────── */
+.task-name-link { cursor: pointer; color: #1f2328; text-decoration: none; font-weight: 500; }
+.task-name-link:hover { color: #2563eb; text-decoration: underline; }
+
+/* ── Clickable WO / Serial cell ──────────────────────────── */
+.cell-link { cursor: pointer; color: #374151; text-decoration: none; border-bottom: 1px dashed #9ca3af; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; white-space: nowrap; }
+.cell-link:hover { color: #2563eb; border-bottom-color: #2563eb; }
+
+/* ── Serial History modal ────────────────────────────────── */
+.hist-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 1050; align-items: center; justify-content: center; padding: 20px; }
+.hist-overlay.open { display: flex; }
+.hist-drawer  { position: relative; width: 700px; max-width: 100%; max-height: 90vh; background: #fff; border-radius: 14px; box-shadow: 0 12px 48px rgba(0,0,0,.28); z-index: 1051; display: flex; flex-direction: column; animation: modalIn 0.2s cubic-bezier(.4,0,.2,1); }
+.hist-head    { padding: 18px 22px 14px; border-bottom: 1px solid #e5e7eb; display: flex; align-items: flex-start; gap: 12px; flex-shrink: 0; border-radius: 14px 14px 0 0; background: #fff; }
+.hist-head-title { flex: 1; min-width: 0; }
+.hist-head-eyebrow { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #8b95a1; margin-bottom: 3px; }
+.hist-head-title h3 { font-size: 16px; font-weight: 700; margin: 0; color: #1f2328; font-family: ui-monospace, SFMono-Regular, monospace; }
+.hist-close { border: none; background: none; cursor: pointer; color: #57606a; padding: 6px; border-radius: 6px; flex-shrink: 0; }
+.hist-close:hover { background: #f3f4f6; color: #1f2328; }
+.hist-body  { overflow-y: auto; padding: 20px 22px; background: #f0f4f8; display: flex; flex-direction: column; gap: 0; border-radius: 0 0 14px 14px; max-height: calc(90vh - 80px); }
+.hist-body::-webkit-scrollbar { width: 6px; }
+.hist-body::-webkit-scrollbar-track { background: transparent; }
+.hist-body::-webkit-scrollbar-thumb { background: #b0bac5; border-radius: 3px; }
+/* summary bar */
+.hist-summary { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+.hist-stat    { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 14px; flex: 1; min-width: 100px; }
+.hist-stat .hs-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #8b95a1; margin-bottom: 4px; }
+.hist-stat .hs-value { font-size: 20px; font-weight: 700; color: #1f2328; }
+.hist-stat.hs-blue  .hs-value { color: #2563eb; }
+.hist-stat.hs-amber .hs-value { color: #d97706; }
+.hist-stat.hs-purple .hs-value { color: #7c5cd8; }
+/* timeline */
+.hist-timeline { display: flex; flex-direction: column; }
+.hist-entry    { display: flex; gap: 14px; padding-bottom: 20px; position: relative; }
+.hist-entry:last-child { padding-bottom: 0; }
+.hist-entry-left  { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; width: 28px; }
+.hist-dot  { width: 12px; height: 12px; border-radius: 50%; background: #d0d7de; border: 2px solid #fff; box-shadow: 0 0 0 2px #d0d7de; flex-shrink: 0; margin-top: 3px; }
+.hist-dot.complete  { background: #16a34a; box-shadow: 0 0 0 2px #16a34a; }
+.hist-dot.progress  { background: #2563eb; box-shadow: 0 0 0 2px #2563eb; }
+.hist-dot.escalate  { background: #7c5cd8; box-shadow: 0 0 0 2px #7c5cd8; }
+.hist-dot.reject    { background: #dc2626; box-shadow: 0 0 0 2px #dc2626; }
+.hist-line { width: 2px; flex: 1; background: #e5e7eb; margin-top: 4px; }
+.hist-entry:last-child .hist-line { display: none; }
+.hist-card { flex: 1; min-width: 0; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; overflow: clip; margin-bottom: 0; }
+.hist-card-head { padding: 10px 14px; background: #f7f8fa; border-bottom: 1px solid #e5e7eb; display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+.hist-card-name { font-size: 13px; font-weight: 600; color: #1f2328; flex: 1; min-width: 0; line-height: 1.4; }
+.hist-card-date { font-size: 11px; color: #8b95a1; white-space: nowrap; margin-top: 1px; }
+.hist-card-body { display: grid; grid-template-columns: 1fr 1fr; }
+.hist-card-field { padding: 9px 14px; border-bottom: 1px solid #f0f2f5; }
+.hist-card-field:last-child, .hist-card-field.hf-full:last-child { border-bottom: none; }
+.hist-card-field.hf-full { grid-column: 1 / -1; }
+.hist-card-field .hf-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #8b95a1; margin-bottom: 3px; }
+.hist-card-field .hf-value { font-size: 12.5px; color: #1f2328; font-weight: 500; word-break: break-word; line-height: 1.45; }
+.hist-card-field .hf-value.mono { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; }
+.hist-card-field .hf-value.muted { color: #9ca3af; font-weight: 400; font-style: italic; }
+.hist-empty { text-align: center; padding: 48px 20px; color: #9ca3af; font-size: 13px; }
+
+/* ── Pagination ──────────────────────────────────────────── */
+.pagination { display: flex; align-items: center; gap: 6px; padding: 10px 14px; border-top: 1px solid #e5e7eb; justify-content: flex-end; font-size: 12px; flex-wrap: wrap; }
+.pg-btn { padding: 4px 9px; border: 1px solid #d0d7de; border-radius: 5px; background: #fff; cursor: pointer; font-size: 12px; font-family: inherit; color: #374151; }
+.pg-btn:hover:not(:disabled) { background: #f3f4f6; }
+.pg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.pg-btn.active { background: #3b82d4; border-color: #3b82d4; color: #fff; }
+.pg-info { color: #57606a; margin-right: auto; }
+
+@media (max-width: 900px) {
+  .md-layout { flex-direction: column; }
+  .md-filter-sidebar { width: 100%; position: static; max-height: 220px; flex-direction: row; flex-wrap: wrap; }
+  .md-filter-body    { flex: 1; min-height: 0; overflow: hidden; }
+  .md-filter-list { flex-direction: row; display: flex; flex-wrap: wrap; gap: 4px; padding: 8px; overflow-x: auto; overflow-y: hidden; flex: unset; }
+  .md-filter-item { border-left: none; border-radius: 5px; border: 1px solid #e5e7eb; padding: 3px 8px; }
+  .md-filter-item.active { border-color: #3b82d4; }
+  .md-filter-index { display: none; }
+  .md-filter-letter-sep { display: none; }
+}
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom:16px">
+  <div class="breadcrumb" style="font-size:12px;color:#57606a;margin-bottom:6px">
+    Admin <span style="margin:0 5px">›</span> Escalation Center <span style="margin:0 5px">›</span> Monday Data
+  </div>
+  <h1 style="font-size:20px;font-weight:700;margin:0 0 3px">Monday Data</h1>
+  <p style="font-size:13px;color:#57606a;margin:0">
+    All synced items from <strong>technical_escalation</strong> &mdash;
+    <strong>{{ total_count }}</strong> records across <strong>{{ board_count }}</strong> boards
+  </p>
+</div>
+
+<div class="md-layout">
+
+  <!-- ── Left sidebar: ASP Board filter ─────────────────────────── -->
+  <aside class="md-filter-sidebar" id="filter-sidebar">
+    <div class="md-filter-header" onclick="toggleSidebar()" title="Toggle filter panel">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      <span class="fh-title">ASP Board</span>
+      <span class="md-filter-toggle">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </span>
+    </div>
+    <div class="md-filter-search">
+      <input type="text" id="board-filter-search" placeholder="Search board…" oninput="filterBoardList(this.value)">
+    </div>
+    <div class="md-filter-body">
+      <div class="md-filter-list" id="board-filter-list">
+        <div class="md-filter-item md-filter-all active" data-board="" onclick="selectBoard('')">
+          <span class="fi-dot"></span>
+          <span>All Boards</span>
+          <span class="fi-count" id="fi-count-all">{{ total_count }}</span>
+        </div>
+        {% for b in boards %}
+        <div class="md-filter-item" data-board="{{ b.board_id }}" data-name="{{ b.asp_board | lower }}" data-initial="{{ b.asp_board[0] | upper }}" onclick="selectBoard('{{ b.board_id }}')">
+          <span class="fi-dot"></span>
+          <span class="fi-label">{{ b.asp_board }}</span>
+          <span class="fi-count">{{ b.item_count }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="md-filter-index" id="board-index"></div>
+    </div>
+  </aside>
+
+  <!-- ── Main content ────────────────────────────────────────────── -->
+  <div class="md-main">
+    <div class="md-header">
+      <div class="md-title">
+        Technical Escalation
+        <span class="md-board-label" id="active-board-label"></span>
+      </div>
+      <div class="md-subtitle" id="active-board-subtitle">Showing all boards</div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-toolbar">
+        <input type="search" id="row-search" placeholder="Search items…" oninput="applySearch(this.value)">
+        <span class="toolbar-count" id="row-count-label">Loading…</span>
+      </div>
+      <div class="table-scroll" style="max-height:calc(100vh - 280px)">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width:36px">#</th>
+              <th>Task / Item Name</th>
+              <th style="width:160px;white-space:nowrap">Status</th>
+              <th style="width:105px;white-space:nowrap">Date</th>
+              <th style="width:115px">WO / Case ID</th>
+              <th style="width:95px">Serial No.</th>
+              <th style="width:75px">WO Type</th>
+              <th style="width:88px">Discussion</th>
+            </tr>
+          </thead>
+          <tbody id="data-tbody">
+            <tr><td colspan="8" style="text-align:center;color:#9ca3af;padding:32px">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pagination-bar"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Detail modal (centred) ───────────────────────────────────── -->
+<div class="detail-overlay" id="detail-overlay" onclick="closeDetail()">
+<div class="detail-drawer" id="detail-drawer" onclick="event.stopPropagation()">
+  <div class="detail-head">
+    <div class="detail-head-title">
+      <h3 id="detail-title">Escalation Detail</h3>
+      <p id="detail-subtitle"></p>
+    </div>
+    <button class="detail-close" onclick="closeDetail()" title="Close">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="detail-body" id="detail-body">
+    <div class="disc-loading">Loading…</div>
+  </div>
+</div>
+</div>
+
+<!-- ── Serial History modal ──────────────────────────────────────── -->
+<div class="hist-overlay" id="hist-overlay" onclick="closeHistory()">
+<div class="hist-drawer" id="hist-drawer" onclick="event.stopPropagation()">
+  <div class="hist-head">
+    <div class="hist-head-title">
+      <div class="hist-head-eyebrow">Serial Number History</div>
+      <h3 id="hist-serial"></h3>
+    </div>
+    <button class="hist-close" onclick="closeHistory()" title="Close">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="hist-body" id="hist-body"></div>
+</div>
+</div>
+
+<!-- ── Discussion drawer ─────────────────────────────────────────── -->
+<div class="disc-overlay" id="disc-overlay" onclick="closeDrawer()"></div>
+<div class="disc-drawer" id="disc-drawer">
+  <div class="disc-drawer-head">
+    <div class="disc-drawer-title">
+      <h3 id="drawer-title">Discussion</h3>
+      <p id="drawer-subtitle"></p>
+    </div>
+    <button class="disc-close" onclick="closeDrawer()" title="Close">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="disc-body" id="drawer-body">
+    <div class="disc-empty">No discussions yet.</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  /* ── Data injected from server ───────────────────────────────── */
+  const ALL_ROWS = {{ rows_json | safe }};
+  const BOARD_NAMES = {{ board_names_json | safe }}; // {board_id: asp_board}
+
+  // Fast lookup map: monday_item_id → row object
+  const _ROW_MAP = Object.fromEntries(ALL_ROWS.map(r => [r.monday_item_id, r]));
+
+  /* ── State ───────────────────────────────────────────────────── */
+  let _activeBoard = '';
+  let _searchQ     = '';
+  let _page        = 1;
+  const PAGE_SIZE  = 50;
+
+  /* ── Filtered data ───────────────────────────────────────────── */
+  function _filtered() {
+    let rows = ALL_ROWS;
+    if (_activeBoard) rows = rows.filter(r => r.board_id === _activeBoard);
+    if (_searchQ) {
+      const q = _searchQ.toLowerCase();
+      rows = rows.filter(r =>
+        (r.item_name   || '').toLowerCase().includes(q) ||
+        (r.wo_case_id  || '').toLowerCase().includes(q) ||
+        (r.serial_number || '').toLowerCase().includes(q) ||
+        (r.status      || '').toLowerCase().includes(q)
+      );
+    }
+    return rows;
+  }
+
+  /* ── Render table ────────────────────────────────────────────── */
+  function render() {
+    const rows = _filtered();
+    const total = rows.length;
+    const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    if (_page > pages) _page = pages;
+    const start = (_page - 1) * PAGE_SIZE;
+    const slice = rows.slice(start, start + PAGE_SIZE);
+
+    // count label
+    document.getElementById('row-count-label').textContent =
+      total.toLocaleString() + ' item' + (total !== 1 ? 's' : '');
+
+    // tbody
+    const tbody = document.getElementById('data-tbody');
+    if (!slice.length) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#9ca3af;padding:32px">No records found.</td></tr>';
+    } else {
+      tbody.innerHTML = slice.map((r, i) => {
+        const rowNum = start + i + 1;
+        const statusBadge = _statusBadge(r.status);
+        const date = _fmtDate(r.item_created_at || r.db_synced_at);
+        const discClass = r.disc_count > 0 ? 'btn-disc has-disc' : 'btn-disc';
+        const discBadge = r.disc_count > 0
+          ? `<span class="disc-count">${r.disc_count}</span>`
+          : '';
+        const discSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+        return `<tr>
+          <td class="mono" style="color:#9ca3af">${rowNum}</td>
+          <td class="td-task">
+            <span class="task-name-link js-detail-btn" data-item-id="${_esc(r.monday_item_id)}" title="${_esc(r.item_name)}">${_esc(r.item_name)}</span>
+            <span class="task-sub">${_esc(r.asp_board || '')}</span>
+          </td>
+          <td>${statusBadge}</td>
+          <td style="font-size:12px;color:#57606a;white-space:nowrap">${date}</td>
+          <td>${r.serial_number ? `<span class="cell-link js-history-btn" data-serial="${_esc(r.serial_number)}">${_esc(_extractWO(r.wo_case_id) || r.wo_case_id || '—')}</span>` : `<span class="mono" style="color:#9ca3af">—</span>`}</td>
+          <td>${r.serial_number ? `<span class="cell-link js-history-btn" data-serial="${_esc(r.serial_number)}">${_esc(r.serial_number)}</span>` : `<span class="mono" style="color:#9ca3af">—</span>`}</td>
+          <td style="font-size:12px">${_esc(r.work_order_type || '—')}</td>
+          <td><button class="${discClass} js-disc-btn" data-item-id="${_esc(r.monday_item_id)}" data-item-name="${_esc(r.item_name)}">${discSvg}${discBadge}</button></td>
+        </tr>`;
+      }).join('');
+    }
+
+    _renderPagination(total, pages);
+  }
+
+  function _esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  /* Extract the WO number (starts with "40") from composite IDs like
+     "2027371450/4019669295" or "2027371450,4019669295" */
+  function _extractWO(raw) {
+    if (!raw) return '';
+    const str = raw.toString().trim();
+    // split on common delimiters: / , ; | space
+    const parts = str.split(/[\/,;\|\s]+/).map(p => p.trim()).filter(Boolean);
+    const wo = parts.find(p => /^40\d{8,}/.test(p));
+    if (wo) return wo;
+    // fallback: scan first/last 10 chars for a 40-prefixed segment
+    const head = str.slice(0, 10);
+    const tail = str.slice(-10);
+    if (/^40\d/.test(head)) return head;
+    if (/^40\d/.test(tail)) return tail;
+    return str; // return as-is if no WO pattern found
+  }
+
+  function _statusBadge(s) {
+    const v = (s || '').toLowerCase();
+    let cls = 'badge-default';
+    if (v === 'complete' || v === 'completed') cls = 'badge-complete';
+    else if (v.includes('approved')) cls = 'badge-approved';
+    else if (v === 'reject' || v === 'rejected') cls = 'badge-reject';
+    else if (v === 'technical escalation') cls = 'badge-tech-esc';
+    else if (v.includes('progress') || v.includes('running') || v.includes('pending')) cls = 'badge-inprogress';
+    else if (v === 'qa result') cls = 'badge-inprogress';
+    return `<span class="badge ${cls}">${_esc(s || '—')}</span>`;
+  }
+
+  function _fmtDate(iso) {
+    if (!iso) return '—';
+    try {
+      const d = new Date(iso);
+      if (isNaN(d)) return iso.slice(0, 10) || '—';
+      return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch(e) { return iso.slice(0, 10) || '—'; }
+  }
+
+  /* ── Pagination ──────────────────────────────────────────────── */
+  function _renderPagination(total, pages) {
+    const bar = document.getElementById('pagination-bar');
+    if (pages <= 1) { bar.innerHTML = ''; return; }
+    const from = ((_page - 1) * PAGE_SIZE) + 1;
+    const to   = Math.min(_page * PAGE_SIZE, total);
+    let html = `<span class="pg-info">${from}–${to} of ${total.toLocaleString()}</span>`;
+    html += `<button class="pg-btn" onclick="goPage(1)" ${_page===1?'disabled':''}>«</button>`;
+    html += `<button class="pg-btn" onclick="goPage(${_page-1})" ${_page===1?'disabled':''}>‹</button>`;
+
+    // window of page buttons
+    const W = 2;
+    for (let p = Math.max(1, _page - W); p <= Math.min(pages, _page + W); p++) {
+      html += `<button class="pg-btn${p===_page?' active':''}" onclick="goPage(${p})">${p}</button>`;
+    }
+
+    html += `<button class="pg-btn" onclick="goPage(${_page+1})" ${_page===pages?'disabled':''}>›</button>`;
+    html += `<button class="pg-btn" onclick="goPage(${pages})" ${_page===pages?'disabled':''}>»</button>`;
+    bar.innerHTML = html;
+  }
+
+  window.goPage = function(p) {
+    _page = p;
+    render();
+    document.querySelector('.md-main').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  /* ── Board filter ────────────────────────────────────────────── */
+  window.selectBoard = function(boardId) {
+    _activeBoard = boardId;
+    _page = 1;
+
+    // Update sidebar active state
+    document.querySelectorAll('.md-filter-item').forEach(el => {
+      el.classList.toggle('active', el.dataset.board === boardId);
+    });
+
+    // Update header label
+    const lbl = document.getElementById('active-board-label');
+    const sub = document.getElementById('active-board-subtitle');
+    if (boardId) {
+      const name = BOARD_NAMES[boardId] || boardId;
+      lbl.textContent = '— ' + name;
+      sub.textContent = 'Filtered by: ' + name;
+    } else {
+      lbl.textContent = '';
+      sub.textContent = 'Showing all boards';
+    }
+
+    render();
+  };
+
+  window.filterBoardList = function(q) {
+    const lower = q.toLowerCase();
+    document.querySelectorAll('#board-filter-list .md-filter-item').forEach(el => {
+      if (el.classList.contains('md-filter-all')) return;
+      const name = el.dataset.name || '';
+      el.style.display = name.includes(lower) ? '' : 'none';
+    });
+  };
+
+  window.applySearch = function(q) {
+    _searchQ = q.trim();
+    _page = 1;
+    render();
+  };
+
+  /* ── Discussion drawer ───────────────────────────────────────── */
+  function _openDrawer(itemId, itemName) {
+    document.getElementById('drawer-title').textContent    = 'Discussion';
+    document.getElementById('drawer-subtitle').textContent = itemName;
+    document.getElementById('drawer-body').innerHTML = '<div class="disc-loading">Loading discussions…</div>';
+    document.getElementById('disc-drawer').classList.add('open');
+    document.getElementById('disc-overlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+
+    fetch('/admin/monday-data/discussion/' + encodeURIComponent(itemId))
+      .then(r => r.json())
+      .then(data => _renderDrawer(data))
+      .catch(() => {
+        document.getElementById('drawer-body').innerHTML =
+          '<div class="disc-empty">Failed to load discussions.</div>';
+      });
+  }
+
+  window.closeDrawer = function() {
+    document.getElementById('disc-drawer').classList.remove('open');
+    document.getElementById('disc-overlay').classList.remove('open');
+    document.body.style.overflow = '';
+  };
+
+  /* ── Delegated click on discussion buttons ───────────────────── */
+  document.getElementById('data-tbody').addEventListener('click', function(e) {
+    const btn = e.target.closest('.js-disc-btn');
+    if (!btn) return;
+    _openDrawer(btn.dataset.itemId, btn.dataset.itemName);
+  });
+
+  /* ── Delegated click on task name (detail drawer) ────────────── */
+  document.getElementById('data-tbody').addEventListener('click', function(e) {
+    const el = e.target.closest('.js-detail-btn');
+    if (!el) return;
+    _openDetail(el.dataset.itemId);
+  });
+
+  /* ── Detail drawer open / close ──────────────────────────────── */
+  function _openDetail(itemId) {
+    const row = _ROW_MAP[itemId];
+    if (!row) return;
+    document.getElementById('detail-title').textContent    = row.item_name || 'Escalation Detail';
+    document.getElementById('detail-subtitle').textContent = row.asp_board || '';
+    document.getElementById('detail-body').innerHTML = _renderDetail(row);
+    document.getElementById('detail-drawer').classList.add('open');
+    document.getElementById('detail-overlay').classList.add('open');
+  }
+
+  window.closeDetail = function() {
+    document.getElementById('detail-drawer').classList.remove('open');
+    document.getElementById('detail-overlay').classList.remove('open');
+  };
+
+  /* ── Render detail content ───────────────────────────────────── */
+  function _renderDetail(r) {
+    function clean(v) { return (v || '').toString().replace(/[\uFEFF\u200B\u200C\u200D\u00A0]/g, '').trim(); }
+
+    function tile(label, val, cls) {
+      const v = clean(val);
+      return `<div class="detail-tile">
+        <div class="dt-label">${label}</div>
+        <div class="dt-value ${cls || ''}">${v ? (cls === 'mono' ? _esc(v) : _esc(v)) : '<span style="color:#9ca3af;font-weight:400;font-style:italic">—</span>'}</div>
+      </div>`;
+    }
+
+    function field(label, val, cls) {
+      const v = clean(val);
+      return `<div class="detail-field">
+        <div class="df-label">${label}</div>
+        <div class="df-value ${cls || ''}">${v ? _esc(v) : '<span class="muted">—</span>'}</div>
+      </div>`;
+    }
+
+    function fieldFull(label, val) {
+      const v = clean(val);
+      return `<div class="detail-field full">
+        <div class="df-label">${label}</div>
+        <div class="df-value ${v ? '' : 'muted'}">${v ? _esc(v) : '—'}</div>
+      </div>`;
+    }
+
+    const svgId    = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>`;
+    const svgDiag  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`;
+    const svgParts = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>`;
+    const svgRepair= `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`;
+    const svgClock = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+    const svgUser  = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+
+    // ── Banner: status + key meta ──────────────────────────────
+    const bannerBg = (() => {
+      const s = (r.status || '').toLowerCase();
+      if (s.includes('complete') || s.includes('done')) return 'background:#f0fdf4;border-color:#bbf7d0';
+      if (s.includes('progress') || s.includes('working')) return 'background:#eff6ff;border-color:#bfdbfe';
+      if (s.includes('escalat') || s.includes('tech')) return 'background:#f5f3ff;border-color:#ddd6fe';
+      if (s.includes('reject') || s.includes('cancel')) return 'background:#fef2f2;border-color:#fecaca';
+      return 'background:#f7f8fa;border-color:#e5e7eb';
+    })();
+
+    let html = `<div class="detail-banner" style="${bannerBg}">
+      <div class="detail-banner-badge">${_statusBadge(r.status)}</div>
+      <div class="detail-banner-meta">
+        ${r.work_order_type ? `<span>${svgId} <strong>${_esc(r.work_order_type)}</strong></span>` : ''}
+        ${r.asp_board      ? `<span>${svgUser} <strong>${_esc(r.asp_board)}</strong></span>` : ''}
+        ${r.item_created_at ? `<span>${svgClock} Created <strong>${_fmtDate(r.item_created_at)}</strong></span>` : ''}
+        ${r.item_updated_at ? `<span>${svgClock} Updated <strong>${_fmtDate(r.item_updated_at)}</strong></span>` : ''}
+      </div>
+    </div>`;
+
+    // ── Info tiles: key identifiers ────────────────────────────
+    html += `<div class="detail-tiles">
+      ${tile('WO / Case ID',   _extractWO(r.wo_case_id) || r.wo_case_id,    'mono')}
+      ${tile('Serial Number',  r.serial_number, 'mono blue')}
+      ${tile('Creator',        r.creator_name)}
+      ${tile('Location',       r.location)}
+      ${tile('PPSN Category',  r.ppsn_category)}
+      ${tile('RRR Category',   r.rrr_category)}
+    </div>`;
+
+    // ── Section: Diagnosis ─────────────────────────────────────
+    html += `<div class="detail-section">
+      <div class="detail-section-head">${svgDiag} Diagnosis</div>
+      <div class="detail-fields">
+        ${field('Date / Time',  r.diag_datetime)}
+        ${field('Agent / CE',   r.diag_agent_ce)}
+        ${field('Model',        r.diag_model)}
+        ${field('ESC Approval', r.diag_esc_approval)}
+        ${fieldFull('Warranty Status',    r.diag_warranty)}
+        ${fieldFull('Problem Description', r.diag_problem)}
+      </div>
+    </div>`;
+
+    // ── Note blocks ────────────────────────────────────────────
+    if (clean(r.diagnose_note)) {
+      html += `<div class="detail-note-block">
+        <div class="detail-note-head">${svgDiag} Diagnose Note</div>
+        <div class="detail-note-body">${_linkify(clean(r.diagnose_note))}</div>
+      </div>`;
+    }
+
+    if (clean(r.diag_parts_request)) {
+      html += `<div class="detail-note-block">
+        <div class="detail-note-head">${svgParts} Parts Request</div>
+        <div class="detail-note-body">${_linkify(clean(r.diag_parts_request))}</div>
+      </div>`;
+    }
+
+    if (clean(r.repair_note)) {
+      html += `<div class="detail-note-block">
+        <div class="detail-note-head">${svgRepair} Repair Note</div>
+        <div class="detail-note-body">${_linkify(clean(r.repair_note))}</div>
+      </div>`;
+    }
+
+    return html;
+  }
+
+  function _initials(name) {
+    if (!name) return '?';
+    const parts = name.trim().split(/\s+/);
+    return parts.length >= 2
+      ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+      : name.slice(0, 2).toUpperCase();
+  }
+
+  function _avatarColor(name) {
+    // 20-colour palette — wide enough that same-thread participants get distinct colours
+    const colors = [
+      '#2563eb','#16a34a','#d97706','#7c3aed','#dc2626',
+      '#0891b2','#65a30d','#db2777','#ea580c','#0d9488',
+      '#7c5cd8','#b45309','#15803d','#1d4ed8','#9333ea',
+      '#c2410c','#0369a1','#4f46e5','#be185d','#047857',
+    ];
+    // djb2-style hash for better distribution than a simple multiply
+    let h = 5381;
+    const s = (name || '').toLowerCase();
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h) ^ s.charCodeAt(i);
+    return colors[(h >>> 0) % colors.length];
+  }
+
+  function _fmtTs(iso) {
+    if (!iso) return '';
+    try {
+      const d = new Date(iso);
+      if (isNaN(d)) return iso.slice(0, 16).replace('T',' ');
+      return d.toLocaleString('en-GB', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    } catch(e) { return iso.slice(0, 16).replace('T',' '); }
+  }
+
+  function _cleanBody(txt) {
+    // Strip ALL zero-width / BOM characters (U+FEFF, U+200B, U+200C, U+200D, U+00A0)
+    // These appear mid-URL in the raw data and must be removed before linkify
+    return (txt || '')
+      .replace(/[\uFEFF\u200B\u200C\u200D\u00A0]/g, '')
+      .trim();
+  }
+
+  function _linkify(txt) {
+    // Escape HTML first, then turn http(s) URLs into clickable anchors.
+    // After _cleanBody(), URLs are guaranteed to have no invisible chars inside them.
+    const escaped = _esc(txt);
+    return escaped.replace(
+      /(https?:\/\/[^\s<>"']+)/g,
+      '<a href="$1" target="_blank" rel="noopener noreferrer" class="disc-link">$1</a>'
+    );
+  }
+
+  function _renderDrawer(data) {
+    const body = document.getElementById('drawer-body');
+    if (!data || !data.updates || data.updates.length === 0) {
+      body.innerHTML = '<div class="disc-empty">No discussion threads found for this item.</div>';
+      return;
+    }
+
+    let html = '';
+    for (const upd of data.updates) {
+      const bodyText = _cleanBody(upd.body_text);
+      const authorName = upd.creator_name || upd.creator_id || 'Unknown';
+      const initials = _initials(authorName);
+      const avatarBg = _avatarColor(authorName);
+
+      html += `<div class="disc-update">
+        <div class="disc-update-head">
+          <div class="disc-avatar" style="background:${avatarBg}">${initials}</div>
+          <div class="disc-meta">
+            <div class="disc-author">${_esc(authorName)}</div>
+            <div class="disc-time">${_fmtTs(upd.created_at)}</div>
+          </div>
+        </div>
+        <div class="disc-update-body">${bodyText ? _linkify(bodyText) : '<em style="color:#9ca3af">— empty —</em>'}</div>`;
+
+      if (upd.replies && upd.replies.length > 0) {
+        html += '<div class="disc-replies">';
+        for (const rpl of upd.replies) {
+          const rBody = _cleanBody(rpl.body_text);
+          const rName = rpl.creator_name || rpl.creator_id || 'Unknown';
+          const rInit = _initials(rName);
+          const rColor = _avatarColor(rName);
+          html += `<div class="disc-reply">
+            <div class="disc-reply-avatar" style="background:${rColor}">${rInit}</div>
+            <div class="disc-reply-content">
+              <span class="disc-reply-author">${_esc(rName)}</span>
+              <span class="disc-reply-time">${_fmtTs(rpl.created_at)}</span>
+              <div class="disc-reply-body">${rBody ? _linkify(rBody) : '<em style="color:#9ca3af">— empty —</em>'}</div>
+            </div>
+          </div>`;
+        }
+        html += '</div>';
+      }
+
+      html += '</div>';
+    }
+
+    body.innerHTML = html;
+  }
+
+  /* ── Delegated click: Serial History ────────────────────────── */
+  document.getElementById('data-tbody').addEventListener('click', function(e) {
+    const el = e.target.closest('.js-history-btn');
+    if (!el) return;
+    _openHistory(el.dataset.serial);
+  });
+
+  /* ── Serial History modal ────────────────────────────────────── */
+  function _openHistory(serial) {
+    if (!serial) return;
+    document.getElementById('hist-serial').textContent = serial;
+    document.getElementById('hist-body').innerHTML     = _renderHistory(serial);
+    document.getElementById('hist-overlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  window.closeHistory = function() {
+    document.getElementById('hist-overlay').classList.remove('open');
+    document.body.style.overflow = '';
+  };
+
+  function _renderHistory(serial) {
+    const sn = serial.trim().toLowerCase();
+    const matches = ALL_ROWS.filter(r =>
+      (r.serial_number || '').trim().toLowerCase() === sn
+    ).slice().sort((a, b) => {
+      const ta = new Date(a.item_created_at || a.db_synced_at || 0).getTime();
+      const tb = new Date(b.item_created_at || b.db_synced_at || 0).getTime();
+      return ta - tb;
+    });
+
+    if (!matches.length) {
+      return `<div class="hist-empty">No records found for serial number <strong>${_esc(serial)}</strong>.</div>`;
+    }
+
+    // ── Summary stats ──────────────────────────────────────────
+    const boards   = [...new Set(matches.map(r => r.asp_board).filter(Boolean))];
+    const statuses = [...new Set(matches.map(r => r.status).filter(Boolean))];
+    const openCount = matches.filter(r => {
+      const s = (r.status || '').toLowerCase();
+      return !s.includes('complete') && !s.includes('reject') && !s.includes('cancel');
+    }).length;
+
+    let html = `<div class="hist-summary">
+      <div class="hist-stat hs-blue">
+        <div class="hs-label">Total Records</div>
+        <div class="hs-value">${matches.length}</div>
+      </div>
+      <div class="hist-stat hs-purple">
+        <div class="hs-label">ASP Boards</div>
+        <div class="hs-value">${boards.length}</div>
+      </div>
+      <div class="hist-stat">
+        <div class="hs-label">Statuses</div>
+        <div class="hs-value">${statuses.length}</div>
+      </div>
+      <div class="hist-stat ${openCount > 0 ? 'hs-amber' : ''}">
+        <div class="hs-label">Open Cases</div>
+        <div class="hs-value">${openCount}</div>
+      </div>
+    </div>`;
+
+    // ── Timeline entries ───────────────────────────────────────
+    html += '<div class="hist-timeline">';
+    matches.forEach(r => {
+      const s = (r.status || '').toLowerCase();
+      let dotCls = '';
+      if      (s.includes('complete') || s.includes('done'))              dotCls = 'complete';
+      else if (s.includes('progress') || s.includes('running') || s.includes('pending')) dotCls = 'progress';
+      else if (s.includes('escalat')  || s.includes('tech'))              dotCls = 'escalate';
+      else if (s.includes('reject')   || s.includes('cancel'))            dotCls = 'reject';
+
+      const wo    = _extractWO(r.wo_case_id) || r.wo_case_id || '';
+      const date  = _fmtDate(r.item_created_at || r.db_synced_at);
+      const model = (r.diag_model       || '').trim();
+      const prob  = (r.diag_problem     || '').trim();
+      const warr  = (r.diag_warranty    || '').trim();
+      const agent = (r.diag_agent_ce    || '').trim();
+      const note  = (r.diagnose_note    || '').trim();
+
+      html += `<div class="hist-entry">
+        <div class="hist-entry-left">
+          <div class="hist-dot ${dotCls}"></div>
+          <div class="hist-line"></div>
+        </div>
+        <div class="hist-card">
+          <div class="hist-card-head">
+            <div class="hist-card-name">${_esc(r.item_name || '—')}</div>
+            <div>${_statusBadge(r.status)}</div>
+            <div class="hist-card-date" style="width:100%;margin-top:2px">${_esc(r.asp_board || '')}${date !== '—' ? ' · ' + date : ''}</div>
+          </div>
+          <div class="hist-card-body">
+            <div class="hist-card-field">
+              <div class="hf-label">WO / Case ID</div>
+              <div class="hf-value mono">${wo ? _esc(wo) : '<span class="hf-value muted">—</span>'}</div>
+            </div>
+            <div class="hist-card-field">
+              <div class="hf-label">WO Type</div>
+              <div class="hf-value">${r.work_order_type ? _esc(r.work_order_type) : '<span class="hf-value muted">—</span>'}</div>
+            </div>
+            <div class="hist-card-field">
+              <div class="hf-label">Model</div>
+              <div class="hf-value mono">${model ? _esc(model) : '<span class="hf-value muted">—</span>'}</div>
+            </div>
+            <div class="hist-card-field">
+              <div class="hf-label">Agent / CE</div>
+              <div class="hf-value">${agent ? _esc(agent) : '<span class="hf-value muted">—</span>'}</div>
+            </div>
+            ${warr ? `<div class="hist-card-field hf-full">
+              <div class="hf-label">Warranty Status</div>
+              <div class="hf-value">${_esc(warr)}</div>
+            </div>` : ''}
+            ${prob ? `<div class="hist-card-field hf-full">
+              <div class="hf-label">Problem Description</div>
+              <div class="hf-value">${_esc(prob)}</div>
+            </div>` : ''}
+            ${note ? `<div class="hist-card-field hf-full">
+              <div class="hf-label">Diagnose Note</div>
+              <div class="hf-value" style="white-space:pre-wrap;font-size:12px;line-height:1.6;font-weight:400;color:#374151">${_linkify(note)}</div>
+            </div>` : ''}
+          </div>
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+    return html;
+  }
+
+  /* ── ESC key to close all panels ─────────────────────────────── */
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') { closeDrawer(); closeDetail(); closeHistory(); }
+  });
+
+  /* ── Sidebar collapse / expand ───────────────────────────────── */
+  window.toggleSidebar = function() {
+    document.getElementById('filter-sidebar').classList.toggle('collapsed');
+  };
+
+  /* ── A–Z index builder ───────────────────────────────────────── */
+  (function buildIndex() {
+    const list   = document.getElementById('board-filter-list');
+    const index  = document.getElementById('board-index');
+    const items  = Array.from(list.querySelectorAll('.md-filter-item:not(.md-filter-all)'));
+
+    // collect which letters have boards
+    const lettersWithItems = new Set(items.map(el => (el.dataset.initial || '').toUpperCase()).filter(l => /[A-Z]/.test(l)));
+    const ALL_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+    // inject letter separators into the list (only first occurrence per letter)
+    const seen = new Set();
+    items.forEach(el => {
+      const letter = (el.dataset.initial || '').toUpperCase();
+      if (letter && !seen.has(letter)) {
+        seen.add(letter);
+        const sep = document.createElement('div');
+        sep.className   = 'md-filter-letter-sep';
+        sep.textContent = letter;
+        sep.dataset.sep = letter;
+        list.insertBefore(sep, el);
+      }
+    });
+
+    // build the index strip
+    ALL_LETTERS.forEach(letter => {
+      const btn = document.createElement('div');
+      btn.className   = 'md-idx-letter' + (lettersWithItems.has(letter) ? ' has-items' : '');
+      btn.textContent = letter;
+      btn.dataset.letter = letter;
+      if (lettersWithItems.has(letter)) {
+        btn.addEventListener('click', function() {
+          // scroll list to the separator for this letter
+          const sep = list.querySelector(`.md-filter-letter-sep[data-sep="${letter}"]`);
+          if (sep) sep.scrollIntoView({ block: 'start', behavior: 'smooth' });
+          // briefly highlight
+          index.querySelectorAll('.md-idx-letter').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          setTimeout(() => btn.classList.remove('active'), 800);
+        });
+      }
+      index.appendChild(btn);
+    });
+  })();
+
+  /* ── Init ────────────────────────────────────────────────────── */
+  render();
+
+})();
+</script>
+{% endblock %}
