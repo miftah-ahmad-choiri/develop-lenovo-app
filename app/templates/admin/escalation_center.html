@@ -1,0 +1,611 @@
+{% extends "base.html" %}
+{% block title %}Escalation Center — Admin Portal{% endblock %}
+
+{% block extra_styles %}
+  /* ── Stat cards ───────────────────────────────────────────── */
+  .ec-stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+  .ec-stat-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px 20px; }
+  .ec-stat-card .sc-label { font-size: 11px; color: #57606a; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  .ec-stat-card .sc-value { font-size: 28px; font-weight: 700; margin-top: 4px; line-height: 1.2; color: #1f2328; }
+  .ec-stat-card.blue  .sc-value { color: #3b82d4; }
+  .ec-stat-card.green .sc-value { color: #16a34a; }
+  .ec-stat-card.purple .sc-value { color: #7c5cd8; }
+  .ec-stat-card.amber .sc-value { color: #d97706; }
+
+  /* ── Section header ───────────────────────────────────────── */
+  .section-header { font-size: 14px; font-weight: 700; margin-bottom: 12px; color: #1f2328; display: flex; align-items: center; gap: 8px; }
+  .section-header small { font-size: 11px; font-weight: 400; color: #57606a; }
+
+  /* ── Control panel ────────────────────────────────────────── */
+  .control-panel { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .cp-mode-hint { font-size: 12px; color: #57606a; }
+  .cp-mode-hint strong { color: #1f2328; }
+  /* Single smart button */
+  .btn-sync { padding: 9px 22px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; background: #fff; color: #1f2328; font-family: inherit; transition: background 0.12s, border-color 0.12s; }
+  .btn-sync.primary { background: #3b82d4; border-color: #3b82d4; color: #fff; }
+  .btn-sync.primary:hover { background: #2d6bbf; border-color: #2d6bbf; }
+  .btn-sync.danger  { background: #dc2626; border-color: #dc2626; color: #fff; }
+  .btn-sync.danger:hover  { background: #b91c1c; border-color: #b91c1c; }
+  .btn-sync:disabled { opacity: 0.45; cursor: not-allowed; }
+  .running-badge { display: none; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #16a34a; margin-left: auto; }
+  .running-badge.visible { display: flex; }
+  .running-dot { width: 8px; height: 8px; border-radius: 50%; background: #16a34a; animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .off-hours-badge { display: none; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: #92400e; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 5px; padding: 2px 8px; margin-left: auto; }
+  .off-hours-badge.visible { display: flex; }
+
+  /* ── Table card ───────────────────────────────────────────── */
+  .table-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; margin-bottom: 24px; }
+  .table-toolbar { padding: 10px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap; }
+  .table-toolbar input[type="search"] { padding: 6px 10px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 13px; width: 220px; font-family: inherit; }
+  .table-toolbar input[type="search"]:focus { outline: none; border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,.1); }
+  .toolbar-count { font-size: 12px; color: #57606a; white-space: nowrap; margin-left: auto; }
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table thead { background: #f7f8fa; }
+  .data-table th { padding: 9px 12px; text-align: left; font-size: 11px; font-weight: 700; color: #57606a; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+  .data-table td { padding: 9px 12px; border-bottom: 1px solid #f0f2f5; vertical-align: middle; }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: #f9fafb; }
+  .badge { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge-green  { background: #dcfce7; color: #15803d; }
+  .badge-gray   { background: #f0f2f5; color: #57606a; }
+  .badge-blue   { background: #dbeafe; color: #1d4ed8; }
+  .badge-amber  { background: #fef3c7; color: #92400e; }
+  .badge-red    { background: #fee2e2; color: #b91c1c; }
+  .mono { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; }
+  .btn-sm { padding: 4px 10px; font-size: 12px; border: 1px solid #d0d7de; border-radius: 5px; background: #fff; cursor: pointer; font-family: inherit; }
+  .btn-sm:hover { background: #f3f4f6; }
+
+  /* ── Log console ──────────────────────────────────────────── */
+  .log-panel { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 24px; overflow: hidden; }
+  .log-header { padding: 10px 16px; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; gap: 10px; }
+  .log-indicator { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
+  .log-dot { width: 8px; height: 8px; border-radius: 50%; background: #57606a; }
+  .log-dot.live { background: #16a34a; animation: pulse 1.2s infinite; }
+  #log-status { color: #57606a; }
+  .log-header .log-controls { margin-left: auto; display: flex; gap: 8px; }
+  #log-console {
+    background: #0d1117; color: #c9d1d9;
+    font-family: ui-monospace, SFMono-Regular, "Courier New", monospace;
+    font-size: 12.5px; line-height: 1.55;
+    padding: 14px 16px;
+    min-height: 220px; max-height: 400px; overflow-y: auto;
+  }
+  #log-console .log-line { white-space: pre-wrap; word-break: break-all; margin: 0 0 1px 0; }
+  #log-console .log-info    { color: #c9d1d9; }
+  #log-console .log-warning { color: #e3b341; }
+  #log-console .log-error   { color: #f85149; }
+  #log-console .log-system  { color: #58a6ff; }
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom:20px">
+  <div class="breadcrumb" style="font-size:12px;color:#57606a;margin-bottom:6px">
+    Admin <span style="margin:0 5px">›</span> Escalation Center
+  </div>
+  <h1 style="font-size:20px;font-weight:700;margin:0 0 4px">Escalation Center</h1>
+  <p style="font-size:13px;color:#57606a;margin:0">
+    Monday.com → SQLite sync manager &mdash;
+    <strong>{{ board_count }}</strong> boards tracked
+    {% if synced_count %}&nbsp;·&nbsp; <strong>{{ synced_count }}</strong> synced{% endif %}
+  </p>
+</div>
+
+{# ── Stat cards ─────────────────────────────────────────────── #}
+<div class="ec-stat-row">
+  <div class="ec-stat-card blue">
+    <div class="sc-label">Items in DB</div>
+    <div class="sc-value" id="stat-items">{{ stats['items'] | default(0) }}</div>
+  </div>
+  <div class="ec-stat-card green">
+    <div class="sc-label">Updates / Replies</div>
+    <div class="sc-value" id="stat-updates">{{ stats['updates'] | default(0) }}</div>
+  </div>
+  <div class="ec-stat-card purple">
+    <div class="sc-label">Boards Synced</div>
+    <div class="sc-value" id="stat-boards">{{ stats['boards_synced'] | default(0) }}</div>
+  </div>
+  <div class="ec-stat-card amber">
+    <div class="sc-label">Creators</div>
+    <div class="sc-value" id="stat-creators">{{ stats['creators'] | default(0) }}</div>
+  </div>
+</div>
+
+{# ── Control panel ──────────────────────────────────────────── #}
+<div class="control-panel">
+  <button class="btn-sync primary" id="btn-main" onclick="handleMainButton()">▶ Run Sync</button>
+  <span class="cp-mode-hint" id="cp-mode-hint">
+    Auto mode: <strong id="cp-mode-label">{{ 'Incremental' if stats['items'] > 0 else 'Full Sync' }}</strong>
+    &mdash; {{ 'DB has data, fetching changes only' if stats['items'] > 0 else 'DB is empty, full fetch on first run' }}
+  </span>
+  <span class="running-badge{% if is_running %} visible{% endif %}" id="running-badge">
+    <span class="running-dot"></span> RUNNING
+  </span>
+  <span class="off-hours-badge" id="off-hours-badge">
+    ⏸ Off Hours
+  </span>
+  <span id="next-run-countdown" style="display:none; font-size:11px; color:#dc2626; margin-left:auto; white-space:nowrap;">
+    <strong id="countdown-label">Next auto-sync in</strong> <strong id="countdown-val">—</strong>
+  </span>
+</div>
+
+{# ── Board status table ─────────────────────────────────────── #}
+<div class="section-header">
+  Board Status
+  <small>{{ board_count }} boards from monday_link_map.xlsx</small>
+</div>
+<div class="table-card">
+  <div class="table-toolbar">
+    <input type="search" id="board-search" placeholder="Search boards…" oninput="filterBoards(this.value)">
+    <span class="toolbar-count" id="board-count-label">{{ board_count }} boards</span>
+  </div>
+  <div class="table-scroll">
+    <table class="data-table" id="board-table">
+      <thead style="display:table; width:100%; table-layout:fixed;">
+        <tr>
+          <th style="width:40px">#</th>
+          <th>ASP Board</th>
+          <th style="width:120px">Board ID</th>
+          <th style="width:110px">ASP ID</th>
+          <th style="width:140px">Last Sync</th>
+          <th style="width:100px">Items Synced</th>
+          <th style="width:90px">Status</th>
+          <th style="width:46px"></th>
+        </tr>
+      </thead>
+      <tbody style="display:block; max-height:410px; overflow-y:auto;">
+        {% for b in boards %}
+        <tr style="display:table; width:100%; table-layout:fixed;" data-name="{{ b.asp_board | lower }}">
+          <td class="mono" style="color:#57606a; width:40px">{{ b.no }}</td>
+          <td style="font-weight:600">{{ b.asp_board }}</td>
+          <td class="mono" style="color:#57606a; width:120px">{{ b.board_id }}</td>
+          <td class="mono" style="color:#57606a; width:110px">{{ b.asp_id or '—' }}</td>
+          <td style="font-size:12px;color:#57606a; width:140px">
+            {% if b.last_sync %}
+              {{ b.last_sync[:16] | replace('T', ' ') }}
+            {% else %}
+              <span style="color:#d0d7de">never</span>
+            {% endif %}
+          </td>
+          <td class="mono" style="width:100px">{{ b.total_synced or '—' }}</td>
+          <td style="width:90px">
+            {% if b.synced %}
+              <span class="badge badge-green">Synced</span>
+            {% else %}
+              <span class="badge badge-gray">Pending</span>
+            {% endif %}
+          </td>
+          <td style="width:46px">
+            <button class="btn-sm" onclick="triggerSync('incremental', '{{ b.board_id }}')">▶</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ── Live log console ───────────────────────────────────────── #}
+<div class="log-panel">
+  <div class="log-header">
+    <div class="log-indicator">
+      <span class="log-dot{% if is_running %} live{% endif %}" id="log-dot"></span>
+      <span id="log-status">{% if is_running %}LIVE{% else %}IDLE{% endif %}</span>
+    </div>
+    <span style="font-size:12px;color:#57606a;margin-left:8px">Sync Log Console</span>
+    <div class="log-controls">
+      <button class="btn-sm" id="btn-pause" onclick="togglePause()">⏸ Pause</button>
+      <button class="btn-sm" onclick="clearLog()">✕ Clear</button>
+    </div>
+  </div>
+  <div id="log-console"><p class="log-line log-system">— ready — connect a sync to stream live output —</p></div>
+</div>
+
+{# ── Sync history ───────────────────────────────────────────── #}
+<div class="section-header">
+  Sync History
+  <small>last 20 runs</small>
+</div>
+<div class="table-card">
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Run At</th>
+          <th>Board</th>
+          <th>Type</th>
+          <th>Found</th>
+          <th>Upserted</th>
+          <th>Duration</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if sync_history %}
+          {% for row in sync_history %}
+          <tr>
+            <td style="font-size:12px;color:#57606a">{{ row.run_at[:16] | replace('T', ' ') if row.run_at else '—' }}</td>
+            <td style="font-weight:600;font-size:13px">{{ row.asp_board or row.board_id or '—' }}</td>
+            <td>
+              {% if row.run_type == 'full' %}
+                <span class="badge badge-blue">full</span>
+              {% elif row.run_type == 'incremental' %}
+                <span class="badge badge-green">incremental</span>
+              {% else %}
+                <span class="badge badge-gray">{{ row.run_type or '—' }}</span>
+              {% endif %}
+            </td>
+            <td class="mono">{{ row.items_found or 0 }}</td>
+            <td class="mono">{{ row.items_upserted or 0 }}</td>
+            <td class="mono" style="color:#57606a">{{ "%.1f"|format(row.duration_sec or 0) }}s</td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr><td colspan="6" style="text-align:center;color:#57606a;padding:24px">No sync runs recorded yet.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+/* ── State ─────────────────────────────────────────────────── */
+let _es        = null;   // EventSource
+let _paused    = false;
+let _statusInt = null;
+
+/* ── Helpers ────────────────────────────────────────────────── */
+function appendLog(cls, text) {
+  if (_paused) return;
+  const console = document.getElementById('log-console');
+  const line = document.createElement('p');
+  line.className = 'log-line ' + cls;
+  line.textContent = text;
+  console.appendChild(line);
+  // Trim oldest lines to keep console from growing unbounded
+  while (console.children.length > 500) {
+    console.removeChild(console.firstChild);
+  }
+  console.scrollTop = console.scrollHeight;
+}
+
+/* ── Smart auto-mode ─────────────────────────────────────────── */
+// Seeded from server: 0 = empty DB → full, >0 = has data → incremental
+const _dbItemCount = {{ stats['items'] | default(0) }};
+let   _isRunning   = {{ 'true' if is_running else 'false' }};
+
+function _autoMode() {
+  // Re-read the live stat in case items arrived since page load
+  const liveCount = parseInt(document.getElementById('stat-items').textContent.replace(/,/g, ''), 10) || _dbItemCount;
+  return liveCount > 0 ? 'incremental' : 'full';
+}
+
+function _updateModeHint() {
+  const mode = _autoMode();
+  const label = document.getElementById('cp-mode-label');
+  const hint  = document.getElementById('cp-mode-hint');
+  if (!label || !hint) return;
+  if (mode === 'incremental') {
+    label.textContent = 'Incremental';
+    hint.innerHTML = 'Auto mode: <strong id="cp-mode-label">Incremental</strong> &mdash; DB has data, fetching changes only';
+  } else {
+    label.textContent = 'Full Sync';
+    hint.innerHTML = 'Auto mode: <strong id="cp-mode-label">Full Sync</strong> &mdash; DB is empty, full fetch on first run';
+  }
+}
+
+function handleMainButton() {
+  if (_isRunning) {
+    stopSync();
+  } else {
+    triggerSync(_autoMode());
+  }
+}
+
+function setRunning(running) {
+  _isRunning = running;
+  const btn = document.getElementById('btn-main');
+  document.getElementById('running-badge').classList.toggle('visible', running);
+  document.getElementById('log-dot').classList.toggle('live', running);
+  document.getElementById('log-status').textContent = running ? 'LIVE' : 'IDLE';
+  if (running) {
+    btn.textContent = '⏹ Stop Sync';
+    btn.classList.remove('primary');
+    btn.classList.add('danger');
+  } else {
+    btn.textContent = '▶ Run Sync';
+    btn.classList.remove('danger');
+    btn.classList.add('primary');
+    _updateModeHint();
+  }
+}
+
+function clearLog() {
+  document.getElementById('log-console').innerHTML =
+    '<p class="log-line log-system">— log cleared —</p>';
+}
+
+function togglePause() {
+  _paused = !_paused;
+  const btn = document.getElementById('btn-pause');
+  btn.textContent = _paused ? '▶ Resume' : '⏸ Pause';
+}
+
+/* ── SSE ──────────────────────────────────────────────────── */
+function connectStream() {
+  if (_es) { _es.close(); }
+  _es = new EventSource('/admin/escalation-center/stream');
+
+  _es.onmessage = function(e) {
+    const data = JSON.parse(e.data);
+    if (data.keepalive) return;
+    const ts  = data.ts ? '[' + data.ts + '] ' : '';
+    const msg = ts + (data.msg || '');
+    const lvl = (data.level || 'INFO').toUpperCase();
+    if      (lvl === 'WARNING') appendLog('log-warning', msg);
+    else if (lvl === 'ERROR')   appendLog('log-error',   msg);
+    else                        appendLog('log-info',     msg);
+  };
+
+  _es.onerror = function() {
+    appendLog('log-system', '— stream disconnected —');
+    setRunning(false);
+    _es.close();
+    _es = null;
+  };
+}
+
+/* ── Trigger sync ───────────────────────────────────────────── */
+function triggerSync(mode, boardId) {
+  const body = { mode: mode };
+  if (boardId) body.board_id = boardId;
+
+  fetch('/admin/escalation-center/trigger', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }).then(r => r.json()).then(data => {
+    if (!data.ok) {
+      if (data.out_of_window) {
+        appendLog('log-warning', '⏸ ' + (data.error || 'Outside active sync window'));
+        if (data.window_opens_at) {
+          _startCountdown(data.window_opens_at, 'Window opens in');
+        }
+      } else {
+        appendLog('log-error', '✗ ' + (data.error || 'Trigger failed'));
+      }
+      return;
+    }
+    const label = boardId ? ('board ' + boardId) : 'all boards';
+    appendLog('log-system', '▶ Sync triggered — mode=' + mode + '  target=' + label);
+    setRunning(true);
+    connectStream();
+  }).catch(err => appendLog('log-error', '✗ ' + err));
+}
+
+/* ── Stop sync ─────────────────────────────────────────────── */
+function stopSync() {
+  fetch('/admin/escalation-center/stop', { method: 'POST' })
+    .then(r => r.json())
+    .then(() => appendLog('log-warning', '⏹ Stop signal sent…'))
+    .catch(err => appendLog('log-error', '✗ ' + err));
+}
+
+/* ── Status polling — defined below in the countdown section ── */
+function pollStatus() {}  // placeholder; replaced after countdown helpers are defined
+
+/* ── Board table filter ─────────────────────────────────────── */
+function filterBoards(q) {
+  const rows  = document.querySelectorAll('#board-table tbody tr');
+  const lower = q.toLowerCase().trim();
+  let visible = 0;
+  rows.forEach(row => {
+    const name = row.dataset.name || '';
+    const show = !lower || name.includes(lower);
+    row.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  document.getElementById('board-count-label').textContent = visible + ' board' + (visible !== 1 ? 's' : '');
+}
+
+/* ── Auto-refresh: Board Status + Sync History (every 60 s) ─── */
+function _fmtDate(iso) {
+  return iso ? iso.slice(0, 16).replace('T', ' ') : '—';
+}
+
+function _boardRow(b) {
+  const lastSync = b.last_sync
+    ? '<span>' + _fmtDate(b.last_sync) + '</span>'
+    : '<span style="color:#d0d7de">never</span>';
+  const badge = b.synced
+    ? '<span class="badge badge-green">Synced</span>'
+    : '<span class="badge badge-gray">Pending</span>';
+  return '<tr style="display:table; width:100%; table-layout:fixed;" data-name="' + (b.asp_board || '').toLowerCase() + '">'
+    + '<td class="mono" style="color:#57606a; width:40px">'  + (b.no || '') + '</td>'
+    + '<td style="font-weight:600">'                         + (b.asp_board || '') + '</td>'
+    + '<td class="mono" style="color:#57606a; width:120px">' + (b.board_id || '') + '</td>'
+    + '<td class="mono" style="color:#57606a; width:110px">' + (b.asp_id || '—') + '</td>'
+    + '<td style="font-size:12px;color:#57606a; width:140px">' + lastSync + '</td>'
+    + '<td class="mono" style="width:100px">'                + (b.total_synced || '—') + '</td>'
+    + '<td style="width:90px">'                              + badge + '</td>'
+    + '<td style="width:46px"><button class="btn-sm" onclick="triggerSync(\'incremental\',\'' + b.board_id + '\')">▶</button></td>'
+    + '</tr>';
+}
+
+function _historyRow(r) {
+  let typeBadge;
+  if      (r.run_type === 'full')        typeBadge = '<span class="badge badge-blue">full</span>';
+  else if (r.run_type === 'incremental') typeBadge = '<span class="badge badge-green">incremental</span>';
+  else                                   typeBadge = '<span class="badge badge-gray">' + (r.run_type || '—') + '</span>';
+  const dur = (r.duration_sec != null) ? parseFloat(r.duration_sec).toFixed(1) + 's' : '—';
+  return '<tr>'
+    + '<td style="font-size:12px;color:#57606a">' + _fmtDate(r.run_at) + '</td>'
+    + '<td style="font-weight:600;font-size:13px">' + (r.asp_board || r.board_id || '—') + '</td>'
+    + '<td>' + typeBadge + '</td>'
+    + '<td class="mono">' + (r.items_found  || 0) + '</td>'
+    + '<td class="mono">' + (r.items_upserted || 0) + '</td>'
+    + '<td class="mono" style="color:#57606a">' + dur + '</td>'
+    + '</tr>';
+}
+
+function refreshSections() {
+  fetch('/admin/escalation-center/boards')
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) return;
+
+      // Rebuild board table tbody (preserve search filter)
+      const tbody = document.querySelector('#board-table tbody');
+      if (tbody) {
+        tbody.innerHTML = data.boards.map(_boardRow).join('');
+        const q = document.getElementById('board-search').value;
+        if (q) filterBoards(q);
+      }
+
+      // Update board count labels
+      const total = data.boards.length;
+      document.getElementById('board-count-label').textContent = total + ' board' + (total !== 1 ? 's' : '');
+
+      // Rebuild sync history tbody
+      const histTbody = document.querySelector('.table-card:last-of-type tbody');
+      if (histTbody) {
+        if (data.sync_history && data.sync_history.length) {
+          histTbody.innerHTML = data.sync_history.map(_historyRow).join('');
+        } else {
+          histTbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#57606a;padding:24px">No sync runs recorded yet.</td></tr>';
+        }
+      }
+    })
+    .catch(() => {});
+}
+
+/* ── Next-run countdown (30-min scheduler) ──────────────────── */
+let _countdownTick = null;   // 1-second interval handle
+
+function _fmtCountdown(sec) {
+  if (sec <= 0) return '0s';
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  if (h > 0) return h + 'h ' + String(m).padStart(2, '0') + 'm ' + String(s).padStart(2, '0') + 's';
+  if (m > 0) return m + 'm ' + String(s).padStart(2, '0') + 's';
+  return s + 's';
+}
+
+function _startCountdown(targetTs, label) {
+  // targetTs: Unix timestamp (seconds) from server
+  // label: text to show before the timer value
+  _stopCountdown();
+  const cdEl    = document.getElementById('next-run-countdown');
+  const valEl   = document.getElementById('countdown-val');
+  const lblEl   = document.getElementById('countdown-label');
+  if (!cdEl || !valEl || !targetTs) return;
+
+  if (lblEl) lblEl.textContent = label || 'Next auto-sync in';
+
+  function _tick() {
+    const remaining = Math.max(0, Math.round(targetTs - Date.now() / 1000));
+    valEl.textContent = _fmtCountdown(remaining);
+    if (remaining <= 0) {
+      _stopCountdown();
+    }
+  }
+  _tick();
+  cdEl.style.display = 'inline';
+  _countdownTick = setInterval(_tick, 1000);
+}
+
+function _stopCountdown() {
+  if (_countdownTick !== null) {
+    clearInterval(_countdownTick);
+    _countdownTick = null;
+  }
+  const cdEl = document.getElementById('next-run-countdown');
+  if (cdEl) cdEl.style.display = 'none';
+}
+
+function _setOffHours(offHours) {
+  const badge  = document.getElementById('off-hours-badge');
+  const btn    = document.getElementById('btn-main');
+  if (badge) badge.classList.toggle('visible', offHours);
+  if (btn && !_isRunning) {
+    btn.disabled = offHours;
+    btn.title    = offHours ? 'Sync disabled outside Mon–Fri 06:00–20:00 WIB' : '';
+  }
+}
+
+/* ── Real pollStatus — drives stat cards, countdown, window state ── */
+pollStatus = function() {
+  fetch('/admin/escalation-center/status')
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) return;
+      setRunning(data.is_running);
+
+      if (data.is_running) {
+        // ── RUNNING: refresh stat cards, hide countdown + off-hours badge
+        document.getElementById('stat-items').textContent    = (data.stats.items    || 0).toLocaleString();
+        document.getElementById('stat-updates').textContent  = (data.stats.updates  || 0).toLocaleString();
+        document.getElementById('stat-boards').textContent   = (data.stats.boards_synced || 0).toLocaleString();
+        document.getElementById('stat-creators').textContent = (data.stats.creators  || 0).toLocaleString();
+        _stopCountdown();
+        _setOffHours(false);
+      } else if (!data.in_window) {
+        // ── IDLE + OFF HOURS: show off-hours badge, count down to window open
+        _setOffHours(true);
+        _stopCountdown();
+        if (data.window_opens_at) {
+          _startCountdown(data.window_opens_at, 'Window opens in');
+        }
+      } else {
+        // ── IDLE + IN WINDOW: hide off-hours badge, count down to next sync
+        _setOffHours(false);
+        _stopCountdown();
+        if (data.next_run_at) {
+          _startCountdown(data.next_run_at, 'Next auto-sync in');
+        }
+      }
+    })
+    .catch(() => {});
+};
+
+// Hook into setRunning so stat polling starts/stops with sync state
+const _origSetRunning = setRunning;
+setRunning = function(running) {
+  _origSetRunning(running);
+  if (running) {
+    // Start fast stat polling when sync begins
+    if (!_statusInt) {
+      _statusInt = setInterval(pollStatus, 5000);
+    }
+    _stopCountdown();
+    _setOffHours(false);
+    // Re-enable button (it was possibly disabled by off-hours)
+    const btn = document.getElementById('btn-main');
+    if (btn) btn.disabled = false;
+  } else {
+    // Stop fast stat polling when sync ends
+    if (_statusInt) {
+      clearInterval(_statusInt);
+      _statusInt = null;
+    }
+  }
+};
+
+/* ── Init ──────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', function() {
+  {% if is_running %}
+  setRunning(true);
+  connectStream();
+  // Fast polling while already running on load
+  _statusInt = setInterval(pollStatus, 5000);
+  {% else %}
+  // Idle on load — heartbeat every 10s to detect new run + show countdown
+  pollStatus();   // immediate first call to populate countdown if available
+  _statusInt = setInterval(pollStatus, 10000);
+  {% endif %}
+});
+</script>
+{% endblock %}

@@ -1,3 +1,4 @@
+import logging
 import os
 import sqlite3
 import tempfile
@@ -1900,3 +1901,636 @@ def api_superadmin_users_delete(uid):
     db.execute("DELETE FROM admin_users WHERE id=?", (uid,))
     db.commit()
     return jsonify({"ok": True})
+
+
+# ── Escalation Center (Monday.com Sync Manager) ──────────────────────────────
+# Background sync state — module-level so it persists across requests
+import threading
+import queue as _queue
+import time as _time
+
+SYNC_INTERVAL_SEC = 30 * 60   # 30 minutes
+SYNC_TZ_OFFSET    = 7 * 3600  # WIB = UTC+7
+SYNC_HOUR_START   = 6         # 06:00 local
+SYNC_HOUR_END     = 20        # 20:00 local (exclusive)
+
+_sync_thread: threading.Thread | None = None
+_sync_stop        = threading.Event()
+_log_queue: _queue.Queue = _queue.Queue(maxsize=2000)
+_sync_lock        = threading.Lock()
+_scheduler_thread: threading.Thread | None = None
+_scheduler_stop   = threading.Event()
+_next_run_at: float | None = None      # Unix ts of next scheduled sync run
+_window_opens_at: float | None = None  # Unix ts of next active-window open (when idle/off-hours)
+
+
+def _local_now():
+    """Current time as a datetime in WIB (UTC+7), timezone-naive."""
+    from datetime import datetime, timezone, timedelta
+    tz_wib = timezone(timedelta(seconds=SYNC_TZ_OFFSET))
+    return datetime.now(tz_wib).replace(tzinfo=None)
+
+
+def _is_active_window(dt=None):
+    """Return True if dt (or now) is a weekday between SYNC_HOUR_START and SYNC_HOUR_END."""
+    if dt is None:
+        dt = _local_now()
+    return dt.weekday() < 5 and SYNC_HOUR_START <= dt.hour < SYNC_HOUR_END
+
+
+def _next_window_open_ts():
+    """Return Unix timestamp (UTC) of when the next active window begins."""
+    from datetime import datetime, timezone, timedelta
+    tz_wib = timezone(timedelta(seconds=SYNC_TZ_OFFSET))
+    now_local = _local_now()
+    # Start from tomorrow if today's window already passed or it's a weekend
+    candidate = now_local.replace(hour=SYNC_HOUR_START, minute=0, second=0, microsecond=0)
+    if candidate <= now_local:
+        # Today's window start is in the past — move to next day
+        candidate = candidate + timedelta(days=1)
+    # Advance past weekends (Saturday=5, Sunday=6)
+    while candidate.weekday() >= 5:
+        candidate = candidate + timedelta(days=1)
+    # Convert back to UTC Unix timestamp
+    candidate_aware = candidate.replace(tzinfo=tz_wib)
+    return candidate_aware.timestamp()
+
+
+_queue_formatter = logging.Formatter(datefmt="%Y-%m-%d %H:%M:%S")
+
+
+class _QueueHandler(logging.Handler):
+    """Logging handler that pushes records into the SSE queue."""
+    def emit(self, record: logging.LogRecord) -> None:  # type: ignore[override]
+        try:
+            _log_queue.put_nowait({
+                "ts":    _queue_formatter.formatTime(record, "%Y-%m-%d %H:%M:%S"),
+                "level": record.levelname,
+                "msg":   record.getMessage(),
+            })
+        except _queue.Full:
+            pass
+
+
+_queue_handler = _QueueHandler()
+_queue_handler.setLevel(logging.DEBUG)
+
+
+def _get_monday_sync_db():
+    """Open a fresh SQLite connection to files/lenovo_asp.db."""
+    import os as _os, sqlite3 as _sqlite3
+    project_root = _os.path.normpath(
+        _os.path.join(_os.path.dirname(__file__), "..", "..")
+    )
+    db_path = _os.path.join(project_root, "files", "lenovo_asp.db")
+    if not _os.path.isfile(db_path):
+        return None
+    conn = _sqlite3.connect(db_path)
+    conn.row_factory = _sqlite3.Row
+    return conn
+
+
+
+
+
+def _scheduler_loop(app) -> None:
+    """
+    Auto-sync loop — runs forever as a daemon thread.
+
+    Guarantees:
+      • Only runs during active window: Mon–Fri 06:00–20:00 WIB.
+      • Outside the window it sleeps (interruptibly) until the window opens.
+      • Never starts a new sync while the previous one is still running.
+      • The 30-min cooldown starts ONLY after the previous sync finishes.
+      • Responds to _scheduler_stop within 1 second for clean shutdown.
+    """
+    global _sync_thread, _next_run_at, _window_opens_at
+    log = logging.getLogger("monday_sync")
+    log.info("Auto-scheduler started — interval=%d min, window=%02d:00–%02d:00 WIB Mon–Fri",
+             SYNC_INTERVAL_SEC // 60, SYNC_HOUR_START, SYNC_HOUR_END)
+
+    while not _scheduler_stop.is_set():
+
+        # ── Step 0: enforce active-window gate ───────────────────────────────
+        if not _is_active_window():
+            opens_ts = _next_window_open_ts()
+            wait_sec = max(0, opens_ts - _time.time())
+            _window_opens_at = opens_ts
+            _next_run_at     = None
+            log.info("Scheduler: outside active window — sleeping %.0f min until window opens",
+                     wait_sec / 60)
+            _scheduler_stop.wait(wait_sec)
+            _window_opens_at = None
+            if _scheduler_stop.is_set():
+                break
+            continue   # re-check window at top of loop
+
+        _window_opens_at = None   # we are inside the window
+
+        # ── Step 1: wait for any in-progress sync (manual or previous scheduled)
+        while True:
+            with _sync_lock:
+                running_thread = _sync_thread if (_sync_thread and _sync_thread.is_alive()) else None
+            if running_thread is None:
+                break
+            log.info("Scheduler: sync already running, waiting for it to finish…")
+            running_thread.join()
+
+        if _scheduler_stop.is_set():
+            break
+
+        # ── Step 2: decide mode based on current DB contents
+        edb = _get_monday_sync_db()
+        item_count = 0
+        if edb:
+            try:
+                item_count = edb.execute(
+                    "SELECT COUNT(*) FROM technical_escalation"
+                ).fetchone()[0]
+            except Exception:
+                pass
+            finally:
+                edb.close()
+        mode = "incremental" if item_count > 0 else "full"
+
+        # ── Step 3: claim the sync slot and start the thread
+        with _sync_lock:
+            if _sync_thread and _sync_thread.is_alive():
+                continue
+            _sync_stop.clear()
+            t = threading.Thread(
+                target=_run_sync_task,
+                args=(app, mode, None),
+                daemon=True,
+                name="monday-sync-auto",
+            )
+            _sync_thread = t
+
+        log.info("Scheduler: starting %s sync (%d items in DB)", mode, item_count)
+        t.start()
+        t.join()   # ← 30-min clock starts ONLY after this returns
+
+        log.info("Scheduler: sync complete — next run in %d min", SYNC_INTERVAL_SEC // 60)
+
+        # ── Step 4: interruptible sleep before next cycle
+        # Only schedule next run if still inside the active window
+        if _is_active_window():
+            _next_run_at = _time.time() + SYNC_INTERVAL_SEC
+            _scheduler_stop.wait(SYNC_INTERVAL_SEC)
+            _next_run_at = None
+        # If we've drifted outside the window, the loop will handle it on next iteration
+
+    log.info("Auto-scheduler stopped.")
+
+
+def start_sync_scheduler(app) -> None:
+    """
+    Start the background scheduler thread exactly once.
+    Safe to call multiple times — subsequent calls are no-ops.
+    """
+    global _scheduler_thread
+    if _scheduler_thread is not None and _scheduler_thread.is_alive():
+        return
+    _scheduler_stop.clear()
+    _scheduler_thread = threading.Thread(
+        target=_scheduler_loop,
+        args=(app,),
+        daemon=True,
+        name="monday-scheduler",
+    )
+    _scheduler_thread.start()
+
+
+def _run_sync_task(app, mode: str, board_id: str | None = None) -> None:
+    """
+    Background thread target: runs the Monday sync script.
+    Attaches a _QueueHandler to the monday_sync logger so every log record
+    is forwarded to the SSE queue.
+    """
+    import sys
+    import os as _os
+
+    project_root = _os.path.normpath(
+        _os.path.join(_os.path.dirname(__file__), "..", "..")
+    )
+    scripts_dir = _os.path.join(project_root, "scripts")
+    if scripts_dir not in sys.path:
+        sys.path.insert(0, scripts_dir)
+
+    try:
+        import monday_sync as _ms
+    except ImportError as exc:
+        _log_queue.put_nowait({"ts": "", "level": "ERROR",
+                               "msg": f"Cannot import monday_sync: {exc}"})
+        return
+
+    # Wire queue handler into the sync script's logger
+    _ms_logger = logging.getLogger("monday_sync")
+    _ms_logger.addHandler(_queue_handler)
+    _ms_logger.setLevel(logging.DEBUG)
+
+    xlsx_path = _os.path.join(project_root, "files", "source-db", "monday_link_map.xlsx")
+
+    with app.app_context():
+        try:
+            conn  = _ms.get_db(_os.path.join(project_root, "files", "lenovo_asp.db"))
+            state = _ms.load_state()
+            boards = _ms.load_boards(xlsx_path)
+
+            if board_id:
+                boards = [b for b in boards if b["board_id"] == board_id]
+                if not boards:
+                    _log_queue.put_nowait({"ts": "", "level": "ERROR",
+                                           "msg": f"Board ID {board_id} not found in xlsx"})
+                    return
+
+            if mode == "full":
+                _ms.run_sync_all(conn, state, boards, force_full=True)
+            elif mode == "incremental":
+                _ms.run_sync_all(conn, state, boards, force_full=False)
+            elif mode == "backfill":
+                _ms._backfill_updates(conn)
+            else:
+                _log_queue.put_nowait({"ts": "", "level": "ERROR",
+                                       "msg": f"Unknown sync mode: {mode}"})
+                return
+
+            _log_queue.put_nowait({"ts": "", "level": "INFO",
+                                   "msg": f"✓ Sync mode '{mode}' completed."})
+        except Exception as exc:
+            import traceback
+            _log_queue.put_nowait({"ts": "", "level": "ERROR",
+                                   "msg": f"Sync error: {exc}"})
+            _log_queue.put_nowait({"ts": "", "level": "ERROR",
+                                   "msg": traceback.format_exc()})
+        finally:
+            _ms_logger.removeHandler(_queue_handler)
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+
+# ── Escalation Center page ────────────────────────────────────────────────────
+
+@admin_bp.route("/admin/escalation-center", methods=["GET"])
+def escalation_center():
+    import os as _os
+    project_root = _os.path.normpath(
+        _os.path.join(_os.path.dirname(__file__), "..", "..")
+    )
+    xlsx_path = _os.path.join(project_root, "files", "source-db", "monday_link_map.xlsx")
+
+    # Load board list from xlsx
+    try:
+        import sys
+        scripts_dir = _os.path.join(project_root, "scripts")
+        if scripts_dir not in sys.path:
+            sys.path.insert(0, scripts_dir)
+        import monday_sync as _ms
+        boards_raw = _ms.load_boards(xlsx_path)
+    except Exception as exc:
+        current_app.logger.warning("escalation_center: load_boards failed: %s", exc)
+        boards_raw = []
+
+    # Load sync state
+    state_path = _os.path.join(project_root, "sync_state.json")
+    try:
+        import json as _json
+        state = _json.loads(open(state_path, encoding="utf-8").read()) if _os.path.isfile(state_path) else {}
+    except Exception:
+        state = {}
+    board_states = state.get("boards", {})
+
+    # Enrich boards with per-board state
+    boards = []
+    for b in boards_raw:
+        bid = b["board_id"]
+        bs  = board_states.get(bid, {})
+        boards.append({
+            "no":         b.get("no"),
+            "asp_board":  b["asp_board"],
+            "board_id":   bid,
+            "asp_id":     b.get("asp_id"),
+            "last_sync":  bs.get("last_sync"),
+            "total_synced": bs.get("total_synced", 0),
+            "synced":     bool(bs.get("last_sync")),
+        })
+
+    # DB stats from lenovo_asp.db
+    stats = {"items": 0, "updates": 0, "boards_synced": 0, "creators": 0}
+    sync_history = []
+    edb = _get_monday_sync_db()
+    if edb:
+        try:
+            stats["items"]        = edb.execute("SELECT COUNT(*) FROM technical_escalation").fetchone()[0]
+            stats["updates"]      = edb.execute("SELECT COUNT(*) FROM item_updates").fetchone()[0]
+            stats["boards_synced"] = edb.execute(
+                "SELECT COUNT(DISTINCT board_id) FROM technical_escalation"
+            ).fetchone()[0]
+            stats["creators"]     = edb.execute("SELECT COUNT(*) FROM creators").fetchone()[0]
+            rows = edb.execute(
+                "SELECT run_at, board_id, asp_board, run_type, items_found, "
+                "items_upserted, duration_sec "
+                "FROM sync_log ORDER BY id DESC LIMIT 20"
+            ).fetchall()
+            sync_history = [dict(r) for r in rows]
+        except Exception:
+            pass
+        finally:
+            edb.close()
+
+    board_count = len(boards)
+    synced_count = sum(1 for b in boards if b["synced"])
+
+    with _sync_lock:
+        is_running = _sync_thread is not None and _sync_thread.is_alive()
+
+    return render_template(
+        "admin/escalation_center.html",
+        portal="admin",
+        active_page="escalation_center",
+        boards=boards,
+        board_count=board_count,
+        synced_count=synced_count,
+        stats=stats,
+        sync_history=sync_history,
+        is_running=is_running,
+    )
+
+
+# ── Escalation Center: trigger sync ─────────────────────────────────────────
+
+@admin_bp.route("/admin/escalation-center/trigger", methods=["POST"])
+def escalation_center_trigger():
+    global _sync_thread
+    data     = request.get_json(silent=True) or {}
+    mode     = data.get("mode", "incremental")
+    board_id = data.get("board_id")  # optional — None means all boards
+
+    # Block manual triggers outside the active window
+    if not _is_active_window():
+        return jsonify({
+            "ok":             False,
+            "error":          "Outside active sync window (Mon–Fri 06:00–20:00 WIB)",
+            "out_of_window":  True,
+            "window_opens_at": _next_window_open_ts(),
+        }), 403
+
+    with _sync_lock:
+        if _sync_thread is not None and _sync_thread.is_alive():
+            return jsonify({"ok": False, "error": "Sync already running"}), 409
+
+        _sync_stop.clear()
+        app = current_app._get_current_object()
+        _sync_thread = threading.Thread(
+            target=_run_sync_task,
+            args=(app, mode, board_id),
+            daemon=True,
+            name="monday-sync",
+        )
+        _sync_thread.start()
+
+    return jsonify({"ok": True, "mode": mode, "board_id": board_id})
+
+
+# ── Escalation Center: stop sync ─────────────────────────────────────────────
+
+@admin_bp.route("/admin/escalation-center/stop", methods=["POST"])
+def escalation_center_stop():
+    _sync_stop.set()
+    _log_queue.put_nowait({"ts": "", "level": "WARNING",
+                           "msg": "Stop signal sent — sync will halt after current item."})
+    return jsonify({"ok": True})
+
+
+# ── Escalation Center: SSE log stream ─────────────────────────────────────────
+
+@admin_bp.route("/admin/escalation-center/stream", methods=["GET"])
+def escalation_center_stream():
+    def generate():
+        import json as _json
+        while True:
+            try:
+                rec = _log_queue.get(timeout=15)
+                yield f"data: {_json.dumps(rec)}\n\n"
+            except _queue.Empty:
+                yield "data: {\"keepalive\": true}\n\n"
+    return current_app.response_class(
+        generate(),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+# ── Escalation Center: status JSON ───────────────────────────────────────────
+
+@admin_bp.route("/admin/escalation-center/status", methods=["GET"])
+def escalation_center_status():
+    import os as _os
+    with _sync_lock:
+        is_running = _sync_thread is not None and _sync_thread.is_alive()
+
+    stats = {"items": 0, "updates": 0, "boards_synced": 0, "creators": 0}
+    edb = _get_monday_sync_db()
+    if edb:
+        try:
+            stats["items"]         = edb.execute("SELECT COUNT(*) FROM technical_escalation").fetchone()[0]
+            stats["updates"]       = edb.execute("SELECT COUNT(*) FROM item_updates").fetchone()[0]
+            stats["boards_synced"] = edb.execute(
+                "SELECT COUNT(DISTINCT board_id) FROM technical_escalation"
+            ).fetchone()[0]
+            stats["creators"]      = edb.execute("SELECT COUNT(*) FROM creators").fetchone()[0]
+        except Exception:
+            pass
+        finally:
+            edb.close()
+
+    return jsonify({
+        "ok":             True,
+        "is_running":     is_running,
+        "in_window":      _is_active_window(),
+        "next_run_at":    _next_run_at,      # Unix ts of next scheduled sync (in-window idle)
+        "window_opens_at": _window_opens_at, # Unix ts of next window open (off-hours)
+        "stats":          stats,
+    })
+
+
+# ── Escalation Center: boards + history refresh ──────────────────────────────
+
+@admin_bp.route("/admin/escalation-center/boards", methods=["GET"])
+def escalation_center_boards():
+    import os as _os, json as _json
+    project_root = _os.path.normpath(
+        _os.path.join(_os.path.dirname(__file__), "..", "..")
+    )
+    xlsx_path  = _os.path.join(project_root, "files", "source-db", "monday_link_map.xlsx")
+    state_path = _os.path.join(project_root, "sync_state.json")
+
+    # Board list
+    try:
+        import sys
+        scripts_dir = _os.path.join(project_root, "scripts")
+        if scripts_dir not in sys.path:
+            sys.path.insert(0, scripts_dir)
+        import monday_sync as _ms
+        boards_raw = _ms.load_boards(xlsx_path)
+    except Exception:
+        boards_raw = []
+
+    # Sync state
+    try:
+        state = _json.loads(open(state_path, encoding="utf-8").read()) if _os.path.isfile(state_path) else {}
+    except Exception:
+        state = {}
+    board_states = state.get("boards", {})
+
+    boards = []
+    for b in boards_raw:
+        bid = b["board_id"]
+        bs  = board_states.get(bid, {})
+        boards.append({
+            "no":           b.get("no"),
+            "asp_board":    b["asp_board"],
+            "board_id":     bid,
+            "asp_id":       b.get("asp_id"),
+            "last_sync":    bs.get("last_sync"),
+            "total_synced": bs.get("total_synced", 0),
+            "synced":       bool(bs.get("last_sync")),
+        })
+
+    # Sync history
+    sync_history = []
+    edb = _get_monday_sync_db()
+    if edb:
+        try:
+            rows = edb.execute(
+                "SELECT run_at, board_id, asp_board, run_type, items_found, "
+                "items_upserted, duration_sec "
+                "FROM sync_log ORDER BY id DESC LIMIT 20"
+            ).fetchall()
+            sync_history = [dict(r) for r in rows]
+        except Exception:
+            pass
+        finally:
+            edb.close()
+
+    return jsonify({"ok": True, "boards": boards, "sync_history": sync_history})
+
+
+# ── Board Group Map ───────────────────────────────────────────────────────────
+
+@admin_bp.route("/admin/board-group-map", methods=["GET"])
+def board_group_map():
+    rows = []
+    stats = {"total_boards": 0, "total_groups": 0, "mapped": 0, "unmapped": 0}
+    edb = _get_monday_sync_db()
+    if edb:
+        try:
+            raw = edb.execute(
+                """
+                SELECT
+                    bs.board_id,
+                    ad.asp_id            AS asp_board,
+                    ad.operation_support,
+                    bs.group_id,
+                    bs.group_title,
+                    bs.items_count,
+                    bs.counted_at
+                FROM board_stats AS bs
+                LEFT JOIN asp_details AS ad
+                    ON ad.monday_board_id = bs.board_id
+                ORDER BY
+                    CASE WHEN ad.asp_id IS NULL THEN 1 ELSE 0 END,
+                    ad.asp_id COLLATE NOCASE,
+                    bs.group_title COLLATE NOCASE
+                """
+            ).fetchall()
+            rows = [dict(r) for r in raw]
+
+            board_ids   = {r["board_id"] for r in rows}
+            mapped_ids  = {r["board_id"] for r in rows if r["asp_board"]}
+            stats["total_boards"] = len(board_ids)
+            stats["total_groups"] = len(rows)
+            stats["mapped"]       = len(mapped_ids)
+            stats["unmapped"]     = len(board_ids) - len(mapped_ids)
+        except Exception:
+            pass
+        finally:
+            edb.close()
+
+    return render_template(
+        "admin/board_group_map.html",
+        portal="admin",
+        active_page="board_group_map",
+        rows=rows,
+        stats=stats,
+    )
+
+
+@admin_bp.route("/admin/board-group-map/export", methods=["GET"])
+def board_group_map_export():
+    import csv, io, os as _os
+    from datetime import datetime as _dt
+    from flask import make_response as _mkr
+
+    edb = _get_monday_sync_db()
+    rows = []
+    if edb:
+        try:
+            raw = edb.execute(
+                """
+                SELECT
+                    bs.board_id,
+                    ad.asp_id            AS asp_board,
+                    ad.operation_support,
+                    bs.group_id,
+                    bs.group_title,
+                    bs.items_count,
+                    bs.counted_at
+                FROM board_stats AS bs
+                LEFT JOIN asp_details AS ad
+                    ON ad.monday_board_id = bs.board_id
+                ORDER BY
+                    CASE WHEN ad.asp_id IS NULL THEN 1 ELSE 0 END,
+                    ad.asp_id COLLATE NOCASE,
+                    bs.group_title COLLATE NOCASE
+                """
+            ).fetchall()
+            rows = [dict(r) for r in raw]
+        except Exception:
+            pass
+        finally:
+            edb.close()
+
+    # Write CSV to files/report/
+    project_root = _os.path.normpath(
+        _os.path.join(_os.path.dirname(__file__), "..", "..")
+    )
+    report_dir = _os.path.join(project_root, "files", "report")
+    _os.makedirs(report_dir, exist_ok=True)
+    ts       = _dt.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"board_group_map_{ts}.csv"
+    filepath = _os.path.join(report_dir, filename)
+
+    fieldnames = ["board_id", "asp_board", "operation_support",
+                  "group_id", "group_title", "items_count", "counted_at"]
+    with open(filepath, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=fieldnames)
+        w.writeheader()
+        for r in rows:
+            w.writerow({k: r.get(k, "") for k in fieldnames})
+
+    # Also stream back as download
+    buf = io.StringIO()
+    w2 = csv.DictWriter(buf, fieldnames=fieldnames)
+    w2.writeheader()
+    for r in rows:
+        w2.writerow({k: r.get(k, "") for k in fieldnames})
+    resp = _mkr(buf.getvalue())
+    resp.headers["Content-Type"]        = "text/csv; charset=utf-8"
+    resp.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return resp

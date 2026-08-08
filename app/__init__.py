@@ -111,4 +111,11 @@ def create_app():
     def root():
         return redirect(url_for("auth.login"))
 
+    # ── Monday.com auto-scheduler ──────────────────────────────────────────────
+    # Start exactly once — the WERKZEUG_RUN_MAIN guard prevents a double-start
+    # when Flask's dev-mode reloader forks a child process.
+    if os.environ.get("WERKZEUG_RUN_MAIN") != "false":
+        from app.routes.admin import start_sync_scheduler
+        start_sync_scheduler(app)
+
     return app

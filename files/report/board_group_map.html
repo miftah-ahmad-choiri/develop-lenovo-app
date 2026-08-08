@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Board Group Map — Lenovo ASP</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; font-size: 14px; line-height: 1.6; background: #f7f8fa; color: #1f2328; }
+
+    /* ── Page wrapper ── */
+    .page { max-width: 1100px; margin: 0 auto; padding: 32px 24px 60px; }
+
+    /* ── Header ── */
+    .page-header { margin-bottom: 24px; }
+    .breadcrumb { font-size: 12px; color: #57606a; margin-bottom: 6px; }
+    .breadcrumb span { margin: 0 5px; }
+    h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+    .subtitle { font-size: 13px; color: #57606a; }
+    .generated { font-size: 11px; color: #8b949e; margin-top: 4px; }
+
+    /* ── Stat cards ── */
+    .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+    .stat-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px 20px; }
+    .stat-label { font-size: 11px; color: #57606a; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat-value { font-size: 28px; font-weight: 700; margin-top: 4px; line-height: 1.2; }
+    .blue   .stat-value { color: #3b82d4; }
+    .purple .stat-value { color: #7c5cd8; }
+    .green  .stat-value { color: #16a34a; }
+    .amber  .stat-value { color: #d97706; }
+
+    /* ── Section header ── */
+    .section-header { font-size: 14px; font-weight: 700; margin-bottom: 12px; color: #1f2328; display: flex; align-items: center; gap: 8px; }
+    .section-header small { font-size: 11px; font-weight: 400; color: #57606a; }
+
+    /* ── Table card ── */
+    .table-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; margin-bottom: 24px; }
+    .toolbar { padding: 10px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap; }
+    .toolbar input[type="search"] { padding: 6px 10px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 13px; width: 260px; font-family: inherit; }
+    .toolbar input[type="search"]:focus { outline: none; border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,.1); }
+    .toolbar-count { font-size: 12px; color: #57606a; white-space: nowrap; }
+    .toolbar-right { margin-left: auto; }
+    .btn-export { padding: 6px 14px; font-size: 12px; font-weight: 600; border: 1px solid #d0d7de; border-radius: 6px; background: #fff; color: #1f2328; cursor: pointer; font-family: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; }
+    .btn-export:hover { background: #f3f4f6; }
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead { background: #f7f8fa; }
+    th { padding: 9px 12px; text-align: left; font-size: 11px; font-weight: 700; color: #57606a; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+    td { padding: 9px 12px; border-bottom: 1px solid #f0f2f5; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f9fafb; }
+    tr.group-first td { border-top: 2px solid #e5e7eb; }
+    .asp-cell { font-weight: 700; color: #1f2328; }
+    .asp-cont { color: transparent; user-select: none; font-size: 1px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; }
+    .muted { color: #57606a; }
+    .badge { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+    .badge-red   { background: #fee2e2; color: #b91c1c; }
+    .badge-blue  { background: #dbeafe; color: #1d4ed8; }
+    .badge-green { background: #dcfce7; color: #15803d; }
+    tr.hidden { display: none; }
+
+    /* ── Footer ── */
+    .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #8b949e; }
+
+    @media (max-width: 640px) {
+      .stat-row { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="breadcrumb">Admin <span>›</span> Board Group Map</div>
+    <h1>Board Group Map</h1>
+    <p class="subtitle">Full mapping of Monday.com board groups → ASP boards and operation support</p>
+    <p class="generated" id="gen-time"></p>
+  </div>
+
+  <!-- Stat cards -->
+  <div class="stat-row">
+    <div class="stat-card blue">
+      <div class="stat-label">Total Boards</div>
+      <div class="stat-value" id="s-boards">—</div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-label">Total Groups</div>
+      <div class="stat-value" id="s-groups">—</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-label">Boards Mapped</div>
+      <div class="stat-value" id="s-mapped">—</div>
+    </div>
+    <div class="stat-card amber">
+      <div class="stat-label">Boards Unmapped</div>
+      <div class="stat-value" id="s-unmapped">—</div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="section-header">
+    Group Map
+    <small id="section-sub"></small>
+  </div>
+  <div class="table-card">
+    <div class="toolbar">
+      <input type="search" id="srch" placeholder="Search ASP board or group…">
+      <span class="toolbar-count" id="row-count"></span>
+      <div class="toolbar-right">
+        <button class="btn-export" onclick="exportCSV()">&#8659; Export CSV</button>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table id="main-table">
+        <thead>
+          <tr>
+            <th style="width:44px">#</th>
+            <th style="width:200px">ASP Board</th>
+            <th style="width:150px">Operation Support</th>
+            <th style="width:130px">Board ID</th>
+            <th>Group Title</th>
+            <th style="width:80px">Items</th>
+            <th style="width:140px">Last Counted</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer">Made with IBM Bob</div>
+</div>
+
+<script>
+const DATA = [
+  {"board_id":"5650447498","asp_board":"Adi Wahana","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":37,"counted_at":"2026-08-08T19:27:00+00:00"},
+  {"board_id":"5691946258","asp_board":"AGRES JOGJA Teknologi","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":226,"counted_at":"2026-08-08T19:53:16+00:00"},
+  {"board_id":"5650145634","asp_board":"Alvatech","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":524,"counted_at":"2026-08-08T13:17:36+00:00"},
+  {"board_id":"5732741455","asp_board":"ALYA PRIMAVERA","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":3,"counted_at":"2026-08-08T20:04:32+00:00"},
+  {"board_id":"5650454121","asp_board":"Angkasa Putera Abadi","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation CCI","items_count":142,"counted_at":"2026-08-08T12:56:35+00:00"},
+  {"board_id":"5650454121","asp_board":"Angkasa Putera Abadi","operation_support":"CCI Only","group_id":"new_group39345","group_title":"Technical Escalation Onsite","items_count":142,"counted_at":"2026-08-08T12:56:35+00:00"},
+  {"board_id":"5650496631","asp_board":"Ans Computer","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":292,"counted_at":"2026-08-08T15:35:57+00:00"},
+  {"board_id":"5650451392","asp_board":"Azzahra Computer","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation CCI","items_count":114,"counted_at":"2026-08-08T12:33:15+00:00"},
+  {"board_id":"5650451392","asp_board":"Azzahra Computer","operation_support":"CCI, ONS","group_id":"new_group80319","group_title":"Technical Escalation Onsite","items_count":114,"counted_at":"2026-08-08T12:33:15+00:00"},
+  {"board_id":"5598913505","asp_board":"Bhinneka","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation CCI","items_count":190,"counted_at":"2026-08-08T19:08:48+00:00"},
+  {"board_id":"5598913505","asp_board":"Bhinneka","operation_support":"CCI, ONS","group_id":"new_group67095","group_title":"Technical Escalation Onsite","items_count":190,"counted_at":"2026-08-08T19:08:48+00:00"},
+  {"board_id":"5684493837","asp_board":"BINTANG JAYA","operation_support":"CCI Only","group_id":"group_mkq3fsgx","group_title":"New Group","items_count":211,"counted_at":"2026-08-08T19:37:40+00:00"},
+  {"board_id":"5684493837","asp_board":"BINTANG JAYA","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":211,"counted_at":"2026-08-08T19:37:40+00:00"},
+  {"board_id":"5701694213","asp_board":"BISMACINDO","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":233,"counted_at":"2026-08-08T18:47:28+00:00"},
+  {"board_id":"5684004630","asp_board":"Cahaya Surya Computer","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":389,"counted_at":"2026-08-08T19:30:41+00:00"},
+  {"board_id":"5650138944","asp_board":"Crystal Computer","operation_support":"CCI Only","group_id":"new_group__1","group_title":"New Group","items_count":40,"counted_at":"2026-08-08T19:02:46+00:00"},
+  {"board_id":"5650138944","asp_board":"Crystal Computer","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":40,"counted_at":"2026-08-08T19:02:46+00:00"},
+  {"board_id":"5650485838","asp_board":"CV. Hero Adiperkasa","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":113,"counted_at":"2026-08-08T14:02:28+00:00"},
+  {"board_id":"5684496714","asp_board":"CV.GLOBAL JAYA","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":542,"counted_at":"2026-08-08T19:15:41+00:00"},
+  {"board_id":"5650493677","asp_board":"Datacom","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":72,"counted_at":"2026-08-08T13:09:06+00:00"},
+  {"board_id":"5649955536","asp_board":"Dayamega","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":657,"counted_at":"2026-08-08T12:09:42+00:00"},
+  {"board_id":"5650454520","asp_board":"Dimensi Komputer","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":22,"counted_at":"2026-08-08T14:44:21+00:00"},
+  {"board_id":"5650454879","asp_board":"DMC Kupang","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":2,"counted_at":"2026-08-08T13:53:44+00:00"},
+  {"board_id":"5650456280","asp_board":"Duta Computer","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation CCI","items_count":161,"counted_at":"2026-08-08T13:43:28+00:00"},
+  {"board_id":"5650456280","asp_board":"Duta Computer","operation_support":"CCI, ONS","group_id":"new_group77348","group_title":"Technical Escalation Onsite","items_count":161,"counted_at":"2026-08-08T13:43:28+00:00"},
+  {"board_id":"5650456799","asp_board":"Dutacom Pangkal Pinang","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":294,"counted_at":"2026-08-08T13:01:56+00:00"},
+  {"board_id":"5650463687","asp_board":"Eleven Computer","operation_support":"CCI Only","group_id":"new_group88436","group_title":"New Group","items_count":119,"counted_at":"2026-08-08T13:08:42+00:00"},
+  {"board_id":"5650463687","asp_board":"Eleven Computer","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":119,"counted_at":"2026-08-08T13:08:42+00:00"},
+  {"board_id":"5650463316","asp_board":"Esacom","operation_support":"CCI Only","group_id":"new_group98184","group_title":"New Group","items_count":92,"counted_at":"2026-08-08T13:40:09+00:00"},
+  {"board_id":"5650463316","asp_board":"Esacom","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":92,"counted_at":"2026-08-08T13:40:09+00:00"},
+  {"board_id":"5684519852","asp_board":"FAASRI UTAMA SAKTI","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":642,"counted_at":"2026-08-08T14:28:26+00:00"},
+  {"board_id":"5684505572","asp_board":"FARAS JAYA ABADI","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":92,"counted_at":"2026-08-08T19:45:13+00:00"},
+  {"board_id":"5650491159","asp_board":"Galerindo Computama Manokwari","operation_support":"CCI Only","group_id":"new_group98086","group_title":"New Group","items_count":9,"counted_at":"2026-08-08T15:13:23+00:00"},
+  {"board_id":"5650491159","asp_board":"Galerindo Computama Manokwari","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":9,"counted_at":"2026-08-08T15:13:23+00:00"},
+  {"board_id":"5650464774","asp_board":"GSS","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":367,"counted_at":"2026-08-08T12:48:31+00:00"},
+  {"board_id":"5650467910","asp_board":"Hi Tech Ambon","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":65,"counted_at":"2026-08-08T13:07:28+00:00"},
+  {"board_id":"5650486412","asp_board":"HND Computer","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":434,"counted_at":"2026-08-08T14:19:51+00:00"},
+  {"board_id":"5676992952","asp_board":"IBM JAKARTA","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":662,"counted_at":"2026-08-08T14:07:35+00:00"},
+  {"board_id":"5650490875","asp_board":"IBM Sadar Jaya","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation CCI","items_count":139,"counted_at":"2026-08-08T14:44:46+00:00"},
+  {"board_id":"5650490875","asp_board":"IBM Sadar Jaya","operation_support":"CCI, ONS","group_id":"new_group7177","group_title":"Technical Escalation Onsite","items_count":139,"counted_at":"2026-08-08T14:44:46+00:00"},
+  {"board_id":"5650484703","asp_board":"Indo Bisnis Payakumbuh","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":12,"counted_at":"2026-08-08T13:53:48+00:00"},
+  {"board_id":"5691775388","asp_board":"INDOTECH","operation_support":"CCI Only","group_id":"new_group__1","group_title":"New Group","items_count":29,"counted_at":"2026-08-08T18:51:43+00:00"},
+  {"board_id":"5691775388","asp_board":"INDOTECH","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":29,"counted_at":"2026-08-08T18:51:43+00:00"},
+  {"board_id":"5650471240","asp_board":"Info Komputer Banjarmasin","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation CCI","items_count":127,"counted_at":"2026-08-08T13:26:55+00:00"},
+  {"board_id":"5650471240","asp_board":"Info Komputer Banjarmasin","operation_support":"CCI Only","group_id":"new_group15472","group_title":"Technical Escalation Onsite","items_count":127,"counted_at":"2026-08-08T13:26:55+00:00"},
+  {"board_id":"5684517138","asp_board":"INFONET AMBAS","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":218,"counted_at":"2026-08-08T19:47:03+00:00"},
+  {"board_id":"7897952285","asp_board":"Infonet Bogor","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation CCI","items_count":54,"counted_at":"2026-08-08T20:34:11+00:00"},
+  {"board_id":"7897952285","asp_board":"Infonet Bogor","operation_support":"CCI, ONS","group_id":"new_group71833","group_title":"Technical Escalation Onsite","items_count":54,"counted_at":"2026-08-08T20:34:11+00:00"},
+  {"board_id":"5650492753","asp_board":"Infonet Depok","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation CCI","items_count":478,"counted_at":"2026-08-08T14:49:54+00:00"},
+  {"board_id":"5650492753","asp_board":"Infonet Depok","operation_support":"CCI, ONS","group_id":"new_group71833","group_title":"Technical Escalation Onsite","items_count":478,"counted_at":"2026-08-08T14:49:54+00:00"},
+  {"board_id":"5676997982","asp_board":"INTIKOM","operation_support":"CCI, ONS","group_id":"group_mm59r1aa","group_title":"New Group","items_count":779,"counted_at":"2026-08-08T18:18:36+00:00"},
+  {"board_id":"5676997982","asp_board":"INTIKOM","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":779,"counted_at":"2026-08-08T18:18:36+00:00"},
+  {"board_id":"5650470406","asp_board":"IT Care","operation_support":"CCI, ONS","group_id":"new_group40625","group_title":"New Group","items_count":82,"counted_at":"2026-08-08T13:13:03+00:00"},
+  {"board_id":"5650470406","asp_board":"IT Care","operation_support":"CCI, ONS","group_id":"new_group20694","group_title":"New Group","items_count":82,"counted_at":"2026-08-08T13:13:03+00:00"},
+  {"board_id":"5650470406","asp_board":"IT Care","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":82,"counted_at":"2026-08-08T13:13:03+00:00"},
+  {"board_id":"5684052857","asp_board":"ITSC BANDUNG","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":926,"counted_at":"2026-08-08T16:44:02+00:00"},
+  {"board_id":"5676749163","asp_board":"ITSC DENPASAR","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":122,"counted_at":"2026-08-08T17:58:59+00:00"},
+  {"board_id":"5668128668","asp_board":"ITSC JAKARTA","operation_support":"CCI, ONS","group_id":"new_group30408","group_title":"New Group","items_count":776,"counted_at":"2026-08-08T16:15:29+00:00"},
+  {"board_id":"5668128668","asp_board":"ITSC JAKARTA","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":776,"counted_at":"2026-08-08T16:15:29+00:00"},
+  {"board_id":"5684476900","asp_board":"ITSC KUDUS","operation_support":"CCI Only","group_id":"group_mkrtj0z","group_title":"New Group","items_count":191,"counted_at":"2026-08-08T17:15:25+00:00"},
+  {"board_id":"5684476900","asp_board":"ITSC KUDUS","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":191,"counted_at":"2026-08-08T17:15:25+00:00"},
+  {"board_id":"7781733293","asp_board":"ITSC Lebak Bulus","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":421,"counted_at":"2026-08-08T20:26:40+00:00"},
+  {"board_id":"5668138511","asp_board":"ITSC MAKASSAR","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":628,"counted_at":"2026-08-08T18:07:00+00:00"},
+  {"board_id":"5701703671","asp_board":"ITSC MEDAN","operation_support":"CCI, ONS","group_id":"new_group17956","group_title":"New Group","items_count":146,"counted_at":"2026-08-08T18:01:22+00:00"},
+  {"board_id":"5701703671","asp_board":"ITSC MEDAN","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":146,"counted_at":"2026-08-08T18:01:22+00:00"},
+  {"board_id":"5684491431","asp_board":"ITSC SEMARANG","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":793,"counted_at":"2026-08-08T17:01:05+00:00"},
+  {"board_id":"5676463347","asp_board":"ITSC SURABAYA","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":1622,"counted_at":"2026-08-08T17:29:08+00:00"},
+  {"board_id":"5676397579","asp_board":"ITSC YOGYA","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":369,"counted_at":"2026-08-08T17:22:22+00:00"},
+  {"board_id":"5676991064","asp_board":"JBROS COMPUTER","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":219,"counted_at":"2026-08-08T19:04:49+00:00"},
+  {"board_id":"5650497590","asp_board":"KJB Surabaya","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation CCI","items_count":96,"counted_at":"2026-08-08T13:36:42+00:00"},
+  {"board_id":"5650497590","asp_board":"KJB Surabaya","operation_support":"CCI Only","group_id":"new_group58938","group_title":"Technical Escalation Onsite","items_count":96,"counted_at":"2026-08-08T13:36:42+00:00"},
+  {"board_id":"5684514957","asp_board":"KJSA","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":155,"counted_at":"2026-08-08T19:27:40+00:00"},
+  {"board_id":"5650496132","asp_board":"Koedoes Komputer","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":218,"counted_at":"2026-08-08T16:11:26+00:00"},
+  {"board_id":"5684509228","asp_board":"KOMDISC CLINIC","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":3,"counted_at":"2026-08-08T19:46:57+00:00"},
+  {"board_id":"7898483357","asp_board":"MAHADEWA COMP","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":29,"counted_at":"2026-08-08T19:25:39+00:00"},
+  {"board_id":"5650471819","asp_board":"Master Computer Jayapura","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":87,"counted_at":"2026-08-08T13:31:36+00:00"},
+  {"board_id":"5643399696","asp_board":"Maxima Global","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":781,"counted_at":"2026-08-08T11:55:20+00:00"},
+  {"board_id":"5650472814","asp_board":"Maxindo","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":154,"counted_at":"2026-08-08T14:04:40+00:00"},
+  {"board_id":"5649956917","asp_board":"MDP Palembang","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":648,"counted_at":"2026-08-08T12:21:39+00:00"},
+  {"board_id":"5927966222","asp_board":"MEGATAMA KARAWANG","operation_support":"CCI Only","group_id":"new_group__1","group_title":"New Group","items_count":23,"counted_at":"2026-08-08T20:25:32+00:00"},
+  {"board_id":"5927966222","asp_board":"MEGATAMA KARAWANG","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":23,"counted_at":"2026-08-08T20:25:32+00:00"},
+  {"board_id":"5677051045","asp_board":"MITRA INFO SARANA","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":40,"counted_at":"2026-08-08T19:26:14+00:00"},
+  {"board_id":"5650485219","asp_board":"Multiprima","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":207,"counted_at":"2026-08-08T13:50:00+00:00"},
+  {"board_id":"5677057480","asp_board":"PERKOM","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":1206,"counted_at":"2026-08-08T15:13:47+00:00"},
+  {"board_id":"5684511985","asp_board":"PLANET COMPUTER","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":460,"counted_at":"2026-08-08T13:54:07+00:00"},
+  {"board_id":"5709241565","asp_board":"PLATINUM COMPUTER","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":712,"counted_at":"2026-08-08T20:04:40+00:00"},
+  {"board_id":"5650486925","asp_board":"Primajaya Teknologi Medan","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":148,"counted_at":"2026-08-08T13:33:13+00:00"},
+  {"board_id":"5649979445","asp_board":"Retyan Computer","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation CCI","items_count":309,"counted_at":"2026-08-08T12:37:25+00:00"},
+  {"board_id":"5649979445","asp_board":"Retyan Computer","operation_support":"CCI, ONS","group_id":"new_group24600","group_title":"Technical Escalation Onsite","items_count":309,"counted_at":"2026-08-08T12:37:25+00:00"},
+  {"board_id":"5691934483","asp_board":"SENTRAL KOMPUTER KAWARANG","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":128,"counted_at":"2026-08-08T19:50:56+00:00"},
+  {"board_id":"5650494649","asp_board":"Solusi Inti Pratama","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":2,"counted_at":"2026-08-08T15:13:19+00:00"},
+  {"board_id":"5650487773","asp_board":"Square Computer","operation_support":"CCI, ONS","group_id":"new_group33240","group_title":"New Group","items_count":17,"counted_at":"2026-08-08T14:27:46+00:00"},
+  {"board_id":"5650487773","asp_board":"Square Computer","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":17,"counted_at":"2026-08-08T14:27:46+00:00"},
+  {"board_id":"5650495707","asp_board":"Suka Guna Indonesia","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":159,"counted_at":"2026-08-08T15:10:28+00:00"},
+  {"board_id":"5650488591","asp_board":"Tekno Komputer","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":44,"counted_at":"2026-08-08T13:35:51+00:00"},
+  {"board_id":"5650489341","asp_board":"Think Computer","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":220,"counted_at":"2026-08-08T14:40:13+00:00"},
+  {"board_id":"5650498050","asp_board":"Toho Computer","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":15,"counted_at":"2026-08-08T15:41:12+00:00"},
+  {"board_id":"5650452012","asp_board":"Venes Jaya Padang","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation CCI","items_count":36,"counted_at":"2026-08-08T12:55:15+00:00"},
+  {"board_id":"5650452012","asp_board":"Venes Jaya Padang","operation_support":"CCI Only","group_id":"new_group54076","group_title":"Technical Escalation Onsite","items_count":36,"counted_at":"2026-08-08T12:55:15+00:00"},
+  {"board_id":"5650498712","asp_board":"Vicmic","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":1577,"counted_at":"2026-08-08T15:41:31+00:00"},
+  {"board_id":"5650453009","asp_board":"Vtech Jambi","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":29,"counted_at":"2026-08-08T13:49:28+00:00"},
+  {"board_id":"5676466612","asp_board":"WAHYU UTAMA LESTARI","operation_support":"CCI, ONS","group_id":"new_group","group_title":"Technical Escalation","items_count":532,"counted_at":"2026-08-08T18:52:49+00:00"},
+  {"board_id":"7120954055","asp_board":"White Knight Computer","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":7,"counted_at":"2026-08-08T20:26:30+00:00"},
+  {"board_id":"5650492431","asp_board":"XDC","operation_support":"CCI Only","group_id":"new_group63296","group_title":"New Group","items_count":36,"counted_at":"2026-08-08T15:07:45+00:00"},
+  {"board_id":"5650492431","asp_board":"XDC","operation_support":"CCI Only","group_id":"new_group","group_title":"Technical Escalation","items_count":36,"counted_at":"2026-08-08T15:07:45+00:00"},
+  {"board_id":"5650482985","asp_board":null,"operation_support":null,"group_id":"new_group","group_title":"Technical Escalation","items_count":1,"counted_at":"2026-08-08T13:54:04+00:00"},
+  {"board_id":"5676744870","asp_board":null,"operation_support":null,"group_id":"new_group","group_title":"Technical Escalation","items_count":23,"counted_at":"2026-08-08T19:04:21+00:00"},
+  {"board_id":"5862723104","asp_board":null,"operation_support":null,"group_id":"new_group","group_title":"Technical Escalation","items_count":0,"counted_at":"2026-08-08T20:04:37+00:00"},
+  {"board_id":"6538873126","asp_board":null,"operation_support":null,"group_id":"new_group","group_title":"Technical Escalation","items_count":1,"counted_at":"2026-08-08T20:26:26+00:00"}
+];
+
+/* ── Stats ── */
+const boardIds  = new Set(DATA.map(r => r.board_id));
+const mappedIds = new Set(DATA.filter(r => r.asp_board).map(r => r.board_id));
+document.getElementById('s-boards').textContent  = boardIds.size;
+document.getElementById('s-groups').textContent  = DATA.length;
+document.getElementById('s-mapped').textContent  = mappedIds.size;
+document.getElementById('s-unmapped').textContent = boardIds.size - mappedIds.size;
+document.getElementById('section-sub').textContent =
+  DATA.length + ' groups across ' + boardIds.size + ' boards';
+document.getElementById('gen-time').textContent =
+  'Generated ' + new Date().toLocaleString();
+document.getElementById('row-count').textContent = DATA.length + ' groups';
+
+/* ── Render table ── */
+function fmtDate(iso) {
+  return iso ? iso.slice(0, 16).replace('T', ' ') : '—';
+}
+
+function render(data) {
+  const tbody = document.getElementById('tbody');
+  let html = '';
+  let prevBoard = null;
+  data.forEach((r, i) => {
+    const isFirst = r.board_id !== prevBoard;
+    prevBoard = r.board_id;
+    const cls = isFirst ? 'group-first' : '';
+    html += `<tr class="${cls}" data-board="${(r.asp_board||'').toLowerCase()}" data-group="${(r.group_title||'').toLowerCase()}" data-bid="${r.board_id}">`;
+    html += `<td class="mono muted">${i + 1}</td>`;
+    if (isFirst) {
+      html += `<td class="asp-cell">${r.asp_board ? r.asp_board : '<span class="badge badge-red">— unmapped —</span>'}</td>`;
+      html += `<td style="font-size:12px" class="muted">${r.operation_support || '—'}</td>`;
+      html += `<td class="mono muted">${r.board_id}</td>`;
+    } else {
+      html += `<td class="asp-cont">${r.asp_board || ''}</td><td></td><td></td>`;
+    }
+    html += `<td>${r.group_title || '—'}</td>`;
+    html += `<td class="mono">${r.items_count != null ? r.items_count.toLocaleString() : '—'}</td>`;
+    html += `<td style="font-size:12px" class="muted">${fmtDate(r.counted_at)}</td>`;
+    html += '</tr>';
+  });
+  tbody.innerHTML = html || '<tr><td colspan="7" style="text-align:center;padding:32px;color:#57606a">No data.</td></tr>';
+}
+
+render(DATA);
+
+/* ── Search ── */
+document.getElementById('srch').addEventListener('input', function () {
+  const q = this.value.toLowerCase().trim();
+  const rows = document.querySelectorAll('#tbody tr[data-bid]');
+  let visible = 0;
+  rows.forEach(row => {
+    const show = !q || row.dataset.board.includes(q) || row.dataset.group.includes(q);
+    row.classList.toggle('hidden', !show);
+    if (show) visible++;
+  });
+  // Re-mark group-first on first visible row per board
+  const seenBoards = new Set();
+  rows.forEach(row => {
+    if (row.classList.contains('hidden')) return;
+    const bid = row.dataset.bid;
+    if (!seenBoards.has(bid)) { row.classList.add('group-first'); seenBoards.add(bid); }
+    else row.classList.remove('group-first');
+  });
+  document.getElementById('row-count').textContent = visible + ' group' + (visible !== 1 ? 's' : '');
+});
+
+/* ── Export CSV ── */
+function exportCSV() {
+  const cols = ['board_id','asp_board','operation_support','group_id','group_title','items_count','counted_at'];
+  const lines = [cols.join(',')];
+  DATA.forEach(r => {
+    lines.push(cols.map(c => {
+      const v = r[c] == null ? '' : String(r[c]);
+      return v.includes(',') || v.includes('"') ? '"' + v.replace(/"/g,'""') + '"' : v;
+    }).join(','));
+  });
+  const blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'board_group_map.csv';
+  a.click();
+}
+</script>
+</body>
+</html>

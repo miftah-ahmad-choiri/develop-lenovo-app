@@ -40,6 +40,7 @@ def run_migrations(app: Flask) -> None:
         _migrate_asp_users_drop_tech_id(conn)
         _migrate_create_asp_pw_change_requests(conn)
         _migrate_asp_details_add_office_type_wo_count(conn)
+        _migrate_asp_details_add_monday_fields(conn)
     finally:
         conn.close()
 
@@ -443,3 +444,79 @@ def _migrate_asp_details_add_office_type_wo_count(conn: sqlite3.Connection) -> N
             """
         )
         conn.commit()
+
+
+def _migrate_asp_details_add_monday_fields(conn: sqlite3.Connection) -> None:
+    """Add monday_board_id and asp_id columns to asp_details if they do not exist.
+
+    monday_board_id — TEXT, Monday.com board ID for this ASP (from monday_link_map.xlsx)
+    asp_id          — TEXT, "ASP ID" column from monday_link_map.xlsx; same value as
+                      labor_vendor_related but stored here explicitly for direct joins
+                      between technical_escalation.board_id and asp_details.monday_board_id.
+
+    Then backfills both columns from files/source-db/monday_link_map.xlsx if available.
+    The backfill is skipped gracefully when the file is absent (fresh installs without
+    the source file, or environments where the seed step is run separately).
+    """
+    existing = {
+        row[1]
+        for row in conn.execute("PRAGMA table_info(asp_details)").fetchall()
+    }
+    if "monday_board_id" not in existing:
+        conn.execute("ALTER TABLE asp_details ADD COLUMN monday_board_id TEXT")
+        conn.commit()
+    if "asp_id" not in existing:
+        conn.execute("ALTER TABLE asp_details ADD COLUMN asp_id TEXT")
+        conn.commit()
+
+    # Backfill from monday_link_map.xlsx (no-op if already populated or file absent)
+    already_filled = conn.execute(
+        "SELECT COUNT(*) FROM asp_details WHERE monday_board_id IS NOT NULL"
+    ).fetchone()[0]
+    if already_filled:
+        return  # already backfilled — skip
+
+    xlsx_path = os.path.join(
+        os.path.dirname(__file__), "..", "..", "files", "source-db", "monday_link_map.xlsx"
+    )
+    xlsx_path = os.path.normpath(xlsx_path)
+    if not os.path.isfile(xlsx_path):
+        return  # file not available — skip silently
+
+    try:
+        import openpyxl
+        wb = openpyxl.load_workbook(xlsx_path, read_only=True, data_only=True)
+        ws = wb.active
+        rows = list(ws.iter_rows(values_only=True))
+        wb.close()
+
+        if not rows:
+            return
+
+        header = [str(c).strip() if c is not None else "" for c in rows[0]]
+        try:
+            col_name = header.index("ASP_Board")
+            col_id   = header.index("Monday_board_id")
+            col_asp  = header.index("ASP ID")
+        except ValueError:
+            return  # unexpected header — skip
+
+        updates = []
+        for row in rows[1:]:
+            board_id = row[col_id]
+            asp_id   = row[col_asp]
+            if board_id is None or asp_id is None:
+                continue
+            board_id_str = str(int(board_id))
+            asp_id_str   = str(int(asp_id))
+            updates.append((board_id_str, asp_id_str, asp_id_str))
+
+        # Match on labor_vendor_related == asp_id
+        conn.executemany(
+            "UPDATE asp_details SET monday_board_id = ?, asp_id = ? "
+            "WHERE labor_vendor_related = ?",
+            updates
+        )
+        conn.commit()
+    except Exception:
+        pass  # backfill is best-effort

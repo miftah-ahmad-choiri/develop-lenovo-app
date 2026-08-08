@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}Board Group Map — Admin Portal{% endblock %}
+
+{% block extra_styles %}
+  /* ── Stat cards ───────────────────────────────────────────── */
+  .ec-stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+  .ec-stat-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px 20px; }
+  .ec-stat-card .sc-label { font-size: 11px; color: #57606a; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  .ec-stat-card .sc-value { font-size: 28px; font-weight: 700; margin-top: 4px; line-height: 1.2; color: #1f2328; }
+  .ec-stat-card.blue   .sc-value { color: #3b82d4; }
+  .ec-stat-card.green  .sc-value { color: #16a34a; }
+  .ec-stat-card.purple .sc-value { color: #7c5cd8; }
+  .ec-stat-card.amber  .sc-value { color: #d97706; }
+
+  /* ── Section header ───────────────────────────────────────── */
+  .section-header { font-size: 14px; font-weight: 700; margin-bottom: 12px; color: #1f2328; display: flex; align-items: center; gap: 8px; }
+  .section-header small { font-size: 11px; font-weight: 400; color: #57606a; }
+
+  /* ── Table card ───────────────────────────────────────────── */
+  .table-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; margin-bottom: 24px; }
+  .table-toolbar { padding: 10px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap; }
+  .table-toolbar input[type="search"] { padding: 6px 10px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 13px; width: 240px; font-family: inherit; }
+  .table-toolbar input[type="search"]:focus { outline: none; border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,.1); }
+  .toolbar-count { font-size: 12px; color: #57606a; white-space: nowrap; }
+  .toolbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table thead { background: #f7f8fa; }
+  .data-table th { padding: 9px 12px; text-align: left; font-size: 11px; font-weight: 700; color: #57606a; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+  .data-table td { padding: 9px 12px; border-bottom: 1px solid #f0f2f5; vertical-align: middle; }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: #f9fafb; }
+  .data-table tr.group-first td { border-top: 2px solid #e5e7eb; }
+  .data-table tr.group-first td.asp-cell { font-weight: 700; color: #1f2328; }
+  .data-table td.asp-cell-cont { color: transparent; user-select: none; }
+
+  /* ── Badges ───────────────────────────────────────────────── */
+  .badge { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge-green  { background: #dcfce7; color: #15803d; }
+  .badge-gray   { background: #f0f2f5; color: #57606a; }
+  .badge-blue   { background: #dbeafe; color: #1d4ed8; }
+  .badge-amber  { background: #fef3c7; color: #92400e; }
+  .badge-red    { background: #fee2e2; color: #b91c1c; }
+  .mono { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; }
+
+  /* ── Export button ────────────────────────────────────────── */
+  .btn-export { padding: 6px 14px; font-size: 12px; font-weight: 600; border: 1px solid #d0d7de; border-radius: 6px; background: #fff; color: #1f2328; cursor: pointer; font-family: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; }
+  .btn-export:hover { background: #f3f4f6; }
+
+  /* ── Hidden rows ──────────────────────────────────────────── */
+  tr.hidden-row { display: none; }
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom:20px">
+  <div class="breadcrumb" style="font-size:12px;color:#57606a;margin-bottom:6px">
+    Admin <span style="margin:0 5px">›</span> Board Group Map
+  </div>
+  <h1 style="font-size:20px;font-weight:700;margin:0 0 4px">Board Group Map</h1>
+  <p style="font-size:13px;color:#57606a;margin:0">
+    Full mapping of Monday.com board groups to ASP boards and operation support
+  </p>
+</div>
+
+{# ── Stat cards ─────────────────────────────────────────────── #}
+<div class="ec-stat-row">
+  <div class="ec-stat-card blue">
+    <div class="sc-label">Total Boards</div>
+    <div class="sc-value">{{ stats.total_boards }}</div>
+  </div>
+  <div class="ec-stat-card purple">
+    <div class="sc-label">Total Groups</div>
+    <div class="sc-value">{{ stats.total_groups }}</div>
+  </div>
+  <div class="ec-stat-card green">
+    <div class="sc-label">Boards Mapped</div>
+    <div class="sc-value">{{ stats.mapped }}</div>
+  </div>
+  <div class="ec-stat-card amber">
+    <div class="sc-label">Boards Unmapped</div>
+    <div class="sc-value">{{ stats.unmapped }}</div>
+  </div>
+</div>
+
+{# ── Table ──────────────────────────────────────────────────── #}
+<div class="section-header">
+  Group Map
+  <small>{{ stats.total_groups }} groups across {{ stats.total_boards }} boards</small>
+</div>
+<div class="table-card">
+  <div class="table-toolbar">
+    <input type="search" id="map-search" placeholder="Search ASP board or group…" oninput="filterMap(this.value)">
+    <span class="toolbar-count" id="map-count-label">{{ stats.total_groups }} groups</span>
+    <div class="toolbar-right">
+      <a href="/admin/board-group-map/export" class="btn-export">
+        &#8659; Export CSV
+      </a>
+    </div>
+  </div>
+  <div class="table-scroll">
+    <table class="data-table" id="map-table">
+      <thead>
+        <tr>
+          <th style="width:40px">#</th>
+          <th style="width:200px">ASP Board</th>
+          <th style="width:160px">Operation Support</th>
+          <th style="width:130px">Board ID</th>
+          <th>Group Title</th>
+          <th style="width:90px">Items</th>
+          <th style="width:140px">Last Counted</th>
+        </tr>
+      </thead>
+      <tbody id="map-tbody">
+        {% set ns = namespace(prev_board=None, row_num=0) %}
+        {% for r in rows %}
+          {% set is_first = (r.board_id != ns.prev_board) %}
+          {% set ns.prev_board = r.board_id %}
+          {% set ns.row_num = ns.row_num + 1 %}
+          <tr class="{{ 'group-first' if is_first else '' }}"
+              data-board="{{ (r.asp_board or '') | lower }}"
+              data-group="{{ (r.group_title or '') | lower }}"
+              data-board-id="{{ r.board_id }}">
+            <td class="mono" style="color:#57606a">{{ ns.row_num }}</td>
+            {# Show ASP board name only on first row of each board #}
+            {% if is_first %}
+              <td class="asp-cell">
+                {% if r.asp_board %}
+                  {{ r.asp_board }}
+                {% else %}
+                  <span class="badge badge-red">— unmapped —</span>
+                {% endif %}
+              </td>
+              <td style="font-size:12px;color:#57606a">{{ r.operation_support or '—' }}</td>
+              <td class="mono" style="color:#57606a">{{ r.board_id }}</td>
+            {% else %}
+              <td class="asp-cell-cont">{{ r.asp_board or '' }}</td>
+              <td></td>
+              <td></td>
+            {% endif %}
+            <td>{{ r.group_title or '—' }}</td>
+            <td class="mono">{{ r.items_count if r.items_count is not none else '—' }}</td>
+            <td style="font-size:12px;color:#57606a">
+              {{ r.counted_at[:16] | replace('T', ' ') if r.counted_at else '—' }}
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7" style="text-align:center;color:#57606a;padding:32px">No board group data available. Run a sync first.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function filterMap(q) {
+  const rows   = document.querySelectorAll('#map-tbody tr[data-board-id]');
+  const lower  = q.toLowerCase().trim();
+  let visible  = 0;
+
+  // When filtering, we need to track which board groups are visible
+  // so we can re-apply the group-first styling correctly.
+  let lastVisibleBoard = null;
+
+  rows.forEach(row => {
+    if (!lower) {
+      row.classList.remove('hidden-row');
+      // Restore original group-first markers from data attrs
+      visible++;
+      return;
+    }
+    const board = row.dataset.board || '';
+    const group = row.dataset.group || '';
+    const show  = board.includes(lower) || group.includes(lower);
+    row.classList.toggle('hidden-row', !show);
+    if (show) visible++;
+  });
+
+  // Re-apply group-first border on first visible row of each board
+  if (lower) {
+    let seenBoards = new Set();
+    rows.forEach(row => {
+      if (row.classList.contains('hidden-row')) return;
+      const bid = row.dataset.boardId;
+      if (!seenBoards.has(bid)) {
+        row.classList.add('group-first');
+        seenBoards.add(bid);
+      } else {
+        row.classList.remove('group-first');
+      }
+    });
+  } else {
+    // Restore: re-read from original rendering (group-first was set server-side)
+    // easiest: reload the page count label only; CSS classes already correct
+  }
+
+  document.getElementById('map-count-label').textContent =
+    visible + ' group' + (visible !== 1 ? 's' : '');
+}
+</script>
+{% endblock %}

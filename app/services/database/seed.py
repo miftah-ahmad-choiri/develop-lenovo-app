@@ -372,6 +372,36 @@ def _seed_asp_details(conn: sqlite3.Connection, filepath: str) -> int:
     return len(rows)
 
 
+def _seed_monday_link_map(conn: sqlite3.Connection, filepath: str) -> int:
+    """
+    Load monday_link_map.xlsx (Sheet1) → update asp_details with monday_board_id and asp_id.
+
+    Columns expected: No, ASP_Board, Monday_board_id, ASP ID.
+    Matches rows via labor_vendor_related = ASP ID (both are the same internal vendor code).
+    Returns number of rows updated.
+    """
+    df = pd.read_excel(filepath, sheet_name="Sheet1")
+
+    sql = """
+        UPDATE asp_details
+        SET monday_board_id = ?,
+            asp_id          = ?
+        WHERE labor_vendor_related = ?
+    """
+
+    rows = []
+    for _, r in df.iterrows():
+        board_id = _safe_str(r.get("Monday_board_id"))
+        asp_id   = _safe_str(r.get("ASP ID"))
+        if board_id is None or asp_id is None:
+            continue
+        rows.append((board_id, asp_id, asp_id))
+
+    conn.executemany(sql, rows)
+    conn.commit()
+    return len(rows)
+
+
 # ── public entry point ────────────────────────────────────────────────────────
 
 def seed_from_source_db(app: Flask) -> dict[str, int]:
@@ -395,15 +425,18 @@ def seed_from_source_db(app: Flask) -> dict[str, int]:
     db_path:    str = app.config["DATABASE_PATH"]
 
     files = {
-        "summary":     os.path.join(source_dir, "Work Order Summary.xlsx"),
-        "details":     os.path.join(source_dir, "Work Order Details.xlsx"),
-        "products":    os.path.join(source_dir, "Work Order Product Details.xlsx"),
-        "shipment":    os.path.join(source_dir, "Lenovo Shipment Daily Report.xlsx"),
-        "asp_details": os.path.join(source_dir, "asp table list.xlsx"),
+        "summary":          os.path.join(source_dir, "Work Order Summary.xlsx"),
+        "details":          os.path.join(source_dir, "Work Order Details.xlsx"),
+        "products":         os.path.join(source_dir, "Work Order Product Details.xlsx"),
+        "shipment":         os.path.join(source_dir, "Lenovo Shipment Daily Report.xlsx"),
+        "asp_details":      os.path.join(source_dir, "asp table list.xlsx"),
+        "monday_link_map":  os.path.join(source_dir, "monday_link_map.xlsx"),
     }
 
-    # Verify all source files exist before opening the DB
-    missing = [k for k, p in files.items() if not os.path.isfile(p)]
+    # Verify required source files exist before opening the DB
+    # monday_link_map is optional — skip it gracefully if absent
+    required = [k for k in files if k != "monday_link_map"]
+    missing = [k for k in required if not os.path.isfile(files[k])]
     if missing:
         raise FileNotFoundError(
             f"Missing source-db files: {missing}\n"
@@ -414,25 +447,33 @@ def seed_from_source_db(app: Flask) -> dict[str, int]:
     conn.execute("PRAGMA foreign_keys = OFF")   # allow inserting details before summary if needed
 
     try:
-        print("  [1/5] Seeding wo_summary …")
+        print("  [1/6] Seeding wo_summary …")
         n_summary = _seed_wo_summary(conn, files["summary"])
         print(f"        {n_summary:,} rows")
 
-        print("  [2/5] Seeding wo_details …")
+        print("  [2/6] Seeding wo_details …")
         n_details = _seed_wo_details(conn, files["details"])
         print(f"        {n_details:,} rows")
 
-        print("  [3/5] Seeding wo_product_detail from MSD product file …")
+        print("  [3/6] Seeding wo_product_detail from MSD product file …")
         n_msd = _seed_wo_product_from_msd(conn, files["products"])
         print(f"        {n_msd:,} rows")
 
-        print("  [4/5] Seeding wo_product_detail from Shipment file …")
+        print("  [4/6] Seeding wo_product_detail from Shipment file …")
         n_ship = _seed_wo_product_from_shipment(conn, files["shipment"])
         print(f"        {n_ship:,} rows processed")
 
-        print("  [5/5] Seeding asp_details …")
+        print("  [5/6] Seeding asp_details …")
         n_asp = _seed_asp_details(conn, files["asp_details"])
         print(f"        {n_asp:,} rows")
+
+        n_monday = 0
+        if os.path.isfile(files["monday_link_map"]):
+            print("  [6/6] Seeding monday_link_map → asp_details …")
+            n_monday = _seed_monday_link_map(conn, files["monday_link_map"])
+            print(f"        {n_monday:,} rows updated")
+        else:
+            print("  [6/6] monday_link_map.xlsx not found — skipping.")
 
     finally:
         conn.execute("PRAGMA foreign_keys = ON")
@@ -444,4 +485,5 @@ def seed_from_source_db(app: Flask) -> dict[str, int]:
         "wo_product_from_msd":      n_msd,
         "wo_product_from_shipment": n_ship,
         "asp_details":              n_asp,
+        "monday_link_map":          n_monday,
     }

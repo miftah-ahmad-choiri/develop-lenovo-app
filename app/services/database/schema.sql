@@ -144,7 +144,9 @@ CREATE TABLE IF NOT EXISTS asp_details (
     working_hours           TEXT,                  -- "WORKING HOURS"
     operational_status      TEXT,                  -- "Operational Status"
     future_status           TEXT,                  -- "Future Status"
-    operation_support       TEXT                   -- "Operation support"
+    operation_support       TEXT,                  -- "Operation support"
+    monday_board_id         TEXT,                  -- Monday.com board ID (from monday_link_map.xlsx)
+    asp_id                  TEXT                   -- "ASP ID" from monday_link_map.xlsx (= labor_vendor_related)
 );
 
 CREATE INDEX IF NOT EXISTS idx_asp_details_username
