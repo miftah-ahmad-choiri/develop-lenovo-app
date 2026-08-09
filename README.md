@@ -11,6 +11,7 @@ A Flask web application for managing Lenovo After-Sales Partner (ASP) work order
 - [Prerequisites](#prerequisites)
 - [Local Development](#local-development)
 - [Deploy to Render.com](#deploy-to-rendercom)
+- [Deploy via Cloudflare Tunnel](#deploy-via-cloudflare-tunnel)
 - [Environment Variables](#environment-variables)
 - [File Persistence Note](#file-persistence-note)
 - [Windows Troubleshooting](#windows-troubleshooting)
@@ -376,3 +377,144 @@ Get-ChildItem -Recurse -Filter "__pycache__" -Directory |
 ```
 
 Python will regenerate fresh `.pyc` files for the current Python version on the next run. To prevent this recurring, ensure `__pycache__/` is in `.gitignore`.
+
+---
+
+## Deploy via Cloudflare Tunnel
+
+Exposes the local app publicly at **https://app.ticket-asp.my.id** using a persistent Cloudflare Tunnel — no port-forwarding or cloud hosting required.
+
+> **cloudflared** is bundled locally at `cloudflared\cloudflared.exe` — no system-wide install needed.
+> Use `.\cloudflared\cloudflared.exe` instead of plain `cloudflared` in every command below.
+>
+> **Tunnel name:** `asp-ticketing` · **Tunnel ID:** `ce858d75-6e3f-416f-b4f0-d1b5ebb1f016`
+
+---
+
+### Step 1 — Download cloudflared.exe (first time only)
+
+`cloudflared.exe` is not committed to the repo. Download it once before running any tunnel commands:
+
+```powershell
+Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile "cloudflared\cloudflared.exe"
+```
+
+Verify the download:
+
+```powershell
+.\cloudflared\cloudflared.exe --version
+```
+
+---
+
+### Step 2 — Authenticate (first time only)
+
+```powershell
+.\cloudflared\cloudflared.exe tunnel login
+```
+
+A browser window will open — log in to your Cloudflare account and authorise the domain. A credentials file will be saved to `C:\Users\<you>\.cloudflared\`.
+
+---
+
+### Step 3 — Create the tunnel (first time only)
+
+> **Already done for this project.** Running the command on the same account will print `tunnel with name already exists`. Skip to Step 4 and confirm with:
+> ```powershell
+> .\cloudflared\cloudflared.exe tunnel list
+> .\cloudflared\cloudflared.exe tunnel --config cloudflared/config.yml run
+> ```
+
+To create a brand-new tunnel on a **different** account:
+
+```powershell
+.\cloudflared\cloudflared.exe tunnel create asp-ticketing
+```
+
+Then update [`cloudflared/config.yml`](cloudflared/config.yml) with the printed Tunnel ID:
+
+```yaml
+tunnel: <YOUR_TUNNEL_ID>
+credentials-file: C:\Users\<you>\.cloudflared\<YOUR_TUNNEL_ID>.json
+
+
+tunnel: ce858d75-6e3f-416f-b4f0-d1b5ebb1f016 credentials-file: C:\Users\010880749\.cloudflared\ce858d75-6e3f-416f-b4f0-d1b5ebb1f016.json
+```
+
+#### Restore missing credentials file
+
+If `tunnel login` was run on a different machine or the `.json` was deleted, regenerate it:
+
+```powershell
+.\cloudflared\cloudflared.exe tunnel token --cred-file "C:\Users\010880749\.cloudflared\ce858d75-6e3f-416f-b4f0-d1b5ebb1f016.json" asp-ticketing
+```
+
+---
+
+### Step 4 — Add a DNS CNAME record (first time only)
+
+```powershell
+.\cloudflared\cloudflared.exe tunnel route dns asp-ticketing app.ticket-asp.my.id
+```
+
+This creates a `CNAME` record in your Cloudflare DNS pointing `app.ticket-asp.my.id` to the tunnel.
+
+---
+
+### Step 5 — Review [`cloudflared/config.yml`](cloudflared/config.yml)
+
+```yaml
+tunnel: ce858d75-6e3f-416f-b4f0-d1b5ebb1f016
+credentials-file: C:\Users\010880749\.cloudflared\ce858d75-6e3f-416f-b4f0-d1b5ebb1f016.json
+edge-ip-version: "4"
+
+ingress:
+  - hostname: app.ticket-asp.my.id
+    service: http://localhost:5000
+
+  - service: http_status:404
+```
+
+- The first rule forwards all traffic for `app.ticket-asp.my.id` to the local Flask app on port `5000`.
+- The catch-all rule returns `404` for any other hostname that reaches the tunnel.
+
+---
+
+### Step 6 — Run everything (two terminals)
+
+**Terminal 1 — Flask app:**
+
+```powershell
+$env:PYTHONIOENCODING = "utf-8"; .venv\Scripts\Activate.ps1
+python run.py
+```
+
+**Terminal 2 — Cloudflare Tunnel:**
+
+```powershell
+.\cloudflared\cloudflared.exe tunnel --config cloudflared/config.yml run
+```
+
+The app is now publicly accessible at **https://app.ticket-asp.my.id**.
+
+---
+
+### Cloudflare Tunnel — Endpoints
+
+| Route | Description |
+|-------|-------------|
+| `GET /` | Redirects to `/asp/dashboard` |
+| `GET /asp/dashboard` | ASP Portal home — WO stat cards and data table |
+| `GET /health` | JSON health-check (if implemented) |
+
+---
+
+### Cloudflare Tunnel — Notes
+
+- `cloudflared.exe` and the credentials file (`*.json`) are excluded from version control via `.gitignore`.
+- Credentials file location: `C:\Users\010880749\.cloudflared\ce858d75-6e3f-416f-b4f0-d1b5ebb1f016.json`
+- The tunnel stays alive as long as Terminal 2 is running. For always-on deployments, register it as a Windows service:
+  ```powershell
+  .\cloudflared\cloudflared.exe service install
+  ```
+- To stop the tunnel, press `Ctrl+C` in Terminal 2 (or run `.\cloudflared\cloudflared.exe service stop` if installed as a service).
