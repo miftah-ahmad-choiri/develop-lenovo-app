@@ -119,6 +119,16 @@ def api_wo_related_serial(work_order_id: int):
     return jsonify({"serial_number": detail["serial_number"], "current_wo_id": work_order_id, "rows": rows})
 
 
+# ── API: All WOs by serial number string (admin monday-data view) ─────────────
+
+@admin_bp.route("/admin/api/sn-history/<path:serial_number>", methods=["GET"])
+def api_sn_history(serial_number: str):
+    """Return all WOs in wo_summary/wo_details that share the given serial_number."""
+    from app.services.database.queries import get_wo_by_serial
+    rows = get_wo_by_serial(serial_number.strip())
+    return jsonify({"serial_number": serial_number.strip(), "rows": rows})
+
+
 # ── API: Ticket history by case number ───────────────────────────────────────
 
 @admin_bp.route("/admin/api/wo-ticket-history/<int:work_order_id>", methods=["GET"])
