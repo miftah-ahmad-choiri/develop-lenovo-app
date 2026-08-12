@@ -6,6 +6,7 @@ A Flask web application for managing Lenovo After-Sales Partner (ASP) work order
 
 ## Table of Contents
 
+- [Quick Start](#quick-start)
 - [Project Structure](#project-structure)
 - [Portal Overview](#portal-overview)
 - [Mobile API Overview](#mobile-api-overview)
@@ -22,6 +23,43 @@ A Flask web application for managing Lenovo After-Sales Partner (ASP) work order
   - [Activating venv with emoji path](#activating-the-virtual-environment-windows)
   - [ImportError on pip](#importerror-cannot-import-name-_appengine_environ-when-running-pip)
   - [OSError Errno 22](#oserror-errno-22-invalid-argument-when-running-python-runpy)
+
+---
+
+## Quick Start
+
+> **Windows (PowerShell) — first time setup**
+
+```powershell
+# 1. Navigate to project folder
+cd path\to\develop-lenovo-app
+
+# 2. Create virtual environment
+$env:PYTHONIOENCODING = "utf-8"
+python -m venv .venv
+
+# 3. Activate it
+$env:PYTHONIOENCODING = "utf-8"; .venv\Scripts\Activate.ps1
+
+# 4. Install dependencies
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+# 5. Seed database (first time only — place Excel files in files/source-db/ first)
+flask seed-db
+
+# 6. Run the app
+python run.py
+```
+
+Open **http://127.0.0.1:5000** — it will redirect to the login page.
+
+> **Every subsequent session** — just two commands:
+> ```powershell
+> $env:PYTHONIOENCODING = "utf-8"; .venv\Scripts\Activate.ps1
+> python run.py
+> ```
+
+> **If activation is blocked:** run `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser` once, then retry.
 
 ---
 
@@ -239,16 +277,16 @@ pip --version      # pip 2x.x
 
 ```bash
 git clone https://github.com/<your-username>/<repo-name>.git
-cd backup-deploy-lenovo-development-test
+cd develop-lenovo-app
 ```
 
-### 2. Create and activate a virtual environment
+### 2. Create and activate virtual environment
 
 **Windows (PowerShell):**
 ```powershell
 $env:PYTHONIOENCODING = "utf-8"
 python -m venv .venv
-.venv\Scripts\Activate.ps1
+$env:PYTHONIOENCODING = "utf-8"; .venv\Scripts\Activate.ps1
 ```
 
 **macOS / Linux:**
@@ -257,65 +295,48 @@ python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-> **Why `PYTHONIOENCODING`?** The project path contains emoji characters. Setting this to `utf-8` prevents a `UnicodeEncodeError` when pip tries to display the path. See [Troubleshooting](#activating-the-virtual-environment-windows) for details.
-
-Re-activate each time you return to work on the project:
-```powershell
-# Windows
-$env:PYTHONIOENCODING = "utf-8"; .venv\Scripts\Activate.ps1
-
-# macOS / Linux
-source .venv/bin/activate
-```
+> The project path contains emoji characters — always set `PYTHONIOENCODING=utf-8` on Windows to avoid a `UnicodeEncodeError`. See [Troubleshooting](#activating-the-virtual-environment-windows).
 
 ### 3. Install dependencies
 
+**Windows:**
 ```powershell
-# Windows — always use this form (bypasses emoji-path pip bug)
 .venv\Scripts\python.exe -m pip install -r requirements.txt
+```
 
-# macOS / Linux
+**macOS / Linux:**
+```bash
 pip install -r requirements.txt
 ```
 
-### 4. Seed the database (first time only)
+### 4. Seed the database *(first time only)*
 
-The database (`files/lenovo_asp.db`) is auto-created and migrated on first run. To populate it from source Excel files:
-
+Place source Excel files in `files/source-db/`, then:
 ```powershell
-# Place source Excel files in files/source-db/ first, then:
 flask seed-db
 ```
 
-This command runs `app/services/database/seed.py` and prints row counts for each table.
+`files/lenovo_asp.db` is auto-created and not committed to Git.
 
-> The database file is not committed to Git. It is created locally in `files/lenovo_asp.db`.
-
-### 5. Run the development server
+### 5. Run the app
 
 ```powershell
 python run.py
 ```
 
-The app is available at **http://127.0.0.1:5000** and will redirect to the login page.
-
-> **Chrome DevTools probe:** You may see `GET /.well-known/appspecific/com.chrome.devtools.json 404` in the console. This is harmless.
+Open **http://127.0.0.1:5000** — redirects to login page.
 
 ### 6. Running with the mobile app (same Wi-Fi)
 
-When developing the mobile app alongside the server, use your PC's LAN IP so the phone can reach the Flask server:
+Find your LAN IP and set it in [`mobile-lenovo-asp/services/api.ts`](../mobile-lenovo-asp/services/api.ts):
 
 ```powershell
-# Find your LAN IP
 ipconfig | Select-String "IPv4"
 ```
 
-Then update [`mobile-lenovo-asp/services/api.ts`](../mobile-lenovo-asp/services/api.ts):
 ```typescript
 const DEV_DEVICE = "http://192.168.1.X:5000";  // replace X with your IP
 ```
-
-The mobile app auto-selects `localhost:5000` when running in a browser and `DEV_DEVICE` when running on a phone.
 
 ---
 

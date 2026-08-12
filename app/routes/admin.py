@@ -2,6 +2,9 @@ import logging
 import os
 import sqlite3
 import tempfile
+import threading
+import queue as _queue
+import time as _time
 from datetime import datetime
 from flask import (
     Blueprint, render_template, request, redirect,
@@ -273,7 +276,210 @@ def data_import():
                            active_open_wos=active_open_wos,
                            incomplete_prev_shipments=incomplete_prev_shipments,
                            wo_product_mismatch=wo_product_mismatch,
-                           portal="admin", active_page="data_import")
+                           portal="admin", active_page="data_import",
+                           active_group="data_import_export")
+
+
+@admin_bp.route("/admin/msd-wo-updates", methods=["GET"])
+def msd_wo_updates():
+    project_root = os.path.normpath(
+        os.path.join(os.path.dirname(__file__), "..", "..")
+    )
+    script_path = os.path.join(
+        project_root,
+        "app",
+        "scripts",
+        "msd-auto-download",
+        "msd-auto-download.py",
+    )
+    downloads_dir = os.path.join(project_root, "files", "msd-auto-download")
+
+    files = []
+    if os.path.isdir(downloads_dir):
+        for name in sorted(
+            os.listdir(downloads_dir),
+            key=lambda item: os.path.getmtime(os.path.join(downloads_dir, item)),
+            reverse=True,
+        ):
+            file_path = os.path.join(downloads_dir, name)
+            if not os.path.isfile(file_path):
+                continue
+            files.append({
+                "name": name,
+                "size_kb": round(os.path.getsize(file_path) / 1024, 1),
+                "modified_fmt": datetime.fromtimestamp(
+                    os.path.getmtime(file_path)
+                ).strftime("%Y-%m-%d %H:%M"),
+            })
+
+    with _msd_lock:
+        is_running = _msd_thread is not None and _msd_thread.is_alive()
+
+    return render_template(
+        "admin/export-import/msd_wo_updates.html",
+        portal="admin",
+        active_page="msd_wo_updates",
+        active_group="data_import_export",
+        script_path=script_path,
+        downloads_dir=downloads_dir,
+        files=files,
+        is_running=is_running,
+        in_window=_msd_in_active_window(),
+    )
+
+
+_msd_log_queue: _queue.Queue = _queue.Queue(maxsize=2000)
+_msd_thread: threading.Thread | None = None
+_msd_lock = threading.Lock()
+
+# OTP handshake — script blocks on _msd_otp_queue.get(); route puts the code in
+_msd_otp_queue:    _queue.Queue = _queue.Queue(maxsize=1)
+_msd_otp_pending:  bool = False   # True while script is waiting for OTP
+_msd_relogin_pending: bool = False  # True while script is waiting for re-login
+
+
+def _msd_in_active_window() -> bool:
+    """Mon–Fri 06:00–20:00 local time."""
+    now = datetime.now()
+    return now.weekday() < 5 and 6 <= now.hour < 20
+
+
+class _MsdQueueHandler(logging.Handler):
+    def emit(self, record: logging.LogRecord) -> None:  # type: ignore[override]
+        try:
+            _msd_log_queue.put_nowait({
+                "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "level": record.levelname,
+                "msg": record.getMessage(),
+            })
+        except _queue.Full:
+            try:
+                _msd_log_queue.get_nowait()
+                _msd_log_queue.put_nowait({
+                    "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "level": record.levelname,
+                    "msg": record.getMessage(),
+                })
+            except (_queue.Full, _queue.Empty):
+                pass
+
+
+_msd_queue_handler = _MsdQueueHandler()
+_msd_queue_handler.setLevel(logging.INFO)
+
+
+@admin_bp.route("/admin/msd-wo-updates/trigger", methods=["POST"])
+def msd_wo_updates_trigger():
+    global _msd_thread
+
+    # Off-hours: allow trigger but run only once, then wait for office hours.
+    # In-window: normal repeating loop.
+    run_once = not _msd_in_active_window()
+
+    with _msd_lock:
+        if _msd_thread is not None and _msd_thread.is_alive():
+            return jsonify({"ok": False, "error": "MSD auto-download is already running."}), 409
+
+        app = current_app._get_current_object()
+        _msd_thread = threading.Thread(
+            target=_run_msd_download_task,
+            args=(app, run_once),
+            daemon=True,
+            name="msd-auto-download",
+        )
+        _msd_thread.start()
+
+    return jsonify({"ok": True, "run_once": run_once})
+
+
+@admin_bp.route("/admin/msd-wo-updates/stream", methods=["GET"])
+def msd_wo_updates_stream():
+    def generate():
+        import json as _json
+        while True:
+            try:
+                rec = _msd_log_queue.get(timeout=15)
+                yield f"data: {_json.dumps(rec)}\n\n"
+            except _queue.Empty:
+                yield "data: {\"keepalive\": true}\n\n"
+
+    return current_app.response_class(
+        generate(),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@admin_bp.route("/admin/msd-wo-updates/files", methods=["GET"])
+def msd_wo_updates_files():
+    project_root = os.path.normpath(
+        os.path.join(os.path.dirname(__file__), "..", "..")
+    )
+    downloads_dir = os.path.join(project_root, "files", "msd-auto-download")
+    files = []
+    if os.path.isdir(downloads_dir):
+        for name in sorted(
+            os.listdir(downloads_dir),
+            key=lambda item: os.path.getmtime(os.path.join(downloads_dir, item)),
+            reverse=True,
+        ):
+            file_path = os.path.join(downloads_dir, name)
+            if not os.path.isfile(file_path):
+                continue
+            files.append({
+                "name": name,
+                "size_kb": round(os.path.getsize(file_path) / 1024, 1),
+                "modified_fmt": datetime.fromtimestamp(
+                    os.path.getmtime(file_path)
+                ).strftime("%Y-%m-%d %H:%M"),
+            })
+    return jsonify({"ok": True, "files": files})
+
+
+@admin_bp.route("/admin/msd-wo-updates/relogin", methods=["POST"])
+def msd_wo_updates_relogin():
+    global _msd_relogin_pending
+    if not _msd_relogin_pending:
+        return jsonify({"ok": False, "error": "No re-login is currently pending."}), 409
+    try:
+        _msd_otp_queue.put_nowait("__RELOGIN_CONFIRMED__")
+        _msd_relogin_pending = False
+    except _queue.Full:
+        return jsonify({"ok": False, "error": "Re-login already queued."}), 409
+    return jsonify({"ok": True})
+
+
+@admin_bp.route("/admin/msd-wo-updates/status", methods=["GET"])
+def msd_wo_updates_status():
+    with _msd_lock:
+        is_running = _msd_thread is not None and _msd_thread.is_alive()
+    return jsonify({
+        "ok": True,
+        "is_running": is_running,
+        "otp_pending": _msd_otp_pending,
+        "relogin_pending": _msd_relogin_pending,
+        "in_window": _msd_in_active_window(),
+    })
+
+
+@admin_bp.route("/admin/msd-wo-updates/otp", methods=["POST"])
+def msd_wo_updates_otp():
+    global _msd_otp_pending
+    if not _msd_otp_pending:
+        return jsonify({"ok": False, "error": "No OTP is currently expected."}), 409
+    data = request.get_json(silent=True) or {}
+    code = str(data.get("code", "")).strip()
+    if not code:
+        return jsonify({"ok": False, "error": "OTP code is required."}), 400
+    try:
+        _msd_otp_queue.put_nowait(code)
+        _msd_otp_pending = False
+    except _queue.Full:
+        return jsonify({"ok": False, "error": "OTP already queued."}), 409
+    return jsonify({"ok": True})
 
 
 @admin_bp.route("/admin/data-import/verify", methods=["POST"])
@@ -1919,9 +2125,6 @@ def api_superadmin_users_delete(uid):
 
 # ── Escalation Center (Monday.com Sync Manager) ──────────────────────────────
 # Background sync state — module-level so it persists across requests
-import threading
-import queue as _queue
-import time as _time
 
 SYNC_INTERVAL_SEC = 30 * 60   # 30 minutes
 SYNC_TZ_OFFSET    = 7 * 3600  # WIB = UTC+7
@@ -2146,7 +2349,7 @@ def _run_sync_task(app, mode: str, board_id: str | None = None) -> None:
     project_root = _os.path.normpath(
         _os.path.join(_os.path.dirname(__file__), "..", "..")
     )
-    scripts_dir = _os.path.join(project_root, "scripts")
+    scripts_dir = _os.path.join(project_root, "app", "scripts")
     if scripts_dir not in sys.path:
         sys.path.insert(0, scripts_dir)
 
@@ -2210,6 +2413,102 @@ def _run_sync_task(app, mode: str, board_id: str | None = None) -> None:
                 pass
 
 
+def _run_msd_download_task(app, run_once: bool = False) -> None:
+    import runpy
+    import traceback
+    from contextlib import redirect_stderr, redirect_stdout
+
+    class _QueueWriter:
+        def __init__(self, logger: logging.Logger, level: int) -> None:
+            self._logger = logger
+            self._level = level
+            self._buffer = ""
+
+        def write(self, value: str) -> int:
+            self._buffer += value
+            while "\n" in self._buffer:
+                line, self._buffer = self._buffer.split("\n", 1)
+                if line.strip():
+                    self._logger.log(self._level, line)
+            return len(value)
+
+        def flush(self) -> None:
+            if self._buffer.strip():
+                self._logger.log(self._level, self._buffer.strip())
+            self._buffer = ""
+
+    project_root = os.path.normpath(
+        os.path.join(os.path.dirname(__file__), "..", "..")
+    )
+    script_path = os.path.join(
+        project_root,
+        "app",
+        "scripts",
+        "msd-auto-download",
+        "msd-auto-download.py",
+    )
+
+    logger = logging.getLogger("msd_auto_download")
+    logger.setLevel(logging.INFO)
+    logger.propagate = False  # prevent root-logger → stderr → _QueueWriter → logger loop
+    logger.addHandler(_msd_queue_handler)
+
+    stdout_writer = _QueueWriter(logger, logging.INFO)
+    stderr_writer = _QueueWriter(logger, logging.ERROR)
+
+    # ── stdin shim ────────────────────────────────────────────────────────────
+    # Replace builtins.input inside the script. Handles two cases:
+    #   • OTP prompt  — shows OTP panel in browser, waits for /otp
+    #   • Re-login    — shows Re-login panel, waits for /relogin
+    def _web_input(prompt: str = "") -> str:
+        global _msd_otp_pending, _msd_relogin_pending
+        if prompt == "__RELOGIN_WAIT__":
+            # Session expired — emit sentinel, show Re-login panel, block
+            logger.warning("__RELOGIN_REQUIRED__")  # picked up by SSE → re-login panel
+            _msd_relogin_pending = True
+            _msd_otp_queue.get()  # blocks until /relogin puts __RELOGIN_CONFIRMED__
+            logger.info("Re-login confirmed by user.")
+            return ""
+        # Normal OTP flow
+        if prompt:
+            logger.info(prompt)
+        logger.info("__OTP_REQUIRED__")   # sentinel picked up by SSE stream
+        _msd_otp_pending = True
+        code = _msd_otp_queue.get()       # blocks until /otp route puts a value
+        logger.info("OTP code received from browser.")
+        return code
+
+    with app.app_context():
+        try:
+            logger.info("Starting MSD WO auto-download script...")
+            original_argv = list(os.sys.argv)
+            os.sys.argv = [script_path]
+            with redirect_stdout(stdout_writer), redirect_stderr(stderr_writer):
+                runpy.run_path(
+                    script_path,
+                    init_globals={"input": _web_input, "_MSD_RUN_ONCE": run_once},
+                    run_name="__main__",
+                )
+            stdout_writer.flush()
+            stderr_writer.flush()
+        except SystemExit as exc:
+            code = exc.code if isinstance(exc.code, int) else 0
+            if code == 0:
+                logger.info("MSD WO auto-download finished.")
+            else:
+                logger.error("MSD WO auto-download exited with code %s.", code)
+        except Exception:
+            logger.error("MSD WO auto-download failed.")
+            logger.error(traceback.format_exc())
+        finally:
+            global _msd_otp_pending, _msd_relogin_pending
+            _msd_otp_pending = False
+            _msd_relogin_pending = False
+            os.sys.argv = original_argv
+            logger.removeHandler(_msd_queue_handler)
+            logger.propagate = True
+
+
 # ── Escalation Center page ────────────────────────────────────────────────────
 
 @admin_bp.route("/admin/escalation-center", methods=["GET"])
@@ -2223,7 +2522,7 @@ def escalation_center():
     # Load board list from xlsx
     try:
         import sys
-        scripts_dir = _os.path.join(project_root, "scripts")
+        scripts_dir = _os.path.join(project_root, "app", "scripts")
         if scripts_dir not in sys.path:
             sys.path.insert(0, scripts_dir)
         import monday_sync as _ms
@@ -2442,7 +2741,7 @@ def escalation_center_boards():
     # Board list
     try:
         import sys
-        scripts_dir = _os.path.join(project_root, "scripts")
+        scripts_dir = _os.path.join(project_root, "app", "scripts")
         if scripts_dir not in sys.path:
             sys.path.insert(0, scripts_dir)
         import monday_sync as _ms

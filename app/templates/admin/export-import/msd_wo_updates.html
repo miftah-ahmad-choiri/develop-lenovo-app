@@ -1,0 +1,584 @@
+{% extends "base.html" %}
+{% block title %}MSD WO Updates — Admin Portal{% endblock %}
+
+{% block extra_styles %}
+  /* ── Card shell ─────────────────────────────────────────────────────────── */
+  /* Card stretches to fill from its top edge to the viewport bottom.
+     main-content top padding = 28px, page-header block ≈ 90px, card top-border = 1px */
+  .msd-card {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden;
+    display: flex; flex-direction: column;
+    height: calc(100vh - 28px - 90px - 1px);
+    min-height: 480px;
+  }
+
+  /* ── Buttons ────────────────────────────────────────────────────────────── */
+  .btn-msd {
+    display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px;
+    border: 1px solid #d0d7de; border-radius: 6px; cursor: pointer; font-family: inherit;
+    font-size: 13px; font-weight: 600; background: #fff; color: #1f2328;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  .btn-msd:hover { background: #f3f4f6; }
+  .btn-msd.primary { background: #3b82d4; border-color: #3b82d4; color: #fff; }
+  .btn-msd.primary:hover { background: #2563b0; border-color: #2563b0; }
+  .btn-msd:disabled { opacity: 0.6; cursor: not-allowed; }
+  .btn-msd-sm {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 10px; border: 1px solid #d0d7de; border-radius: 6px;
+    cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600;
+    background: #fff; color: #374151; transition: background 0.12s, border-color 0.12s;
+  }
+  .btn-msd-sm:hover:not(:disabled) { background: #f3f4f6; border-color: #9ca3af; }
+  .btn-msd-sm:disabled { opacity: 0.55; cursor: not-allowed; }
+  @keyframes _mspin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+  .btn-msd-sm.spinning svg { animation: _mspin 0.75s linear infinite; }
+
+  /* ── Running badge ──────────────────────────────────────────────────────── */
+  .msd-running-badge {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px;
+    border-radius: 999px; font-size: 12px; font-weight: 700;
+    background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;
+  }
+  .msd-running-dot { width: 8px; height: 8px; border-radius: 50%; background: #16a34a; animation: msd-pulse 1.2s infinite; }
+  @keyframes msd-pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+  .msd-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  /* Off-hours badge */
+  .msd-offhours-badge {
+    display: none; align-items: center; gap: 5px; font-size: 12px; font-weight: 600;
+    color: #92400e; background: #fef3c7; border: 1px solid #fcd34d;
+    border-radius: 5px; padding: 4px 10px;
+  }
+  .msd-offhours-badge.visible { display: inline-flex; }
+
+  /* ── OTP panel ──────────────────────────────────────────────────────────── */
+  .msd-otp-panel {
+    margin-top: 16px; padding: 14px 16px; border-radius: 8px;
+    background: #fefce8; border: 1px solid #fde047; display: none;
+  }
+  .msd-otp-panel.visible { display: block; }
+  .msd-otp-title { font-size: 13px; font-weight: 700; color: #713f12; margin: 0 0 4px; }
+  .msd-otp-sub   { font-size: 12px; color: #92400e; margin: 0 0 10px; }
+  .msd-otp-row   { display: flex; gap: 8px; align-items: center; }
+  .msd-otp-input {
+    flex: 1; padding: 8px 12px; font-size: 15px; letter-spacing: 0.18em; font-weight: 700;
+    border: 1px solid #fbbf24; border-radius: 6px; outline: none;
+    background: #fff; color: #1f2328; text-align: center;
+  }
+  .msd-otp-input:focus { border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(251,191,36,.25); }
+  .btn-otp-submit {
+    padding: 8px 16px; background: #f59e0b; border: 1px solid #d97706; border-radius: 6px;
+    color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    font-family: inherit;
+  }
+  .btn-otp-submit:hover { background: #d97706; }
+  .btn-otp-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  /* ── Session-expired / Re-login panel ───────────────────────────────────── */
+  .msd-relogin-panel {
+    margin-top: 16px; padding: 16px 18px; border-radius: 8px; display: none;
+    background: #fff1f2; border: 1px solid #fca5a5;
+  }
+  .msd-relogin-panel.visible { display: block; }
+  .msd-relogin-title {
+    font-size: 14px; font-weight: 700; color: #b91c1c; margin: 0 0 6px;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .msd-relogin-sub { font-size: 12px; color: #7f1d1d; margin: 0 0 14px; line-height: 1.6; }
+  .btn-relogin {
+    padding: 9px 20px; background: #dc2626; border: 1px solid #b91c1c; border-radius: 6px;
+    color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
+    transition: background 0.12s;
+  }
+  .btn-relogin:hover { background: #b91c1c; }
+  .btn-relogin:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  /* ── Files section ──────────────────────────────────────────────────────── */
+  .msd-files-section { border-top: 1px solid #e5e7eb; flex-shrink: 0; }
+  .msd-files-head {
+    padding: 10px 16px; border-bottom: 1px solid #e5e7eb;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .msd-files-head-label { font-size: 12px; font-weight: 600; color: #57606a; flex: 1; }
+  .msd-files-head-count {
+    font-size: 11px; font-weight: 700; color: #57606a;
+    background: #e5e7eb; border-radius: 999px; padding: 1px 7px;
+  }
+  /* Next-download countdown badge */
+  .msd-next-badge {
+    display: none; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 700;
+    color: #92400e; background: #fef3c7; border: 1px solid #fcd34d;
+    border-radius: 5px; padding: 2px 9px; white-space: nowrap;
+  }
+  .msd-next-badge.visible { display: inline-flex; }
+  .msd-files-scroll { overflow: visible; }
+  .msd-file-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .msd-file-table thead { background: #f7f8fa; position: sticky; top: 0; z-index: 1; }
+  .msd-file-table th {
+    padding: 8px 16px; text-align: left; font-size: 11px; font-weight: 700; color: #57606a;
+    text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #e5e7eb; white-space: nowrap;
+  }
+  .msd-file-table td { padding: 9px 16px; border-bottom: 1px solid #f0f2f5; vertical-align: middle; }
+  .msd-file-table tbody tr:hover td { background: #f9fafb; }
+  .msd-file-table tr:last-child td { border-bottom: none; }
+  .msd-file-name { font-weight: 600; color: #1f2328; }
+  .msd-muted { color: #57606a; font-size: 12px; }
+  .msd-empty { padding: 24px 18px; text-align: center; font-size: 13px; color: #57606a; }
+
+  /* ── Top action bar ─────────────────────────────────────────────────────── */
+  .msd-panel-body { padding: 20px; flex-shrink: 0; }
+
+  /* ── Console ────────────────────────────────────────────────────────────── */
+  .msd-console-wrap {
+    border-top: 1px solid #e5e7eb;
+    display: flex; flex-direction: column; flex: 1; min-height: 0;
+  }
+  .msd-console-head {
+    padding: 10px 16px; border-bottom: 1px solid #e5e7eb; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .msd-console-head span { font-size: 12px; color: #57606a; font-weight: 600; }
+  .msd-console {
+    background: #0d1117; color: #c9d1d9; overflow-y: auto; flex: 1; min-height: 0;
+    padding: 14px 16px; font-family: ui-monospace, SFMono-Regular, "Courier New", monospace;
+    font-size: 12.5px; line-height: 1.55;
+  }
+  .msd-log-line    { white-space: pre-wrap; word-break: break-word; margin: 0 0 2px; }
+  .msd-log-info    { color: #c9d1d9; }
+  .msd-log-warning { color: #e3b341; }
+  .msd-log-error   { color: #f85149; }
+  .msd-log-system  { color: #58a6ff; }
+
+  /* Single panel fills remaining card height */
+  .msd-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom:20px">
+  <div class="breadcrumb" style="font-size:12px;color:#57606a;margin-bottom:6px">
+    Admin <span style="margin:0 5px">›</span> Data Import / Export <span style="margin:0 5px">›</span> MSD WO Updates
+  </div>
+  <h1 style="font-size:20px;font-weight:700;margin:0 0 4px">MSD WO Updates</h1>
+  <p style="font-size:13px;color:#57606a;margin:0">
+    Run the MSD auto-download workflow and monitor generated files.
+  </p>
+</div>
+
+<div class="msd-card">
+  <div class="msd-panel">
+
+    <!-- ── Action bar ──────────────────────────────────────────────────────── -->
+    <div class="msd-panel-body">
+      <div class="msd-actions">
+        <button type="button" class="btn-msd primary" id="btn-run-msd" onclick="triggerMsdRun()"
+          {% if is_running %}disabled{% endif %}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span id="btn-run-msd-label">{% if in_window %}Run MSD Auto-Download{% else %}Run Once (Off-hours){% endif %}</span>
+        </button>
+        <span class="msd-running-badge" id="msd-running-badge" {% if not is_running %}style="display:none"{% endif %}>
+          <span class="msd-running-dot"></span>RUNNING
+        </span>
+        <span class="msd-offhours-badge{% if not in_window %} visible{% endif %}" id="msd-offhours-badge"
+              title="Outside office hours. Click Run Once to do a single export now.">
+          ⏸ Off-hours — active Mon–Fri 06:00–20:00
+        </span>
+      </div>
+
+      <div class="msd-otp-panel" id="msd-otp-panel">
+        <p class="msd-otp-title">🔐 OTP / SMS Verification Required</p>
+        <p class="msd-otp-sub">Microsoft is asking for a verification code. Check your SMS and enter it below.</p>
+        <div class="msd-otp-row">
+          <input type="text" id="msd-otp-input" class="msd-otp-input"
+                 maxlength="8" inputmode="numeric" pattern="[0-9]*"
+                 placeholder="_ _ _ _ _ _" autocomplete="one-time-code" />
+          <button type="button" class="btn-otp-submit" id="btn-otp-submit" onclick="submitOtp()">
+            Submit OTP
+          </button>
+        </div>
+      </div>
+
+      <div class="msd-relogin-panel" id="msd-relogin-panel">
+        <p class="msd-relogin-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Session Expired
+        </p>
+        <p class="msd-relogin-sub">
+          The Dynamics session has expired and Chrome is now on the Microsoft login page.<br>
+          Chrome is still open and waiting. Click <strong>Re-login</strong> to run the login flow
+          on the existing Chrome window — no restart needed.
+        </p>
+        <button type="button" class="btn-relogin" id="btn-relogin" onclick="submitRelogin()">
+          🔄 Re-login
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Downloaded Files ────────────────────────────────────────────────── -->
+    <div class="msd-files-section">
+      <div class="msd-files-head">
+        <span class="msd-files-head-label">Downloaded Files</span>
+        <span class="msd-files-head-count" id="msd-files-count">{{ files|length }}</span>
+        <span class="msd-next-badge" id="msd-next-badge">
+          ⏱ Next in <span id="msd-next-val">—</span>
+        </span>
+        <button type="button" class="btn-msd-sm" id="btn-refresh-files" onclick="refreshFiles()" title="Refresh file list">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Refresh
+        </button>
+      </div>
+      <div class="msd-files-scroll">
+        <table class="msd-file-table">
+          <thead>
+            <tr>
+              <th>File Name</th>
+              <th style="width:110px">Size</th>
+              <th style="width:140px">Modified</th>
+            </tr>
+          </thead>
+          <tbody id="msd-files-tbody">
+            {% if files %}
+              {% for file in files %}
+              <tr>
+                <td><div class="msd-file-name">{{ file.name }}</div></td>
+                <td><span class="msd-muted">{{ file.size_kb }} KB</span></td>
+                <td><span class="msd-muted">{{ file.modified_fmt }}</span></td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="3" class="msd-empty">No downloaded MSD files found yet.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Live Execution Log ──────────────────────────────────────────────── -->
+    <div class="msd-console-wrap">
+      <div class="msd-console-head">
+        <span>Live Execution Log</span>
+        <button type="button" class="btn-msd" onclick="clearMsdLog()">Clear Log</button>
+      </div>
+      <div class="msd-console" id="msd-console">
+        <p class="msd-log-line msd-log-system">— ready — click "Run MSD Auto-Download" to start streaming logs —</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let _msdEs        = null;
+let _msdRunning   = {{ 'true' if is_running else 'false' }};
+let _msdInWindow  = {{ 'true' if in_window else 'false' }};
+let _msdStatusTimer = null;
+
+/* ── Next-download countdown ───────────────────────────────────────────── */
+let _nextTarget   = null;   // ms epoch when next download fires
+let _nextInterval = null;
+
+/* Parse "Next download in Xm Ys..." or "Next download in Xs..."
+   from a log line and return total seconds, or null if no match. */
+function _parseNextSecs(text) {
+  // e.g. "  Next download in 29m 45s..." or "  Next download in 45s..."
+  const mFull = /Next download in (\d+)m (\d+)s/i.exec(text);
+  if (mFull) return parseInt(mFull[1], 10) * 60 + parseInt(mFull[2], 10);
+  const mSec  = /Next download in (\d+)s/i.exec(text);
+  if (mSec)  return parseInt(mSec[1], 10);
+  return null;
+}
+
+function _startNextCountdown(remainingSecs) {
+  _nextTarget = Date.now() + remainingSecs * 1000;
+  if (_nextInterval) clearInterval(_nextInterval);
+  _nextInterval = setInterval(_tickNext, 1000);
+  _tickNext();
+}
+
+function _tickNext() {
+  const badge = document.getElementById('msd-next-badge');
+  const val   = document.getElementById('msd-next-val');
+  if (!_nextTarget) { badge.classList.remove('visible'); return; }
+  const remaining = Math.max(0, Math.round((_nextTarget - Date.now()) / 1000));
+  // Hide while script is actively running (a download is in progress)
+  if (_msdRunning) {
+    badge.classList.remove('visible');
+    return;
+  }
+  if (remaining === 0) {
+    // Keep showing "0s" briefly until next log line arrives
+    val.textContent = '0s';
+    badge.classList.add('visible');
+    clearInterval(_nextInterval);
+    _nextInterval = null;
+    _nextTarget   = null;
+    return;
+  }
+  const m = Math.floor(remaining / 60);
+  const s = remaining % 60;
+  val.textContent = m > 0 ? m + 'm ' + String(s).padStart(2, '0') + 's' : s + 's';
+  badge.classList.add('visible');
+}
+
+/* ── Log helpers ───────────────────────────────────────────────────────── */
+const _MSD_SPINNER_PATTERNS = [
+  /^\s*(Waiting for data rows to render\.\.\.)/,
+  /^\s*(Waiting for download\.\.\.)/,
+  /^\s*(Next download in )/,
+];
+function _msdSpinnerKey(text) {
+  for (const re of _MSD_SPINNER_PATTERNS) {
+    const m = re.exec(text);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+function appendMsdLog(level, text) {
+  const el = document.getElementById('msd-console');
+  const key = _msdSpinnerKey(text);
+  if (key) {
+    const last = el.lastElementChild;
+    if (last && last.dataset.spinnerKey === key) {
+      last.textContent = text;
+      el.scrollTop = el.scrollHeight;
+      return;
+    }
+  }
+  const p = document.createElement('p');
+  p.className = 'msd-log-line ' + level;
+  p.textContent = text;
+  if (key) p.dataset.spinnerKey = key;
+  el.appendChild(p);
+  while (el.children.length > 500) el.removeChild(el.firstChild);
+  el.scrollTop = el.scrollHeight;
+}
+
+function clearMsdLog() {
+  document.getElementById('msd-console').innerHTML =
+    '<p class="msd-log-line msd-log-system">— log cleared —</p>';
+}
+
+/* ── Running state ─────────────────────────────────────────────────────── */
+function _updateRunBtn() {
+  const btn   = document.getElementById('btn-run-msd');
+  const label = document.getElementById('btn-run-msd-label');
+  btn.disabled = _msdRunning;   // only disabled while actively running
+  label.textContent = _msdInWindow ? 'Run MSD Auto-Download' : 'Run Once (Off-hours)';
+}
+
+function setMsdRunning(running) {
+  _msdRunning = running;
+  _updateRunBtn();
+  document.getElementById('msd-running-badge').style.display = running ? 'inline-flex' : 'none';
+  if (!running) {
+    setOtpPanelVisible(false);
+    setReloginPanelVisible(false);
+  }
+  if (running) {
+    document.getElementById('msd-next-badge').classList.remove('visible');
+  }
+}
+
+function setInWindow(inWindow) {
+  _msdInWindow = inWindow;
+  document.getElementById('msd-offhours-badge').classList.toggle('visible', !inWindow);
+  _updateRunBtn();
+}
+
+/* ── Re-login panel ────────────────────────────────────────────────────── */
+function setReloginPanelVisible(visible) {
+  const panel = document.getElementById('msd-relogin-panel');
+  const btn   = document.getElementById('btn-relogin');
+  if (visible) {
+    panel.classList.add('visible');
+    // Also flash the log tab so the user notices even if looking at the files section
+    appendMsdLog('msd-log-error',
+      '⚠ SESSION EXPIRED — Dynamics logged out. Chrome is waiting. Click "Re-login" above to continue.');
+    btn.disabled = false;
+  } else {
+    panel.classList.remove('visible');
+  }
+}
+
+function submitRelogin() {
+  const btn = document.getElementById('btn-relogin');
+  btn.disabled = true;
+  fetch('/admin/msd-wo-updates/relogin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  })
+    .then(async function (r) {
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.error || 'Failed to trigger re-login.');
+      appendMsdLog('msd-log-system', '— Re-login confirmed. Running login flow on existing Chrome... —');
+      setReloginPanelVisible(false);
+    })
+    .catch(function (err) {
+      appendMsdLog('msd-log-error', err.message || String(err));
+      btn.disabled = false;
+    });
+}
+
+/* ── OTP panel ─────────────────────────────────────────────────────────── */
+function setOtpPanelVisible(visible) {
+  const panel = document.getElementById('msd-otp-panel');
+  const input = document.getElementById('msd-otp-input');
+  if (visible) {
+    panel.classList.add('visible');
+    input.value = '';
+    input.focus();
+  } else {
+    panel.classList.remove('visible');
+  }
+}
+
+function submitOtp() {
+  const input = document.getElementById('msd-otp-input');
+  const btn   = document.getElementById('btn-otp-submit');
+  const code  = input.value.trim();
+  if (!code) { input.focus(); return; }
+  btn.disabled = true;
+  fetch('/admin/msd-wo-updates/otp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: code }),
+  })
+    .then(async function (r) {
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.error || 'Failed to submit OTP.');
+      appendMsdLog('msd-log-system', '— OTP submitted —');
+      setOtpPanelVisible(false);
+    })
+    .catch(function (err) { appendMsdLog('msd-log-error', err.message || String(err)); })
+    .finally(function () { btn.disabled = false; });
+}
+
+document.getElementById('msd-otp-input').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') submitOtp();
+});
+
+/* ── Files refresh ─────────────────────────────────────────────────────── */
+function refreshFiles() {
+  const btn = document.getElementById('btn-refresh-files');
+  btn.disabled = true;
+  btn.classList.add('spinning');
+  fetch('/admin/msd-wo-updates/files')
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (!data.ok) return;
+      const tbody = document.getElementById('msd-files-tbody');
+      const count = document.getElementById('msd-files-count');
+      if (!data.files || data.files.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="msd-empty">No downloaded MSD files found yet.</td></tr>';
+        count.textContent = '0';
+        return;
+      }
+      count.textContent = String(data.files.length);
+      tbody.innerHTML = data.files.map(function (f) {
+        return '<tr>'
+          + '<td><div class="msd-file-name">' + _esc(f.name) + '</div></td>'
+          + '<td><span class="msd-muted">' + _esc(String(f.size_kb)) + ' KB</span></td>'
+          + '<td><span class="msd-muted">' + _esc(f.modified_fmt) + '</span></td>'
+          + '</tr>';
+      }).join('');
+    })
+    .catch(function () {})
+    .finally(function () {
+      btn.disabled = false;
+      btn.classList.remove('spinning');
+    });
+}
+
+function _esc(str) {
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/* ── SSE stream ────────────────────────────────────────────────────────── */
+function connectMsdStream() {
+  if (_msdEs) _msdEs.close();
+  _msdEs = new EventSource('/admin/msd-wo-updates/stream');
+  _msdEs.onmessage = function (e) {
+    const data = JSON.parse(e.data);
+    if (data.keepalive) return;
+    if ((data.msg || '').indexOf('__OTP_REQUIRED__') !== -1) {
+      setOtpPanelVisible(true);
+      appendMsdLog('msd-log-warning', '⚠ OTP required — enter the SMS code above.');
+      return;
+    }
+    if ((data.msg || '').indexOf('__RELOGIN_REQUIRED__') !== -1) {
+      setReloginPanelVisible(true);
+      return;
+    }
+    // Intercept countdown lines to drive the badge
+    const rawMsg = data.msg || '';
+    const nextSecs = _parseNextSecs(rawMsg);
+    if (nextSecs !== null) _startNextCountdown(nextSecs);
+
+    const ts  = data.ts ? '[' + data.ts + '] ' : '';
+    const msg = ts + rawMsg;
+    const lvl = (data.level || 'INFO').toUpperCase();
+    if      (lvl === 'ERROR')   appendMsdLog('msd-log-error',   msg);
+    else if (lvl === 'WARNING') appendMsdLog('msd-log-warning', msg);
+    else if (lvl === 'INFO')    appendMsdLog('msd-log-info',    msg);
+    else                        appendMsdLog('msd-log-system',  msg);
+  };
+  _msdEs.onerror = function () {
+    appendMsdLog('msd-log-system', '— log stream disconnected —');
+  };
+}
+
+/* ── Trigger ───────────────────────────────────────────────────────────── */
+function triggerMsdRun() {
+  fetch('/admin/msd-wo-updates/trigger', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  })
+    .then(async function (r) {
+      const data = await r.json();
+      if (!r.ok || !data.ok) throw new Error(data.error || 'Failed to start MSD auto-download.');
+      clearMsdLog();
+      if (data.run_once) {
+        appendMsdLog('msd-log-system', '— Off-hours manual run triggered — will export once, then wait for 06:00 —');
+      } else {
+        appendMsdLog('msd-log-system', '— MSD auto-download triggered —');
+      }
+      setMsdRunning(true);
+      connectMsdStream();
+    })
+    .catch(function (err) {
+      appendMsdLog('msd-log-error', err.message || String(err));
+      alert(err.message || 'Failed to start MSD auto-download.');
+    });
+}
+
+/* ── Status poll ───────────────────────────────────────────────────────── */
+function pollMsdStatus() {
+  fetch('/admin/msd-wo-updates/status')
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (!data.ok) return;
+      const wasRunning = _msdRunning;
+      setMsdRunning(!!data.is_running);
+      if (typeof data.in_window === 'boolean') setInWindow(data.in_window);
+      if (data.otp_pending)    setOtpPanelVisible(true);
+      if (data.relogin_pending) setReloginPanelVisible(true);
+      // Auto-refresh files list when a run just finished
+      if (wasRunning && !data.is_running) refreshFiles();
+    })
+    .catch(function () {});
+}
+
+connectMsdStream();
+pollMsdStatus();
+_msdStatusTimer = setInterval(pollMsdStatus, 5000);
+window.addEventListener('beforeunload', function () {
+  if (_msdEs) _msdEs.close();
+  if (_msdStatusTimer) clearInterval(_msdStatusTimer);
+});
+</script>
+{% endblock %}
