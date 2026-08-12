@@ -12,15 +12,10 @@
   .ec-stat-card.purple .sc-value { color: #7c5cd8; }
   .ec-stat-card.amber .sc-value { color: #d97706; }
 
-  /* ── Section header ───────────────────────────────────────── */
-  .section-header { font-size: 14px; font-weight: 700; margin-bottom: 12px; color: #1f2328; display: flex; align-items: center; gap: 8px; }
-  .section-header small { font-size: 11px; font-weight: 400; color: #57606a; }
-
   /* ── Control panel ────────────────────────────────────────── */
   .control-panel { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .cp-mode-hint { font-size: 12px; color: #57606a; }
   .cp-mode-hint strong { color: #1f2328; }
-  /* Single smart button */
   .btn-sync { padding: 9px 22px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; background: #fff; color: #1f2328; font-family: inherit; transition: background 0.12s, border-color 0.12s; }
   .btn-sync.primary { background: #3b82d4; border-color: #3b82d4; color: #fff; }
   .btn-sync.primary:hover { background: #2d6bbf; border-color: #2d6bbf; }
@@ -34,16 +29,53 @@
   .off-hours-badge { display: none; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: #92400e; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 5px; padding: 2px 8px; margin-left: auto; }
   .off-hours-badge.visible { display: flex; }
 
-  /* ── Table card ───────────────────────────────────────────── */
-  .table-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; margin-bottom: 24px; }
-  .table-toolbar { padding: 10px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap; }
-  .table-toolbar input[type="search"] { padding: 6px 10px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 13px; width: 220px; font-family: inherit; }
-  .table-toolbar input[type="search"]:focus { outline: none; border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,.1); }
+  /* ── Tab panel — fills remaining viewport height ─────────── */
+  .ec-tabs {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 8px;
+    overflow: hidden; margin-bottom: 24px;
+    display: flex; flex-direction: column;
+    height: calc(100vh - 330px);
+    min-height: 400px;
+  }
+  /* Pane base — hidden; active pane is a flex column filling the card */
+  .ec-tab-pane        { display: none; }
+  .ec-tab-pane.active { display: flex; flex: 1; min-height: 0; flex-direction: column; }
+  /* Board Status: scroll wrapper fills remaining height */
+  #tab-pane-boards .table-scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: auto; }
+  /* Log Console: console area fills remaining height, all black */
+  #tab-pane-log #log-console { flex: 1; min-height: 0; }
+  /* Tab bar doubles as the toolbar row — tabs left, controls right */
+  .ec-tab-bar {
+    display: flex; align-items: center;
+    border-bottom: 1px solid #e5e7eb; background: #f7f8fa;
+    padding: 0 12px 0 4px; gap: 0; flex-wrap: nowrap;
+  }
+  .ec-tab-btn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 10px 18px; font-size: 13px; font-weight: 600;
+    color: #57606a; background: none; border: none;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+    cursor: pointer; font-family: inherit; white-space: nowrap;
+    transition: color 0.12s, border-color 0.12s;
+  }
+  .ec-tab-btn:hover { color: #1f2328; }
+  .ec-tab-btn.active { color: #3b82d4; border-bottom-color: #3b82d4; }
+  .ec-tab-btn .tab-dot { width: 7px; height: 7px; border-radius: 50%; background: #57606a; display: none; }
+  .ec-tab-btn .tab-dot.live { background: #16a34a; animation: pulse 1.2s infinite; display: inline-block; }
+  /* Spacer pushes toolbar controls to the right */
+  .ec-tab-spacer { flex: 1; }
+  /* Toolbar controls embedded in the tab bar (right-aligned) */
+  .ec-tab-controls { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .ec-tab-controls input[type="search"] { padding: 5px 10px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 12.5px; width: 200px; font-family: inherit; }
+  .ec-tab-controls input[type="search"]:focus { outline: none; border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,.1); }
+  .ec-tab-count { font-size: 12px; color: #57606a; white-space: nowrap; }
+
+  /* ── Table card (inside tabs) ─────────────────────────────── */
   .toolbar-count { font-size: 12px; color: #57606a; white-space: nowrap; margin-left: auto; }
   .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .data-table thead { background: #f7f8fa; }
-  .data-table th { padding: 9px 12px; text-align: left; font-size: 11px; font-weight: 700; color: #57606a; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+  .data-table thead { background: #f7f8fa; position: sticky; top: 0; z-index: 2; }
+  .data-table th { padding: 9px 12px; text-align: left; font-size: 11px; font-weight: 700; color: #57606a; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #e5e7eb; white-space: nowrap; background: #f7f8fa; }
   .data-table td { padding: 9px 12px; border-bottom: 1px solid #f0f2f5; vertical-align: middle; }
   .data-table tr:last-child td { border-bottom: none; }
   .data-table tr:hover td { background: #f9fafb; }
@@ -58,7 +90,6 @@
   .btn-sm:hover { background: #f3f4f6; }
 
   /* ── Log console ──────────────────────────────────────────── */
-  .log-panel { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 24px; overflow: hidden; }
   .log-header { padding: 10px 16px; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; gap: 10px; }
   .log-indicator { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
   .log-dot { width: 8px; height: 8px; border-radius: 50%; background: #57606a; }
@@ -70,13 +101,25 @@
     font-family: ui-monospace, SFMono-Regular, "Courier New", monospace;
     font-size: 12.5px; line-height: 1.55;
     padding: 14px 16px;
-    min-height: 220px; max-height: 400px; overflow-y: auto;
+    overflow-y: auto;
   }
   #log-console .log-line { white-space: pre-wrap; word-break: break-all; margin: 0 0 1px 0; }
   #log-console .log-info    { color: #c9d1d9; }
   #log-console .log-warning { color: #e3b341; }
   #log-console .log-error   { color: #f85149; }
   #log-console .log-system  { color: #58a6ff; }
+
+  /* ── Board Status refresh button ─────────────────────────── */
+  .btn-hist-refresh {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 5px 7px; border: 1px solid #d0d7de; border-radius: 6px;
+    background: #fff; cursor: pointer; color: #374151; flex-shrink: 0;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .btn-hist-refresh:hover:not(:disabled) { background: #f3f4f6; border-color: #9ca3af; }
+  .btn-hist-refresh:disabled { opacity: 0.55; cursor: not-allowed; }
+  @keyframes _hspin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+  .btn-hist-refresh.spinning .hist-refresh-icon { animation: _hspin 0.75s linear infinite; }
 {% endblock %}
 
 {% block content %}
@@ -130,125 +173,115 @@
   </span>
 </div>
 
-{# ── Board status table ─────────────────────────────────────── #}
-<div class="section-header">
-  Board Status
-  <small>{{ board_count }} boards from monday_link_map.xlsx</small>
-</div>
-<div class="table-card">
-  <div class="table-toolbar">
-    <input type="search" id="board-search" placeholder="Search boards…" oninput="filterBoards(this.value)">
-    <span class="toolbar-count" id="board-count-label">{{ board_count }} boards</span>
-  </div>
-  <div class="table-scroll">
-    <table class="data-table" id="board-table">
-      <thead style="display:table; width:100%; table-layout:fixed;">
-        <tr>
-          <th style="width:40px">#</th>
-          <th>ASP Board</th>
-          <th style="width:120px">Board ID</th>
-          <th style="width:110px">ASP ID</th>
-          <th>ASP Name</th>
-          <th style="width:140px">Last Sync</th>
-          <th style="width:100px">Items Synced</th>
-          <th style="width:90px">Status</th>
-          <th style="width:46px"></th>
-        </tr>
-      </thead>
-      <tbody style="display:block; max-height:410px; overflow-y:auto;">
-        {% for b in boards %}
-        <tr style="display:table; width:100%; table-layout:fixed;" data-name="{{ ((b.asp_board or '') ~ ' ' ~ (b.asp_name or '')) | lower }}">
-          <td class="mono" style="color:#57606a; width:40px">{{ b.no }}</td>
-          <td style="font-weight:600">{{ b.asp_board }}</td>
-          <td class="mono" style="color:#57606a; width:120px">{{ b.board_id }}</td>
-          <td class="mono" style="color:#57606a; width:110px">{{ b.asp_id or '—' }}</td>
-          <td>{{ b.asp_name or '—' }}</td>
-          <td style="font-size:12px;color:#57606a; width:140px">
-            {% if b.last_sync %}
-              {{ b.last_sync[:16] | replace('T', ' ') }}
-            {% else %}
-              <span style="color:#d0d7de">never</span>
-            {% endif %}
-          </td>
-          <td class="mono" style="width:100px">{{ b.total_synced or '—' }}</td>
-          <td style="width:90px">
-            {% if b.synced %}
-              <span class="badge badge-green">Synced</span>
-            {% else %}
-              <span class="badge badge-gray">Pending</span>
-            {% endif %}
-          </td>
-          <td style="width:46px">
-            <button class="btn-sm" onclick="triggerSync('incremental', '{{ b.board_id }}')">▶</button>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
+{# ── Tabbed panel ───────────────────────────────────────────── #}
+<div class="ec-tabs">
 
-{# ── Live log console ───────────────────────────────────────── #}
-<div class="log-panel">
-  <div class="log-header">
-    <div class="log-indicator">
-      <span class="log-dot{% if is_running %} live{% endif %}" id="log-dot"></span>
-      <span id="log-status">{% if is_running %}LIVE{% else %}IDLE{% endif %}</span>
-    </div>
-    <span style="font-size:12px;color:#57606a;margin-left:8px">Sync Log Console</span>
-    <div class="log-controls">
-      <button class="btn-sm" id="btn-pause" onclick="togglePause()">⏸ Pause</button>
-      <button class="btn-sm" onclick="clearLog()">✕ Clear</button>
+  {# Tab bar + inline toolbar controls in one row #}
+  <div class="ec-tab-bar">
+    <button class="ec-tab-btn active" id="tab-btn-boards" onclick="switchTab('boards')">
+      Board Status
+      <span style="font-size:11px;font-weight:400;color:#9ca3af" id="tab-board-count">{{ board_count }}</span>
+    </button>
+    <button class="ec-tab-btn" id="tab-btn-log" onclick="switchTab('log')">
+      <span class="tab-dot{% if is_running %} live{% endif %}" id="tab-log-dot"></span>
+      Sync Log Console
+      <span id="tab-log-status" style="font-size:11px;font-weight:400;color:#9ca3af">{% if is_running %}LIVE{% else %}IDLE{% endif %}</span>
+    </button>
+    {# Spacer pushes controls to the right #}
+    <div class="ec-tab-spacer"></div>
+    {# Search + refresh + count — always visible, acts on the active pane #}
+    <div class="ec-tab-controls" id="board-tab-controls">
+      <input type="search" id="board-search" placeholder="Search boards…" oninput="filterBoards(this.value)">
+      <button class="btn-hist-refresh" id="btn-board-refresh" onclick="refreshBoardStatus()" title="Refresh">
+        <svg class="hist-refresh-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      </button>
+      <span class="ec-tab-count" id="board-count-label">{{ board_count }} boards</span>
     </div>
   </div>
-  <div id="log-console"><p class="log-line log-system">— ready — connect a sync to stream live output —</p></div>
-</div>
 
-{# ── Sync history ───────────────────────────────────────────── #}
-<div class="section-header">
-  Sync History
-  <small>last 20 runs</small>
-</div>
-<div class="table-card">
-  <div class="table-scroll">
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Run At</th>
-          <th>Board</th>
-          <th>Type</th>
-          <th>Found</th>
-          <th>Upserted</th>
-          <th>Duration</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% if sync_history %}
-          {% for row in sync_history %}
+  {# ── Pane 1: Board Status ──────────────────────────────────── #}
+  <div class="ec-tab-pane active" id="tab-pane-boards">
+    <div class="table-scroll">
+      <table class="data-table" id="board-table">
+        <thead>
           <tr>
-            <td style="font-size:12px;color:#57606a">{{ row.run_at[:16] | replace('T', ' ') if row.run_at else '—' }}</td>
-            <td style="font-weight:600;font-size:13px">{{ row.asp_board or row.board_id or '—' }}</td>
-            <td>
-              {% if row.run_type == 'full' %}
+            <th style="width:40px">#</th>
+            <th>ASP Board</th>
+            <th style="width:110px">ASP ID</th>
+            <th>ASP Name</th>
+            <th style="width:130px">Last Run At</th>
+            <th style="width:100px">Type</th>
+            <th style="width:65px">Found</th>
+            <th style="width:75px">Upserted</th>
+            <th style="width:80px">Total Items</th>
+            <th style="width:75px">Duration</th>
+            <th style="width:90px">Status</th>
+            <th style="width:46px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in boards %}
+          {% set run = latest_runs.get(b.board_id, {}) %}
+          <tr id="board-row-{{ b.board_id }}"
+              data-name="{{ ((b.asp_board or '') ~ ' ' ~ (b.asp_name or '')) | lower }}">
+            <td class="mono" style="color:#57606a; width:40px">{{ loop.index }}</td>
+            <td style="font-weight:600">{{ b.asp_board }}</td>
+            <td class="mono" style="color:#57606a; width:110px">{{ b.asp_id or '—' }}</td>
+            <td>{{ b.asp_name or '—' }}</td>
+            <td class="mono bs-run-at" style="font-size:12px;color:#57606a; width:130px">
+              {{ run.run_at[:16] | replace('T', ' ') if run.run_at else '—' }}
+            </td>
+            <td class="bs-run-type" style="width:100px">
+              {% if run.run_type == 'full' %}
                 <span class="badge badge-blue">full</span>
-              {% elif row.run_type == 'incremental' %}
+              {% elif run.run_type == 'incremental' %}
                 <span class="badge badge-green">incremental</span>
+              {% elif run %}
+                <span class="badge badge-gray">{{ run.run_type }}</span>
               {% else %}
-                <span class="badge badge-gray">{{ row.run_type or '—' }}</span>
+                <span style="color:#d0d7de">—</span>
               {% endif %}
             </td>
-            <td class="mono">{{ row.items_found or 0 }}</td>
-            <td class="mono">{{ row.items_upserted or 0 }}</td>
-            <td class="mono" style="color:#57606a">{{ "%.1f"|format(row.duration_sec or 0) }}s</td>
+            <td class="mono bs-found" style="width:65px">{{ run.items_found if run else '—' }}</td>
+            <td class="mono bs-upserted" style="width:75px">{{ run.items_upserted if run else '—' }}</td>
+            <td class="mono bs-total" style="width:80px">{{ run.total_items if run else '—' }}</td>
+            <td class="mono bs-duration" style="color:#57606a; width:75px">
+              {{ "%.1f"|format(run.duration_sec or 0) ~ 's' if run else '—' }}
+            </td>
+            <td class="bs-status" style="width:90px">
+              {% if b.synced %}
+                <span class="badge badge-green">Synced</span>
+              {% else %}
+                <span class="badge badge-gray">Pending</span>
+              {% endif %}
+            </td>
+            <td style="width:46px">
+              <button class="btn-sm" onclick="triggerSync('incremental', '{{ b.board_id }}')">▶</button>
+            </td>
           </tr>
           {% endfor %}
-        {% else %}
-          <tr><td colspan="6" style="text-align:center;color:#57606a;padding:24px">No sync runs recorded yet.</td></tr>
-        {% endif %}
-      </tbody>
-    </table>
+        </tbody>
+      </table>
+    </div>
   </div>
-</div>
+
+  {# ── Pane 2: Sync Log Console ──────────────────────────────── #}
+  <div class="ec-tab-pane" id="tab-pane-log">
+    <div class="log-header">
+      <div class="log-indicator">
+        <span class="log-dot{% if is_running %} live{% endif %}" id="log-dot"></span>
+        <span id="log-status">{% if is_running %}LIVE{% else %}IDLE{% endif %}</span>
+      </div>
+      <span style="font-size:12px;color:#57606a;margin-left:8px">Sync Log Console</span>
+      <div class="log-controls">
+        <button class="btn-sm" id="btn-pause" onclick="togglePause()">⏸ Pause</button>
+        <button class="btn-sm" onclick="clearLog()">✕ Clear</button>
+      </div>
+    </div>
+    <div id="log-console"><p class="log-line log-system">— ready — connect a sync to stream live output —</p></div>
+  </div>
+
+</div>{# /ec-tabs #}
 {% endblock %}
 
 {% block extra_scripts %}
@@ -318,6 +351,11 @@ function setRunning(running) {
   document.getElementById('running-badge').classList.toggle('visible', running);
   document.getElementById('log-dot').classList.toggle('live', running);
   document.getElementById('log-status').textContent = running ? 'LIVE' : 'IDLE';
+  // Mirror live indicator on the tab button
+  const tabDot = document.getElementById('tab-log-dot');
+  const tabSts = document.getElementById('tab-log-status');
+  if (tabDot) tabDot.classList.toggle('live', running);
+  if (tabSts) tabSts.textContent = running ? 'LIVE' : 'IDLE';
   if (running) {
     btn.textContent = '⏹ Stop Sync';
     btn.classList.remove('primary');
@@ -403,7 +441,18 @@ function stopSync() {
 /* ── Status polling — defined below in the countdown section ── */
 function pollStatus() {}  // placeholder; replaced after countdown helpers are defined
 
-/* ── Board table filter ─────────────────────────────────────── */
+/* ── Tab switching (2 tabs) ─────────────────────────────────── */
+function switchTab(name) {
+  ['boards', 'log'].forEach(function(t) {
+    document.getElementById('tab-btn-' + t).classList.toggle('active', t === name);
+    document.getElementById('tab-pane-' + t).classList.toggle('active', t === name);
+  });
+  // Show board search/refresh controls only on the boards tab
+  const ctrl = document.getElementById('board-tab-controls');
+  if (ctrl) ctrl.style.visibility = (name === 'boards') ? '' : 'hidden';
+}
+
+/* ── Board table search filter ──────────────────────────────── */
 function filterBoards(q) {
   const rows  = document.querySelectorAll('#board-table tbody tr');
   const lower = q.toLowerCase().trim();
@@ -417,44 +466,71 @@ function filterBoards(q) {
   document.getElementById('board-count-label').textContent = visible + ' board' + (visible !== 1 ? 's' : '');
 }
 
-/* ── Auto-refresh: Board Status + Sync History (every 60 s) ─── */
+/* ── Patch sync run cells in-place by board_id ──────────────── */
+function _typeBadge(run_type) {
+  if (run_type === 'full')        return '<span class="badge badge-blue">full</span>';
+  if (run_type === 'incremental') return '<span class="badge badge-green">incremental</span>';
+  if (run_type)                   return '<span class="badge badge-gray">' + run_type + '</span>';
+  return '<span style="color:#d0d7de">—</span>';
+}
+
+function _applyLatestRuns(latestRuns) {
+  Object.entries(latestRuns).forEach(function([boardId, run]) {
+    const row = document.getElementById('board-row-' + boardId);
+    if (!row) return;
+    const runAt = run.run_at ? run.run_at.slice(0, 16).replace('T', ' ') : '—';
+    const dur   = run.duration_sec != null ? parseFloat(run.duration_sec).toFixed(1) + 's' : '—';
+    row.querySelector('.bs-run-at').textContent   = runAt;
+    row.querySelector('.bs-run-type').innerHTML   = _typeBadge(run.run_type);
+    row.querySelector('.bs-found').textContent    = run.items_found    != null ? run.items_found    : '—';
+    row.querySelector('.bs-upserted').textContent = run.items_upserted != null ? run.items_upserted : '—';
+    row.querySelector('.bs-total').textContent    = run.total_items    != null ? run.total_items    : '—';
+    row.querySelector('.bs-duration').textContent = dur;
+  });
+}
+
+/* ── Refresh button on Board Status toolbar ─────────────────── */
+function refreshBoardStatus() {
+  const btn = document.getElementById('btn-board-refresh');
+  if (btn) { btn.disabled = true; btn.classList.add('spinning'); }
+  fetch('/admin/escalation-center/boards')
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) return;
+      if (data.latest_runs) _applyLatestRuns(data.latest_runs);
+    })
+    .catch(() => {})
+    .finally(() => {
+      if (btn) { btn.disabled = false; btn.classList.remove('spinning'); }
+    });
+}
+
+/* ── Auto-refresh: board state + sync run cells ─────────────── */
 function _fmtDate(iso) {
   return iso ? iso.slice(0, 16).replace('T', ' ') : '—';
 }
 
-function _boardRow(b) {
-  const lastSync = b.last_sync
-    ? '<span>' + _fmtDate(b.last_sync) + '</span>'
-    : '<span style="color:#d0d7de">never</span>';
-  const badge = b.synced
+function _boardRow(b, latestRun, idx) {
+  const run    = latestRun || {};
+  const badge  = b.synced
     ? '<span class="badge badge-green">Synced</span>'
     : '<span class="badge badge-gray">Pending</span>';
-  return '<tr style="display:table; width:100%; table-layout:fixed;" data-name="' + (((b.asp_board || '') + ' ' + (b.asp_name || '')).toLowerCase()) + '">'
-    + '<td class="mono" style="color:#57606a; width:40px">'  + (b.no || '') + '</td>'
-    + '<td style="font-weight:600">'                         + (b.asp_board || '') + '</td>'
-    + '<td class="mono" style="color:#57606a; width:120px">' + (b.board_id || '') + '</td>'
-    + '<td class="mono" style="color:#57606a; width:110px">' + (b.asp_id || '—') + '</td>'
-    + '<td>'                                                  + (b.asp_name || '—') + '</td>'
-    + '<td style="font-size:12px;color:#57606a; width:140px">' + lastSync + '</td>'
-    + '<td class="mono" style="width:100px">'                + (b.total_synced || '—') + '</td>'
-    + '<td style="width:90px">'                              + badge + '</td>'
+  const runAt  = run.run_at ? run.run_at.slice(0, 16).replace('T', ' ') : '—';
+  const dur    = run.duration_sec != null ? parseFloat(run.duration_sec).toFixed(1) + 's' : '—';
+  return '<tr id="board-row-' + b.board_id + '"'
+    + ' data-name="' + (((b.asp_board || '') + ' ' + (b.asp_name || '')).toLowerCase()) + '">'
+    + '<td class="mono" style="color:#57606a; width:40px">'   + (idx != null ? idx : '') + '</td>'
+    + '<td style="font-weight:600">'                           + (b.asp_board || '') + '</td>'
+    + '<td class="mono" style="color:#57606a; width:110px">'   + (b.asp_id || '—') + '</td>'
+    + '<td>'                                                    + (b.asp_name || '—') + '</td>'
+    + '<td class="mono bs-run-at" style="font-size:12px;color:#57606a; width:130px">' + runAt + '</td>'
+    + '<td class="bs-run-type" style="width:100px">'           + _typeBadge(run.run_type) + '</td>'
+    + '<td class="mono bs-found" style="width:65px">'          + (run.items_found    != null ? run.items_found    : '—') + '</td>'
+    + '<td class="mono bs-upserted" style="width:75px">'       + (run.items_upserted != null ? run.items_upserted : '—') + '</td>'
+    + '<td class="mono bs-total" style="width:80px">'          + (run.total_items    != null ? run.total_items    : '—') + '</td>'
+    + '<td class="mono bs-duration" style="color:#57606a; width:75px">' + dur + '</td>'
+    + '<td class="bs-status" style="width:90px">'              + badge + '</td>'
     + '<td style="width:46px"><button class="btn-sm" onclick="triggerSync(\'incremental\',\'' + b.board_id + '\')">▶</button></td>'
-    + '</tr>';
-}
-
-function _historyRow(r) {
-  let typeBadge;
-  if      (r.run_type === 'full')        typeBadge = '<span class="badge badge-blue">full</span>';
-  else if (r.run_type === 'incremental') typeBadge = '<span class="badge badge-green">incremental</span>';
-  else                                   typeBadge = '<span class="badge badge-gray">' + (r.run_type || '—') + '</span>';
-  const dur = (r.duration_sec != null) ? parseFloat(r.duration_sec).toFixed(1) + 's' : '—';
-  return '<tr>'
-    + '<td style="font-size:12px;color:#57606a">' + _fmtDate(r.run_at) + '</td>'
-    + '<td style="font-weight:600;font-size:13px">' + (r.asp_board || r.board_id || '—') + '</td>'
-    + '<td>' + typeBadge + '</td>'
-    + '<td class="mono">' + (r.items_found  || 0) + '</td>'
-    + '<td class="mono">' + (r.items_upserted || 0) + '</td>'
-    + '<td class="mono" style="color:#57606a">' + dur + '</td>'
     + '</tr>';
 }
 
@@ -463,28 +539,22 @@ function refreshSections() {
     .then(r => r.json())
     .then(data => {
       if (!data.ok) return;
+      const lr = data.latest_runs || {};
 
-      // Rebuild board table tbody (preserve search filter)
+      // Rebuild board table tbody with merged sync data (preserves search filter)
       const tbody = document.querySelector('#board-table tbody');
       if (tbody) {
-        tbody.innerHTML = data.boards.map(_boardRow).join('');
+        data.boards.sort((a, b) => (a.asp_board || '').toLowerCase().localeCompare((b.asp_board || '').toLowerCase()));
+        tbody.innerHTML = data.boards.map((b, i) => _boardRow(b, lr[b.board_id], i + 1)).join('');
         const q = document.getElementById('board-search').value;
         if (q) filterBoards(q);
       }
 
-      // Update board count labels
+      // Update board count labels + tab badge
       const total = data.boards.length;
       document.getElementById('board-count-label').textContent = total + ' board' + (total !== 1 ? 's' : '');
-
-      // Rebuild sync history tbody
-      const histTbody = document.querySelector('.table-card:last-of-type tbody');
-      if (histTbody) {
-        if (data.sync_history && data.sync_history.length) {
-          histTbody.innerHTML = data.sync_history.map(_historyRow).join('');
-        } else {
-          histTbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#57606a;padding:24px">No sync runs recorded yet.</td></tr>';
-        }
-      }
+      const tabBoardCount = document.getElementById('tab-board-count');
+      if (tabBoardCount) tabBoardCount.textContent = total;
     })
     .catch(() => {});
 }
@@ -571,10 +641,11 @@ pollStatus = function() {
       } else {
         // ── IDLE + IN WINDOW: hide off-hours badge, count down to next sync
         _setOffHours(false);
-        _stopCountdown();
         _setIdleActionLabel(false);
         if (data.next_run_at) {
           _startCountdown(data.next_run_at, 'Next auto-sync in');
+        } else {
+          _stopCountdown();
         }
       }
     })

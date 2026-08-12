@@ -1,6 +1,6 @@
 # Lenovo ASP Portal
 
-A Flask web application for managing Lenovo After-Sales Partner (ASP) work orders and admin operations, with a dual-portal interface backed by Excel data.
+A Flask web application for managing Lenovo After-Sales Partner (ASP) work orders and admin operations, with a dual-portal interface backed by a SQLite database. Includes a REST JSON API used by the companion mobile app.
 
 ---
 
@@ -8,11 +8,13 @@ A Flask web application for managing Lenovo After-Sales Partner (ASP) work order
 
 - [Project Structure](#project-structure)
 - [Portal Overview](#portal-overview)
+- [Mobile API Overview](#mobile-api-overview)
 - [Prerequisites](#prerequisites)
 - [Local Development](#local-development)
 - [Deploy to Render.com](#deploy-to-rendercom)
 - [Deploy via Cloudflare Tunnel](#deploy-via-cloudflare-tunnel)
 - [Environment Variables](#environment-variables)
+- [Database](#database)
 - [File Persistence Note](#file-persistence-note)
 - [Windows Troubleshooting](#windows-troubleshooting)
   - [Git Bash: `uname`/`sed`/`git` command not found](#git-bash-uname--sed--git-command-not-found)
@@ -28,52 +30,70 @@ A Flask web application for managing Lenovo After-Sales Partner (ASP) work order
 ```
 .
 ├── app/
-│   ├── __init__.py                      # App factory — registers all blueprints
+│   ├── __init__.py                      # App factory — registers all blueprints + CORS
 │   ├── config/
-│   │   ├── __init__.py
+│   │   ├── file_categories.py           # Upload file-category definitions
 │   │   └── settings.py                  # Flask config (paths, secret key)
 │   ├── routes/
-│   │   ├── __init__.py
 │   │   ├── asp.py                       # ASP Portal routes (/asp/*)
-│   │   ├── admin.py                     # Admin Portal routes (/admin/*)
+│   │   ├── admin.py                     # Admin Portal routes (/admin/*) + Monday.com scheduler
+│   │   ├── auth.py                      # Login / logout / session (/login, /logout)
+│   │   ├── api_mobile.py                # Mobile REST API (/api/v1/*) — JWT-authenticated
 │   │   ├── excel_upload.py              # Legacy /upload-excel routes (backward compat)
 │   │   └── ticket.py                    # Legacy ticket form route (backward compat)
 │   ├── services/
-│   │   ├── __init__.py
+│   │   ├── jwt_service.py               # JWT token generation + @jwt_required decorator
+│   │   ├── database/
+│   │   │   ├── db.py                    # get_db() — SQLite connection helper
+│   │   │   ├── migrate.py               # run_migrations() — schema auto-migration on startup
+│   │   │   ├── queries.py               # All read-only query helpers used by routes
+│   │   │   ├── schema.sql               # Canonical schema (tables + indexes)
+│   │   │   ├── seed.py                  # flask seed-db — populates tables from source Excel files
+│   │   │   └── upsert.py                # Upsert helpers for data import
 │   │   ├── excel_report/
-│   │   │   ├── __init__.py
 │   │   │   ├── config.py                # Column/sheet config for report reader
 │   │   │   └── reader.py                # Loads WO data from compiled Excel report
-│   │   ├── upload/
-│   │   │   ├── __init__.py
-│   │   │   ├── config.py                # Upload folder config
-│   │   │   ├── evidence.py              # Evidence file upload handler
-│   │   │   └── excel.py                 # Excel file upload/list handler
-│   │   └── wo_onsite/
-│   │       ├── __init__.py
-│   │       ├── config.py                # Pipeline column/sheet config
-│   │       ├── pipeline.py              # WO onsite compile pipeline
-│   │       └── transforms.py            # Data transformation logic
+│   │   ├── msd_to_db/
+│   │   │   ├── explore.ipynb            # Jupyter notebook for MSD data exploration
+│   │   │   └── pipeline.md              # MSD → DB pipeline documentation
+│   │   └── upload/
+│   │       ├── config.py                # Upload folder config
+│   │       ├── evidence.py              # Evidence file upload handler
+│   │       ├── excel.py                 # Excel file upload/list handler
+│   │       ├── excel_to_df.py           # Excel → DataFrame conversion
+│   │       ├── meta_cache.py            # Upload metadata cache helper
+│   │       └── upload_verification.py   # Upload verification logic
 │   └── templates/
 │       ├── base.html                    # Shared layout (topbar + collapsible left sidebar)
+│       ├── profile.html                 # Profile / password change page
 │       ├── asp/
 │       │   ├── dashboard.html           # ASP Dashboard — stat cards, 5-tab table, modals
 │       │   ├── work_orders.html         # Work Orders — Active/Closed/Escalated/Pending
 │       │   ├── parts_management.html    # Parts Management — Awaiting/Received/Return
 │       │   ├── reschedule.html          # Reschedule Management
-│       │   └── escalation.html          # Escalation Center
+│       │   ├── escalation.html          # Escalation Center
+│       │   └── branch_office.html       # Branch office view
 │       └── admin/
 │           ├── dashboard.html           # Admin Dashboard — quick-links overview
 │           ├── ticket_management.html   # Ticket Management
 │           ├── data_import.html         # Data Import/Export (upload + compile + download)
+│           ├── df_viewer.html           # DataFrame debug viewer
+│           ├── monday_collector.html    # Monday.com data collector
+│           ├── monday_data.html         # Monday.com data viewer
 │           ├── validation_center.html   # Validation Center (AWB & Reschedule)
 │           ├── user_management.html     # User & ASP Management
+│           ├── user_management/         # Sub-pages: login, asp directory, pw change, counts
 │           └── system_archive.html      # System Archive (masterfiles & uploads)
 ├── files/
+│   ├── lenovo_asp.db                    # SQLite database (auto-created on first run)
+│   ├── source-db/                       # Source Excel files for flask seed-db (not committed)
 │   ├── upload/
 │   │   └── excel/                       # Uploaded source Excel files (auto-created)
 │   └── download/
 │       └── excel/                       # Compiled masterfile reports (auto-created)
+├── cloudflared/
+│   ├── config.yml                       # Cloudflare Tunnel config (tunnel ID + ingress rules)
+│   └── cloudflared.exe                  # cloudflared binary — NOT committed, download manually
 ├── render.yaml                          # Render.com deployment config
 ├── requirements.txt                     # Python dependencies
 └── run.py                               # App entry point
@@ -83,7 +103,17 @@ A Flask web application for managing Lenovo After-Sales Partner (ASP) work order
 
 ## Portal Overview
 
-The app exposes two portals via a switcher in the topbar. Both share the same `base.html` layout with a collapsible left sidebar (desktop) and a slide-in drawer (mobile).
+The app exposes two portals via a switcher in the topbar. Both share the same `base.html` layout with a collapsible left sidebar (desktop) and a slide-in drawer (mobile). The root URL redirects to the login page.
+
+### Root
+
+| Route | Behaviour |
+|---|---|
+| `GET /` | Redirects to `/login` |
+| `GET /login` | Login form — accepts ASP, admin, and superadmin credentials |
+| `POST /login` | Processes credentials, sets session, redirects to dashboard |
+| `GET /logout` | Clears session, redirects to `/login` |
+| `GET /profile` | Profile and password-change page |
 
 ### ASP Portal (`/asp/*`)
 
@@ -92,31 +122,96 @@ The app exposes two portals via a switcher in the topbar. Both share the same `b
 | Dashboard | `/asp/dashboard` | ✅ Live — WO stat cards, 5-tab data table, modals |
 | Work Orders | `/asp/work-orders` | ✅ Live — Active / Closed / Escalated / Pending tabs |
 | Parts Management | `/asp/parts` | ✅ Live — Awaiting / Received / Return tabs |
-| Reschedule Management | `/asp/reschedule` | 🚧 In development |
-| Escalation Center | `/asp/escalation` | 🚧 In development |
+| Reschedule Management | `/asp/reschedule` | ✅ Live |
+| Escalation Center | `/asp/escalation` | ✅ Live |
+| Branch Office | `/asp/branch` | ✅ Live — Branch view for ASP HQ accounts |
 
 ### Admin Portal (`/admin/*`)
 
 | Page | URL | Status |
 |---|---|---|
-| Dashboard | `/admin/dashboard` | 🚧 In development |
-| Ticket Management | `/admin/tickets` | 🚧 In development |
+| Dashboard | `/admin/dashboard` | ✅ Live |
+| Ticket Management | `/admin/tickets` | ✅ Live |
 | Data Import / Export | `/admin/data-import` | ✅ Live — Excel upload, compile, download masterfile |
-| Validation Center | `/admin/validation` | 🚧 In development |
-| User & ASP Management | `/admin/users` | 🚧 In development |
+| Validation Center | `/admin/validation` | ✅ Live — AWB & reschedule validation |
+| User & ASP Management | `/admin/users` | ✅ Live — ASP directory, user accounts, pw change requests |
 | System Archive | `/admin/archive` | ✅ Live — Lists masterfiles and uploaded files |
+| Monday.com Collector | `/admin/monday` | ✅ Live — Syncs WO data from Monday.com |
 
-### Root redirect
+---
 
-`GET /` → redirects to `/asp/dashboard`.
+## Mobile API Overview
+
+A REST JSON API consumed by the **Lenovo ASP Mobile App** (`mobile-lenovo-asp/`). All routes are under `/api/v1/`. Authentication uses **JWT Bearer tokens** — the session-cookie auth used by the web portals is not involved.
+
+CORS is enabled for `*` on all `/api/v1/*` routes, allowing Expo's dev server and any deployed mobile build to call the API.
+
+### Authentication
+
+| Method | Route | Description |
+|---|---|---|
+| `POST` | `/api/v1/auth/login` | Exchange `{ username, password }` for a JWT. Returns `{ token, role, display_name, username, email, labor_vendor, asp_name }`. |
+
+**Accepted account types:**
+
+| Account type | Table | Role returned | Notes |
+|---|---|---|---|
+| ASP Staff User | `asp_users` (email-based login) | `asp_user` | Primary mobile user |
+| ASP HQ Account | `asp_details` (username login) | `asp` | ASP account login |
+| Superadmin | `admin_users` | `superadmin` | Sees all WOs across all ASPs |
+| Admin | `admin_users` | — | **Rejected** — admins cannot log in to the mobile app |
+
+JWT payload fields: `sub` (user ID as string), `username`, `role`, `labor_vendor`, `display_name`. Tokens expire after **24 hours**.
+
+### Protected Endpoints
+
+All require `Authorization: Bearer <token>` header. Vendor filtering is automatic — `asp` and `asp_user` accounts only see WOs belonging to their `labor_vendor_related` value. Superadmin sees all.
+
+| Method | Route | Description |
+|---|---|---|
+| `GET` | `/api/v1/mobile/stats` | WO summary stat counts per category |
+| `GET` | `/api/v1/mobile/in-prepare` | In-Prepare Follow-Up list (paginated) |
+| `GET` | `/api/v1/mobile/cci-followup` | CCI Follow-Up list (paginated) |
+| `GET` | `/api/v1/mobile/onsite-followup` | Onsite Follow-Up list (paginated) |
+| `GET` | `/api/v1/mobile/return-part` | Return Part list (paginated) |
+| `GET` | `/api/v1/mobile/wo/<id>` | Single WO detail + all part lines |
+
+**Common query parameters for list endpoints:**
+
+| Parameter | Default | Description |
+|---|---|---|
+| `page` | `1` | Page number |
+| `per_page` | `20` | Results per page (max 100) |
+| `q` | `""` | Search across WO#, serial number, contact name |
+| `followup_state` | `""` | Filter by specific follow-up state (optional) |
+
+**Stats response shape:**
+```json
+{
+  "in_prepare_total": 12,
+  "cci_followup_total": 5,
+  "onsite_followup_total": 3,
+  "return_part_total": 8
+}
+```
 
 ---
 
 ## Prerequisites
 
+### Python (Windows)
+
+Download and install **Python 3.11** or higher from https://www.python.org/downloads/.
+During installation, check **"Add Python to PATH"**.
+
+Verify in a new PowerShell window:
+```powershell
+python --version   # 3.11.x or higher
+```
+
 ### Python (macOS via Homebrew)
 
-If you are on macOS and install Python via Homebrew, it will block system-wide `pip install` by default (PEP 668). Always use a virtual environment per project (covered in [Local Development](#local-development) below).
+If you install Python via Homebrew, it blocks system-wide `pip install` by default (PEP 668). Always use a virtual environment per project.
 
 ```zsh
 brew install python
@@ -125,18 +220,15 @@ brew install python
 Add Homebrew's unversioned symlinks to your PATH (add to `~/.zshrc`):
 
 ```zsh
-echo 'export PATH="/usr/local/opt/python@3.14/libexec/bin:$PATH"' >> ~/.zshrc
+echo 'export PATH="/usr/local/opt/python@3/libexec/bin:$PATH"' >> ~/.zshrc
 echo 'export PATH="/usr/local/bin:$PATH"' >> ~/.zshrc
-echo "alias py='python3'" >> ~/.zshrc
 source ~/.zshrc
 ```
 
 Verify:
-
 ```zsh
 python --version   # Python 3.x
-python3 --version  # Python 3.x
-py --version       # Python 3.x
+pip --version      # pip 2x.x
 ```
 
 ---
@@ -147,48 +239,83 @@ py --version       # Python 3.x
 
 ```bash
 git clone https://github.com/<your-username>/<repo-name>.git
-cd <repo-name>
+cd backup-deploy-lenovo-development-test
 ```
 
 ### 2. Create and activate a virtual environment
 
+**Windows (PowerShell):**
+```powershell
+$env:PYTHONIOENCODING = "utf-8"
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+```
+
+**macOS / Linux:**
 ```bash
-Remove-Item -Recurse -Force .venv
-$env:PYTHONIOENCODING = "utf-8"; python -m venv .venv
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+> **Why `PYTHONIOENCODING`?** The project path contains emoji characters. Setting this to `utf-8` prevents a `UnicodeEncodeError` when pip tries to display the path. See [Troubleshooting](#activating-the-virtual-environment-windows) for details.
+
+Re-activate each time you return to work on the project:
+```powershell
+# Windows
 $env:PYTHONIOENCODING = "utf-8"; .venv\Scripts\Activate.ps1
-pip install -r requirements.txt
 
 # macOS / Linux
 source .venv/bin/activate
-
-# Windows
-.venv\Scripts\activate
-```
-
-> **macOS/Homebrew note:** Running `pip install` outside a virtual environment will fail with an `externally-managed-environment` error. Always activate `.venv` first.
-
-Re-activate each time you return to work on the project:
-
-```zsh
-source .venv/bin/activate   # activate
-deactivate                  # when done
 ```
 
 ### 3. Install dependencies
 
-```bash
+```powershell
+# Windows — always use this form (bypasses emoji-path pip bug)
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+# macOS / Linux
 pip install -r requirements.txt
 ```
 
-### 4. Run the development server
+### 4. Seed the database (first time only)
 
-```bash
+The database (`files/lenovo_asp.db`) is auto-created and migrated on first run. To populate it from source Excel files:
+
+```powershell
+# Place source Excel files in files/source-db/ first, then:
+flask seed-db
+```
+
+This command runs `app/services/database/seed.py` and prints row counts for each table.
+
+> The database file is not committed to Git. It is created locally in `files/lenovo_asp.db`.
+
+### 5. Run the development server
+
+```powershell
 python run.py
 ```
 
-The app will be available at **http://127.0.0.1:5000** and will redirect to the ASP Dashboard.
+The app is available at **http://127.0.0.1:5000** and will redirect to the login page.
 
-> **Chrome DevTools probe:** You may see `GET /.well-known/appspecific/com.chrome.devtools.json 404` in the console. This is harmless — Chrome sends it automatically on localhost and has no effect on the app.
+> **Chrome DevTools probe:** You may see `GET /.well-known/appspecific/com.chrome.devtools.json 404` in the console. This is harmless.
+
+### 6. Running with the mobile app (same Wi-Fi)
+
+When developing the mobile app alongside the server, use your PC's LAN IP so the phone can reach the Flask server:
+
+```powershell
+# Find your LAN IP
+ipconfig | Select-String "IPv4"
+```
+
+Then update [`mobile-lenovo-asp/services/api.ts`](../mobile-lenovo-asp/services/api.ts):
+```typescript
+const DEV_DEVICE = "http://192.168.1.X:5000";  // replace X with your IP
+```
+
+The mobile app auto-selects `localhost:5000` when running in a browser and `DEV_DEVICE` when running on a phone.
 
 ---
 
@@ -228,6 +355,7 @@ In the Render dashboard go to your service → **Environment** tab and add:
 | Variable | Value |
 |---|---|
 | `SECRET_KEY` | A long random string — see [Environment Variables](#environment-variables) |
+| `JWT_SECRET_KEY` | A separate long random string for signing mobile JWTs |
 
 ### Step 4 — Deploy
 
@@ -240,12 +368,39 @@ Render automatically builds and deploys on every push to `main`. To trigger manu
 | Variable | Required | Description |
 |---|---|---|
 | `SECRET_KEY` | **Recommended** | Flask session secret key. Defaults to a hardcoded dev value — always override in production. |
+| `JWT_SECRET_KEY` | **Recommended** | Secret used to sign mobile JWT tokens. Falls back to `SECRET_KEY` if not set. |
 | `PORT` | Auto-set | Injected by Render at runtime. Do not set manually. |
 
-Generate a secure `SECRET_KEY`:
+Generate secure keys:
 
 ```bash
 python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+Run this twice — once for `SECRET_KEY` and once for `JWT_SECRET_KEY`.
+
+---
+
+## Database
+
+The app uses **SQLite** (`files/lenovo_asp.db`). The schema is managed by `app/services/database/migrate.py`, which runs automatically on every startup and applies any pending schema changes.
+
+### Key tables
+
+| Table | Description |
+|---|---|
+| `wo_summary` | Work order master records |
+| `wo_details` | Extended WO detail fields |
+| `wo_product_detail` | Part/product lines per WO (MSD + shipment data) |
+| `asp_details` | ASP vendor accounts (login + vendor filter) |
+| `asp_users` | Individual ASP staff user accounts (email-based login) |
+| `admin_users` | Admin and superadmin accounts |
+
+### CLI commands
+
+```powershell
+# Seed all tables from source Excel files in files/source-db/
+flask seed-db
 ```
 
 ---
@@ -257,6 +412,8 @@ Render's free tier uses an **ephemeral filesystem** — uploaded Excel files (`f
 For persistent storage either:
 - Attach a [Render Disk](https://render.com/docs/disks) (paid), or
 - Store files in an external object store (e.g. AWS S3, Cloudflare R2)
+
+The SQLite database (`files/lenovo_asp.db`) is also ephemeral on Render's free tier. For a production deployment, migrate to PostgreSQL or attach a Render Disk.
 
 ---
 
@@ -271,18 +428,14 @@ bash: sed: command not found
 bash: git: command not found
 ```
 
-**Cause:** The Windows `PATH` has `C:\Users\...\AppData\Local\Microsoft\WindowsApps` (WSL `bash.exe` stub) listed *before* Git's tool directories, so every call to `bash`, `sed`, or `uname` is intercepted by the broken WSL stub.
+**Cause:** The Windows `PATH` has `C:\Users\...\AppData\Local\Microsoft\WindowsApps` (WSL `bash.exe` stub) listed *before* Git's tool directories.
 
-**Immediate fix** — paste this single line into the broken Git Bash session:
+**Immediate fix** — paste into the broken Git Bash session:
 ```bash
 export PATH="/mingw64/bin:/usr/bin:/bin:$PATH" && uname -a && sed --version && git --version
 ```
 
-What this does:
-- `export PATH="/mingw64/bin:/usr/bin:/bin:$PATH"` — prepends Git's tool directories to the front of `PATH` for the current session, so `git`, `sed`, `uname` etc. resolve to Git Bash's own binaries instead of the broken WSL stub
-- `&& uname -a && sed --version && git --version` — immediately verifies all three tools are working; if any command is still missing, it will stop and tell you which one failed
-
-> **Note:** This fix only lasts for the current terminal session. Open a new Git Bash window and it will be gone. Use the permanent fix below to make it stick.
+> This fix only lasts for the current session.
 
 **Permanent fix** — run once in PowerShell (moves Git bins to front of user PATH):
 ```powershell
@@ -293,7 +446,7 @@ $newPath = ($gitBins + $current) -join ";"
 [System.Environment]::SetEnvironmentVariable("PATH", $newPath, "User")
 ```
 
-Then **close and reopen Git Bash** — the fix will be permanent.
+Then **close and reopen Git Bash**.
 
 ---
 
@@ -304,37 +457,28 @@ Then **close and reopen Git Bash** — the fix will be permanent.
 .venv\Scripts\activate : File ... cannot be loaded because running scripts is disabled on this system.
 ```
 
-**Fix** — run once per user account, in any PowerShell terminal:
+**Fix** — run once per user account:
 ```powershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
-
-This allows locally-created scripts to run while still blocking unsigned remote scripts. You only need to do this once; the setting persists across sessions.
 
 ---
 
 ### Activating the virtual environment (Windows)
 
-Because the project path contains emoji characters (`💼`, `👨‍💻`), the Windows console defaults to cp1252 encoding, which causes `pip` to crash with a `UnicodeEncodeError` when it tries to print the path.
+Because the project path contains emoji characters (`💼`, `👨‍💻`), the Windows console defaults to cp1252 encoding, which causes `pip` to crash with a `UnicodeEncodeError`.
 
 **Always activate with:**
-```powershell
-$env:PYTHONIOENCODING = "utf-8"
-.venv\Scripts\Activate.ps1
-```
-
-Or as a one-liner:
 ```powershell
 $env:PYTHONIOENCODING = "utf-8"; .venv\Scripts\Activate.ps1
 ```
 
-Then install dependencies normally:
+**Always install with:**
 ```powershell
-pip install -r requirements.txt
+.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-> **Why `PYTHONIOENCODING`?**
-> Setting it to `utf-8` forces Python's stdout/stderr to use UTF-8 instead of the system default (cp1252 on Windows), which cannot encode emoji characters in file paths.
+> Using `.venv\Scripts\python.exe -m pip` instead of bare `pip` bypasses the encoding bug entirely.
 
 ---
 
@@ -345,17 +489,17 @@ pip install -r requirements.txt
 ImportError: cannot import name '_appengine_environ' from 'pip._vendor.urllib3.contrib'
 ```
 
-**Cause:** The `.venv` folder was created by a different Python version (e.g. 3.11) but is now being run under a newer Python (e.g. 3.14). The vendored `urllib3` inside pip is mismatched.
+**Cause:** The `.venv` was created with a different Python version. The vendored `urllib3` inside pip is mismatched.
 
-**Fix** — delete the stale venv and recreate it fresh:
+**Fix** — delete the stale venv and recreate:
 ```powershell
 Remove-Item -Recurse -Force .venv
-python -m venv .venv
-$env:PYTHONIOENCODING = "utf-8"; .venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+$env:PYTHONIOENCODING = "utf-8"; python -m venv .venv
+.venv\Scripts\Activate.ps1
+.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-> The `.venv` folder should never be committed to Git. Confirm `.gitignore` contains `.venv/`.
+> Never commit `.venv/` to Git. Confirm `.gitignore` contains `.venv/`.
 
 ---
 
@@ -367,7 +511,7 @@ OSError: [Errno 22] Invalid argument
   File "<frozen importlib._bootstrap_external>", line 951, in get_data
 ```
 
-**Cause:** Stale `__pycache__` folders (compiled `.pyc` bytecode from Python 3.11) were committed to Git and are now invalid under Python 3.14. Windows raises `[Errno 22]` when the bytecode magic number mismatches and the path contains characters it cannot decode.
+**Cause:** Stale `__pycache__` folders from a different Python version were committed to Git. Windows raises `[Errno 22]` when the bytecode magic number mismatches and the path contains emoji characters.
 
 **Fix** — delete all project-level `__pycache__` directories (excludes `.venv`):
 ```powershell
@@ -376,15 +520,15 @@ Get-ChildItem -Recurse -Filter "__pycache__" -Directory |
   Remove-Item -Recurse -Force
 ```
 
-Python will regenerate fresh `.pyc` files for the current Python version on the next run. To prevent this recurring, ensure `__pycache__/` is in `.gitignore`.
+Python will regenerate fresh `.pyc` files on the next run. To prevent recurrence, ensure `__pycache__/` is in `.gitignore`.
 
 ---
 
 ## Deploy via Cloudflare Tunnel
 
-Exposes the local app publicly at **https://app.ticket-asp.my.id** using a persistent Cloudflare Tunnel — no port-forwarding or cloud hosting required.
+Exposes the local app publicly at **https://app.ticket-asp.my.id** using a persistent Cloudflare Tunnel — no port-forwarding or cloud hosting required. The mobile app uses this URL in production builds.
 
-> **cloudflared** is bundled locally at `cloudflared\cloudflared.exe` — no system-wide install needed.
+> **cloudflared** is stored locally at `cloudflared\cloudflared.exe` — no system-wide install needed.
 > Use `.\cloudflared\cloudflared.exe` instead of plain `cloudflared` in every command below.
 >
 > **Tunnel name:** `asp-ticketing` · **Tunnel ID:** `ce858d75-6e3f-416f-b4f0-d1b5ebb1f016`
@@ -393,14 +537,15 @@ Exposes the local app publicly at **https://app.ticket-asp.my.id** using a persi
 
 ### Step 1 — Download cloudflared.exe (first time only)
 
-`cloudflared.exe` is not committed to the repo. Download it once before running any tunnel commands:
+`cloudflared.exe` is not committed to the repo. Download it once:
 
 ```powershell
-Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile "cloudflared\cloudflared.exe"
+Invoke-WebRequest `
+  -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" `
+  -OutFile "cloudflared\cloudflared.exe"
 ```
 
-Verify the download:
-
+Verify:
 ```powershell
 .\cloudflared\cloudflared.exe --version
 ```
@@ -413,16 +558,15 @@ Verify the download:
 .\cloudflared\cloudflared.exe tunnel login
 ```
 
-A browser window will open — log in to your Cloudflare account and authorise the domain. A credentials file will be saved to `C:\Users\<you>\.cloudflared\`.
+A browser window opens — log in to your Cloudflare account and authorise the domain. A credentials file is saved to `C:\Users\<you>\.cloudflared\`.
 
 ---
 
 ### Step 3 — Create the tunnel (first time only)
 
-> **Already done for this project.** Running the command on the same account will print `tunnel with name already exists`. Skip to Step 4 and confirm with:
+> **Already done for this project.** Running the command on the same account prints `tunnel with name already exists`. Skip to Step 4 or verify with:
 > ```powershell
 > .\cloudflared\cloudflared.exe tunnel list
-> .\cloudflared\cloudflared.exe tunnel --config cloudflared/config.yml run
 > ```
 
 To create a brand-new tunnel on a **different** account:
@@ -436,17 +580,16 @@ Then update [`cloudflared/config.yml`](cloudflared/config.yml) with the printed 
 ```yaml
 tunnel: <YOUR_TUNNEL_ID>
 credentials-file: C:\Users\<you>\.cloudflared\<YOUR_TUNNEL_ID>.json
-
-
-tunnel: ce858d75-6e3f-416f-b4f0-d1b5ebb1f016 credentials-file: C:\Users\010880749\.cloudflared\ce858d75-6e3f-416f-b4f0-d1b5ebb1f016.json
 ```
 
 #### Restore missing credentials file
 
-If `tunnel login` was run on a different machine or the `.json` was deleted, regenerate it:
+If `tunnel login` was run on a different machine or the `.json` was deleted:
 
 ```powershell
-.\cloudflared\cloudflared.exe tunnel token --cred-file "C:\Users\010880749\.cloudflared\ce858d75-6e3f-416f-b4f0-d1b5ebb1f016.json" asp-ticketing
+.\cloudflared\cloudflared.exe tunnel token `
+  --cred-file "C:\Users\010880749\.cloudflared\ce858d75-6e3f-416f-b4f0-d1b5ebb1f016.json" `
+  asp-ticketing
 ```
 
 ---
@@ -476,7 +619,7 @@ ingress:
 ```
 
 - The first rule forwards all traffic for `app.ticket-asp.my.id` to the local Flask app on port `5000`.
-- The catch-all rule returns `404` for any other hostname that reaches the tunnel.
+- The catch-all rule returns `404` for any other hostname.
 
 ---
 
@@ -495,7 +638,7 @@ python run.py
 .\cloudflared\cloudflared.exe tunnel --config cloudflared/config.yml run
 ```
 
-The app is now publicly accessible at **https://app.ticket-asp.my.id**.
+The app is now publicly accessible at **https://app.ticket-asp.my.id**. The mobile app's production builds point to this URL.
 
 ---
 
@@ -503,9 +646,17 @@ The app is now publicly accessible at **https://app.ticket-asp.my.id**.
 
 | Route | Description |
 |-------|-------------|
-| `GET /` | Redirects to `/asp/dashboard` |
-| `GET /asp/dashboard` | ASP Portal home — WO stat cards and data table |
-| `GET /health` | JSON health-check (if implemented) |
+| `GET /` | Redirects to `/login` |
+| `GET /login` | ASP / admin login page |
+| `GET /asp/dashboard` | ASP Portal home |
+| `GET /admin/dashboard` | Admin Portal home |
+| `POST /api/v1/auth/login` | Mobile app JWT login |
+| `GET /api/v1/mobile/stats` | Mobile app WO stats |
+| `GET /api/v1/mobile/in-prepare` | Mobile In-Prepare list |
+| `GET /api/v1/mobile/cci-followup` | Mobile CCI list |
+| `GET /api/v1/mobile/onsite-followup` | Mobile Onsite list |
+| `GET /api/v1/mobile/return-part` | Mobile Return Part list |
+| `GET /api/v1/mobile/wo/<id>` | Mobile WO detail |
 
 ---
 
@@ -517,4 +668,7 @@ The app is now publicly accessible at **https://app.ticket-asp.my.id**.
   ```powershell
   .\cloudflared\cloudflared.exe service install
   ```
-- To stop the tunnel, press `Ctrl+C` in Terminal 2 (or run `.\cloudflared\cloudflared.exe service stop` if installed as a service).
+- To stop the tunnel, press `Ctrl+C` in Terminal 2 or run:
+  ```powershell
+  .\cloudflared\cloudflared.exe service stop
+  ```

@@ -2,11 +2,13 @@ import os
 import click
 from datetime import datetime
 from flask import Flask, redirect, url_for
+from flask_cors import CORS
 from app.config import Config
 from app.routes.excel_upload import excel_upload_bp
 from app.routes.asp import asp_bp
 from app.routes.admin import admin_bp
 from app.routes.auth import auth_bp
+from app.routes.api_mobile import mobile_bp
 
 
 def create_app():
@@ -100,11 +102,15 @@ def create_app():
             "session_branch_members":      branch_members,
         }
 
+    # ── CORS for mobile API (JWT-authenticated, origin-agnostic) ──────────────
+    CORS(app, resources={r"/api/v1/*": {"origins": "*"}})
+
     # Register blueprints
     app.register_blueprint(auth_bp)          # /login, /logout
     app.register_blueprint(excel_upload_bp)  # legacy: /upload-excel (kept for backward compat)
     app.register_blueprint(asp_bp)           # /asp/*
     app.register_blueprint(admin_bp)         # /admin/*
+    app.register_blueprint(mobile_bp)        # /api/v1/* (mobile JWT API)
 
     # Root → login page
     @app.route("/")
