@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}Monday Data — Admin Portal{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/monday_data.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom:16px">
+  <div class="breadcrumb" style="font-size:12px;color:#57606a;margin-bottom:6px">
+    Admin <span style="margin:0 5px">›</span> Escalation Center <span style="margin:0 5px">›</span> Monday Data
+  </div>
+  <h1 style="font-size:20px;font-weight:700;margin:0 0 3px">Monday Data</h1>
+  <p style="font-size:13px;color:#57606a;margin:0">
+    All synced items from <strong>technical_escalation</strong> &mdash;
+    <strong>{{ total_count }}</strong> records across <strong>{{ board_count }}</strong> boards
+  </p>
+</div>
+
+<div class="md-layout">
+
+  <!-- ── Left sidebar: ASP Board filter ─────────────────────────── -->
+  <aside class="md-filter-sidebar" id="filter-sidebar">
+    <div class="md-filter-header" onclick="toggleSidebar()" title="Toggle filter panel">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      <span class="fh-title">ASP Board</span>
+      <span class="md-filter-toggle">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </span>
+    </div>
+    <div class="md-filter-search">
+      <input type="text" id="board-filter-search" placeholder="Search board…" oninput="filterBoardList(this.value)">
+    </div>
+    <div class="md-filter-body">
+      <div class="md-filter-list" id="board-filter-list">
+        <div class="md-filter-item md-filter-all active" data-board="" onclick="selectBoard('')">
+          <span class="fi-dot"></span>
+          <span>All Boards</span>
+          <span class="fi-count" id="fi-count-all">{{ total_count }}</span>
+        </div>
+        {% for b in boards %}
+        <div class="md-filter-item" data-board="{{ b.board_id }}" data-name="{{ b.asp_board | lower }}" data-initial="{{ b.asp_board[0] | upper }}" onclick="selectBoard('{{ b.board_id }}')">
+          <span class="fi-dot"></span>
+          <span class="fi-label">{{ b.asp_board }}</span>
+          <span class="fi-count">{{ b.item_count }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="md-filter-index" id="board-index"></div>
+    </div>
+  </aside>
+
+  <!-- ── Main content ────────────────────────────────────────────── -->
+  <div class="md-main">
+    <div class="md-header">
+      <div class="md-title">
+        Technical Escalation
+        <span class="md-board-label" id="active-board-label"></span>
+      </div>
+      <div class="md-subtitle" id="active-board-subtitle">Showing all boards</div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-toolbar">
+        <div class="toolbar-right-group">
+          <span class="status-filter-label">Status</span>
+          <div class="status-select-wrap">
+            <select id="status-select" onchange="selectStatus(this.value)">
+              <option value="">All statuses</option>
+            </select>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <button class="btn-refresh-data" id="btn-refresh-data" onclick="loadData(true)" title="Refresh data">
+            <svg class="refresh-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          </button>
+          <input type="search" id="row-search" placeholder="Search items…" oninput="applySearch(this.value)">
+          <span class="toolbar-count" id="row-count-label">Loading…</span>
+        </div>
+      </div>
+      <div class="table-scroll" style="max-height:calc(100vh - 280px)">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width:36px">#</th>
+              <th>Task / Item Name</th>
+              <th style="width:160px;white-space:nowrap">Status</th>
+              <th style="width:105px;white-space:nowrap">Date</th>
+              <th style="width:115px">WO / Case ID</th>
+              <th style="width:95px">Serial No.</th>
+              <th style="width:75px">WO Type</th>
+              <th style="width:88px">Discussion</th>
+            </tr>
+          </thead>
+          <tbody id="data-tbody">
+            <tr><td colspan="8" style="text-align:center;color:#9ca3af;padding:32px">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pagination-bar"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Detail modal ───────────────────────────────────────────────── -->
+<div class="detail-overlay" id="detail-overlay" onclick="closeDetail()">
+<div class="detail-drawer" id="detail-drawer" onclick="event.stopPropagation()">
+  <div class="detail-head">
+    <div class="detail-head-title">
+      <h3 id="detail-title">Escalation Detail</h3>
+      <p id="detail-subtitle"></p>
+    </div>
+    <button class="detail-close" onclick="closeDetail()" title="Close">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="detail-body" id="detail-body">
+    <div class="disc-loading">Loading…</div>
+  </div>
+</div>
+</div>
+
+<!-- ── Serial History modal ───────────────────────────────────────── -->
+<div class="hist-overlay" id="hist-overlay" onclick="closeHistory()">
+<div class="hist-drawer" id="hist-drawer" onclick="event.stopPropagation()">
+  <div class="hist-head">
+    <div class="hist-head-title">
+      <div class="hist-head-eyebrow">All Problem History</div>
+      <h3 id="hist-serial"></h3>
+    </div>
+    <button class="hist-close" onclick="closeHistory()" title="Close">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="hist-body" id="hist-body"></div>
+</div>
+</div>
+
+<!-- ── WO Detail sub-modal ───────────────────────────────────────── -->
+<div class="wo-det-overlay" id="wo-det-overlay" onclick="closeWoDetail()">
+<div class="wo-det-modal" id="wo-det-modal" onclick="event.stopPropagation()">
+  <div class="wo-det-header">
+    <button class="wo-det-close" onclick="closeWoDetail()" title="Close">×</button>
+  </div>
+  <div class="modal-body wo-det-body" id="wo-det-body">
+    <div class="modal-loading">Loading…</div>
+  </div>
+</div>
+</div>
+
+<!-- ── Discussion drawer ─────────────────────────────────────────── -->
+<div class="disc-overlay" id="disc-overlay" onclick="closeDrawer()"></div>
+<div class="disc-drawer" id="disc-drawer">
+  <div class="disc-drawer-head">
+    <div class="disc-drawer-title">
+      <h3 id="drawer-title">Discussion</h3>
+      <p id="drawer-subtitle"></p>
+    </div>
+    <button class="disc-close" onclick="closeDrawer()" title="Close">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="disc-body" id="drawer-body">
+    <div class="disc-empty">No discussions yet.</div>
+  </div>
+</div>
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/monday_data.js') }}"></script>
+{% endblock %}
+{% endblock %}

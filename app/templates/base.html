@@ -536,6 +536,7 @@
 
     {% block extra_styles %}{% endblock %}
   </style>
+  {% block extra_head %}{% endblock %}
 </head>
 <body>
 
@@ -674,12 +675,18 @@
         <span class="nav-label">Validation Center</span>
       </a>
 
-      <a href="/admin/users" class="nav-item {% if active_page == 'user_mgmt' %}active{% endif %}">
+      <div class="nav-group-header {% if active_group == 'user_mgmt' %}open{% endif %}" data-group="grp-user-mgmt">
         <span class="nav-icon">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         </span>
         <span class="nav-label">User &amp; ASP Mgmt</span>
-      </a>
+        <svg class="nav-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <div class="nav-sub {% if active_group == 'user_mgmt' %}open{% endif %}" id="grp-user-mgmt">
+        <a href="/admin/users" class="nav-sub-item {% if active_page == 'user_mgmt' %}active{% endif %}"><span class="nav-sub-dot"></span>User Management</a>
+        <a href="/admin/users/asp-directory" class="nav-sub-item {% if active_page == 'asp_directory' %}active{% endif %}"><span class="nav-sub-dot"></span>ASP Directory</a>
+        <a href="/admin/users/pw-change-requests" class="nav-sub-item {% if active_page == 'pw_change_requests' %}active{% endif %}"><span class="nav-sub-dot"></span>PW Change Requests</a>
+      </div>
 
       <div class="nav-group-header {% if active_group == 'escalation_center' %}open{% endif %}" data-group="grp-escalation">
         <span class="nav-icon">

@@ -1494,7 +1494,7 @@ def validation():
 @admin_bp.route("/admin/users", methods=["GET"])
 def users():
     return render_template("admin/user_management.html",
-                           portal="admin", active_page="user_mgmt")
+                           portal="admin", active_page="user_mgmt", active_group="user_mgmt")
 
 
 # Kota → granular Java region mapping.
@@ -1581,7 +1581,8 @@ def asp_directory():
         asps=asps,
         regions=regions,
         portal="admin",
-        active_page="user_mgmt",
+        active_page="asp_directory",
+        active_group="user_mgmt",
     )
 
 
@@ -1681,7 +1682,9 @@ def pw_change_requests():
     return render_template(
         "admin/user_management/pw_change_requests.html",
         history=[dict(r) for r in history_rows],
-        portal="admin", active_page="user_management"
+        portal="admin",
+        active_page="pw_change_requests",
+        active_group="user_mgmt",
     )
 
 
@@ -1980,7 +1983,16 @@ class _QueueHandler(logging.Handler):
                 "msg":   record.getMessage(),
             })
         except _queue.Full:
-            pass
+            # Queue full — drop oldest entry to make room for this one
+            try:
+                _log_queue.get_nowait()
+                _log_queue.put_nowait({
+                    "ts":    _queue_formatter.formatTime(record, "%Y-%m-%d %H:%M:%S"),
+                    "level": record.levelname,
+                    "msg":   record.getMessage(),
+                })
+            except (_queue.Full, _queue.Empty):
+                pass
 
 
 _queue_handler = _QueueHandler()
@@ -2019,6 +2031,16 @@ def _scheduler_loop(app) -> None:
     log = logging.getLogger("monday_sync")
     log.info("Auto-scheduler started — interval=%d min, window=%02d:00–%02d:00 WIB Mon–Fri",
              SYNC_INTERVAL_SEC // 60, SYNC_HOUR_START, SYNC_HOUR_END)
+
+    # ── Startup delay: wait 15 minutes before first sync ────────────────────
+    STARTUP_DELAY_SEC = 15 * 60
+    log.info("Scheduler: startup delay — first sync in 15 min")
+    _next_run_at = _time.time() + STARTUP_DELAY_SEC   # expose to status endpoint
+    _scheduler_stop.wait(STARTUP_DELAY_SEC)
+    _next_run_at = None
+    if _scheduler_stop.is_set():
+        log.info("Auto-scheduler stopped during startup delay.")
+        return
 
     while not _scheduler_stop.is_set():
 
@@ -2128,11 +2150,22 @@ def _run_sync_task(app, mode: str, board_id: str | None = None) -> None:
     if scripts_dir not in sys.path:
         sys.path.insert(0, scripts_dir)
 
+    def _put(level: str, msg: str) -> None:
+        """Put a log entry into the queue, dropping the oldest if full."""
+        entry = {"ts": "", "level": level, "msg": msg}
+        try:
+            _log_queue.put_nowait(entry)
+        except _queue.Full:
+            try:
+                _log_queue.get_nowait()
+                _log_queue.put_nowait(entry)
+            except (_queue.Full, _queue.Empty):
+                pass
+
     try:
         import monday_sync as _ms
     except ImportError as exc:
-        _log_queue.put_nowait({"ts": "", "level": "ERROR",
-                               "msg": f"Cannot import monday_sync: {exc}"})
+        _put("ERROR", f"Cannot import monday_sync: {exc}")
         return
 
     # Wire queue handler into the sync script's logger
@@ -2151,8 +2184,7 @@ def _run_sync_task(app, mode: str, board_id: str | None = None) -> None:
             if board_id:
                 boards = [b for b in boards if b["board_id"] == board_id]
                 if not boards:
-                    _log_queue.put_nowait({"ts": "", "level": "ERROR",
-                                           "msg": f"Board ID {board_id} not found in xlsx"})
+                    _put("ERROR", f"Board ID {board_id} not found in xlsx")
                     return
 
             if mode == "full":
@@ -2162,18 +2194,14 @@ def _run_sync_task(app, mode: str, board_id: str | None = None) -> None:
             elif mode == "backfill":
                 _ms._backfill_updates(conn)
             else:
-                _log_queue.put_nowait({"ts": "", "level": "ERROR",
-                                       "msg": f"Unknown sync mode: {mode}"})
+                _put("ERROR", f"Unknown sync mode: {mode}")
                 return
 
-            _log_queue.put_nowait({"ts": "", "level": "INFO",
-                                   "msg": f"✓ Sync mode '{mode}' completed."})
+            _put("INFO", f"✓ Sync mode '{mode}' completed.")
         except Exception as exc:
             import traceback
-            _log_queue.put_nowait({"ts": "", "level": "ERROR",
-                                   "msg": f"Sync error: {exc}"})
-            _log_queue.put_nowait({"ts": "", "level": "ERROR",
-                                   "msg": traceback.format_exc()})
+            _put("ERROR", f"Sync error: {exc}")
+            _put("ERROR", traceback.format_exc())
         finally:
             _ms_logger.removeHandler(_queue_handler)
             try:
@@ -2249,7 +2277,8 @@ def escalation_center():
 
     # DB stats from lenovo_asp.db
     stats = {"items": 0, "updates": 0, "boards_synced": 0, "creators": 0}
-    sync_history = []
+    # latest_runs: dict keyed by board_id → most-recent sync_log row for that board
+    latest_runs = {}
     edb = _get_monday_sync_db()
     if edb:
         try:
@@ -2259,17 +2288,27 @@ def escalation_center():
                 "SELECT COUNT(DISTINCT board_id) FROM technical_escalation"
             ).fetchone()[0]
             stats["creators"]     = edb.execute("SELECT COUNT(*) FROM creators").fetchone()[0]
+            # One latest row per board_id — run_at shifted to WIB (UTC+7)
             rows = edb.execute(
-                "SELECT run_at, board_id, asp_board, run_type, items_found, "
-                "items_upserted, duration_sec "
-                "FROM sync_log ORDER BY id DESC LIMIT 20"
+                "SELECT s1.board_id, s1.asp_board, s1.run_type, s1.items_found, "
+                "s1.items_upserted, s1.duration_sec, "
+                "datetime(s1.run_at, '+7 hours') AS run_at, "
+                "COALESCE(t.total_items, 0) AS total_items "
+                "FROM sync_log s1 "
+                "LEFT JOIN ("
+                "  SELECT board_id, COUNT(*) AS total_items"
+                "  FROM technical_escalation GROUP BY board_id"
+                ") t ON t.board_id = s1.board_id "
+                "WHERE s1.id = (SELECT MAX(id) FROM sync_log s2 WHERE s2.board_id = s1.board_id) "
+                "ORDER BY s1.run_at DESC"
             ).fetchall()
-            sync_history = [dict(r) for r in rows]
+            latest_runs = {str(r["board_id"]): dict(r) for r in rows}
         except Exception:
             pass
         finally:
             edb.close()
 
+    boards.sort(key=lambda b: (b["asp_board"] or "").lower())
     board_count = len(boards)
     synced_count = sum(1 for b in boards if b["synced"])
 
@@ -2277,7 +2316,7 @@ def escalation_center():
         is_running = _sync_thread is not None and _sync_thread.is_alive()
 
     return render_template(
-        "admin/monday_collector.html",
+        "admin/escalation_center/monday_collector.html",
         portal="admin",
         active_page="monday_collector",
         active_group="escalation_center",
@@ -2285,7 +2324,7 @@ def escalation_center():
         board_count=board_count,
         synced_count=synced_count,
         stats=stats,
-        sync_history=sync_history,
+        latest_runs=latest_runs,
         is_running=is_running,
     )
 
@@ -2321,8 +2360,16 @@ def escalation_center_trigger():
 @admin_bp.route("/admin/escalation-center/stop", methods=["POST"])
 def escalation_center_stop():
     _sync_stop.set()
-    _log_queue.put_nowait({"ts": "", "level": "WARNING",
-                           "msg": "Stop signal sent — sync will halt after current item."})
+    try:
+        _log_queue.put_nowait({"ts": "", "level": "WARNING",
+                               "msg": "Stop signal sent — sync will halt after current item."})
+    except _queue.Full:
+        try:
+            _log_queue.get_nowait()
+            _log_queue.put_nowait({"ts": "", "level": "WARNING",
+                                   "msg": "Stop signal sent — sync will halt after current item."})
+        except (_queue.Full, _queue.Empty):
+            pass
     return jsonify({"ok": True})
 
 
@@ -2443,23 +2490,33 @@ def escalation_center_boards():
             "synced":       bool(bs.get("last_sync")),
         })
 
-    # Sync history
-    sync_history = []
+    boards.sort(key=lambda b: (b["asp_board"] or "").lower())
+
+    # Latest run per board
+    latest_runs = {}
     edb = _get_monday_sync_db()
     if edb:
         try:
             rows = edb.execute(
-                "SELECT run_at, board_id, asp_board, run_type, items_found, "
-                "items_upserted, duration_sec "
-                "FROM sync_log ORDER BY id DESC LIMIT 20"
+                "SELECT s1.board_id, s1.asp_board, s1.run_type, s1.items_found, "
+                "s1.items_upserted, s1.duration_sec, "
+                "datetime(s1.run_at, '+7 hours') AS run_at, "
+                "COALESCE(t.total_items, 0) AS total_items "
+                "FROM sync_log s1 "
+                "LEFT JOIN ("
+                "  SELECT board_id, COUNT(*) AS total_items"
+                "  FROM technical_escalation GROUP BY board_id"
+                ") t ON t.board_id = s1.board_id "
+                "WHERE s1.id = (SELECT MAX(id) FROM sync_log s2 WHERE s2.board_id = s1.board_id) "
+                "ORDER BY s1.run_at DESC"
             ).fetchall()
-            sync_history = [dict(r) for r in rows]
+            latest_runs = {str(r["board_id"]): dict(r) for r in rows}
         except Exception:
             pass
         finally:
             edb.close()
 
-    return jsonify({"ok": True, "boards": boards, "sync_history": sync_history})
+    return jsonify({"ok": True, "boards": boards, "latest_runs": latest_runs})
 
 
 
@@ -2468,16 +2525,53 @@ def escalation_center_boards():
 
 @admin_bp.route("/admin/monday-data", methods=["GET"])
 def monday_data():
-    import json as _json
+    """Render the Monday Data page shell — data is loaded by the JS via API."""
     edb = _get_monday_sync_db()
-    rows_list   = []
     boards_list = []
     total_count = 0
     board_count = 0
 
     if edb:
         try:
-            # All rows with discussion counts + all detail fields
+            total_count = edb.execute(
+                "SELECT COUNT(*) FROM technical_escalation"
+            ).fetchone()[0]
+            board_raw = edb.execute("""
+                SELECT asp_board, board_id, COUNT(*) AS item_count
+                FROM technical_escalation
+                GROUP BY board_id
+                ORDER BY asp_board
+            """).fetchall()
+            boards_list = [dict(r) for r in board_raw]
+            board_count = len(boards_list)
+        except Exception:
+            pass
+        finally:
+            edb.close()
+
+    return render_template(
+        "admin/escalation_center/monday_data.html",
+        portal="admin",
+        active_page="monday_data",
+        active_group="escalation_center",
+        boards=boards_list,
+        total_count=total_count,
+        board_count=board_count,
+    )
+
+
+# ── Monday Data: JSON API ──────────────────────────────────────────────────────
+
+@admin_bp.route("/admin/api/monday-data", methods=["GET"])
+def monday_data_api():
+    """Return all Monday sync rows as JSON — consumed by monday_data.js."""
+    import json as _json
+    edb = _get_monday_sync_db()
+    rows_list   = []
+    boards_list = []
+
+    if edb:
+        try:
             raw = edb.execute("""
                 SELECT
                     te.monday_item_id,
@@ -2513,9 +2607,7 @@ def monday_data():
                 ORDER BY te.item_created_at DESC
             """).fetchall()
             rows_list = [dict(r) for r in raw]
-            total_count = len(rows_list)
 
-            # Board summary (for sidebar filter)
             board_raw = edb.execute("""
                 SELECT asp_board, board_id, COUNT(*) AS item_count
                 FROM technical_escalation
@@ -2523,26 +2615,13 @@ def monday_data():
                 ORDER BY asp_board
             """).fetchall()
             boards_list = [dict(r) for r in board_raw]
-            board_count = len(boards_list)
         except Exception:
             pass
         finally:
             edb.close()
 
-    # Build board_names map: {board_id: asp_board}
     board_names = {b["board_id"]: b["asp_board"] for b in boards_list}
-
-    return render_template(
-        "admin/monday_data.html",
-        portal="admin",
-        active_page="monday_data",
-        active_group="escalation_center",
-        rows_json=_json.dumps(rows_list),
-        board_names_json=_json.dumps(board_names),
-        boards=boards_list,
-        total_count=total_count,
-        board_count=board_count,
-    )
+    return jsonify({"rows": rows_list, "board_names": board_names})
 
 
 # ── Monday Data: discussion JSON API ─────────────────────────────────────────

@@ -713,6 +713,39 @@ ON CONFLICT(monday_item_id) DO UPDATE SET
 """
 
 
+# ─── WO Order Type auto-fill from asp_details ────────────────────────────────
+
+_APPLY_WO_TYPE_CCI_SQL = """
+UPDATE technical_escalation
+SET    work_order_type = 'CCI'
+WHERE  (work_order_type IS NULL OR work_order_type = '')
+AND    board_id IN (
+           SELECT monday_board_id
+           FROM   asp_details
+           WHERE  LOWER(TRIM(operation_support)) = 'cci only'
+       )
+"""
+
+
+def _apply_wo_type_from_asp(conn: sqlite3.Connection) -> int:
+    """
+    Fill empty work_order_type with 'CCI' for any technical_escalation row
+    whose board matches an asp_details entry with operation_support = 'CCI Only'.
+
+    Safe to call repeatedly — only touches rows where work_order_type is NULL
+    or blank, so it never overwrites an already-set value.
+
+    Returns the number of rows updated.
+    """
+    try:
+        cur = conn.execute(_APPLY_WO_TYPE_CCI_SQL)
+        conn.commit()
+        return cur.rowcount
+    except Exception as exc:
+        log.warning("_apply_wo_type_from_asp: %s", exc)
+        return 0
+
+
 def upsert_items(conn: sqlite3.Connection, items: list[dict],
                  board_id: str, asp_board: str,
                  col_map: dict[str, str] | None = None) -> int:
@@ -724,6 +757,9 @@ def upsert_items(conn: sqlite3.Connection, items: list[dict],
     ])
     conn.executemany(UPSERT_SQL, rows)
     conn.commit()
+    filled = _apply_wo_type_from_asp(conn)
+    if filled:
+        log.info("work_order_type auto-fill: set 'CCI' on %d row(s) via asp_details", filled)
     return len(rows)
 
 
@@ -848,6 +884,12 @@ def run_sync_board(conn: sqlite3.Connection, state: dict, board: dict,
 
     if items:
         log.info("[%s]\tUpdates:\t%d across %d item(s)", asp_board, total_updates, total_items)
+
+    # Apply CCI work_order_type fill for any rows that still have it blank
+    # (covers rows inserted before asp_details was linked, or re-syncs).
+    filled = _apply_wo_type_from_asp(conn)
+    if filled:
+        log.info("[%s]\twork_order_type CCI fill:\t%d row(s) updated", asp_board, filled)
 
     conn.execute(
         "INSERT INTO sync_log "
