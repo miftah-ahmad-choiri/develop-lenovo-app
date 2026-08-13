@@ -438,11 +438,12 @@ function _msdScanStepProgress(text) {
   }
 }
 
-function _msdStartIdleCountdown() {
-  _msdIdleTarget = Date.now() + _MSD_IDLE_DURATION_MS;
+function _msdStartIdleCountdown(remainingMs) {
+  // remainingMs: exact ms remaining parsed from the log line — always in sync with the script
+  _msdIdleTarget = Date.now() + remainingMs;
   sessionStorage.setItem('msd_idle_target', String(_msdIdleTarget));
-  _msdTickIdle();
   if (_msdIdleCountdownInterval) clearInterval(_msdIdleCountdownInterval);
+  _msdTickIdle();
   _msdIdleCountdownInterval = setInterval(_msdTickIdle, 1000);
 }
 
@@ -677,18 +678,22 @@ function connectMsdStream() {
       setReloginPanelVisible(true);
       return;
     }
-    // Intercept countdown lines to drive the badge
+    // Intercept countdown lines — drive both the badge AND the action-bar countdown
     const rawMsg = data.msg || '';
     const nextSecs = _parseNextSecs(rawMsg);
-    if (nextSecs !== null) _startNextCountdown(nextSecs);
+    if (nextSecs !== null) {
+      _startNextCountdown(nextSecs);          // "Downloaded Files" badge
+      _msdStartIdleCountdown(nextSecs * 1000); // action bar — synced to script's value
+    }
 
     // Drive progress bar from log content
     _msdScanStepProgress(rawMsg);
 
-    // Detect export complete → hide progress bar, start 30-min idle countdown
+    // Detect export complete → hide progress bar (idle countdown starts from log lines above)
     if (/Export complete\. Closing Chrome/.test(rawMsg) || /Work Orders exported.*moved/.test(rawMsg)) {
       _msdHideProgress();
-      _msdStartIdleCountdown();
+      // If no "Next download in" line has arrived yet, seed with full 30 min as fallback
+      if (!_msdIdleTarget) _msdStartIdleCountdown(_MSD_IDLE_DURATION_MS);
     }
 
     const ts  = data.ts ? '[' + data.ts + '] ' : '';

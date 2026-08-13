@@ -845,18 +845,24 @@ setRunning = function(running) {
   _origSetRunning(running);
 
   if (running && !wasRunning) {
-    // Transition: stopped → running
+    // Transition: stopped → running (user click OR auto-scheduler)
     if (!_statusInt) _statusInt = setInterval(pollStatus, 5000);
     _stopCountdown();
     _ecHideIdleCountdown();
     _setOffHours(false);
-    _ecHideProgress();
-    _ecSetProgress(1, 'Starting sync…');
+    // Always connect the SSE stream so auto-triggered syncs also stream logs
+    connectStream();
+    // Only reset + seed 1% if progress wasn't already advanced (avoids regression
+    // when poll races a finishing thread and briefly flips stopped→running again)
+    if (_ecCurrentPct === 0) {
+      _ecSetProgress(1, 'Starting sync…');
+    }
     const btn = document.getElementById('btn-main');
     if (btn) btn.disabled = false;
   } else if (!running && wasRunning) {
     // Transition: running → stopped
     if (_statusInt) { clearInterval(_statusInt); _statusInt = null; }
+    // Reset pct only now — run is genuinely done
     _ecHideProgress();
     // Idle countdown will be populated by the next pollStatus call
   }
