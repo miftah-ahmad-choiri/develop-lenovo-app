@@ -1,10 +1,12 @@
 import logging
 import os
+import re as _re
 import sqlite3
 import tempfile
 import threading
 import queue as _queue
 import time as _time
+import uuid as _uuid
 from datetime import datetime
 from flask import (
     Blueprint, render_template, request, redirect,
@@ -325,8 +327,13 @@ def msd_wo_updates():
         files=files,
         is_running=is_running,
         in_window=_msd_in_active_window(),
+        boot_id=_MSD_BOOT_ID,
     )
 
+
+# A unique ID stamped at process start — used by the frontend to detect server
+# restarts and automatically flush stale sessionStorage log content.
+_MSD_BOOT_ID: str = _uuid.uuid4().hex
 
 _msd_log_queue: _queue.Queue = _queue.Queue(maxsize=2000)
 _msd_thread: threading.Thread | None = None
@@ -337,6 +344,46 @@ _msd_otp_queue:    _queue.Queue = _queue.Queue(maxsize=1)
 _msd_otp_pending:  bool = False   # True while script is waiting for OTP
 _msd_relogin_pending: bool = False  # True while script is waiting for re-login
 
+# ── Startup auto-run ─────────────────────────────────────────────────────────
+# 10 minutes after the process starts, auto-trigger the MSD download if not
+# already running and the active window is open.
+_MSD_STARTUP_DELAY_SEC: int = 10 * 60
+_msd_startup_run_at: float = _time.time() + _MSD_STARTUP_DELAY_SEC  # Unix ts
+
+
+def _msd_startup_scheduler(app) -> None:
+    """Wait 10 min then auto-trigger the MSD download exactly once."""
+    _time.sleep(_MSD_STARTUP_DELAY_SEC)
+    global _msd_thread, _msd_startup_run_at
+    _msd_startup_run_at = 0.0   # clear the countdown
+    with _msd_lock:
+        already_running = _msd_thread is not None and _msd_thread.is_alive()
+    if already_running:
+        return  # user already started it manually — skip
+    if not _msd_in_active_window():
+        return  # outside office hours — don't auto-start
+    with app.app_context():
+        with _msd_lock:
+            if _msd_thread is not None and _msd_thread.is_alive():
+                return
+            _msd_thread = threading.Thread(
+                target=_run_msd_download_task,
+                args=(app, False),
+                daemon=True,
+                name="msd-auto-download-startup",
+            )
+            _msd_thread.start()
+
+
+def _msd_start_startup_scheduler(app) -> None:
+    t = threading.Thread(
+        target=_msd_startup_scheduler,
+        args=(app,),
+        daemon=True,
+        name="msd-startup-scheduler",
+    )
+    t.start()
+
 
 def _msd_in_active_window() -> bool:
     """Mon–Fri 06:00–20:00 local time."""
@@ -344,13 +391,27 @@ def _msd_in_active_window() -> bool:
     return now.weekday() < 5 and 6 <= now.hour < 20
 
 
+# Matches Werkzeug/Flask HTTP access log lines that leak via captured stderr.
+# Pattern: '127.0.0.1 - - [DD/Mon/YYYY ...' or the formatted variant with timestamp prefix.
+_WERKZEUG_LINE_RE = _re.compile(
+    r'(?:^|\s)(?:\d{1,3}\.){3}\d{1,3}\s+-\s+-\s+\[',
+)
+
+
 class _MsdQueueHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:  # type: ignore[override]
+        # Only forward records that originated from the msd_auto_download logger
+        if not record.name.startswith("msd_auto_download"):
+            return
+        # Drop Werkzeug HTTP access log lines that leak via captured stderr
+        msg = record.getMessage()
+        if _WERKZEUG_LINE_RE.search(msg):
+            return
         try:
             _msd_log_queue.put_nowait({
                 "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "level": record.levelname,
-                "msg": record.getMessage(),
+                "msg": msg,
             })
         except _queue.Full:
             try:
@@ -358,7 +419,7 @@ class _MsdQueueHandler(logging.Handler):
                 _msd_log_queue.put_nowait({
                     "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     "level": record.levelname,
-                    "msg": record.getMessage(),
+                    "msg": msg,
                 })
             except (_queue.Full, _queue.Empty):
                 pass
@@ -456,12 +517,15 @@ def msd_wo_updates_relogin():
 def msd_wo_updates_status():
     with _msd_lock:
         is_running = _msd_thread is not None and _msd_thread.is_alive()
+    # Expose startup countdown: positive Unix ts means auto-start pending
+    startup_run_at = _msd_startup_run_at if _msd_startup_run_at > _time.time() else None
     return jsonify({
         "ok": True,
         "is_running": is_running,
         "otp_pending": _msd_otp_pending,
         "relogin_pending": _msd_relogin_pending,
         "in_window": _msd_in_active_window(),
+        "startup_run_at": startup_run_at,
     })
 
 
@@ -2179,6 +2243,9 @@ _queue_formatter = logging.Formatter(datefmt="%Y-%m-%d %H:%M:%S")
 class _QueueHandler(logging.Handler):
     """Logging handler that pushes records into the SSE queue."""
     def emit(self, record: logging.LogRecord) -> None:  # type: ignore[override]
+        # Only forward records that originated from the monday_sync logger
+        if not record.name.startswith("monday_sync"):
+            return
         try:
             _log_queue.put_nowait({
                 "ts":    _queue_formatter.formatTime(record, "%Y-%m-%d %H:%M:%S"),
@@ -2373,6 +2440,7 @@ def _run_sync_task(app, mode: str, board_id: str | None = None) -> None:
 
     # Wire queue handler into the sync script's logger
     _ms_logger = logging.getLogger("monday_sync")
+    _ms_logger.propagate = False  # prevent leaking into root → _msd_log_queue
     _ms_logger.addHandler(_queue_handler)
     _ms_logger.setLevel(logging.DEBUG)
 
@@ -2407,6 +2475,8 @@ def _run_sync_task(app, mode: str, board_id: str | None = None) -> None:
             _put("ERROR", traceback.format_exc())
         finally:
             _ms_logger.removeHandler(_queue_handler)
+            # Keep propagate=False permanently — restoring True would let Werkzeug
+            # access log records leak into _msd_log_queue via the root logger.
             try:
                 conn.close()
             except Exception:
@@ -2506,7 +2576,7 @@ def _run_msd_download_task(app, run_once: bool = False) -> None:
             _msd_relogin_pending = False
             os.sys.argv = original_argv
             logger.removeHandler(_msd_queue_handler)
-            logger.propagate = True
+            # Keep propagate=False permanently — this logger must never reach root
 
 
 # ── Escalation Center page ────────────────────────────────────────────────────
