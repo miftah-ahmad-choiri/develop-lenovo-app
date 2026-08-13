@@ -22,12 +22,46 @@
   .btn-sync.danger  { background: #dc2626; border-color: #dc2626; color: #fff; }
   .btn-sync.danger:hover  { background: #b91c1c; border-color: #b91c1c; }
   .btn-sync:disabled { opacity: 0.45; cursor: not-allowed; }
-  .running-badge { display: none; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #16a34a; margin-left: auto; }
+  .running-badge { display: none; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #16a34a; }
   .running-badge.visible { display: flex; }
   .running-dot { width: 8px; height: 8px; border-radius: 50%; background: #16a34a; animation: pulse 1.2s infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-  .off-hours-badge { display: none; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: #92400e; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 5px; padding: 2px 8px; margin-left: auto; }
+  .off-hours-badge { display: none; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: #92400e; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 5px; padding: 2px 8px; }
   .off-hours-badge.visible { display: flex; }
+
+  /* ── Ring progress (running) ─────────────────────────────── */
+  .ec-progress-wrap {
+    display: none; align-items: center; gap: 10px;
+    margin-left: auto; flex-shrink: 0;
+  }
+  .ec-progress-wrap.visible { display: flex; }
+  .ec-ring { width: 36px; height: 36px; flex-shrink: 0; }
+  .ec-ring-bg  { fill: none; stroke: #e5e7eb; stroke-width: 3.5; }
+  .ec-ring-arc {
+    fill: none; stroke: #3b82d4; stroke-width: 3.5;
+    stroke-linecap: round;
+    transform: rotate(-90deg); transform-origin: 50% 50%;
+    transition: stroke-dashoffset 0.4s ease;
+  }
+  .ec-progress-label {
+    font-size: 12px; font-weight: 700; color: #3b82d4;
+    white-space: nowrap; min-width: 30px;
+  }
+  .ec-progress-step {
+    font-size: 11px; color: #57606a; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; max-width: 180px;
+  }
+
+  /* ── Idle countdown (next sync) ───────────────────────────── */
+  .ec-idle-countdown {
+    display: none; align-items: center; gap: 6px;
+    margin-left: auto; font-size: 12px; color: #57606a; white-space: nowrap;
+  }
+  .ec-idle-countdown.visible { display: flex; }
+  .ec-idle-countdown-label { font-weight: 600; }
+  .ec-idle-countdown-val {
+    font-weight: 700; color: #1f2328; font-variant-numeric: tabular-nums;
+  }
 
   /* ── Tab panel — fills remaining viewport height ─────────── */
   .ec-tabs {
@@ -165,13 +199,35 @@
     Auto mode: <strong id="cp-mode-label">{{ 'Incremental' if stats['items'] > 0 else 'Full Sync' }}</strong>
     &mdash; {{ 'DB has data, fetching changes only' if stats['items'] > 0 else 'DB is empty, full fetch on first run' }}
   </span>
-  <span class="running-badge{% if is_running %} visible{% endif %}" id="running-badge">
-    <span class="running-dot"></span> RUNNING
-  </span>
   <span class="off-hours-badge" id="off-hours-badge">
     ⏸ Off Hours
   </span>
-  <span id="next-run-countdown" style="display:none; font-size:11px; color:#dc2626; margin-left:auto; white-space:nowrap;">
+
+  <!-- ring progress: shown while running -->
+  <div class="ec-progress-wrap" id="ec-progress-wrap">
+    <span class="ec-progress-step" id="ec-progress-step"></span>
+    <!-- r=15.5 → circumference = 2π×15.5 ≈ 97.4 -->
+    <svg class="ec-ring" viewBox="0 0 36 36" aria-hidden="true">
+      <circle class="ec-ring-bg"  cx="18" cy="18" r="15.5"/>
+      <circle class="ec-ring-arc" cx="18" cy="18" r="15.5" id="ec-ring-arc"
+              stroke-dasharray="97.4 97.4" stroke-dashoffset="97.4"/>
+    </svg>
+    <span class="ec-progress-label" id="ec-progress-label">0%</span>
+  </div>
+
+  <!-- idle countdown: replaces progress bar when sync finishes -->
+  <div class="ec-idle-countdown" id="ec-idle-countdown">
+    <span class="ec-idle-countdown-label" id="ec-idle-label">Next auto-sync in</span>
+    <span class="ec-idle-countdown-val" id="ec-idle-val">—</span>
+  </div>
+
+  <!-- RUNNING badge: always rightmost, after progress ring -->
+  <span class="running-badge{% if is_running %} visible{% endif %}" id="running-badge">
+    <span class="running-dot"></span> RUNNING
+  </span>
+
+  <!-- existing scheduler countdown (kept hidden — idle countdown above replaces it) -->
+  <span id="next-run-countdown" style="display:none;">
     <strong id="countdown-label">Next auto-sync in</strong> <strong id="countdown-val">—</strong>
   </span>
 </div>
@@ -294,6 +350,14 @@ let _es        = null;   // EventSource
 let _paused    = false;
 let _statusInt = null;
 
+/* ── Progress bar state ─────────────────────────────────────── */
+let _ecCurrentPct   = 0;     // highest pct reached this run — never go back
+let _ecIdleInterval = null;  // 1-second interval for idle countdown display
+let _ecIdleTarget   = null;  // last targetTs passed to _ecShowIdleCountdown
+
+/* ── Log persistence key ────────────────────────────────────── */
+const _MC_LOG_KEY = 'monday_collector_log';
+
 /* ── Helpers ────────────────────────────────────────────────── */
 /* Patterns whose lines should be updated in-place rather than appended.
    A "spinner prefix" is the part of the message before the changing number. */
@@ -323,6 +387,7 @@ function appendLog(cls, text) {
     if (last && last.dataset.spinnerKey === key) {
       last.textContent = text;
       con.scrollTop = con.scrollHeight;
+      sessionStorage.setItem(_MC_LOG_KEY, con.innerHTML);
       return;
     }
   }
@@ -337,6 +402,7 @@ function appendLog(cls, text) {
     con.removeChild(con.firstChild);
   }
   con.scrollTop = con.scrollHeight;
+  sessionStorage.setItem(_MC_LOG_KEY, con.innerHTML);
 }
 
 /* ── Smart auto-mode ─────────────────────────────────────────── */
@@ -378,6 +444,83 @@ function handleMainButton() {
   }
 }
 
+/* ── Ring progress helpers ──────────────────────────────────── */
+const _EC_CIRCUMFERENCE = 97.4;  // 2π × 15.5
+
+function _ecSetProgress(pct, stepLabel) {
+  if (pct < _ecCurrentPct) return;   // never regress
+  _ecCurrentPct = pct;
+  const wrap  = document.getElementById('ec-progress-wrap');
+  const arc   = document.getElementById('ec-ring-arc');
+  const label = document.getElementById('ec-progress-label');
+  const step  = document.getElementById('ec-progress-step');
+  wrap.classList.add('visible');
+  // dashoffset = circumference × (1 - pct/100): 0% → full offset (empty), 100% → 0 (full)
+  arc.style.strokeDashoffset = (_EC_CIRCUMFERENCE * (1 - pct / 100)).toFixed(2);
+  label.textContent = pct + '%';
+  if (stepLabel !== undefined) step.textContent = stepLabel;
+}
+
+function _ecHideProgress() {
+  _ecCurrentPct = 0;
+  const arc = document.getElementById('ec-ring-arc');
+  if (arc) arc.style.strokeDashoffset = _EC_CIRCUMFERENCE;
+  document.getElementById('ec-progress-wrap').classList.remove('visible');
+  document.getElementById('ec-progress-label').textContent = '0%';
+  document.getElementById('ec-progress-step').textContent = '';
+}
+
+/* Parse [N/TOTAL] board progress from a log line. Returns {pct, label} or null. */
+function _ecParseBoardProgress(text) {
+  const m = /\[(\d+)\/(\d+)\]\s+Board:\s*(.+)/.exec(text);
+  if (!m) return null;
+  const cur   = parseInt(m[1], 10);
+  const total = parseInt(m[2], 10);
+  if (!total) return null;
+  const pct   = Math.round((cur / total) * 100);
+  return { pct: pct, label: m[3].trim() + ' (' + cur + '/' + total + ')' };
+}
+
+/* ── Idle countdown display ─────────────────────────────────── */
+function _ecShowIdleCountdown(targetTs, label) {
+  // targetTs: Unix timestamp in seconds (from server).
+  // If the same target is already running, just update the label — don't restart.
+  if (_ecIdleTarget === targetTs && _ecIdleInterval) {
+    const lblEl = document.getElementById('ec-idle-label');
+    if (lblEl && label) lblEl.textContent = label;
+    return;
+  }
+  _ecIdleTarget = targetTs;
+  if (_ecIdleInterval) { clearInterval(_ecIdleInterval); _ecIdleInterval = null; }
+  const el    = document.getElementById('ec-idle-countdown');
+  const valEl = document.getElementById('ec-idle-val');
+  const lblEl = document.getElementById('ec-idle-label');
+  if (lblEl) lblEl.textContent = label || 'Next auto-sync in';
+  function _tick() {
+    const remaining = Math.max(0, Math.round(targetTs - Date.now() / 1000));
+    const h = Math.floor(remaining / 3600);
+    const m = Math.floor((remaining % 3600) / 60);
+    const s = remaining % 60;
+    if (h > 0)      valEl.textContent = h + 'h ' + String(m).padStart(2,'0') + 'm ' + String(s).padStart(2,'0') + 's';
+    else if (m > 0) valEl.textContent = m + 'm ' + String(s).padStart(2,'0') + 's';
+    else            valEl.textContent = s + 's';
+    if (remaining === 0) {
+      clearInterval(_ecIdleInterval);
+      _ecIdleInterval = null;
+      _ecIdleTarget   = null;
+    }
+  }
+  _tick();
+  el.classList.add('visible');
+  _ecIdleInterval = setInterval(_tick, 1000);
+}
+
+function _ecHideIdleCountdown() {
+  if (_ecIdleInterval) { clearInterval(_ecIdleInterval); _ecIdleInterval = null; }
+  _ecIdleTarget = null;
+  document.getElementById('ec-idle-countdown').classList.remove('visible');
+}
+
 function setRunning(running) {
   _isRunning = running;
   const btn = document.getElementById('btn-main');
@@ -403,6 +546,7 @@ function setRunning(running) {
 function clearLog() {
   document.getElementById('log-console').innerHTML =
     '<p class="log-line log-system">— log cleared —</p>';
+  sessionStorage.removeItem(_MC_LOG_KEY);
 }
 
 function togglePause() {
@@ -419,8 +563,17 @@ function connectStream() {
   _es.onmessage = function(e) {
     const data = JSON.parse(e.data);
     if (data.keepalive) return;
+    const rawMsg = data.msg || '';
+
+    // Drive progress bar from [N/TOTAL] Board: lines
+    const prog = _ecParseBoardProgress(rawMsg);
+    if (prog) _ecSetProgress(prog.pct, prog.label);
+
+    // Detect "All boards completed" → show 100%
+    if (/All boards completed/i.test(rawMsg)) _ecSetProgress(100, 'All boards completed');
+
     const ts  = data.ts ? '[' + data.ts + '] ' : '';
-    const msg = ts + (data.msg || '');
+    const msg = ts + rawMsg;
     const lvl = (data.level || 'INFO').toUpperCase();
     if      (lvl === 'WARNING') appendLog('log-warning', msg);
     else if (lvl === 'ERROR')   appendLog('log-error',   msg);
@@ -657,56 +810,68 @@ pollStatus = function() {
       setRunning(data.is_running);
 
       if (data.is_running) {
-        // ── RUNNING: refresh stat cards, hide countdown + off-hours badge
+        // ── RUNNING: refresh stat cards, hide idle UI
         document.getElementById('stat-items').textContent    = (data.stats.items    || 0).toLocaleString();
         document.getElementById('stat-updates').textContent  = (data.stats.updates  || 0).toLocaleString();
         document.getElementById('stat-boards').textContent   = (data.stats.boards_synced || 0).toLocaleString();
         document.getElementById('stat-creators').textContent = (data.stats.creators  || 0).toLocaleString();
-        _stopCountdown();
         _setOffHours(false);
       } else if (!data.in_window) {
         // ── IDLE + OFF HOURS: show off-hours badge, count down to window open
         _setOffHours(true);
-        _stopCountdown();
         if (data.window_opens_at) {
-          _startCountdown(data.window_opens_at, 'Window opens in');
+          _ecShowIdleCountdown(data.window_opens_at, 'Window opens in');
         }
       } else {
         // ── IDLE + IN WINDOW: hide off-hours badge, count down to next sync
         _setOffHours(false);
         _setIdleActionLabel(false);
         if (data.next_run_at) {
-          _startCountdown(data.next_run_at, 'Next auto-sync in');
+          _ecShowIdleCountdown(data.next_run_at, 'Next auto-sync in');
         } else {
-          _stopCountdown();
+          _ecHideIdleCountdown();
         }
       }
     })
     .catch(() => {});
 };
 
-// Hook into setRunning so stat polling starts/stops with sync state
+// Hook into setRunning so stat polling and progress bar start/stop on transitions
 const _origSetRunning = setRunning;
+let _wasEcRunning = _isRunning;
 setRunning = function(running) {
+  const wasRunning = _wasEcRunning;
+  _wasEcRunning = running;
   _origSetRunning(running);
-  if (running) {
-    // Start fast stat polling when sync begins
-    if (!_statusInt) {
-      _statusInt = setInterval(pollStatus, 5000);
-    }
+
+  if (running && !wasRunning) {
+    // Transition: stopped → running
+    if (!_statusInt) _statusInt = setInterval(pollStatus, 5000);
     _stopCountdown();
+    _ecHideIdleCountdown();
     _setOffHours(false);
-    // Re-enable button (it was possibly disabled by off-hours)
+    _ecHideProgress();
+    _ecSetProgress(1, 'Starting sync…');
     const btn = document.getElementById('btn-main');
     if (btn) btn.disabled = false;
-  } else {
-    // Stop fast stat polling when sync ends
-    if (_statusInt) {
-      clearInterval(_statusInt);
-      _statusInt = null;
-    }
+  } else if (!running && wasRunning) {
+    // Transition: running → stopped
+    if (_statusInt) { clearInterval(_statusInt); _statusInt = null; }
+    _ecHideProgress();
+    // Idle countdown will be populated by the next pollStatus call
   }
+  // Repeated same-state polls: do nothing to progress/countdown
 };
+
+/* ── Restore log from previous visit ───────────────────────── */
+(function() {
+  const saved = sessionStorage.getItem(_MC_LOG_KEY);
+  if (saved) {
+    const con = document.getElementById('log-console');
+    con.innerHTML = saved;
+    con.scrollTop = con.scrollHeight;
+  }
+})();
 
 /* ── Init ──────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', function() {

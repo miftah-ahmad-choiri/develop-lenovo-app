@@ -42,7 +42,7 @@
   }
   .msd-running-dot { width: 8px; height: 8px; border-radius: 50%; background: #16a34a; animation: msd-pulse 1.2s infinite; }
   @keyframes msd-pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
-  .msd-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .msd-actions { display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; width: 100%; }
   /* Off-hours badge */
   .msd-offhours-badge {
     display: none; align-items: center; gap: 5px; font-size: 12px; font-weight: 600;
@@ -50,6 +50,40 @@
     border-radius: 5px; padding: 4px 10px;
   }
   .msd-offhours-badge.visible { display: inline-flex; }
+
+  /* ── Ring progress (running state) ──────────────────────────────────────── */
+  .msd-progress-wrap {
+    display: none; align-items: center; gap: 10px; margin-left: auto; flex-shrink: 0;
+  }
+  .msd-progress-wrap.visible { display: flex; }
+  .msd-ring { width: 36px; height: 36px; flex-shrink: 0; }
+  .msd-ring-bg  { fill: none; stroke: #e5e7eb; stroke-width: 3.5; }
+  .msd-ring-arc {
+    fill: none; stroke: #3b82d4; stroke-width: 3.5; stroke-linecap: round;
+    transform: rotate(-90deg); transform-origin: 50% 50%;
+    transition: stroke-dashoffset 0.5s ease;
+  }
+  .msd-progress-label {
+    font-size: 12px; font-weight: 700; color: #3b82d4; white-space: nowrap; min-width: 30px;
+  }
+  .msd-progress-step {
+    font-size: 11px; color: #57606a; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; max-width: 200px;
+  }
+
+  /* ── Idle / startup countdown ────────────────────────────────────────────── */
+  .msd-idle-countdown {
+    display: none; align-items: center; gap: 6px; margin-left: auto;
+    font-size: 12px; color: #57606a; white-space: nowrap;
+  }
+  .msd-idle-countdown.visible { display: flex; }
+  .msd-idle-countdown-label { font-weight: 600; }
+  .msd-idle-countdown-val {
+    font-weight: 700; color: #1f2328; font-variant-numeric: tabular-nums;
+  }
+  /* Startup countdown style (amber) */
+  .msd-idle-countdown.startup .msd-idle-countdown-label { color: #92400e; }
+  .msd-idle-countdown.startup .msd-idle-countdown-val   { color: #d97706; }
 
   /* ── OTP panel ──────────────────────────────────────────────────────────── */
   .msd-otp-panel {
@@ -176,12 +210,32 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           <span id="btn-run-msd-label">{% if in_window %}Run MSD Auto-Download{% else %}Run Once (Off-hours){% endif %}</span>
         </button>
-        <span class="msd-running-badge" id="msd-running-badge" {% if not is_running %}style="display:none"{% endif %}>
-          <span class="msd-running-dot"></span>RUNNING
-        </span>
         <span class="msd-offhours-badge{% if not in_window %} visible{% endif %}" id="msd-offhours-badge"
               title="Outside office hours. Click Run Once to do a single export now.">
           ⏸ Off-hours — active Mon–Fri 06:00–20:00
+        </span>
+
+        <!-- ring progress: shown while running -->
+        <div class="msd-progress-wrap" id="msd-progress-wrap">
+          <span class="msd-progress-step" id="msd-progress-step"></span>
+          <!-- r=15.5 → circumference = 2π×15.5 ≈ 97.4 -->
+          <svg class="msd-ring" viewBox="0 0 36 36" aria-hidden="true">
+            <circle class="msd-ring-bg"  cx="18" cy="18" r="15.5"/>
+            <circle class="msd-ring-arc" cx="18" cy="18" r="15.5" id="msd-ring-arc"
+                    stroke-dasharray="97.4 97.4" stroke-dashoffset="97.4"/>
+          </svg>
+          <span class="msd-progress-label" id="msd-progress-label">0%</span>
+        </div>
+
+        <!-- idle countdown: shown when idle after a completed download -->
+        <div class="msd-idle-countdown" id="msd-idle-countdown">
+          <span class="msd-idle-countdown-label">Next download in</span>
+          <span class="msd-idle-countdown-val" id="msd-idle-countdown-val">30:00</span>
+        </div>
+
+        <!-- RUNNING badge: always rightmost, after progress bar -->
+        <span class="msd-running-badge" id="msd-running-badge" {% if not is_running %}style="display:none"{% endif %}>
+          <span class="msd-running-dot"></span>RUNNING
         </span>
       </div>
 
@@ -275,6 +329,9 @@ let _msdRunning   = {{ 'true' if is_running else 'false' }};
 let _msdInWindow  = {{ 'true' if in_window else 'false' }};
 let _msdStatusTimer = null;
 
+/* ── Log persistence key ────────────────────────────────────────────────── */
+const _MSD_LOG_KEY = 'msd_exec_log';
+
 /* ── Next-download countdown ───────────────────────────────────────────── */
 let _nextTarget   = null;   // ms epoch when next download fires
 let _nextInterval = null;
@@ -322,6 +379,98 @@ function _tickNext() {
   badge.classList.add('visible');
 }
 
+/* ── Progress bar ──────────────────────────────────────────────────────── */
+// Each entry: [regex to match in log text, pct to set, short label]
+const _MSD_STEPS = [
+  [/Navigating to Dynamics main page/,              5,  'Navigating…'],
+  [/Looking for Work Orders button/,               12,  'Finding Work Orders…'],
+  [/Work Orders clicked/,                          18,  'Opening Work Orders…'],
+  [/Looking for view selector/,                    24,  'Finding view selector…'],
+  [/WO Status.*selected/,                          30,  'View selected…'],
+  [/Waiting for data to load/,                     36,  'Loading data…'],
+  [/Grid detected/,                                42,  'Grid detected…'],
+  [/Waiting for data rows to render/,              52,  'Rendering rows…'],
+  [/Data fully loaded/,                            62,  'Data loaded…'],
+  [/Looking for.*Export to Excel/,                 68,  'Finding Export button…'],
+  [/Export to Excel.*Clicking/,                    74,  'Clicking Export…'],
+  [/Export to Excel clicked/,                      80,  'Waiting for download…'],
+  [/Waiting for download/,                         85,  'Downloading…'],
+  [/Export complete\. File saved/,                 92,  'File saved…'],
+  [/File successfully moved/,                      96,  'Moving file…'],
+  [/Work Orders exported.*moved/,                 100,  'Done ✓'],
+];
+
+let _msdIdleCountdownInterval = null;
+let _msdIdleTarget = null;          // ms epoch 30 min after last export complete
+const _MSD_IDLE_DURATION_MS = 30 * 60 * 1000;
+let _msdCurrentPct = 0;             // highest pct reached this run — never go back
+const _MSD_RING_CIRC = 97.4;        // 2π × 15.5
+
+function _msdSetProgress(pct, stepLabel) {
+  // Never regress — only advance forward
+  if (pct < _msdCurrentPct) return;
+  _msdCurrentPct = pct;
+  const wrap  = document.getElementById('msd-progress-wrap');
+  const arc   = document.getElementById('msd-ring-arc');
+  const label = document.getElementById('msd-progress-label');
+  const step  = document.getElementById('msd-progress-step');
+  wrap.classList.add('visible');
+  arc.style.strokeDashoffset = (_MSD_RING_CIRC * (1 - pct / 100)).toFixed(2);
+  label.textContent = pct + '%';
+  if (stepLabel !== undefined) step.textContent = stepLabel;
+}
+
+function _msdHideProgress() {
+  _msdCurrentPct = 0;
+  const arc = document.getElementById('msd-ring-arc');
+  if (arc) arc.style.strokeDashoffset = _MSD_RING_CIRC;
+  document.getElementById('msd-progress-wrap').classList.remove('visible');
+  document.getElementById('msd-progress-label').textContent = '0%';
+  document.getElementById('msd-progress-step').textContent = '';
+}
+
+function _msdScanStepProgress(text) {
+  for (const [re, pct, label] of _MSD_STEPS) {
+    if (re.test(text)) {
+      _msdSetProgress(pct, label);
+      return;
+    }
+  }
+}
+
+function _msdStartIdleCountdown() {
+  _msdIdleTarget = Date.now() + _MSD_IDLE_DURATION_MS;
+  sessionStorage.setItem('msd_idle_target', String(_msdIdleTarget));
+  _msdTickIdle();
+  if (_msdIdleCountdownInterval) clearInterval(_msdIdleCountdownInterval);
+  _msdIdleCountdownInterval = setInterval(_msdTickIdle, 1000);
+}
+
+function _msdStopIdleCountdown() {
+  if (_msdIdleCountdownInterval) {
+    clearInterval(_msdIdleCountdownInterval);
+    _msdIdleCountdownInterval = null;
+  }
+  _msdIdleTarget = null;
+  sessionStorage.removeItem('msd_idle_target');
+  document.getElementById('msd-idle-countdown').classList.remove('visible');
+}
+
+function _msdTickIdle() {
+  const el    = document.getElementById('msd-idle-countdown');
+  const valEl = document.getElementById('msd-idle-countdown-val');
+  if (!_msdIdleTarget) { el.classList.remove('visible'); return; }
+  const remaining = Math.max(0, Math.round((_msdIdleTarget - Date.now()) / 1000));
+  const m = Math.floor(remaining / 60);
+  const s = remaining % 60;
+  valEl.textContent = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+  el.classList.add('visible');
+  if (remaining === 0) {
+    _msdStopIdleCountdown();
+  }
+}
+
+
 /* ── Log helpers ───────────────────────────────────────────────────────── */
 const _MSD_SPINNER_PATTERNS = [
   /^\s*(Waiting for data rows to render\.\.\.)/,
@@ -344,6 +493,7 @@ function appendMsdLog(level, text) {
     if (last && last.dataset.spinnerKey === key) {
       last.textContent = text;
       el.scrollTop = el.scrollHeight;
+      sessionStorage.setItem(_MSD_LOG_KEY, el.innerHTML);
       return;
     }
   }
@@ -354,11 +504,13 @@ function appendMsdLog(level, text) {
   el.appendChild(p);
   while (el.children.length > 500) el.removeChild(el.firstChild);
   el.scrollTop = el.scrollHeight;
+  sessionStorage.setItem(_MSD_LOG_KEY, el.innerHTML);
 }
 
 function clearMsdLog() {
   document.getElementById('msd-console').innerHTML =
     '<p class="msd-log-line msd-log-system">— log cleared —</p>';
+  sessionStorage.removeItem(_MSD_LOG_KEY);
 }
 
 /* ── Running state ─────────────────────────────────────────────────────── */
@@ -370,15 +522,26 @@ function _updateRunBtn() {
 }
 
 function setMsdRunning(running) {
+  const wasRunning = _msdRunning;
   _msdRunning = running;
   _updateRunBtn();
   document.getElementById('msd-running-badge').style.display = running ? 'inline-flex' : 'none';
-  if (!running) {
+
+  if (!running && wasRunning) {
+    // Transition: running → stopped
     setOtpPanelVisible(false);
     setReloginPanelVisible(false);
+    // Only hide progress if the idle countdown is NOT active —
+    // when a run finishes the countdown takes over the right side
+    if (!_msdIdleTarget) _msdHideProgress();
   }
-  if (running) {
+
+  if (running && !wasRunning) {
+    // Transition: stopped → running (genuine new start)
     document.getElementById('msd-next-badge').classList.remove('visible');
+    _msdStopIdleCountdown();
+    _msdHideProgress();             // reset pct counter for fresh run
+    _msdSetProgress(2, 'Starting…');
   }
 }
 
@@ -519,6 +682,15 @@ function connectMsdStream() {
     const nextSecs = _parseNextSecs(rawMsg);
     if (nextSecs !== null) _startNextCountdown(nextSecs);
 
+    // Drive progress bar from log content
+    _msdScanStepProgress(rawMsg);
+
+    // Detect export complete → hide progress bar, start 30-min idle countdown
+    if (/Export complete\. Closing Chrome/.test(rawMsg) || /Work Orders exported.*moved/.test(rawMsg)) {
+      _msdHideProgress();
+      _msdStartIdleCountdown();
+    }
+
     const ts  = data.ts ? '[' + data.ts + '] ' : '';
     const msg = ts + rawMsg;
     const lvl = (data.level || 'INFO').toUpperCase();
@@ -556,6 +728,47 @@ function triggerMsdRun() {
     });
 }
 
+/* ── Startup countdown ─────────────────────────────────────────────────── */
+let _msdStartupCountdownInterval = null;
+let _msdStartupTarget = null;   // Unix ts (seconds) of auto-start
+
+function _msdShowStartupCountdown(targetTs) {
+  if (_msdStartupTarget === targetTs && _msdStartupCountdownInterval) return;
+  _msdStartupTarget = targetTs;
+  if (_msdStartupCountdownInterval) { clearInterval(_msdStartupCountdownInterval); }
+  const el    = document.getElementById('msd-idle-countdown');
+  const valEl = document.getElementById('msd-idle-countdown-val');
+  const lblEl = document.querySelector('#msd-idle-countdown .msd-idle-countdown-label');
+  el.classList.add('visible', 'startup');
+  if (lblEl) lblEl.textContent = 'Auto-start in';
+  function _tick() {
+    const remaining = Math.max(0, Math.round(targetTs - Date.now() / 1000));
+    const m = Math.floor(remaining / 60);
+    const s = remaining % 60;
+    valEl.textContent = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+    if (remaining === 0) {
+      clearInterval(_msdStartupCountdownInterval);
+      _msdStartupCountdownInterval = null;
+      _msdStartupTarget = null;
+      el.classList.remove('startup');
+      // Countdown expired — hide it (run will start and setMsdRunning fires shortly)
+      el.classList.remove('visible');
+    }
+  }
+  _tick();
+  _msdStartupCountdownInterval = setInterval(_tick, 1000);
+}
+
+function _msdHideStartupCountdown() {
+  if (_msdStartupCountdownInterval) {
+    clearInterval(_msdStartupCountdownInterval);
+    _msdStartupCountdownInterval = null;
+  }
+  _msdStartupTarget = null;
+  const el = document.getElementById('msd-idle-countdown');
+  el.classList.remove('startup', 'visible');
+}
+
 /* ── Status poll ───────────────────────────────────────────────────────── */
 function pollMsdStatus() {
   fetch('/admin/msd-wo-updates/status')
@@ -565,13 +778,55 @@ function pollMsdStatus() {
       const wasRunning = _msdRunning;
       setMsdRunning(!!data.is_running);
       if (typeof data.in_window === 'boolean') setInWindow(data.in_window);
-      if (data.otp_pending)    setOtpPanelVisible(true);
+      if (data.otp_pending)     setOtpPanelVisible(true);
       if (data.relogin_pending) setReloginPanelVisible(true);
       // Auto-refresh files list when a run just finished
       if (wasRunning && !data.is_running) refreshFiles();
+      // Startup countdown — show while idle and auto-start is pending
+      if (!data.is_running && data.startup_run_at) {
+        // Don't show if idle-download countdown is already active
+        if (!_msdIdleTarget) {
+          _msdShowStartupCountdown(data.startup_run_at);
+        }
+      } else if (_msdStartupTarget) {
+        _msdHideStartupCountdown();
+      }
     })
     .catch(function () {});
 }
+
+/* ── Restore log + idle countdown from previous visit ──────────────────── */
+(function() {
+  // If the server restarted (new boot_id), wipe any stale log from storage
+  const bootId = '{{ boot_id }}';
+  const storedBootId = sessionStorage.getItem('msd_boot_id');
+  if (storedBootId !== bootId) {
+    sessionStorage.removeItem(_MSD_LOG_KEY);
+    sessionStorage.removeItem('msd_idle_target');
+    sessionStorage.setItem('msd_boot_id', bootId);
+  }
+
+  const saved = sessionStorage.getItem(_MSD_LOG_KEY);
+  if (saved) {
+    const el = document.getElementById('msd-console');
+    el.innerHTML = saved;
+    el.scrollTop = el.scrollHeight;
+  }
+  // Restore idle countdown if still within its window.
+  // Always restore regardless of _msdRunning — setMsdRunning transition logic
+  // will clear it correctly if a new run starts.
+  const savedTarget = sessionStorage.getItem('msd_idle_target');
+  if (savedTarget) {
+    const target = parseInt(savedTarget, 10);
+    if (target > Date.now()) {
+      _msdIdleTarget = target;
+      _msdTickIdle();
+      _msdIdleCountdownInterval = setInterval(_msdTickIdle, 1000);
+    } else {
+      sessionStorage.removeItem('msd_idle_target');
+    }
+  }
+})();
 
 connectMsdStream();
 pollMsdStatus();
@@ -579,6 +834,8 @@ _msdStatusTimer = setInterval(pollMsdStatus, 5000);
 window.addEventListener('beforeunload', function () {
   if (_msdEs) _msdEs.close();
   if (_msdStatusTimer) clearInterval(_msdStatusTimer);
+  if (_msdIdleCountdownInterval) clearInterval(_msdIdleCountdownInterval);
+  if (_msdStartupCountdownInterval) clearInterval(_msdStartupCountdownInterval);
 });
 </script>
 {% endblock %}
