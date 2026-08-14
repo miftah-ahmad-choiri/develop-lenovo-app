@@ -13,6 +13,7 @@ Endpoints
   GET  /api/v1/mobile/cci-followup — CCI Follow-Up list
   GET  /api/v1/mobile/onsite-followup — Onsite Follow-Up list
   GET  /api/v1/mobile/return-part  — Return Part list
+  GET  /api/v1/mobile/history      — Completed/closed WOs in last N days
   GET  /api/v1/mobile/wo/<id>      — Single WO detail + parts
 """
 
@@ -226,6 +227,26 @@ def mobile_return_part():
         page           = _int_arg("page", 1),
         page_size      = per_page,
         vendor_filter  = mobile_vendor_filter(),
+    ))
+
+
+# ── History ───────────────────────────────────────────────────────────────────
+
+@mobile_bp.route("/api/v1/mobile/history", methods=["GET"])
+@jwt_required
+def mobile_history():
+    """
+    Return completed/closed WOs for this ASP within the last N days.
+    Query params:
+      days (int, 1–30, default 7) — how many days back to look
+      q    (str, optional)        — free-text search
+    """
+    from app.services.database.queries import get_asp_completed_history
+    days = min(max(_int_arg("days", 7), 1), 30)
+    return jsonify(get_asp_completed_history(
+        days          = days,
+        search        = _str_arg("q"),
+        vendor_filter = mobile_vendor_filter(),
     ))
 
 

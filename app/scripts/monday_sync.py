@@ -26,10 +26,19 @@ from pathlib import Path
 
 import openpyxl
 import requests
+from dotenv import load_dotenv
+
+# Load .env from the msd-auto-download directory (same directory level)
+_env_path = os.path.join(os.path.dirname(__file__), "msd-auto-download", ".env")
+load_dotenv(_env_path)
 
 # ─── Configuration ───────────────────────────────────────────────────────────
 
-MONDAY_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJ0aWQiOjY4MDU0NDA3MywiYWFpIjoxMSwidWlkIjo3ODQ3MzI4MywiaWFkIjoiMjAyNi0wNy0wOVQwNjo0NDoxMC4wMDBaIiwicGVyIjoibWU6d3JpdGUiLCJhY3RpZCI6MTM1MzY5ODEsInJnbiI6InVzZTEifQ.PNnqcRTRrKG2JHDjWhaX7ocfEI923-HeSTeqnoydxNQ"
+# MONDAY_TOKEN is loaded from the .env file by load_dotenv() above, or can be
+# overridden at runtime via os.environ (set through the admin Change Token UI).
+MONDAY_TOKEN = os.getenv("MONDAY_TOKEN", "")
+_token_loaded = "yes" if MONDAY_TOKEN else "NO - EMPTY TOKEN!"
+_token_preview = f"{MONDAY_TOKEN[:20]}..." if len(MONDAY_TOKEN) > 20 else "too short"
 API_URL      = "https://api.monday.com/v2"
 DB_FILE      = "technical_escalation.db"
 STATE_FILE   = "sync_state.json"
@@ -47,13 +56,22 @@ logging.basicConfig(
 )
 log = logging.getLogger("monday_sync")
 
+# Log token status at startup
+if not MONDAY_TOKEN:
+    log.warning("⚠️ MONDAY_TOKEN is EMPTY! Loaded from: %s", _env_path)
+else:
+    log.info("✓ MONDAY_TOKEN loaded (%s chars) from: %s", len(MONDAY_TOKEN), _env_path)
+
 # ─── GraphQL helpers ─────────────────────────────────────────────────────────
 
-HEADERS = {
-    "Authorization": MONDAY_TOKEN,
-    "Content-Type":  "application/json",
-    "API-Version":   "2024-01",
-}
+def _make_headers() -> dict:
+    """Build request headers, always reading the current token from os.environ."""
+    token = os.environ.get("MONDAY_TOKEN", "")
+    return {
+        "Authorization": token,
+        "Content-Type":  "application/json",
+        "API-Version":   "2024-01",
+    }
 
 BOARD_META_QUERY = """
 query BoardMeta($boardId: ID!) {
@@ -116,7 +134,7 @@ def gql(query: str, variables: dict) -> dict:
     payload = {"query": query, "variables": variables}
     for attempt in range(1, 4):
         try:
-            r = requests.post(API_URL, headers=HEADERS, json=payload, timeout=30)
+            r = requests.post(API_URL, headers=_make_headers(), json=payload, timeout=30)
             r.raise_for_status()
             data = r.json()
             if "errors" in data:

@@ -3,6 +3,7 @@ import os
 import pathlib
 import shutil
 import sys
+import time as _time_mod
 from datetime import datetime as _dt
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -65,6 +66,93 @@ for _lock in ("SingletonLock", "SingletonCookie", "SingletonSocket"):
         except Exception as _e:
             print(f"Warning: could not remove {_lock_file}: {_e}")
 
+
+def _clear_session_cache(profile_dir: str) -> None:
+    """Delete only the session/auth files from *profile_dir* so the next
+    Chrome launch gets a clean redirect to the Microsoft login page.
+
+    The rest of the profile (extensions, preferences, etc.) is left intact.
+    Must be called AFTER driver.quit() so Chrome has released all file handles.
+    """
+    profile = pathlib.Path(profile_dir)
+    # Files that hold the Microsoft/Dynamics session tokens
+    session_files = [
+        profile / "Default" / "Cookies",
+        profile / "Default" / "Login Data",
+        profile / "Default" / "Login Data-journal",
+        profile / "Default" / "Web Data",
+        profile / "Default" / "Network" / "Cookies",
+        profile / "Default" / "Network" / "Cookies-journal",
+        # Trust-tokens and related auth state
+        profile / "Default" / "Trust Tokens",
+        profile / "Default" / "Shared Dictionary" / "db",
+    ]
+    removed = []
+    for f in session_files:
+        if f.exists():
+            try:
+                f.unlink()
+                removed.append(f.name)
+            except Exception as _e:
+                print(f"Warning: could not remove session file {f.name}: {_e}")
+    if removed:
+        print(f"Session cache cleared ({', '.join(removed)}) — next launch will re-authenticate.")
+    else:
+        print("No session cache files found to clear.")
+
+
+def _kill_chrome_on_profile(profile_dir: str) -> None:
+    """Terminate any Chrome process that is using *profile_dir* as its
+    user-data-dir.  This closes the window WITHOUT wiping the profile on disk,
+    so cookies and the saved session are preserved for the next launch.
+
+    Called automatically by _make_driver() before spawning a new Chrome so
+    that two instances never race on the same profile (which causes the
+    'DevToolsActivePort file doesn't exist' crash).
+    """
+    try:
+        import psutil
+    except ImportError:
+        print("Warning: psutil not installed — cannot auto-close previous Chrome window.")
+        return
+
+    # Normalise to lowercase for case-insensitive comparison on Windows
+    target = os.path.normcase(os.path.normpath(profile_dir))
+    killed = 0
+    for proc in psutil.process_iter(["pid", "name", "cmdline"]):
+        try:
+            name = (proc.info["name"] or "").lower()
+            if "chrome" not in name:
+                continue
+            cmdline = proc.info["cmdline"] or []
+            for arg in cmdline:
+                if "--user-data-dir=" in arg:
+                    arg_path = os.path.normcase(
+                        os.path.normpath(arg.split("=", 1)[1])
+                    )
+                    if arg_path == target:
+                        print(f"Closing previous Chrome window (pid {proc.pid})...")
+                        proc.terminate()
+                        killed += 1
+                        break
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+
+    if killed:
+        # Give Chrome a moment to release the profile lock files
+        _time_mod.sleep(2)
+        # Remove any residual lock files the terminated process left behind
+        for _lk in ("SingletonLock", "SingletonCookie", "SingletonSocket"):
+            _lf = _profile_path / _lk
+            if _lf.exists() or _lf.is_symlink():
+                try:
+                    _lf.unlink()
+                except Exception:
+                    pass
+        print(f"Previous Chrome window closed ({killed} process(es) terminated).")
+    else:
+        print("No previous Chrome window found on this profile.")
+
 options = Options()
 options.add_argument("--start-maximized")
 options.add_argument("--force-device-scale-factor=0.6")
@@ -81,17 +169,12 @@ options.add_experimental_option("prefs", {
 
 def _make_driver():
     """Create a fresh Chrome driver using the shared options.
-    Clears stale profile lock files first so the new instance never crashes
-    with 'DevToolsActivePort file doesn't exist'.
+    Kills any existing Chrome process on the same profile first (so the new
+    instance never crashes with 'DevToolsActivePort file doesn't exist'),
+    without deleting the profile data (cookies/session are preserved).
     Returns (driver, wait) tuple.
     """
-    for _lk in ("SingletonLock", "SingletonCookie", "SingletonSocket"):
-        _lf = _profile_path / _lk
-        if _lf.exists() or _lf.is_symlink():
-            try:
-                _lf.unlink()
-            except Exception:
-                pass
+    _kill_chrome_on_profile(SELENIUM_PROFILE_DIR)
     _drv = webdriver.Chrome(options=options)
     _wt  = WebDriverWait(_drv, 30)
     return _drv, _wt
@@ -407,6 +490,38 @@ def open_work_orders():
 # =====================================
 # LOGIN FUNCTION  (called at startup and after session expiry)
 # =====================================
+def _is_session_expired() -> bool:
+    """Return True if the current browser page indicates the Dynamics session
+    has expired — either by redirecting to microsoftonline.com OR by showing
+    the 'Sign in to continue' overlay on the Dynamics domain itself."""
+    try:
+        current_url = driver.current_url
+    except Exception:
+        return False
+    if "microsoftonline.com" in current_url:
+        return True
+    if current_url.startswith(f"https://{DYNAMICS_HOST}"):
+        # Check for the "Sign in to continue" / "Sign in" modal overlay
+        for xpath in (
+            # Title text of the dialog
+            "//*[contains(@class,'ms-Dialog') or contains(@class,'dialog')]"
+            "//*[normalize-space(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
+            " 'abcdefghijklmnopqrstuvwxyz'))='sign in to continue'"
+            " or normalize-space(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
+            " 'abcdefghijklmnopqrstuvwxyz'))='sign in']",
+            # Primary "Sign in" action button inside the overlay
+            "//button[normalize-space(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
+            " 'abcdefghijklmnopqrstuvwxyz'))='sign in']",
+        ):
+            try:
+                el = driver.find_element(By.XPATH, xpath)
+                if el.is_displayed():
+                    return True
+            except Exception:
+                pass
+    return False
+
+
 def do_login():
     """Navigate to LOGIN_URL and complete the full Microsoft login flow.
     Safe to call multiple times on the same driver/Chrome instance."""
@@ -426,11 +541,26 @@ def do_login():
     current_url = driver.current_url
     print(f"Landed on: {current_url}")
 
-    # ── Already logged in — nothing to do ───────────────────────────────
+    # ── Already logged in — but check for "Sign in to continue" overlay ─
+    # When the cached session has expired, Dynamics can load at the DYNAMICS_HOST
+    # URL but immediately show a modal overlay asking to sign in.
+    # _is_session_expired() catches both that overlay and a full MS-login redirect.
     if current_url.startswith(f"https://{DYNAMICS_HOST}"):
-        print("Already authenticated. No login required.")
-        print("✅ Dynamics session already active — starting download loop.")
-        return
+        if _is_session_expired():
+            print("⚠️  'Sign in to continue' overlay detected — session has expired.")
+            print("Navigating directly to Microsoft login page to force re-authentication...")
+            driver.get(
+                "https://login.microsoftonline.com/5c7d0b28-bdf8-410c-aa93-4df372b16203/"
+                "oauth2/authorize?client_id=00000007-0000-0000-c000-000000000000"
+                "&response_type=code%20id_token&scope=openid%20profile"
+                "&redirect_uri=https%3A%2F%2Fsg1--apjcrmlivesg614.crm5.dynamics.com%2F"
+                "&response_mode=form_post&sso_reload=true"
+            )
+            # Fall through to the full login flow below
+        else:
+            print("Already authenticated. No login required.")
+            print("✅ Dynamics session already active — starting download loop.")
+            return
 
     # ── Full login flow ──────────────────────────────────────────────────
     print("Redirected to login page. Starting login flow...")
@@ -511,6 +641,28 @@ def do_login():
     driver.execute_script("arguments[0].click();", sign_in_button)
     print("Sign in clicked.")
     time.sleep(3)
+
+    # =====================================
+    # DETECT WRONG PASSWORD
+    # =====================================
+    # Microsoft shows an error element with id="passwordError" or a generic
+    # "#idA_PWD_ForgotPassword" sibling when the password is incorrect.
+    try:
+        err_el = driver.find_element(
+            By.XPATH,
+            "//*[@id='passwordError' or @id='usernameError' "
+            "or contains(@class,'alert-error') "
+            "or @data-bind='text: error']",
+        )
+        if err_el.is_displayed() and err_el.text.strip():
+            print(
+                "❌ LOGIN FAILED — WRONG PASSWORD OR EMAIL: "
+                + err_el.text.strip()
+                + " — Please update the MSD credentials."
+            )
+            print("__WRONG_PASSWORD__")
+    except Exception:
+        pass
 
     # =====================================
     # HANDLE PHONE VERIFICATION PROMPT
@@ -689,15 +841,19 @@ try:
             open_work_orders()
         except Exception as loop_err:
             print(f"❌ Error during automatic export: {loop_err}")
-            try:
-                current_url = driver.current_url
-            except Exception:
-                current_url = ""
-            if "microsoftonline.com" in current_url:
+            if _is_session_expired():
                 print("\n⚠️  SESSION EXPIRED — Chrome is on the login page.")
-                print("Chrome will stay open. Waiting for you to click Re-login in the web UI...")
+                print("Closing Chrome window now...")
+                try:
+                    driver.quit()
+                except Exception:
+                    pass
+                print("Chrome closed. Clearing session cache for a clean re-authentication...")
+                _clear_session_cache(SELENIUM_PROFILE_DIR)
+                print("Session cache cleared. Waiting for you to click Re-login in the web UI...")
                 input("__RELOGIN_WAIT__")
-                print("Re-login confirmed. Running login flow on existing Chrome...")
+                print("Re-login confirmed. Reopening Chrome and running login flow...")
+                driver, wait = _make_driver()
                 do_login()
                 # Retry the export once after re-login
                 try:
@@ -708,7 +864,8 @@ try:
         sys.exit(0)   # stops the script thread only — Chrome process is unaffected
 
     # ── IN-HOURS REPEATING LOOP ───────────────────────────────────────────
-    interval_seconds = 1800  # 30 minutes
+    # interval driven by MSD_INTERVAL_SEC in app/config/settings.py
+    interval_seconds: int = globals().get("_MSD_INTERVAL_SEC", 1800)
     while True:
         # ── Active-window gate (office hours may end mid-loop) ────────────
         if not _in_active_window():
@@ -729,6 +886,10 @@ try:
             driver, wait = _make_driver()
             do_login()
 
+        # _skip_wait is set to True when we recover from a session expiry so
+        # the next iteration starts the export immediately without any delay.
+        _skip_wait = False
+
         try:
             print("\n" + "=" * 50)
             print("Starting automatic export...")
@@ -742,33 +903,42 @@ try:
                 print(f"Warning: could not close Chrome window: {close_err}")
         except Exception as loop_err:
             print(f"❌ Error during automatic export: {loop_err}")
-            try:
-                current_url = driver.current_url
-            except Exception:
-                current_url = ""
-            if "microsoftonline.com" in current_url:
+            if _is_session_expired():
                 print("\n" + "=" * 50)
                 print("⚠️  SESSION EXPIRED / LOGGED OUT DETECTED")
-                print("Chrome will stay open. Waiting for you to click Re-login in the web UI...")
+                print("Closing Chrome window now...")
                 print("=" * 50 + "\n")
+                try:
+                    driver.quit()
+                except Exception:
+                    pass
+                print("Chrome closed. Clearing session cache for a clean re-authentication...")
+                _clear_session_cache(SELENIUM_PROFILE_DIR)
+                print("Session cache cleared. Waiting for you to click Re-login in the web UI...")
                 input("__RELOGIN_WAIT__")
-                print("Re-login confirmed. Running login flow on existing Chrome...")
+                print("Re-login confirmed. Reopening Chrome and running login flow...")
+                driver, wait = _make_driver()
                 do_login()
+                # Skip the inter-download wait — start the next export immediately
+                _skip_wait = True
 
-        # ── Countdown — Chrome is closed during this wait ─────────────────
-        mins_total, secs_total = divmod(interval_seconds, 60)
-        print(f"\nNext download in {mins_total}m {secs_total:02d}s. Waiting... (Chrome closed)")
-        for remaining in range(interval_seconds, 0, -1):
-            if remaining % 300 == 0 or remaining <= 10:
-                mins, secs = divmod(remaining, 60)
-                label = f"{mins}m {secs:02d}s" if mins else f"{secs}s"
-                print(f"  Next download in {label}...")
-            time.sleep(1)
-        print("Next download starting now!\n")
-        # Reopen Chrome for the next export
-        print("Reopening Chrome for next export...")
-        driver, wait = _make_driver()
-        do_login()
+        # ── Countdown — skipped after a session-expiry recovery ──────────
+        if _skip_wait:
+            print("\n▶ Resuming download immediately after re-login (no wait).")
+        else:
+            mins_total, secs_total = divmod(interval_seconds, 60)
+            print(f"\nNext download in {mins_total}m {secs_total:02d}s. Waiting... (Chrome closed)")
+            for remaining in range(interval_seconds, 0, -1):
+                if remaining % 300 == 0 or remaining <= 10:
+                    mins, secs = divmod(remaining, 60)
+                    label = f"{mins}m {secs:02d}s" if mins else f"{secs}s"
+                    print(f"  Next download in {label}...")
+                time.sleep(1)
+            print("Next download starting now!\n")
+            # Reopen Chrome for the next export
+            print("Reopening Chrome for next export...")
+            driver, wait = _make_driver()
+            do_login()
 
 except KeyboardInterrupt:
     # Ctrl+C — close the window but keep the Chrome profile / session on disk

@@ -41,3 +41,13 @@ class Config:
 
     # ── Source DB seed files (initial load only) ───────────────────────────────
     SOURCE_DB_DIR = os.path.join(_ROOT, "files", "source-db")
+
+    # ── MSD auto-download ───────────────────────────────────────────────────────
+    # Seconds to wait after server startup before the first automatic MSD
+    # download is triggered.  Reduce this for testing (e.g. 60 = 1 minute).
+    MSD_STARTUP_DELAY_SEC: int = 10 * 60        # default: 10 minutes  (10 * 60)
+
+    # Seconds between consecutive automatic MSD downloads in the repeating loop.
+    # Reduce this for testing (e.g. 60 = 1 minute between runs).
+    MSD_INTERVAL_SEC: int = 30 * 60           # default: 30 minutes
+

@@ -157,9 +157,96 @@
   .btn-hist-refresh:disabled { opacity: 0.55; cursor: not-allowed; }
   @keyframes _hspin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
   .btn-hist-refresh.spinning .hist-refresh-icon { animation: _hspin 0.75s linear infinite; }
+
+  /* ── Token-expired banner ────────────────────────────────── */
+  .mc-token-banner {
+    display: none; align-items: flex-start; gap: 12px;
+    background: #fff1f2; border: 1px solid #fca5a5; border-radius: 8px;
+    padding: 14px 18px; margin-bottom: 20px;
+  }
+  .mc-token-banner.visible { display: flex; }
+  .mc-token-banner-icon { flex-shrink: 0; color: #b91c1c; margin-top: 1px; }
+  .mc-token-banner-body { flex: 1; }
+  .mc-token-banner-title { font-size: 13px; font-weight: 700; color: #b91c1c; margin: 0 0 3px; }
+  .mc-token-banner-sub   { font-size: 12px; color: #7f1d1d; margin: 0; line-height: 1.6; }
+  .btn-token-update {
+    flex-shrink: 0; padding: 7px 14px; background: #dc2626; border: 1px solid #b91c1c;
+    border-radius: 6px; color: #fff; font-size: 12px; font-weight: 700; cursor: pointer;
+    font-family: inherit; transition: background 0.12s; align-self: center;
+  }
+  .btn-token-update:hover { background: #b91c1c; }
+
+  /* ── Token valid indicator ───────────────────────────────── */
+  .mc-token-ok {
+    display: none; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 600; color: #16a34a;
+  }
+  .mc-token-ok.visible { display: inline-flex; }
+
+  /* ── Token modal overlay ────────────────────────────────── */
+  .mc-tok-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    z-index: 9000; align-items: center; justify-content: center;
+  }
+  .mc-tok-overlay.visible { display: flex; }
+  .mc-tok-modal {
+    background: #fff; border-radius: 10px; padding: 28px 28px 24px;
+    width: 100%; max-width: 460px; box-shadow: 0 8px 32px rgba(0,0,0,.18);
+  }
+  .mc-tok-title {
+    font-size: 15px; font-weight: 700; color: #1f2328; margin: 0 0 4px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .mc-tok-sub  { font-size: 12px; color: #57606a; margin: 0 0 18px; line-height: 1.6; }
+  .mc-tok-field { margin-bottom: 14px; }
+  .mc-tok-label {
+    display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 5px;
+  }
+  .mc-tok-input {
+    width: 100%; padding: 8px 11px; border: 1px solid #d0d7de; border-radius: 6px;
+    font-size: 12px; font-family: ui-monospace, SFMono-Regular, monospace;
+    color: #1f2328; outline: none; box-sizing: border-box;
+  }
+  .mc-tok-input:focus { border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,.18); }
+  .mc-tok-hint { font-size: 11px; color: #57606a; margin-top: 4px; }
+  .mc-tok-verify {
+    display: none; font-size: 12px; padding: 6px 10px; border-radius: 5px;
+    margin-bottom: 12px;
+  }
+  .mc-tok-verify.checking { display: block; background: #f0f9ff; color: #0369a1; border: 1px solid #bae6fd; }
+  .mc-tok-verify.ok       { display: block; background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+  .mc-tok-verify.error    { display: block; background: #fff1f2; color: #b91c1c; border: 1px solid #fca5a5; }
+  .mc-tok-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .btn-tok-cancel {
+    padding: 8px 16px; background: #fff; border: 1px solid #d0d7de; border-radius: 6px;
+    font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; color: #374151;
+  }
+  .btn-tok-cancel:hover { background: #f3f4f6; }
+  .btn-tok-save {
+    padding: 8px 18px; background: #3b82d4; border: 1px solid #3b82d4; border-radius: 6px;
+    font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; color: #fff;
+    transition: background 0.12s;
+  }
+  .btn-tok-save:hover:not(:disabled) { background: #2563b0; border-color: #2563b0; }
+  .btn-tok-save:disabled { opacity: 0.6; cursor: not-allowed; }
 {% endblock %}
 
 {% block content %}
+<!-- Token-expired/invalid banner (hidden by default, shown by JS) -->
+<div class="mc-token-banner" id="mc-token-banner">
+  <div class="mc-token-banner-icon">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  </div>
+  <div class="mc-token-banner-body">
+    <p class="mc-token-banner-title">Monday API Token Expired or Invalid</p>
+    <p class="mc-token-banner-sub" id="mc-token-banner-reason">
+      The Monday.com API token is no longer valid. Sync requests will fail until it is updated.
+      Generate a new token from Monday.com → Admin → API and paste it below.
+    </p>
+  </div>
+  <button type="button" class="btn-token-update" onclick="openTokenModal()">🔑 Update Token</button>
+</div>
+
 <div class="page-header" style="margin-bottom:20px">
   <div class="breadcrumb" style="font-size:12px;color:#57606a;margin-bottom:6px">
     Admin <span style="margin:0 5px">›</span> Escalation Center <span style="margin:0 5px">›</span> Monday Collector
@@ -195,6 +282,13 @@
 {# ── Control panel ──────────────────────────────────────────── #}
 <div class="control-panel">
   <button class="btn-sync primary" id="btn-main" onclick="handleMainButton()">▶ Run Sync</button>
+  <button class="btn-sync" id="btn-change-token" onclick="openTokenModal()" title="Update Monday.com API token">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-1px"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Change Token
+  </button>
+  <span class="mc-token-ok" id="mc-token-ok">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    Token valid
+  </span>
   <span class="cp-mode-hint" id="cp-mode-hint">
     Auto mode: <strong id="cp-mode-label">{{ 'Incremental' if stats['items'] > 0 else 'Full Sync' }}</strong>
     &mdash; {{ 'DB has data, fetching changes only' if stats['items'] > 0 else 'DB is empty, full fetch on first run' }}
@@ -341,6 +435,31 @@
   </div>
 
 </div>{# /ec-tabs #}
+
+<!-- ── Monday token modal ───────────────────────────────────── -->
+<div class="mc-tok-overlay" id="mc-tok-overlay" onclick="if(event.target===this)closeTokModal()">
+  <div class="mc-tok-modal">
+    <p class="mc-tok-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Change Monday API Token
+    </p>
+    <p class="mc-tok-sub">
+      Paste the new Monday.com API token below. The token will be verified against the Monday.com API
+      before being saved. To generate one: <strong>Monday → Avatar → Administration → API</strong>.
+    </p>
+    <div id="mc-tok-verify-box" class="mc-tok-verify"></div>
+    <div class="mc-tok-field">
+      <label class="mc-tok-label" for="mc-tok-input">API Token</label>
+      <textarea id="mc-tok-input" class="mc-tok-input" rows="4"
+                placeholder="eyJhbGciOi…"></textarea>
+      <span class="mc-tok-hint" id="mc-tok-current-hint"></span>
+    </div>
+    <div class="mc-tok-actions">
+      <button type="button" class="btn-tok-cancel" onclick="closeTokModal()">Cancel</button>
+      <button type="button" class="btn-tok-save" id="btn-tok-save" onclick="saveToken()">Verify &amp; Save</button>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block extra_scripts %}
@@ -563,7 +682,26 @@ function connectStream() {
   _es.onmessage = function(e) {
     const data = JSON.parse(e.data);
     if (data.keepalive) return;
-    const rawMsg = data.msg || '';
+    const rawMsg    = data.msg || '';
+    const rawLower  = rawMsg.toLowerCase();
+
+    // ── Token-expired/invalid detection ─────────────────────
+    // Only flag definitive auth rejections from the Monday API — not general
+    // HTTP status codes or unrelated "unauthorized" words in log output.
+    const isTokenErr = (
+      rawLower.indexOf('__token_expired__') !== -1 ||
+      rawLower.indexOf('invalidapitoken') !== -1 ||
+      rawLower.indexOf('invalid api token') !== -1 ||
+      // GraphQL errors that are specifically about auth/token
+      (rawLower.indexOf('graphql errors') !== -1 &&
+        (rawLower.indexOf('not authorized') !== -1 || rawLower.indexOf('token') !== -1)) ||
+      // HTTP 401/403 only when paired with "monday" or "api" context
+      (/\b(401|403)\b/.test(rawMsg) &&
+        (rawLower.indexOf('monday') !== -1 || rawLower.indexOf('api.monday') !== -1))
+    );
+    if (isTokenErr) {
+      _setTokenBannerVisible(true, 'Monday API authentication error detected in sync log — the token may be expired.');
+    }
 
     // Drive progress bar from [N/TOTAL] Board: lines
     const prog = _ecParseBoardProgress(rawMsg);
@@ -877,6 +1015,110 @@ setRunning = function(running) {
     con.innerHTML = saved;
     con.scrollTop = con.scrollHeight;
   }
+})();
+
+/* ── Monday token modal ─────────────────────────────────────── */
+function _setTokenBannerVisible(visible, reason) {
+  const banner = document.getElementById('mc-token-banner');
+  const okEl   = document.getElementById('mc-token-ok');
+  if (!banner) return;
+  if (visible) {
+    banner.classList.add('visible');
+    if (okEl) okEl.classList.remove('visible');
+    if (reason) {
+      const reasonEl = document.getElementById('mc-token-banner-reason');
+      if (reasonEl) reasonEl.textContent = reason;
+    }
+  } else {
+    banner.classList.remove('visible');
+  }
+}
+
+function openTokenModal() {
+  const overlay  = document.getElementById('mc-tok-overlay');
+  const textarea = document.getElementById('mc-tok-input');
+  const vbox     = document.getElementById('mc-tok-verify-box');
+  const hint     = document.getElementById('mc-tok-current-hint');
+  if (!overlay) return;
+  textarea.value = '';
+  vbox.className = 'mc-tok-verify';
+  vbox.textContent = '';
+  overlay.classList.add('visible');
+  // Load masked current token
+  fetch('/admin/escalation-center/token')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.ok && d.token_set) {
+        hint.textContent = 'Current token: ' + d.token_masked;
+      } else {
+        hint.textContent = 'No token configured.';
+      }
+    })
+    .catch(function() {});
+  setTimeout(function() { textarea.focus(); }, 80);
+}
+
+function closeTokModal() {
+  document.getElementById('mc-tok-overlay').classList.remove('visible');
+}
+
+function saveToken() {
+  const textarea = document.getElementById('mc-tok-input');
+  const saveBtn  = document.getElementById('btn-tok-save');
+  const vbox     = document.getElementById('mc-tok-verify-box');
+  const token    = textarea.value.trim();
+  if (!token) {
+    vbox.className = 'mc-tok-verify error';
+    vbox.textContent = 'Please paste a token before saving.';
+    textarea.focus();
+    return;
+  }
+  saveBtn.disabled = true;
+  vbox.className   = 'mc-tok-verify checking';
+  vbox.textContent = '⏳ Verifying token against Monday.com API…';
+  fetch('/admin/escalation-center/token', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ token: token }),
+  })
+    .then(async function(r) {
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || 'Failed to save token.');
+      vbox.className   = 'mc-tok-verify ok';
+      vbox.textContent = '✓ Token verified' + (d.name ? ' — logged in as ' + d.name : '') + '. Saved successfully.';
+      // Hide expired banner, show ok indicator
+      _setTokenBannerVisible(false);
+      const okEl = document.getElementById('mc-token-ok');
+      if (okEl) okEl.classList.add('visible');
+      appendLog('log-system', '— Monday API token updated' + (d.name ? ' (' + d.name + ')' : '') + '. Changes take effect on next sync. —');
+      setTimeout(closeTokModal, 1800);
+    })
+    .catch(function(err) {
+      vbox.className   = 'mc-tok-verify error';
+      vbox.textContent = '✗ ' + (err.message || String(err));
+    })
+    .finally(function() { saveBtn.disabled = false; });
+}
+
+// Close on Escape
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeTokModal();
+});
+
+/* ── On-load token check ─────────────────────────────────────── */
+(function _checkTokenOnLoad() {
+  fetch('/admin/escalation-center/token/verify')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (!d.ok) return;
+      const okEl = document.getElementById('mc-token-ok');
+      if (d.valid) {
+        if (okEl) okEl.classList.add('visible');
+      } else {
+        _setTokenBannerVisible(true, d.reason || 'Token may be expired or invalid.');
+      }
+    })
+    .catch(function() { /* network error — silently skip */ });
 })();
 
 /* ── Init ──────────────────────────────────────────────────── */

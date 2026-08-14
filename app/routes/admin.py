@@ -345,15 +345,16 @@ _msd_otp_pending:  bool = False   # True while script is waiting for OTP
 _msd_relogin_pending: bool = False  # True while script is waiting for re-login
 
 # ── Startup auto-run ─────────────────────────────────────────────────────────
-# 10 minutes after the process starts, auto-trigger the MSD download if not
-# already running and the active window is open.
-_MSD_STARTUP_DELAY_SEC: int = 10 * 60
+# Delay is read from Config.MSD_STARTUP_DELAY_SEC (app/config/settings.py).
+# Default is 10 minutes; reduce it there for testing without touching this file.
+_MSD_STARTUP_DELAY_SEC: int = 10 * 60   # fallback used before app context is ready
 _msd_startup_run_at: float = _time.time() + _MSD_STARTUP_DELAY_SEC  # Unix ts
 
 
 def _msd_startup_scheduler(app) -> None:
-    """Wait 10 min then auto-trigger the MSD download exactly once."""
-    _time.sleep(_MSD_STARTUP_DELAY_SEC)
+    """Wait MSD_STARTUP_DELAY_SEC then auto-trigger the MSD download exactly once."""
+    delay = app.config.get("MSD_STARTUP_DELAY_SEC", _MSD_STARTUP_DELAY_SEC)
+    _time.sleep(delay)
     global _msd_thread, _msd_startup_run_at
     _msd_startup_run_at = 0.0   # clear the countdown
     with _msd_lock:
@@ -376,6 +377,9 @@ def _msd_startup_scheduler(app) -> None:
 
 
 def _msd_start_startup_scheduler(app) -> None:
+    global _msd_startup_run_at
+    delay = app.config.get("MSD_STARTUP_DELAY_SEC", _MSD_STARTUP_DELAY_SEC)
+    _msd_startup_run_at = _time.time() + delay   # sync UI countdown to configured delay
     t = threading.Thread(
         target=_msd_startup_scheduler,
         args=(app,),
@@ -543,6 +547,97 @@ def msd_wo_updates_otp():
         _msd_otp_pending = False
     except _queue.Full:
         return jsonify({"ok": False, "error": "OTP already queued."}), 409
+    return jsonify({"ok": True})
+
+
+# ── MSD credentials helpers ───────────────────────────────────────────────────
+def _msd_env_path() -> str:
+    """Absolute path to the .env file used by the MSD auto-download script."""
+    return os.path.normpath(
+        os.path.join(
+            os.path.dirname(__file__), "..", "scripts",
+            "msd-auto-download", ".env",
+        )
+    )
+
+
+def _read_env_file(path: str) -> dict:
+    """Parse KEY=VALUE lines from a .env file; comments and blanks are preserved
+    as raw strings under key None in a list — but returned here only as a dict."""
+    result = {}
+    if not os.path.isfile(path):
+        return result
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            if "=" in stripped:
+                key, _, val = stripped.partition("=")
+                result[key.strip()] = val.strip()
+    return result
+
+
+def _write_env_value(path: str, key: str, new_value: str) -> None:
+    """Update a single KEY= line in the .env file in-place, preserving all other
+    content (comments, blank lines, ordering).  Appends the key if not present."""
+    lines = []
+    if os.path.isfile(path):
+        with open(path, encoding="utf-8") as fh:
+            lines = fh.readlines()
+
+    updated = False
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("#") or "=" not in stripped:
+            continue
+        k, _, _ = stripped.partition("=")
+        if k.strip() == key:
+            lines[i] = f"{key}={new_value}\n"
+            updated = True
+            break
+
+    if not updated:
+        lines.append(f"{key}={new_value}\n")
+
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.writelines(lines)
+
+
+@admin_bp.route("/admin/msd-wo-updates/credentials", methods=["GET"])
+def msd_wo_updates_credentials_get():
+    """Return the currently configured MSD email (masked password)."""
+    env_path = _msd_env_path()
+    env = _read_env_file(env_path)
+    email = env.get("DYNAMICS_EMAIL", "")
+    has_password = bool(env.get("DYNAMICS_PASSWORD", ""))
+    return jsonify({"ok": True, "email": email, "has_password": has_password})
+
+
+@admin_bp.route("/admin/msd-wo-updates/credentials", methods=["POST"])
+def msd_wo_updates_credentials_post():
+    """Save new DYNAMICS_EMAIL / DYNAMICS_PASSWORD to the .env file and reload
+    the live environment so the next MSD run picks up the new values."""
+    data = request.get_json(silent=True) or {}
+    email    = str(data.get("email", "")).strip()
+    password = str(data.get("password", "")).strip()
+
+    if not email:
+        return jsonify({"ok": False, "error": "Email is required."}), 400
+    if not password:
+        return jsonify({"ok": False, "error": "Password is required."}), 400
+
+    env_path = _msd_env_path()
+    try:
+        _write_env_value(env_path, "DYNAMICS_EMAIL",    email)
+        _write_env_value(env_path, "DYNAMICS_PASSWORD", password)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": f"Failed to write .env: {exc}"}), 500
+
+    # Reload into os.environ so the running process picks up the change immediately
+    os.environ["DYNAMICS_EMAIL"]    = email
+    os.environ["DYNAMICS_PASSWORD"] = password
+
     return jsonify({"ok": True})
 
 
@@ -2556,7 +2651,11 @@ def _run_msd_download_task(app, run_once: bool = False) -> None:
             with redirect_stdout(stdout_writer), redirect_stderr(stderr_writer):
                 runpy.run_path(
                     script_path,
-                    init_globals={"input": _web_input, "_MSD_RUN_ONCE": run_once},
+                    init_globals={
+                        "input":            _web_input,
+                        "_MSD_RUN_ONCE":    run_once,
+                        "_MSD_INTERVAL_SEC": app.config.get("MSD_INTERVAL_SEC", 30 * 60),
+                    },
                     run_name="__main__",
                 )
             stdout_writer.flush()
@@ -2888,6 +2987,127 @@ def escalation_center_boards():
     return jsonify({"ok": True, "boards": boards, "latest_runs": latest_runs})
 
 
+# ── Monday token management ───────────────────────────────────────────────────
+
+def _monday_env_path() -> str:
+    """Absolute path to the .env file that holds MONDAY_TOKEN."""
+    return _msd_env_path()   # reuse the same .env file as MSD credentials
+
+
+@admin_bp.route("/admin/escalation-center/token", methods=["GET"])
+def monday_token_get():
+    """Return a masked view of the current Monday API token."""
+    env      = _read_env_file(_monday_env_path())
+    raw_tok  = env.get("MONDAY_TOKEN") or os.environ.get("MONDAY_TOKEN", "")
+    if raw_tok:
+        masked = raw_tok[:8] + "…" + raw_tok[-6:] if len(raw_tok) > 14 else "••••••••"
+    else:
+        masked = ""
+    return jsonify({"ok": True, "token_set": bool(raw_tok), "token_masked": masked})
+
+
+@admin_bp.route("/admin/escalation-center/token", methods=["POST"])
+def monday_token_post():
+    """Validate and save a new MONDAY_TOKEN to .env + os.environ."""
+    data  = request.get_json(silent=True) or {}
+    token = str(data.get("token", "")).strip()
+    if not token:
+        return jsonify({"ok": False, "error": "Token is required."}), 400
+
+    # ── Verify token against Monday API before saving ────────────────────────
+    import requests as _req
+    try:
+        resp = _req.post(
+            "https://api.monday.com/v2",
+            headers={
+                "Authorization": token,
+                "Content-Type":  "application/json",
+                "API-Version":   "2024-01",
+            },
+            json={"query": "{ me { id name } }"},
+            timeout=10,
+        )
+        if resp.status_code == 401:
+            return jsonify({"ok": False, "error": "Token rejected by Monday.com (401 Unauthorized). Please check the token and try again."}), 400
+        if resp.status_code == 403:
+            return jsonify({"ok": False, "error": "Token rejected by Monday.com (403 Forbidden). The token may have expired or lack permissions."}), 400
+        body = resp.json()
+        if "errors" in body:
+            msgs = "; ".join(e.get("message", str(e)) for e in body["errors"])
+            return jsonify({"ok": False, "error": f"Monday API error: {msgs}"}), 400
+        me = (body.get("data") or {}).get("me") or {}
+        display_name = me.get("name") or ""
+    except _req.exceptions.Timeout:
+        return jsonify({"ok": False, "error": "Monday API timed out while verifying the token. Please try again."}), 400
+    except Exception as exc:
+        return jsonify({"ok": False, "error": f"Could not verify token: {exc}"}), 400
+
+    # ── Save to .env and reload into os.environ ──────────────────────────────
+    env_path = _monday_env_path()
+    try:
+        _write_env_value(env_path, "MONDAY_TOKEN", token)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": f"Failed to write .env: {exc}"}), 500
+
+    os.environ["MONDAY_TOKEN"] = token
+    return jsonify({"ok": True, "name": display_name})
+
+
+@admin_bp.route("/admin/escalation-center/token/verify", methods=["GET"])
+def monday_token_verify():
+    """Quick-check whether the current token is valid.
+
+    Resolution order (mirrors monday_sync.py):
+      1. os.environ["MONDAY_TOKEN"]  (set at startup by load_dotenv or admin UI)
+      2. MONDAY_TOKEN key in the .env file  (read fresh in case env isn't loaded)
+
+    A network error or timeout is treated as "unknown" (not invalid) so the
+    banner is never shown just because the Monday API is unreachable.
+    """
+    import requests as _req
+
+    # Resolve the same token the sync script will actually use
+    token = os.environ.get("MONDAY_TOKEN") or _read_env_file(_monday_env_path()).get("MONDAY_TOKEN", "")
+
+    if not token:
+        # No token in env or .env — skip check, don't show banner
+        return jsonify({"ok": True, "valid": True, "name": "", "source": "none"})
+
+    try:
+        resp = _req.post(
+            "https://api.monday.com/v2",
+            headers={
+                "Authorization": token,
+                "Content-Type":  "application/json",
+                "API-Version":   "2024-01",
+            },
+            json={"query": "{ me { id name } }"},
+            timeout=10,
+        )
+        # Only a definitive auth rejection means "expired/invalid"
+        if resp.status_code in (401, 403):
+            return jsonify({"ok": True, "valid": False,
+                            "reason": f"Monday.com rejected the token (HTTP {resp.status_code}). "
+                                      f"The token may have expired — please update it."})
+        body = resp.json()
+        if "errors" in body:
+            # Surface only auth-related GraphQL errors; others are not token issues
+            auth_errors = [
+                e for e in body["errors"]
+                if "auth" in str(e).lower() or "token" in str(e).lower()
+                   or "not authorized" in str(e).lower()
+            ]
+            if auth_errors:
+                msgs = "; ".join(e.get("message", str(e)) for e in auth_errors)
+                return jsonify({"ok": True, "valid": False, "reason": msgs})
+            # Non-auth GraphQL errors — token is fine
+            return jsonify({"ok": True, "valid": True, "name": ""})
+        me   = (body.get("data") or {}).get("me") or {}
+        name = me.get("name") or ""
+        return jsonify({"ok": True, "valid": True, "name": name})
+    except Exception:
+        # Network error, timeout, etc. — can't determine validity; don't show banner
+        return jsonify({"ok": True, "valid": True, "name": "", "source": "unreachable"})
 
 
 # ── Monday Data page ──────────────────────────────────────────────────────────
