@@ -239,18 +239,51 @@ def get_wo_by_serial(serial_number: str) -> list[dict]:
 
 def get_wo_summary_stats(vendor_filter: str | None = None) -> dict:
     """
-    Return aggregate counts used by stat cards:
-        total, closed, open, part_hold, part_transit
+    Return aggregate counts used by stat cards and mobile home badges.
 
-    When vendor_filter is given, only WOs whose wo_details.labor_vendor_related
-    matches are counted.
+    Mobile-specific keys returned:
+        in_prepare_total      — actionable In-Prepare WOs
+        cci_followup_total    — actionable CCI Follow-Up WOs
+        onsite_followup_total — actionable ONS Follow-Up WOs
+        return_part_total     — Return Part WOs awaiting action
+        in_return_total       — alias for return_part_total (mobile home card)
+
+    When vendor_filter is given, only that ASP's WOs are counted.
     """
+    # Reuse the existing page queries — they already contain all the state
+    # computation logic. Fetching page 1 with size 1 is cheap; we only need
+    # the `total` field they return.
+    in_prepare_total      = get_asp_in_prepare_page(
+        page_size=1, vendor_filter=vendor_filter
+    )["total"]
+    cci_followup_total    = get_asp_cci_followup_page(
+        page_size=1, vendor_filter=vendor_filter
+    )["total"]
+    cci_in_transit_total  = get_asp_cci_followup_page(
+        page_size=1, vendor_filter=vendor_filter, followup_state="in_transit"
+    )["total"]
+    cci_in_repair_total   = get_asp_cci_followup_page(
+        page_size=1, vendor_filter=vendor_filter, followup_state="in_repair"
+    )["total"]
+    onsite_followup_total = get_asp_onsite_followup_page(
+        page_size=1, vendor_filter=vendor_filter
+    )["total"]
+    ons_in_transit_total  = get_asp_onsite_followup_page(
+        page_size=1, vendor_filter=vendor_filter, followup_state="wo_reschedule"
+    )["total"]
+    ons_in_repair_total   = get_asp_onsite_followup_page(
+        page_size=1, vendor_filter=vendor_filter, followup_state="wo_sla"
+    )["total"]
+    return_part_total     = get_asp_part_return_page(
+        page_size=1, vendor_filter=vendor_filter
+    )["total"]
+
     conn = get_db()
 
     if vendor_filter:
-        # Join wo_details to restrict by labor_vendor_related
+        vf_safe = vendor_filter.replace("'", "''")
         def _count(extra_where: str = "") -> int:
-            clauses = [f"d.labor_vendor_related = '{vendor_filter.replace(chr(39), chr(39)*2)}'"]
+            clauses = [f"d.labor_vendor_related = '{vf_safe}'"]
             if extra_where:
                 clauses.append(extra_where.replace("work_order_status", "s.work_order_status"))
             where = " AND ".join(clauses)
@@ -267,18 +300,31 @@ def get_wo_summary_stats(vendor_filter: str | None = None) -> dict:
                 sql += " WHERE " + where
             return conn.execute(sql).fetchone()[0]
 
-    total         = _count()
-    closed        = _count(_CLOSED_WHERE)
-    open_wo       = _count(_OPEN_WHERE)
-    part_hold     = _count("LOWER(work_order_status) LIKE '%part%hold%'")
-    part_transit  = _count("LOWER(work_order_status) LIKE '%transit%'")
+    total        = _count()
+    closed       = _count(_CLOSED_WHERE)
+    open_wo      = _count(_OPEN_WHERE)
+    part_hold    = _count("LOWER(work_order_status) LIKE '%part%hold%'")
+    part_transit = _count("LOWER(work_order_status) LIKE '%transit%'")
 
     return {
-        "total":         total,
-        "closed":        closed,
-        "open":          open_wo,
-        "part_hold":     part_hold,
-        "part_transit":  part_transit,
+        # legacy web portal keys
+        "total":               total,
+        "closed":              closed,
+        "open":                open_wo,
+        "part_hold":           part_hold,
+        "part_transit":        part_transit,
+        # mobile home badge keys
+        "in_prepare_total":      in_prepare_total,
+        "cci_followup_total":    cci_followup_total,
+        "onsite_followup_total": onsite_followup_total,
+        "return_part_total":     return_part_total,
+        "in_return_total":       return_part_total,
+        # mobile CCI subtab badge keys
+        "cci_in_transit_total":  cci_in_transit_total,
+        "cci_in_repair_total":   cci_in_repair_total,
+        # mobile ONS subtab badge keys
+        "ons_in_transit_total":  ons_in_transit_total,
+        "ons_in_repair_total":   ons_in_repair_total,
     }
 
 
@@ -1334,6 +1380,82 @@ def get_asp_in_prepare_page(
 
 
 # Completed Last 30 Days — WOs with completion_date within the past 30 days
+def get_asp_completed_history(
+    days: int = 7,
+    search: str = "",
+    vendor_filter: str | None = None,
+) -> dict:
+    """
+    Return completed/closed WOs whose closing_date or completion_date falls
+    within the last `days` calendar days (WIB / UTC+7).
+    Ordered by closing_date DESC, completion_date DESC.
+    No pagination — callers pass days ≤ 30 so the result set stays small.
+    """
+    import datetime
+    conn = get_db()
+
+    days    = max(1, min(days, 30))
+    now_wib = datetime.datetime.utcnow() + datetime.timedelta(hours=7)
+    cutoff  = (now_wib - datetime.timedelta(days=days)).strftime("%Y-%m-%d")
+
+    params: list = [cutoff, cutoff]
+    wheres: list[str] = [
+        # at least one of closing_date / completion_date must be filled and within range
+        """(
+            (TRIM(COALESCE(d.closing_date,'')) != ''    AND SUBSTR(d.closing_date,1,10)    >= ?)
+         OR (TRIM(COALESCE(d.completion_date,'')) != '' AND SUBSTR(d.completion_date,1,10) >= ?)
+        )""",
+    ]
+
+    if search:
+        term = f"%{search.lower()}%"
+        wheres.append("""(
+            CAST(s.work_order_id AS TEXT) LIKE ?
+            OR LOWER(s.serial_number)     LIKE ?
+            OR LOWER(s.contact_name)      LIKE ?
+            OR LOWER(s.customer)          LIKE ?
+            OR LOWER(s.case_desc)         LIKE ?
+        )""")
+        params.extend([term, term, term, term, term])
+
+    if vendor_filter:
+        wheres.append("d.labor_vendor_related = ?")
+        params.append(vendor_filter)
+
+    where_sql = "WHERE " + " AND ".join(wheres)
+
+    rows = conn.execute(f"""
+        SELECT
+            s.work_order_id,
+            s.serial_number,
+            s.created_on,
+            s.committed_delivery_date,
+            s.actual_committed_onsite_date,
+            s.work_order_type,
+            s.case_desc,
+            s.work_order_status,
+            s.case_status,
+            s.contact_name,
+            s.customer,
+            d.completion_date,
+            d.closing_date,
+            d.city,
+            d.mobile_phone,
+            d.primary_email,
+            d.product_description,
+            d.product_id_mtm
+        FROM wo_summary s
+        LEFT JOIN wo_details d USING (work_order_id)
+        {where_sql}
+        ORDER BY
+            MAX(COALESCE(d.closing_date,''), COALESCE(d.completion_date,'')) DESC,
+            s.work_order_id DESC
+    """, params).fetchall()
+
+    result = [dict(r) for r in rows]
+    return {"rows": result, "total": len(result), "days": days}
+
+
 def get_asp_completed_last_30_days(
     search: str = "",
     type_filter: str = "",
