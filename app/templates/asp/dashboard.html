@@ -804,25 +804,32 @@
 <!-- ── TAB: Return Part Follow-Up ───────────────────────────────────────── -->
 <div class="tab-panel" id="tab-return-part">
   <div class="table-card">
-    <div class="table-toolbar">
-      <button class="btn-export-xlsx" id="btn-export-return-part" title="Export all rows to Excel">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        Export Excel
-      </button>
-      <input type="search" id="search-return-part" placeholder="Search WO, serial, contact, customer…" autocomplete="off" />
-      <span class="toolbar-count" id="count-return-part"></span>
+    <div class="table-toolbar subtab-bar">
+      <div class="subtab-bar-left">
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;" id="return-part-filter-pills">
+          <button class="subtab-pill active sactive-input-dc" data-rpfilter="need_to_return">🔢 Need to Return</button>
+          <button class="subtab-pill" data-rpfilter="dc_generated">✅ DC Number Found</button>
+        </div>
+      </div>
+      <div class="subtab-bar-right">
+        <button class="btn-export-xlsx" id="btn-export-return-part" title="Export all rows to Excel">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Export Excel
+        </button>
+        <input type="search" id="search-return-part" placeholder="Search WO, serial, contact, customer…" autocomplete="off" />
+        <span class="toolbar-count" id="count-return-part"></span>
+      </div>
     </div>
     <div class="table-scroll">
       <table class="data-table">
         <thead><tr>
           <th style="width:40px;text-align:center">#</th>
           <th>Created On</th><th>WO Number</th>
-          <th style="min-width:200px">Follow-Up State</th>
+          <th style="min-width:160px">Follow-Up State</th>
           <th>WO Type</th><th>Case</th><th>WO Status</th>
-          <th>Committed Delivery</th><th>Actual Committed</th>
-          <th>Contact Name</th><th>ASP</th>
+          <th>Return Status</th><th>DC Number</th>
         </tr></thead>
-        <tbody id="tbody-return-part"><tr><td colspan="11" class="loading-state">Loading…</td></tr></tbody>
+        <tbody id="tbody-return-part"><tr><td colspan="9" class="loading-state">Loading…</td></tr></tbody>
       </table>
     </div>
     <div id="empty-return-part" class="empty-state" style="display:none">No return-part WOs found.</div>
@@ -2311,15 +2318,11 @@ function _onsiteHeroBtns(d) {
   return btns.join('');
 }
 
-/* Returns HTML for Return Part action button, or '' if DC# already filled or no part order. */
+/* Returns HTML for Return Part action button — shown when WO is closed and has a pending return. */
 function _returnHeroBtns(d) {
-  const compDate = d.completion_date || '';
-  const closeDate = d.closing_date   || '';
-  const isClosed  = !!(compDate || closeDate);
-  if (!isClosed)            return '';
-  if (!d.part_has_order)    return '';
-  if (d.part_dc_filled)     return '';
-  if (!d.part_return_flag_y) return '';
+  const isClosed = !!(d.completion_date || d.closing_date);
+  if (!isClosed)             return '';
+  if (!d.has_pending_return) return '';
   const wo        = esc(String(d.work_order_id));
   const woTypeEsc = esc(d.work_order_type || '');
   const status    = esc(d.work_order_status || '');
@@ -2346,7 +2349,7 @@ function renderHero(d) {
     </div>`).join('')}
   </div>`;
   const hasContact = d.contact_name || d.mobile_phone || d.primary_email || d.address || d.company_name;
-  const hasAsp     = d.customer || d.labor_vendor_related || d.technician_id;
+  const hasAsp     = d.customer || d.labor_vendor_related || d.tech_id;
   const customerCard = (hasContact || hasAsp) ? `
     <div class="wo-customer-wrap">
       ${hasContact ? `
@@ -2367,7 +2370,7 @@ function renderHero(d) {
         <div class="wo-customer-col">
           ${d.customer             ? `<div class="wo-customer-asp">${esc(d.customer)}</div>` : ''}
           ${d.labor_vendor_related ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Vendor ID:</span><span class="wo-customer-val">${esc(d.labor_vendor_related)}</span></div>` : ''}
-          ${d.technician_id        ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Technician:</span><span class="wo-customer-val">${esc(d.technician_id)}</span></div>` : ''}
+          ${d.tech_id        ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Technician:</span><span class="wo-customer-val"><span style="color:#3b82d4;font-weight:600">${esc(d.tech_id)}</span>${d.tech_name ? ` - ${esc(d.tech_name)}` : ''}</span></div>` : ''}
         </div>
       </div>` : ''}
     </div>` : '';
@@ -3413,14 +3416,27 @@ const returnPartTable = makeTabTable({
   colsFn: () => [
     { key: 'created_on',                  render: r => fmt(r.created_on) },
     { key: 'work_order_id',               render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
-    { key: 'followup_state',              render: r => r.part_return_flag_y ? `<button class="fu-badge fu-input-dc fu-badge-btn" data-action="return-dc" data-wo="${esc(r.work_order_id)}" data-wo-type="${esc(r.work_order_type||'')}" data-asp="${esc(r.customer||'')}">🔢 Input DC Number</button>` : '' },
+    { key: 'followup_state',              render: r => r.has_pending_return ? `<button class="fu-badge fu-input-dc fu-badge-btn" data-action="return-dc" data-wo="${esc(r.work_order_id)}" data-wo-type="${esc(r.work_order_type||'')}" data-asp="${esc(r.customer||'')}">🔢 Input DC Number</button>` : '' },
     { key: 'work_order_type',             render: r => esc(r.work_order_type||'—') },
     { key: 'case_desc',                   render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
     { key: 'work_order_status',           render: r => statusBadge(r.work_order_status) },
-    { key: 'committed_delivery_date',     render: r => fmt(r.committed_delivery_date) },
-    { key: 'actual_committed_onsite_date',render: r => fmt(r.actual_committed_onsite_date) },
-    { key: 'contact_name',                render: r => esc(r.contact_name||'—') },
-    { key: 'customer',                    render: r => esc(r.customer||'—') },
+    { key: 'return_status', render: r => {
+        const s = r.return_status || '';
+        if (!s) return '<span style="color:#8c959f">—</span>';
+        const su = s.toUpperCase().trim();
+        if (su === 'PENDING WITH PARTNER' || su === 'PENDING FOR DC GENERATION')
+          return `<span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:#fff7ed;color:#c2410c;border:1px solid #fed7aa">${esc(s)}</span>`;
+        if (su === 'DC GENERATED')
+          return `<span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:#dcfce7;color:#15803d;border:1px solid #86efac">${esc(s)}</span>`;
+        return `<span style="font-size:12px;color:#57606a">${esc(s)}</span>`;
+      }
+    },
+    { key: 'dc_number', render: r => {
+        const dc = r.dc_number || '';
+        if (!dc || dc === '0') return '<span style="color:#8c959f">—</span>';
+        return `<span style="font-family:ui-monospace,monospace;font-size:12px;font-weight:700;color:#1f2328">${esc(dc)}</span>`;
+      }
+    },
   ],
   onBind: rows => {
     const badge = document.getElementById('tab-return-part-badge');
@@ -3435,12 +3451,33 @@ const returnPartTable = makeTabTable({
   },
 });
 
+let returnPartFilter = 'need_to_return';
+
+function _returnPartLoad() {
+  const q = document.getElementById('search-return-part').value.trim();
+  const p = { followup_state: returnPartFilter };
+  if (q) p.q = q;
+  returnPartTable.load(p);
+}
+
+/* Sub-tab pill switching */
+document.querySelectorAll('#return-part-filter-pills [data-rpfilter]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#return-part-filter-pills [data-rpfilter]').forEach(b => {
+      b.classList.remove('active', 'sactive-input-dc', 'sactive-return-part');
+    });
+    btn.classList.add('active');
+    if (btn.dataset.rpfilter === 'need_to_return') btn.classList.add('sactive-input-dc');
+    else if (btn.dataset.rpfilter === 'dc_generated') btn.classList.add('sactive-return-part');
+    returnPartFilter = btn.dataset.rpfilter;
+    _returnPartLoad();
+  });
+});
+
 let returnPartTimer = null;
 document.getElementById('search-return-part').addEventListener('input', () => {
   clearTimeout(returnPartTimer);
-  returnPartTimer = setTimeout(() => {
-    returnPartTable.load({ q: document.getElementById('search-return-part').value.trim(), followup_state: 'input_dc' });
-  }, 350);
+  returnPartTimer = setTimeout(_returnPartLoad, 350);
 });
 
 /* ═══════════════════════════════════════════════════════════════
@@ -3661,7 +3698,7 @@ const tabLoaders = {
   'tab-in-prepare':     () => _inPrepareLoad(),
   'tab-cci-followup':   () => _cciFollowUpLoad(),
   'tab-ons-followup':   () => _onsFollowUpLoad(),
-  'tab-return-part':    () => returnPartTable.load({ followup_state: 'input_dc' }),
+  'tab-return-part':    () => _returnPartLoad(),
   'tab-completed-30d':  () => _completed30dLoad(),
 };
 
@@ -3925,7 +3962,9 @@ function openInputDc(woId, woType, woStatus, aspName) {
       if (!data || !data.length) return;
       const parts = data.filter(p =>
         !(p.wo_product_status || '').toLowerCase().includes('cancel') &&
-        (p.return_flag || '').toUpperCase() === 'Y'
+        ['PENDING WITH PARTNER', 'PENDING FOR DC GENERATION'].includes(
+          (p.return_status || '').toUpperCase().trim()
+        )
       );
       if (!parts.length) return;
       idcPartsList.style.display = 'block';
@@ -3962,7 +4001,7 @@ function _renderIdcWoList(rows, currentWoId) {
   rows.forEach(r => {
     const id = String(r.work_order_id);
     if (!byWo[id]) byWo[id] = { ...r, partLines: [] };
-    byWo[id].partLines.push({ soid: r.soid != null ? String(r.soid) : '', desc: r.description || '', returnFlag: (r.return_flag || '').toUpperCase() });
+    byWo[id].partLines.push({ soid: r.soid != null ? String(r.soid) : '', desc: r.description || '', returnStatus: (r.return_status || '').trim() });
   });
 
   /* Sort: current WO first, then others by completion_date descending (latest first) */
@@ -3987,7 +4026,7 @@ function _renderIdcWoList(rows, currentWoId) {
         <input type="checkbox" class="idc-wo-cb" data-wo="${esc(id)}"${isCurrent ? ' checked' : ''} />
         <span class="idc-wo-part-soid">${esc(p.soid || '—')}</span>
         <span class="idc-wo-part-desc">${esc(p.desc || '—')}</span>
-        ${p.returnFlag === 'Y' ? '<span class="badge" style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa">Return Yes</span>' : '<span style="color:#8c959f">—</span>'}
+        ${p.returnStatus ? `<span class="badge" style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa">${esc(p.returnStatus)}</span>` : '<span style="color:#8c959f">—</span>'}
       </label>`).join('');
     const compDate = w.completion_date ? `<div style="font-size:11px;color:#57606a;margin-top:2px">Completed on ${fmt(w.completion_date)}</div>` : '';
     return `<div class="idc-wo-item${isCurrent ? ' is-current' : ''}">

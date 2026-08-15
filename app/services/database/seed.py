@@ -148,7 +148,7 @@ def _seed_wo_details(conn: sqlite3.Connection, filepath: str) -> int:
             customer_defer_date, completion_date, closing_date,
             premier_service, order_type, work_order_priority,
             city, company_name, address, mobile_phone, primary_email,
-            labor_vendor_related, technician_id, closing_code,
+            labor_vendor_related, tech_id, closing_code,
             repeat_repair, repeat_repair_reason, wo_cancellation_reason
         ) VALUES (
             ?, ?, ?,
@@ -186,7 +186,7 @@ def _seed_wo_details(conn: sqlite3.Connection, filepath: str) -> int:
             _safe_str(r.get("Mobile Phone (Contact) (Contact)")),
             _safe_str(r.get("Primary Email (Contact) (Contact)")),
             _safe_str(r.get("Labor Vendor Related")),
-            _safe_str(r.get("Technician ID")),
+            _safe_str(r.get("LEAP ID (Technician ID) (Contact)")),
             _safe_str(r.get("Closing Code")),
             _safe_str(r.get("Repeat Repair")),
             _safe_str(r.get("Repeat Repair Reason")),

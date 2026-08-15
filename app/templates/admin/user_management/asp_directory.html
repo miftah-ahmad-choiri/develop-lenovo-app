@@ -630,7 +630,7 @@
         <td class="nowrap">
           <button
             class="btn-view-users"
-            data-username="{{ asp.username | e }}"
+            data-lvr="{{ asp.labor_vendor_related | e }}"
             data-sp="{{ asp.service_provider | e }}"
             title="View users"
           >
@@ -1544,17 +1544,17 @@
     });
 
     // ── Users popup: table-row buttons ──
-    document.querySelectorAll('.btn-view-users[data-username]').forEach(function(btn) {
+    document.querySelectorAll('.btn-view-users[data-lvr]').forEach(function(btn) {
       btn.addEventListener('click', function(e) {
         e.stopPropagation();
-        openUsersPopup(btn.dataset.username, btn.dataset.sp || btn.dataset.username);
+        openUsersPopup(btn.dataset.lvr, btn.dataset.sp || btn.dataset.lvr);
       });
     });
 
     // ── Users popup: detail-modal button ──
     document.getElementById('modal-users-btn').addEventListener('click', function() {
       if (!_currentAsp) return;
-      openUsersPopup(_val(_currentAsp, 'username'), _val(_currentAsp, 'service_provider') || _val(_currentAsp, 'username'));
+      openUsersPopup(_val(_currentAsp, 'labor_vendor_related'), _val(_currentAsp, 'service_provider') || _val(_currentAsp, 'labor_vendor_related'));
     });
 
     // ── Users popup: close buttons ──
@@ -1574,17 +1574,17 @@
   });
 
   /* ── Users popup ── */
-  function openUsersPopup(username, label) {
+  function openUsersPopup(lvr, label) {
     var overlay = document.getElementById('users-overlay');
     var body    = document.getElementById('users-box-body');
     var countPill = document.getElementById('users-count-pill');
     countPill.style.display = 'none';
-    document.getElementById('users-box-sub').textContent = label + ' · @' + username;
+    document.getElementById('users-box-sub').textContent = label + ' · ' + lvr;
     body.innerHTML = '<div class="users-empty" style="padding:32px 20px">Loading…</div>';
     overlay.classList.add('open');
     document.body.style.overflow = 'hidden';
 
-    fetch('/admin/users/asp-directory/' + encodeURIComponent(username) + '/users')
+    fetch('/admin/users/asp-directory/' + encodeURIComponent(lvr) + '/users')
       .then(function(r) { return r.json(); })
       .then(function(data) {
         var iconUsers = '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:#d1d5db;display:block;margin:0 auto 10px"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
@@ -1613,12 +1613,16 @@
           var avatarCls = active ? 'user-card-avatar' : 'user-card-avatar inactive';
           var created   = u.created_at ? u.created_at.slice(0, 10) : '';
           var phone     = u.phone_number ? _esc(u.phone_number) : '';
+          var techId    = u.tech_id ? _esc(u.tech_id) : '';
           var meta      = '<span>' + _esc(u.email) + '</span>'
                         + (phone ? '<span>' + phone + '</span>' : '');
           html += '<div class="user-card">'
             + '<div class="' + avatarCls + '">' + initials + '</div>'
             + '<div class="user-card-body">'
-            +   '<div class="user-card-name">' + _esc(u.full_name) + '</div>'
+            +   '<div class="user-card-name">'
+            +     (techId ? '<span class="mono" style="font-size:11px;color:#3b82d4;font-weight:600;margin-right:7px">' + techId + '</span>' : '')
+            +     _esc(u.full_name)
+            +   '</div>'
             +   '<div class="user-card-meta">' + meta + '</div>'
             + '</div>'
             + '<div class="user-card-right">'

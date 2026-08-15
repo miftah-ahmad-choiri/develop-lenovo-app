@@ -6,13 +6,14 @@ never called automatically on upload.
 
 Public API
 ----------
-dispatch_upsert(category_key, filepath, conn) → int
+dispatch_upsert(category_key, filepath, conn) → int | tuple[int, int, int]
     Route a validated upload file to the correct upsert function.
-    Returns the number of rows processed.  Returns 0 for category
-    keys that have no DB table (OPENORDER, PARTONHOLD, etc.).
+    Returns the number of rows processed (int) for most categories.
+    For WOID, returns (n_new_wo, n_updated_wo, n_new_asp_users) as a tuple.
+    Returns 0 for category keys that have no DB table.
 
 Individual functions (also importable for testing):
-    upsert_wo_summary_and_details(df, conn) → int
+    upsert_wo_summary_and_details(df, conn) → tuple[int, int, int]
     upsert_wo_product_from_msd(df, conn)    → int
     upsert_wo_product_from_shipment(df, conn) → int
 
@@ -35,7 +36,7 @@ from app.services.database.seed import _to_iso, _safe_int, _safe_str, _build_soi
 
 # ── Category keys that map to DB tables ──────────────────────────────────────
 # Any key NOT in this set is silently skipped (no DB tables for it yet).
-_DB_CATEGORIES = {"WOID", "SOID", "SHIPMENT", "PARTONHOLD", "GTAAP"}
+_DB_CATEGORIES = {"WOID", "SOID", "SHIPMENT", "PARTONHOLD", "GTAAP", "UNRETURN"}
 
 
 # ── upsert helpers ────────────────────────────────────────────────────────────
@@ -182,7 +183,7 @@ def upsert_wo_summary_and_details(df: pd.DataFrame, conn: sqlite3.Connection) ->
             customer_defer_date, completion_date, closing_date,
             premier_service, order_type, work_order_priority,
             city, company_name, address, mobile_phone, primary_email,
-            labor_vendor_related, technician_id, closing_code,
+            labor_vendor_related, tech_id, closing_code,
             repeat_repair, repeat_repair_reason, wo_cancellation_reason
         ) VALUES (
             ?, ?, ?,
@@ -197,6 +198,7 @@ def upsert_wo_summary_and_details(df: pd.DataFrame, conn: sqlite3.Connection) ->
 
     summary_rows: list[tuple] = []
     details_rows: list[tuple] = []
+    new_wo_ids:   set[int]    = set()   # WO IDs brand-new (not in DB before this upsert)
 
     for _, r in df.iterrows():
         wo_id = _safe_int(r.get("Work Order ID"))
@@ -205,6 +207,9 @@ def upsert_wo_summary_and_details(df: pd.DataFrame, conn: sqlite3.Connection) ->
         # Smart-diff gate — skip rows with no qualifying change
         if not _qualifies(wo_id, r):
             continue
+        # Track whether this is a brand-new WO for stats reporting
+        if wo_id not in db_summary or wo_id not in db_details:
+            new_wo_ids.add(wo_id)
 
         summary_rows.append((
             wo_id,
@@ -240,7 +245,7 @@ def upsert_wo_summary_and_details(df: pd.DataFrame, conn: sqlite3.Connection) ->
             _safe_str(r.get("Mobile Phone (Contact) (Contact)")),
             _safe_str(r.get("Primary Email (Contact) (Contact)")),
             _safe_str(r.get("Labor Vendor Related")),
-            _safe_str(r.get("Technician ID")),
+            _safe_str(r.get("LEAP ID (Technician ID) (Contact)")),
             _safe_str(r.get("Closing Code")),
             _safe_str(r.get("Repeat Repair")),
             _safe_str(r.get("Repeat Repair Reason")),
@@ -252,7 +257,48 @@ def upsert_wo_summary_and_details(df: pd.DataFrame, conn: sqlite3.Connection) ->
     conn.executemany(details_sql, details_rows)
     conn.execute("PRAGMA foreign_keys = ON")
     conn.commit()
-    return len(summary_rows)
+
+    # ── Sync asp_users: insert new technicians found in this file ────────────
+    # For every row that has a LEAP ID, collect (leap_id, full_name, vendor).
+    # Only insert rows whose leap_id is not already in asp_users.
+    # Never updates existing rows — this is insert-only for new technicians.
+    n_new_users = 0
+    leap_col   = "LEAP ID (Technician ID) (Contact)"
+    tname_col  = "Technician ID"
+    vendor_col = "Labor Vendor Related"
+    if leap_col in df.columns:
+        # Build map: leap_id → (vendor, leap_id, full_name) — first occurrence wins
+        new_users: dict[str, tuple] = {}
+        for _, r in df.iterrows():
+            leap = _safe_str(r.get(leap_col))
+            if not leap:
+                continue
+            name   = _safe_str(r.get(tname_col))
+            vendor = _safe_str(r.get(vendor_col))
+            if leap not in new_users and name:
+                new_users[leap] = (vendor, leap, name)
+
+        if new_users:
+            existing = {
+                row[0]
+                for row in conn.execute(
+                    "SELECT tech_id FROM asp_users WHERE tech_id IS NOT NULL"
+                ).fetchall()
+            }
+            to_insert = [v for k, v in new_users.items() if k not in existing]
+            if to_insert:
+                conn.executemany(
+                    "INSERT INTO asp_users (labor_vendor_related, tech_id, full_name)"
+                    " VALUES (?, ?, ?)",
+                    to_insert,
+                )
+                conn.commit()
+                n_new_users = len(to_insert)
+
+    n_total   = len(summary_rows)
+    n_new_wo  = len(new_wo_ids)
+    n_updated = n_total - n_new_wo
+    return n_new_wo, n_updated, n_new_users
 
 
 def _load_valid_wo_ids(conn: sqlite3.Connection) -> set[int]:
@@ -469,26 +515,69 @@ def upsert_eta_parthold_from_backlog(df: pd.DataFrame, conn: sqlite3.Connection)
     return len(updates)
 
 
+# Status hierarchy for GTAAP return_status.
+# A row can only move forward (higher rank) — never backward, never overwrite
+# a value of equal or higher rank.
+#   PENDING FOR DC GENERATION  → rank 0  (lowest / open)
+#   PENDING WITH PARTNER       → rank 1  (pickup requested)
+#   DC GENERATED               → rank 2  (locked — never overwritten)
+_GTAAP_STATUS_RANK: dict[str, int] = {
+    "PENDING FOR DC GENERATION": 0,
+    "PENDING WITH PARTNER":      1,
+    "DC GENERATED":              2,
+}
+
+
+def _gtaap_status_eligible(db_status: str | None, excel_status: str) -> bool:
+    """Return True when *excel_status* is allowed to overwrite *db_status*.
+
+    Rules:
+    - DB value of 'DC GENERATED' (rank 2) is always locked.
+    - Any other transition is allowed only when the incoming rank is strictly
+      higher than the stored rank (forward-only movement).
+    - Unknown status strings (not in the hierarchy) are treated as rank -1
+      so they can always be overwritten but never used to overwrite anything.
+    """
+    incoming_rank = _GTAAP_STATUS_RANK.get(excel_status, -1)
+    if incoming_rank < 0:
+        return False  # unrecognised excel value — skip
+    current_rank = _GTAAP_STATUS_RANK.get(str(db_status or "").strip(), -1)
+    # current_rank -1 means NULL / unknown → always eligible
+    return incoming_rank > current_rank
+
+
 def upsert_dc_from_gtaap(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
     """
-    Update the ``dc_number`` column on wo_product_detail using the GTAAP Report.
+    Update ``dc_number`` and ``return_status`` on wo_product_detail using the GTAAP Report.
 
-    Two-pass write strategy
-    -----------------------
+    DC# write strategy
+    ------------------
     Pass 1 — fill real DC# values from Excel:
-        Eligible rows: db dc_number IS NULL  OR  db dc_number = '0'
+        Eligible rows: db dc_number IS NULL
         Source: Excel DC# column (non-empty rows only)
         Action: write the normalised DC# string ("17731" not "17731.0")
 
-    Pass 2 — backfill '0' sentinel for no-return rows:
-        Eligible rows: db dc_number IS NULL after pass 1,
-                       AND the GTAAP row has Return Flag = 'No' / 'N' / 'NO'
-        Action: write '0' to signal "no DC# expected (non-returnable part)"
+    Pass 2 — removed. No-return rows simply keep dc_number = NULL; '0' is no
+        longer written as a sentinel since NULL already means "no DC# expected".
 
-    A dc_number that already holds a real value (anything other than NULL/'0')
-    is never overwritten.
+    A dc_number that already holds a real value is never overwritten.
 
-    Returns the total number of rows updated across both passes.
+    return_status write strategy (hierarchy-enforced)
+    -------------------------------------------------
+    Written only when the incoming Excel Status is a forward move in the
+    hierarchy:  PENDING FOR DC GENERATION (0) → PENDING WITH PARTNER (1)
+                                               → DC GENERATED (2, locked).
+    A stored 'DC GENERATED' is never overwritten.
+
+    Pass 5a — promote (whole-table, runs after all writes):
+        Any row with a real dc_number whose return_status is not already
+        'DC GENERATED' is promoted — catches rows filled by earlier imports.
+
+    Pass 5b — cleanup (whole-table, runs after all writes):
+        Any row where dc_number is NULL but return_status is 'DC GENERATED'
+        is inconsistent; return_status is cleared to NULL.
+
+    Returns the total number of rows updated across all passes.
     """
     import math as _math
 
@@ -501,8 +590,8 @@ def upsert_dc_from_gtaap(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
         return s not in ("", "nan", "nat", "none", "null", "NaT")
 
     def _dc_eligible(current: str | None) -> bool:
-        """True when the current DB value should be overwritten."""
-        return current is None or current.strip() == "0"
+        """True when the current DB dc_number value should be overwritten."""
+        return current is None
 
     def _normalise_dc(dc_val) -> str:
         """Normalise whole-number floats: 17731.0 → '17731'."""
@@ -514,21 +603,22 @@ def upsert_dc_from_gtaap(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
             pass
         return str(dc_val).strip()
 
-    # Fetch current dc_number state for all rows, keyed by soid
-    db_dc = {
-        r[0]: r[1]  # soid → dc_number (may be None)
+    # Fetch current dc_number, return_status, and work_order_id for all rows
+    db_rows = {
+        r[0]: {"dc_number": r[1], "return_status": r[2], "work_order_id": r[3]}
         for r in conn.execute(
-            "SELECT soid, dc_number FROM wo_product_detail"
+            "SELECT soid, dc_number, return_status, work_order_id FROM wo_product_detail"
         ).fetchall()
     }
+    db_dc = {soid: v["dc_number"] for soid, v in db_rows.items()}
 
-    update_sql = "UPDATE wo_product_detail SET dc_number = ? WHERE soid = ?"
-    updates: list[tuple] = []
+    dc_updates: list[tuple] = []
+    status_updates: list[tuple] = []
 
     # ── Pass 1: write real DC# values from Excel ─────────────────────────────
     for _, r in df.iterrows():
         soid = _safe_int(r.get("SOID"))
-        if soid is None or soid not in db_dc:
+        if soid is None or soid not in db_rows:
             continue
         if not _dc_eligible(db_dc[soid]):
             continue
@@ -538,26 +628,173 @@ def upsert_dc_from_gtaap(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
             continue
 
         dc_str = _normalise_dc(dc_val)
-        updates.append((dc_str, soid))
+        dc_updates.append((dc_str, soid))
         db_dc[soid] = dc_str  # keep in-memory state current for pass 2
 
-    # ── Pass 2: backfill '0' for non-returnable rows still empty ─────────────
-    _no_return = {"n", "no"}
+    # ── Pass 1b: promote to DC GENERATED when a real DC# was just written ────
+    # Rule: if dc_number is now a real value and return_status is not already
+    # 'DC GENERATED', force it to 'DC GENERATED'.
+    for dc_str, soid in dc_updates:
+        db_status = str(db_rows[soid]["return_status"] or "").strip()
+        if db_status != "DC GENERATED":
+            status_updates.append(("DC GENERATED", soid))
+            db_rows[soid]["return_status"] = "DC GENERATED"  # keep in-memory state current
+
+    # ── Pass 3: write return_status — hierarchy-enforced ─────────────────────
     for _, r in df.iterrows():
         soid = _safe_int(r.get("SOID"))
-        if soid is None or soid not in db_dc:
+        if soid is None or soid not in db_rows:
             continue
-        # Only rows that are still NULL after pass 1
-        if db_dc[soid] is not None:
-            continue
-        return_flag = str(r.get("Return Flag") or "").strip().lower()
-        if return_flag in _no_return:
-            updates.append(("0", soid))
-            db_dc[soid] = "0"
+        excel_status = str(r.get("Status") or "").strip()
+        db_status    = db_rows[soid]["return_status"]
+        if _gtaap_status_eligible(db_status, excel_status):
+            status_updates.append((excel_status, soid))
 
-    conn.executemany(update_sql, updates)
+    # ── Pass 4: absent rows — promote to DC GENERATED ────────────────────────
+    # DB rows with return_status PENDING FOR DC GENERATION or PENDING WITH PARTNER
+    # that have no matching SOID *and* no matching work_order_id in the Excel file
+    # are considered complete (DC already generated) and promoted to DC GENERATED.
+    _open_statuses = {"PENDING FOR DC GENERATION", "PENDING WITH PARTNER"}
+    excel_soids   = {
+        _safe_int(r.get("SOID"))
+        for _, r in df.iterrows()
+        if _safe_int(r.get("SOID")) is not None
+    }
+    excel_wo_ids  = {
+        _safe_int(r.get("WO#"))
+        for _, r in df.iterrows()
+        if _safe_int(r.get("WO#")) is not None
+    }
+    for soid, row_data in db_rows.items():
+        db_status = str(row_data["return_status"] or "").strip()
+        if db_status not in _open_statuses:
+            continue
+        wo_id = row_data.get("work_order_id")
+        # Skip rows whose SOID or work_order_id is still present in the Excel file
+        if soid in excel_soids:
+            continue
+        if wo_id is not None and _safe_int(wo_id) in excel_wo_ids:
+            continue
+        status_updates.append(("DC GENERATED", soid))
+
+    conn.executemany("UPDATE wo_product_detail SET dc_number = ? WHERE soid = ?", dc_updates)
+    conn.executemany("UPDATE wo_product_detail SET return_status = ? WHERE soid = ?", status_updates)
+
+    # ── Pass 5a: promote any row that already has a real dc_number ────────────
+    # Catches rows whose dc_number was set in a previous import but whose
+    # return_status was never promoted (or was wrongly left behind).
+    conn.execute(
+        """
+        UPDATE wo_product_detail
+           SET return_status = 'DC GENERATED'
+         WHERE dc_number IS NOT NULL
+           AND dc_number != ''
+           AND (return_status IS NULL OR return_status != 'DC GENERATED')
+        """
+    )
+
+    # ── Pass 5b: clear orphaned DC GENERATED on rows with no real dc_number ────
+    # If dc_number is NULL but return_status is 'DC GENERATED', the status is
+    # inconsistent — clear return_status back to NULL.
+    conn.execute(
+        """
+        UPDATE wo_product_detail
+           SET return_status = NULL
+         WHERE return_status = 'DC GENERATED'
+           AND dc_number IS NULL
+        """
+    )
+
     conn.commit()
-    return len(updates)
+    return len(dc_updates) + len(status_updates)
+
+
+# ── UNRETURN upsert ──────────────────────────────────────────────────────────
+
+def upsert_from_unreturn(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
+    """Update ``dc_lenovo`` and ``return_status`` on wo_product_detail using the
+    ID-IBM ID POU Unreturn Excel file.
+
+    Logic
+    -----
+    Match by SOID (Excel column "SOID" → wo_product_detail.soid).
+
+    dc_lenovo write
+        Only written when Excel "DC/Collection Form" has a real value
+        (not NULL, not empty, not "0", not "—").
+        Rows with no real DC value are skipped entirely.
+
+    return_status write
+        Written only when dc_lenovo has a real value AND
+        wo_product_detail.return_status is currently NULL/empty.
+        → always set to 'DC GENERATED'.
+        "Unreturned" is never written; an existing return_status is never
+        overwritten.
+
+    Returns the total number of rows updated (dc_lenovo + return_status).
+    """
+    import math as _math
+
+    def _has_val(v) -> bool:
+        if v is None:
+            return False
+        if isinstance(v, float) and _math.isnan(v):
+            return False
+        s = str(v).strip()
+        return s not in ("", "nan", "nat", "none", "null", "NaT", "0")
+
+    def _to_str_or_none(v):
+        """Return the string value, or None when empty/NaN."""
+        if v is None:
+            return None
+        if isinstance(v, float) and _math.isnan(v):
+            return None
+        s = str(v).strip()
+        if s in ("", "nan", "nat", "none", "null", "NaT"):
+            return None
+        return s
+
+    # Snapshot current db state: soid → {dc_lenovo, return_status}
+    db_rows: dict[int, dict] = {
+        r[0]: {"dc_lenovo": r[1], "return_status": r[2]}
+        for r in conn.execute(
+            "SELECT soid, dc_lenovo, return_status FROM wo_product_detail"
+        ).fetchall()
+    }
+
+    dc_updates: list[tuple] = []          # (dc_lenovo_value, soid)
+    status_updates: list[tuple] = []      # (return_status_value, soid)
+
+    # In-memory dc_lenovo after staging writes (used for Condition B)
+    staged_dc: dict[int, str | None] = {soid: v["dc_lenovo"] for soid, v in db_rows.items()}
+
+    # ── Pass 1: stage dc_lenovo values (real values only) ────────────────────
+    for _, row in df.iterrows():
+        soid = _safe_int(row.get("SOID"))
+        if soid is None or soid not in db_rows:
+            continue
+        dc_val = _to_str_or_none(row.get("DC/Collection Form"))
+        if not _has_val(dc_val):
+            continue  # skip rows where DC/Collection Form is empty, 0, or —
+        dc_updates.append((dc_val, soid))
+        staged_dc[soid] = dc_val  # keep in-memory state current
+
+    # ── Pass 2: set return_status = DC GENERATED where dc_lenovo is now real ─
+    for dc_val, soid in dc_updates:
+        current_status = str(db_rows[soid]["return_status"] or "").strip()
+        if current_status:
+            continue  # never overwrite an existing return_status
+        status_updates.append(("DC GENERATED", soid))
+        db_rows[soid]["return_status"] = "DC GENERATED"
+
+    conn.executemany(
+        "UPDATE wo_product_detail SET dc_lenovo = ? WHERE soid = ?", dc_updates
+    )
+    conn.executemany(
+        "UPDATE wo_product_detail SET return_status = ? WHERE soid = ?", status_updates
+    )
+    conn.commit()
+    return len(dc_updates) + len(status_updates)
 
 
 # ── public dispatcher ─────────────────────────────────────────────────────────
@@ -629,7 +866,7 @@ def dispatch_upsert(category_key: str, filepath: str, conn: sqlite3.Connection) 
         df = pd.read_excel(_file_bytes)
 
     if key == "WOID":
-        n_rows = upsert_wo_summary_and_details(df, conn)
+        n_new_wo, n_updated, n_new_users = upsert_wo_summary_and_details(df, conn)
     elif key == "SOID":
         n_rows = upsert_wo_product_from_msd(df, conn)
     elif key == "SHIPMENT":
@@ -640,6 +877,9 @@ def dispatch_upsert(category_key: str, filepath: str, conn: sqlite3.Connection) 
     elif key == "GTAAP":
         n_rows = upsert_dc_from_gtaap(df, conn)
         return n_rows  # no orphan purge needed for this category
+    elif key == "UNRETURN":
+        n_rows = upsert_from_unreturn(df, conn)
+        return n_rows  # no orphan purge needed for this category
     else:
         return 0  # unreachable, but satisfies type checkers
 
@@ -647,4 +887,7 @@ def dispatch_upsert(category_key: str, filepath: str, conn: sqlite3.Connection) 
     # work_order_id which is no longer present in wo_summary.
     _purge_orphan_product_rows(conn)
 
+    # For WOID, surface all three counts so callers can report stats.
+    if key == "WOID":
+        return n_new_wo, n_updated, n_new_users  # type: ignore[return-value]
     return n_rows

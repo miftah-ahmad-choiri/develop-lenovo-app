@@ -1121,7 +1121,7 @@
     <div class="profile-avatar">{{ (user.display_name[:1] or user.username[:1] or 'U') | upper }}</div>
     <div class="profile-hero-info">
       <div class="profile-display-name">{{ user.display_name }}</div>
-      <div class="profile-username">{% if user.role == 'asp_user' %}{{ user.email }}{% else %}@{{ user.username }}{% endif %}</div>
+      <div class="profile-username">{% if user.role == 'asp_user' %}{{ user.email }}{% if user.tech_id %} &nbsp;·&nbsp; <span style="font-family:monospace;font-size:0.9em;color:#3b82d4">{{ user.tech_id }}</span>{% endif %}{% else %}@{{ user.username }}{% endif %}</div>
       {% if user.role == 'asp' %}
       <div class="hero-pw-row">
         <span style="font-size:11px;color:#8b949e;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Password</span>
@@ -1491,8 +1491,8 @@
         <div class="profile-value">{{ user.phone_number or '—' }}</div>
       </div>
       <div class="profile-field">
-        <div class="profile-label">ASP Account</div>
-        <div class="profile-value">{{ user.asp_username or '—' }}</div>
+        <div class="profile-label">Technician ID</div>
+        <div class="profile-value">{{ user.tech_id or '—' }}</div>
       </div>
       <div class="profile-field">
         <div class="profile-label">Account Status</div>
@@ -1775,7 +1775,7 @@
       <div class="asp-user-row" data-uid="{{ u.id }}">
         <div class="asp-user-avatar">{{ (u.full_name[:2])|upper }}</div>
         <div class="asp-user-info">
-          <div class="asp-user-name">{{ u.full_name }}</div>
+          <div class="asp-user-name">{% if u.tech_id %}<span style="font-family:monospace;font-size:11px;color:#3b82d4;font-weight:600;margin-right:7px">{{ u.tech_id }}</span>{% endif %}{{ u.full_name }}</div>
           <div class="asp-user-email">{{ u.email }}{% if u.phone_number %} &nbsp;·&nbsp; {{ u.phone_number }}{% endif %}</div>
         </div>
         <div class="asp-user-meta">
@@ -1866,6 +1866,12 @@
 
         <!-- Optional fields divider -->
         <div class="au-optional-divider">Optional</div>
+
+        <!-- Tech ID -->
+        <div class="au-field">
+          <label class="au-label" for="au-techid">Technician ID (Tech ID)</label>
+          <input id="au-techid" class="au-input" type="text" placeholder="e.g. IDIB22120052" autocomplete="off" style="font-family:monospace">
+        </div>
 
         <!-- Phone -->
         <div class="au-field">
@@ -2694,7 +2700,7 @@
     row.innerHTML =
       '<div class="asp-user-avatar">' + initials + '</div>'
       + '<div class="asp-user-info">'
-      +   '<div class="asp-user-name">' + _esc(u.full_name) + '</div>'
+      +   '<div class="asp-user-name">' + (u.tech_id ? '<span style="font-family:monospace;font-size:11px;color:#3b82d4;font-weight:600;margin-right:7px">' + _esc(u.tech_id) + '</span>' : '') + _esc(u.full_name) + '</div>'
       +   '<div class="asp-user-email">' + _esc(u.email) + (u.phone_number ? ' &nbsp;·&nbsp; ' + _esc(u.phone_number) : '') + '</div>'
       + '</div>'
       + '<div class="asp-user-meta">'
@@ -2720,7 +2726,9 @@
     var row = document.querySelector('.asp-user-row[data-uid="' + u.id + '"]');
     if (!row) return;
     row.querySelector('.asp-user-avatar').textContent = u.full_name.trim().slice(0,2).toUpperCase();
-    row.querySelector('.asp-user-name').textContent   = u.full_name;
+    row.querySelector('.asp-user-name').innerHTML =
+      (u.tech_id ? '<span style="font-family:monospace;font-size:11px;color:#3b82d4;font-weight:600;margin-right:7px">' + _esc(u.tech_id) + '</span>' : '')
+      + _esc(u.full_name);
     row.querySelector('.asp-user-email').innerHTML    = _esc(u.email) + (u.phone_number ? ' &nbsp;·&nbsp; ' + _esc(u.phone_number) : '');
     /* Keep the edit-button data attributes in sync so re-opening the drawer shows fresh values */
     var btn = row.querySelector('.au-edit-row-btn');
@@ -2735,7 +2743,7 @@
   /* ── Add modal (unchanged — only for creating new users) ───────────────────── */
   function _auOpenModal() {
     /* Clear values and errors */
-    ['au-fullname','au-email','au-password','au-password2','au-phone'].forEach(function(id){
+    ['au-fullname','au-email','au-password','au-password2','au-techid','au-phone'].forEach(function(id){
       var el = document.getElementById(id);
       if (el) { el.value = ''; el.classList.remove('error'); el.disabled = false; }
     });
@@ -2785,6 +2793,7 @@
     var pw       = (document.getElementById('au-password').value  || '');
     var pw2      = (document.getElementById('au-password2').value || '');
     var phone    = (document.getElementById('au-phone').value     || '').trim();
+    var techId   = (document.getElementById('au-techid').value    || '').trim() || null;
 
     ['au-fullname','au-email','au-password','au-password2'].forEach(function(id){
       var el = document.getElementById(id);
@@ -2812,7 +2821,7 @@
 
     var btn = document.getElementById('au-submit-btn');
     btn.disabled = true;
-    var payload = { full_name: fullname, email: email, phone_number: phone, password: pw };
+    var payload = { full_name: fullname, email: email, phone_number: phone, password: pw, tech_id: techId };
 
     fetch('/asp/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       .then(function(r){ return r.json(); })

@@ -34,6 +34,8 @@ def run_migrations(app: Flask) -> None:
         _migrate_wo_details_add_product_description(conn)
         _migrate_wo_product_detail_add_eta_parthold(conn)
         _migrate_wo_product_detail_add_dc_number(conn)
+        _migrate_wo_product_detail_add_return_status(conn)
+        _migrate_wo_product_detail_add_dc_lenovo(conn)
         _migrate_create_asp_details(conn)
         _migrate_create_admin_users(conn)
         _migrate_create_asp_users(conn)
@@ -41,6 +43,8 @@ def run_migrations(app: Flask) -> None:
         _migrate_create_asp_pw_change_requests(conn)
         _migrate_asp_details_add_office_type_wo_count(conn)
         _migrate_asp_details_add_monday_fields(conn)
+        _migrate_asp_users_drop_asp_username(conn)
+        _migrate_wo_details_technician_id_to_tech_id(conn)
     finally:
         conn.close()
 
@@ -164,6 +168,40 @@ def _migrate_wo_product_detail_add_dc_number(conn: sqlite3.Connection) -> None:
         conn.commit()
 
 
+def _migrate_wo_product_detail_add_return_status(conn: sqlite3.Connection) -> None:
+    """Add return_status column to wo_product_detail if it does not exist.
+
+    Populated by the GTAAP Report upsert — maps SOID → Status from the
+    Resolv GTAAP export file.
+    """
+    existing = {
+        row[1]
+        for row in conn.execute("PRAGMA table_info(wo_product_detail)").fetchall()
+    }
+    if "return_status" not in existing:
+        conn.execute(
+            "ALTER TABLE wo_product_detail ADD COLUMN return_status TEXT"
+        )
+        conn.commit()
+
+
+def _migrate_wo_product_detail_add_dc_lenovo(conn: sqlite3.Connection) -> None:
+    """Add dc_lenovo column to wo_product_detail if it does not exist.
+
+    Populated by the ID-IBM ID POU Unreturn upsert — maps SOID → DC/Collection Form
+    from the Lenovo POU Unreturned Excel file.
+    """
+    existing = {
+        row[1]
+        for row in conn.execute("PRAGMA table_info(wo_product_detail)").fetchall()
+    }
+    if "dc_lenovo" not in existing:
+        conn.execute(
+            "ALTER TABLE wo_product_detail ADD COLUMN dc_lenovo TEXT"
+        )
+        conn.commit()
+
+
 def _migrate_create_admin_users(conn: sqlite3.Connection) -> None:
     """Create the admin_users table and migrate asp000 out of asp_details.
 
@@ -260,39 +298,47 @@ def _migrate_create_asp_users(conn: sqlite3.Connection) -> None:
     """Create the asp_users table if it does not already exist.
 
     Each row represents a technician/staff account that belongs to one ASP.
-    The asp_username column is a FK → asp_details.username.
+    Identified by tech_id (LEAP ID, unique) and linked to asp_details via
+    labor_vendor_related.
     """
     conn.executescript(
         """
         CREATE TABLE IF NOT EXISTS asp_users (
-            id              INTEGER PRIMARY KEY AUTOINCREMENT,
-            asp_username    TEXT NOT NULL
-                                REFERENCES asp_details(username)
-                                ON UPDATE CASCADE
-                                ON DELETE CASCADE,
-            full_name       TEXT NOT NULL,
-            email           TEXT NOT NULL,
-            password        TEXT NOT NULL,
-            phone_number    TEXT,
-            is_active       INTEGER DEFAULT 1,
-            created_at      TEXT DEFAULT (datetime('now')),
-            updated_at      TEXT DEFAULT (datetime('now'))
+            id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+            tech_id                 TEXT UNIQUE,
+            labor_vendor_related    TEXT,
+            full_name               TEXT NOT NULL,
+            email                   TEXT NOT NULL,
+            password                TEXT NOT NULL,
+            phone_number            TEXT,
+            is_active               INTEGER DEFAULT 1,
+            created_at              TEXT DEFAULT (datetime('now')),
+            updated_at              TEXT DEFAULT (datetime('now'))
         );
 
-        CREATE INDEX IF NOT EXISTS idx_asp_users_asp_username
-            ON asp_users(asp_username);
+        CREATE UNIQUE INDEX IF NOT EXISTS uix_asp_users_tech_id
+            ON asp_users(tech_id);
+
+        CREATE INDEX IF NOT EXISTS idx_asp_users_labor_vendor
+            ON asp_users(labor_vendor_related);
         """
     )
     conn.commit()
 
 
 def _migrate_asp_users_drop_tech_id(conn: sqlite3.Connection) -> None:
-    """Drop the tech_id column from asp_users if it still exists.
+    """Drop the tech_id column from asp_users if it still exists as a
+    standalone column WITHOUT labor_vendor_related already present.
 
-    SQLite does not support DROP COLUMN before 3.35.0, so we use the
-    rename-create-copy-drop pattern inside a transaction.
+    This was the old migration that added and then dropped an unrelated
+    tech_id column.  It is kept as a no-op guard so existing DBs that
+    went through the old path are not re-processed.
     """
     cols = {row[1] for row in conn.execute("PRAGMA table_info(asp_users)").fetchall()}
+    # If labor_vendor_related is already present, the newer migration has run
+    # or will run — do nothing here.
+    if "labor_vendor_related" in cols:
+        return
     if "tech_id" not in cols:
         return  # already clean
 
@@ -330,6 +376,148 @@ def _migrate_asp_users_drop_tech_id(conn: sqlite3.Connection) -> None:
 
         CREATE INDEX IF NOT EXISTS idx_asp_users_asp_username
             ON asp_users(asp_username);
+
+        COMMIT;
+        PRAGMA foreign_keys = ON;
+        """
+    )
+    conn.commit()
+
+
+def _migrate_asp_users_drop_asp_username(conn: sqlite3.Connection) -> None:
+    """Drop asp_username from asp_users and ensure tech_id + labor_vendor_related
+    are the identifying columns.
+
+    Replaces the old asp_username FK → asp_details.username with:
+      - tech_id               TEXT UNIQUE  (LEAP ID, PK surrogate)
+      - labor_vendor_related  TEXT         (FK → asp_details.labor_vendor_related)
+
+    Uses the rename-create-copy-drop pattern because SQLite does not support
+    DROP COLUMN or ADD CONSTRAINT after creation.
+    """
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(asp_users)").fetchall()}
+    # Already migrated if asp_username is gone
+    if "asp_username" not in cols:
+        return
+
+    conn.executescript(
+        """
+        PRAGMA foreign_keys = OFF;
+        BEGIN;
+
+        ALTER TABLE asp_users RENAME TO _asp_users_old;
+
+        CREATE TABLE asp_users (
+            id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+            tech_id                 TEXT UNIQUE,
+            labor_vendor_related    TEXT,
+            full_name               TEXT NOT NULL,
+            email                   TEXT NOT NULL,
+            password                TEXT NOT NULL,
+            phone_number            TEXT,
+            is_active               INTEGER DEFAULT 1,
+            created_at              TEXT DEFAULT (datetime('now')),
+            updated_at              TEXT DEFAULT (datetime('now'))
+        );
+
+        INSERT INTO asp_users
+            (id, tech_id, labor_vendor_related, full_name, email, password,
+             phone_number, is_active, created_at, updated_at)
+        SELECT
+            id,
+            CASE WHEN tech_id IS NOT NULL THEN tech_id
+                 ELSE NULL END,
+            labor_vendor_related,
+            full_name, email, password,
+            phone_number, is_active, created_at, updated_at
+        FROM _asp_users_old;
+
+        DROP TABLE _asp_users_old;
+
+        CREATE UNIQUE INDEX IF NOT EXISTS uix_asp_users_tech_id
+            ON asp_users(tech_id);
+
+        CREATE INDEX IF NOT EXISTS idx_asp_users_labor_vendor
+            ON asp_users(labor_vendor_related);
+
+        COMMIT;
+        PRAGMA foreign_keys = ON;
+        """
+    )
+    conn.commit()
+
+
+def _migrate_wo_details_technician_id_to_tech_id(conn: sqlite3.Connection) -> None:
+    """Rename technician_id → tech_id in wo_details.
+
+    SQLite does not support RENAME COLUMN before 3.25.0.  We use the
+    rename-create-copy-drop pattern to be safe across all versions.
+    """
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(wo_details)").fetchall()}
+    # Already migrated
+    if "technician_id" not in cols:
+        return
+
+    conn.executescript(
+        """
+        PRAGMA foreign_keys = OFF;
+        BEGIN;
+
+        ALTER TABLE wo_details RENAME TO _wo_details_old;
+
+        CREATE TABLE wo_details (
+            work_order_id                   INTEGER PRIMARY KEY
+                                                REFERENCES wo_summary(work_order_id),
+            serial_number                   TEXT,
+            case_number                     INTEGER,
+            product_id_mtm                  TEXT,
+            product_description             TEXT,
+            release_date                    TEXT,
+            original_committed_onsite_date  TEXT,
+            customer_defer_date             TEXT,
+            completion_date                 TEXT,
+            closing_date                    TEXT,
+            premier_service                 TEXT,
+            order_type                      TEXT,
+            work_order_priority             TEXT,
+            city                            TEXT,
+            company_name                    TEXT,
+            address                         TEXT,
+            mobile_phone                    TEXT,
+            primary_email                   TEXT,
+            labor_vendor_related            TEXT,
+            tech_id                         TEXT,
+            closing_code                    TEXT,
+            repeat_repair                   TEXT,
+            repeat_repair_reason            TEXT,
+            wo_cancellation_reason          TEXT
+        );
+
+        INSERT INTO wo_details (
+            work_order_id, serial_number, case_number,
+            product_id_mtm, product_description,
+            release_date, original_committed_onsite_date,
+            customer_defer_date, completion_date, closing_date,
+            premier_service, order_type, work_order_priority,
+            city, company_name, address, mobile_phone, primary_email,
+            labor_vendor_related, tech_id,
+            closing_code, repeat_repair, repeat_repair_reason, wo_cancellation_reason
+        )
+        SELECT
+            work_order_id, serial_number, case_number,
+            product_id_mtm, product_description,
+            release_date, original_committed_onsite_date,
+            customer_defer_date, completion_date, closing_date,
+            premier_service, order_type, work_order_priority,
+            city, company_name, address, mobile_phone, primary_email,
+            labor_vendor_related, technician_id,
+            closing_code, repeat_repair, repeat_repair_reason, wo_cancellation_reason
+        FROM _wo_details_old;
+
+        DROP TABLE _wo_details_old;
+
+        CREATE INDEX IF NOT EXISTS idx_wo_details_work_order_id
+            ON wo_details(work_order_id);
 
         COMMIT;
         PRAGMA foreign_keys = ON;

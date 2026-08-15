@@ -150,9 +150,10 @@ def get_wo_detail(work_order_id: int) -> dict:
     """Return a single WO row (summary + details joined) or empty dict."""
     conn = get_db()
     row = conn.execute("""
-        SELECT s.*, d.*
+        SELECT s.*, d.*, u.full_name AS tech_name
         FROM wo_summary s
         LEFT JOIN wo_details d USING (work_order_id)
+        LEFT JOIN asp_users u ON u.tech_id = d.tech_id
         WHERE s.work_order_id = ?
     """, (work_order_id,)).fetchone()
     return _row_to_dict(row)
@@ -275,7 +276,7 @@ def get_wo_summary_stats(vendor_filter: str | None = None) -> dict:
         page_size=1, vendor_filter=vendor_filter, followup_state="wo_sla"
     )["total"]
     return_part_total     = get_asp_part_return_page(
-        page_size=1, vendor_filter=vendor_filter
+        page_size=1, vendor_filter=vendor_filter, followup_state="need_to_return"
     )["total"]
 
     conn = get_db()
@@ -478,6 +479,7 @@ _CCI_FOLLOWUP_COLS = """
     s.case_desc, s.work_order_type, s.contact_name,
     s.customer, s.work_order_status, s.case_status,
     d.completion_date, d.closing_date, d.customer_defer_date,
+    u.full_name AS tech_name,
     (SELECT awb FROM wo_product_detail
      WHERE wo_product_detail.work_order_id = s.work_order_id
        AND TRIM(COALESCE(awb,'')) != ''
@@ -639,6 +641,7 @@ def get_asp_cci_followup_page(
         SELECT {_CCI_FOLLOWUP_COLS}
         FROM wo_summary s
         LEFT JOIN wo_details d USING (work_order_id)
+        LEFT JOIN asp_users u ON u.tech_id = d.tech_id
         {where_sql}
         ORDER BY
             CASE WHEN NULLIF(TRIM(COALESCE(
@@ -734,7 +737,7 @@ def get_asp_cci_followup_page(
     return {"rows": result_rows, "total": total, "page": page, "pages": pages}
 
 
-# Part Return — closed WOs that need DC number input, plus all other closed WOs
+# Part Return — closed WOs that have a return_status set on any part line
 def get_asp_part_return_page(
     search: str = "",
     followup_state: str = "",
@@ -743,43 +746,64 @@ def get_asp_part_return_page(
     vendor_filter: str | None = None,
 ) -> dict:
     """
-    Return Part Follow-Up — all closed/completed WOs, with a computed followup_state:
-        input_dc    — WO closed, has a real part order, dc_number not yet filled
-        return_part — WO closed, no pending dc_number (dc filled or no part order)
+    Return Part Follow-Up — closed/completed WOs that have at least one non-cancelled
+    part line with a known return_status value.  Computed followup_state per row:
+        need_to_return — any active part line has return_status =
+                         'PENDING WITH PARTNER' or 'PENDING FOR DC GENERATION'
+        dc_generated   — no pending lines; relevant lines have return_status = 'DC GENERATED'
+    WOs with no return_status on any part line are excluded entirely.
     """
     conn = get_db()
     params: list = []
 
-    cols = f"""
+    cols = """
         s.work_order_id, s.serial_number, s.created_on,
         s.committed_delivery_date, s.actual_committed_onsite_date,
         s.case_desc, s.work_order_type, s.contact_name,
         s.customer, s.work_order_status, s.case_status,
         d.completion_date, d.closing_date,
-        (SELECT NOT EXISTS (
-             SELECT 1 FROM wo_product_detail p
-             WHERE p.work_order_id = s.work_order_id
-               AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
-               AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != ''
-               AND UPPER(TRIM(COALESCE(p.return_flag,''))) = 'Y'
-               AND (p.dc_number IS NULL OR TRIM(p.dc_number) = '0')
-         )) AS part_dc_filled,
+        u.full_name AS tech_name,
         (SELECT 1
          FROM wo_product_detail p
          WHERE p.work_order_id = s.work_order_id
-           AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
-           AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != ''
-         LIMIT 1) AS part_has_order,
+           AND UPPER(TRIM(COALESCE(p.return_status,''))) IN (
+               'PENDING WITH PARTNER','PENDING FOR DC GENERATION','DC GENERATED'
+           )
+         LIMIT 1) AS has_return_status,
         (SELECT 1
          FROM wo_product_detail p
          WHERE p.work_order_id = s.work_order_id
-           AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
-           AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != ''
-           AND UPPER(TRIM(COALESCE(p.return_flag,''))) = 'Y'
-         LIMIT 1) AS part_return_flag_y
+           AND UPPER(TRIM(COALESCE(p.return_status,''))) IN (
+               'PENDING WITH PARTNER','PENDING FOR DC GENERATION'
+           )
+         LIMIT 1) AS has_pending_return,
+        (SELECT p.return_status
+         FROM wo_product_detail p
+         WHERE p.work_order_id = s.work_order_id
+           AND UPPER(TRIM(COALESCE(p.return_status,''))) IN (
+               'PENDING WITH PARTNER','PENDING FOR DC GENERATION','DC GENERATED'
+           )
+         ORDER BY p.soid DESC LIMIT 1) AS return_status,
+        (SELECT p.dc_number
+         FROM wo_product_detail p
+         WHERE p.work_order_id = s.work_order_id
+           AND UPPER(TRIM(COALESCE(p.return_status,''))) IN (
+               'PENDING WITH PARTNER','PENDING FOR DC GENERATION','DC GENERATED'
+           )
+         ORDER BY p.soid DESC LIMIT 1) AS dc_number
     """
 
-    wheres = [_CLOSED_WHERE]
+    # Include any WO (open or closed) that has at least one part line with a known return_status
+    wheres = [
+        """EXISTS (
+            SELECT 1 FROM wo_product_detail p
+            WHERE p.work_order_id = s.work_order_id
+              AND UPPER(TRIM(COALESCE(p.return_status,''))) IN (
+                  'PENDING WITH PARTNER','PENDING FOR DC GENERATION','DC GENERATED'
+              )
+        )""",
+    ]
+
     if search:
         term = f"%{search.lower()}%"
         wheres.append("""(
@@ -798,12 +822,12 @@ def get_asp_part_return_page(
     where_sql = "WHERE " + " AND ".join(wheres)
 
     def _state(r: dict) -> str:
-        if r.get("part_has_order") and not r.get("part_dc_filled") and r.get("part_return_flag_y"):
-            return "input_dc"
-        return "return_part"
+        if r.get("has_pending_return"):
+            return "need_to_return"
+        return "dc_generated"
 
     all_rows = conn.execute(
-        f"SELECT {cols} FROM wo_summary s LEFT JOIN wo_details d USING (work_order_id) {where_sql} ORDER BY s.created_on DESC",
+        f"SELECT {cols} FROM wo_summary s LEFT JOIN wo_details d USING (work_order_id) LEFT JOIN asp_users u ON u.tech_id = d.tech_id {where_sql} ORDER BY s.created_on DESC",
         params,
     ).fetchall()
 
@@ -925,10 +949,11 @@ def get_wo_no_awb_by_asp(customer: str, current_wo_id: int | None = None) -> lis
     return rows
 
 
-# Return-Part same-ASP — closed WOs for a given ASP with return_flag=Y part lines, no DC yet
+# Return-Part same-ASP — closed WOs for a given ASP with pending return_status lines
 def get_return_part_wos_by_asp(customer: str) -> list[dict]:
     """Return closed WOs belonging to the given ASP that have at least one
-    non-cancelled part line with return_flag='Y' and dc_number not yet filled."""
+    non-cancelled part line with return_status PENDING WITH PARTNER or
+    PENDING FOR DC GENERATION."""
     conn = get_db()
     rows = conn.execute("""
         SELECT DISTINCT
@@ -936,16 +961,15 @@ def get_return_part_wos_by_asp(customer: str) -> list[dict]:
             s.work_order_status, s.work_order_type,
             s.committed_delivery_date, s.created_on,
             d.completion_date,
-            p.soid, p.product, p.description, p.wo_product_status, p.return_flag
+            p.soid, p.product, p.description, p.wo_product_status, p.return_status
         FROM wo_summary s
         LEFT JOIN wo_details d USING (work_order_id)
         JOIN wo_product_detail p USING (work_order_id)
         WHERE LOWER(TRIM(s.customer)) = LOWER(TRIM(?))
-          AND UPPER(TRIM(COALESCE(p.return_flag,''))) = 'Y'
-          AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
-          AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != ''
-          AND (p.dc_number IS NULL OR TRIM(p.dc_number) = '0')
-          AND """ + _CLOSED_WHERE.replace("work_order_status", "s.work_order_status") + """
+          AND UPPER(TRIM(COALESCE(p.return_status,''))) IN (
+              'PENDING WITH PARTNER','PENDING FOR DC GENERATION'
+          )
+          AND LOWER(COALESCE(s.work_order_status,'')) NOT LIKE '%cancel%'
         ORDER BY s.work_order_id ASC
     """, (customer.strip(),)).fetchall()
     return [dict(r) for r in rows]
@@ -1089,6 +1113,7 @@ def get_asp_onsite_followup_page(
             SELECT {_CCI_FOLLOWUP_COLS}
             FROM wo_summary s
             LEFT JOIN wo_details d USING (work_order_id)
+            LEFT JOIN asp_users u ON u.tech_id = d.tech_id
             {where_sql}
             ORDER BY s.created_on DESC
         """, params).fetchall()
@@ -1121,6 +1146,7 @@ def get_asp_onsite_followup_page(
             SELECT {_CCI_FOLLOWUP_COLS}
             FROM wo_summary s
             LEFT JOIN wo_details d USING (work_order_id)
+            LEFT JOIN asp_users u ON u.tech_id = d.tech_id
             {where_sql}
             ORDER BY s.created_on DESC
         """, params).fetchall()
@@ -1162,6 +1188,7 @@ _IN_PREPARE_COLS = """
     s.case_desc, s.work_order_type, s.contact_name,
     s.customer, s.work_order_status, s.case_status,
     d.completion_date, d.closing_date,
+    u.full_name AS tech_name,
     p.product                AS part_product,
     p.description            AS part_description,
     p.order_date             AS part_order_date,
@@ -1196,6 +1223,7 @@ _IN_PREPARE_COLS_NO_PART = """
     s.case_desc, s.work_order_type, s.contact_name,
     s.customer, s.work_order_status, s.case_status,
     d.completion_date, d.closing_date,
+    u.full_name AS tech_name,
     NULL AS part_product,
     NULL AS part_description,
     NULL AS part_order_date,
@@ -1257,6 +1285,7 @@ def get_asp_in_prepare_page(
         SELECT {{cols}}
         FROM wo_summary s
         LEFT JOIN wo_details d USING (work_order_id)
+        LEFT JOIN asp_users u ON u.tech_id = d.tech_id
         JOIN (
             SELECT work_order_id,
                    MAX(soid) AS latest_soid
@@ -1277,6 +1306,7 @@ def get_asp_in_prepare_page(
         SELECT {{cols_no_part}}
         FROM wo_summary s
         LEFT JOIN wo_details d USING (work_order_id)
+        LEFT JOIN asp_users u ON u.tech_id = d.tech_id
         WHERE {_open_guard}
           AND NOT EXISTS (
               SELECT 1 FROM wo_product_detail p2
@@ -1443,9 +1473,11 @@ def get_asp_completed_history(
             d.mobile_phone,
             d.primary_email,
             d.product_description,
-            d.product_id_mtm
+            d.product_id_mtm,
+            u.full_name AS tech_name
         FROM wo_summary s
         LEFT JOIN wo_details d USING (work_order_id)
+        LEFT JOIN asp_users u ON u.tech_id = d.tech_id
         {where_sql}
         ORDER BY
             MAX(COALESCE(d.closing_date,''), COALESCE(d.completion_date,'')) DESC,

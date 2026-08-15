@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS wo_details (
     mobile_phone                    TEXT,
     primary_email                   TEXT,
     labor_vendor_related            TEXT,             -- internal vendor ID
-    technician_id                   TEXT,
+    tech_id                         TEXT,             -- LEAP ID (FK → asp_users.tech_id)
     closing_code                    TEXT,
     repeat_repair                   TEXT,             -- Yes / No
     repeat_repair_reason            TEXT,
@@ -111,7 +111,9 @@ CREATE TABLE IF NOT EXISTS wo_product_detail (
     sla                 TEXT,                         -- NBD / 2BD etc.
     target              TEXT,                         -- SLA deadline (from Shipment file)
     eta_parthold_backlog TEXT,                        -- SO ETA from Backlog Report File (On Hold - Part Hold only)
-    dc_number            TEXT                         -- DC# from GTAAP Report (Resolv), mapped by SOID
+    dc_number            TEXT,                        -- DC# from GTAAP Report (Resolv), mapped by SOID
+    return_status        TEXT,                        -- Status from GTAAP Report (Resolv), mapped by SOID
+    dc_lenovo            TEXT                         -- DC/Collection Form from ID-IBM ID POU Unreturn, mapped by SOID
 );
 
 -- Index for lookup by work_order_id (most common query pattern)

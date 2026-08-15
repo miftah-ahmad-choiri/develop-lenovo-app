@@ -14,6 +14,7 @@ class Config:
     # ── Flask core ─────────────────────────────────────────────────────────────
     SECRET_KEY = "lenovo-asp-secret-key"
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB
+    TEMPLATES_AUTO_RELOAD = True           # always re-read templates from disk
 
     # ── Session ────────────────────────────────────────────────────────────────
     # Sessions expire after 1 week; client-side JS signs out after 7 days

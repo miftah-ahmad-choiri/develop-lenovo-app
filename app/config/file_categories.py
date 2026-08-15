@@ -74,11 +74,11 @@ FILE_CATEGORY_CONFIGS = {
         "file_category": "GTAAP Report",
         "source_file": "Resolv",
         "required_columns": [
-            "Aging days", "DC#", "Deskripsi Suku Cadang", "Jenis Layanan", "Kota",
-            "Labor Fix Date/time", "Nama Penyedia Layanan", "Nomor Suku Cadang",
+            "Aging days", "DC#",
+            "Labor Fix Date/time",
             "Part Return Date", "Service Provider ID", "SOID", "Status",
-            "Status Tenaga Kerja", "Tanggal Pengiriman Suku Cadang", "WO#",
+            "Return Flag", "WO#",
         ],
-        "date_column": "Tanggal Pengiriman Suku Cadang",
+        "date_column": "Labor Fix Date/time",
     },
 }

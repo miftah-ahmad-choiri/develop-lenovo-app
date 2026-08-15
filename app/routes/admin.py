@@ -339,6 +339,59 @@ _msd_log_queue: _queue.Queue = _queue.Queue(maxsize=2000)
 _msd_thread: threading.Thread | None = None
 _msd_lock = threading.Lock()
 
+# Per-file upsert stats — keyed by filename, set by _msd_auto_upsert after each run.
+# { filename: {"new_wo": int, "updated_wo": int, "new_users": int,
+#              "status": "success"|"failed", "upsert_date": "YYYY-MM-DD"} }
+_msd_upsert_stats: dict = {}
+
+# Daily cumulative totals — resets automatically when the calendar date changes.
+# { "YYYY-MM-DD": {"new_wo": int, "updated_wo": int, "new_users": int} }
+_msd_daily_totals: dict = {}
+
+# Path to the JSON sidecar that persists both dicts across server restarts.
+# Stored alongside the other upload-meta JSON files for a consistent structure.
+_MSD_STATS_FILE = os.path.join(
+    os.path.normpath(os.path.join(os.path.dirname(__file__), "..")),
+    "templates", "admin", "upload_meta", "_upsert_stats.json",
+)
+
+
+def _msd_stats_load() -> None:
+    """Read persisted stats from disk into the in-memory dicts (called once at startup)."""
+    global _msd_upsert_stats, _msd_daily_totals
+    import json as _json
+    try:
+        if os.path.isfile(_MSD_STATS_FILE):
+            with open(_MSD_STATS_FILE, "r", encoding="utf-8") as _f:
+                _data = _json.load(_f)
+            _msd_upsert_stats = _data.get("upsert_stats",  {})
+            _msd_daily_totals = _data.get("daily_totals",  {})
+    except Exception:
+        pass   # corrupt / missing — start fresh
+
+
+def _msd_stats_save() -> None:
+    """Write both in-memory dicts to disk atomically (temp file + rename)."""
+    import json as _json, tempfile as _tmp
+    try:
+        os.makedirs(os.path.dirname(_MSD_STATS_FILE), exist_ok=True)
+        _payload = _json.dumps(
+            {"upsert_stats": _msd_upsert_stats, "daily_totals": _msd_daily_totals},
+            indent=2,
+        )
+        _dir = os.path.dirname(_MSD_STATS_FILE)
+        with _tmp.NamedTemporaryFile("w", dir=_dir, delete=False,
+                                     suffix=".tmp", encoding="utf-8") as _tf:
+            _tf.write(_payload)
+            _tmp_path = _tf.name
+        os.replace(_tmp_path, _MSD_STATS_FILE)
+    except Exception:
+        pass   # non-fatal — next write will retry
+
+
+# Load persisted stats immediately so the first GET /files returns real data.
+_msd_stats_load()
+
 # OTP handshake — script blocks on _msd_otp_queue.get(); route puts the code in
 _msd_otp_queue:    _queue.Queue = _queue.Queue(maxsize=1)
 _msd_otp_pending:  bool = False   # True while script is waiting for OTP
@@ -494,14 +547,31 @@ def msd_wo_updates_files():
             file_path = os.path.join(downloads_dir, name)
             if not os.path.isfile(file_path):
                 continue
+            stats = _msd_upsert_stats.get(name, {})
             files.append({
-                "name": name,
-                "size_kb": round(os.path.getsize(file_path) / 1024, 1),
-                "modified_fmt": datetime.fromtimestamp(
+                "name":          name,
+                "size_kb":       round(os.path.getsize(file_path) / 1024, 1),
+                "modified_fmt":  datetime.fromtimestamp(
                     os.path.getmtime(file_path)
                 ).strftime("%Y-%m-%d %H:%M"),
+                "new_wo":        stats.get("new_wo",       None),
+                "updated_wo":    stats.get("updated_wo",   None),
+                "new_users":     stats.get("new_users",    None),
+                "upsert_status": stats.get("status",       None),
+                "upsert_date":   stats.get("upsert_date",  None),
             })
-    return jsonify({"ok": True, "files": files})
+    # Include today's daily totals so the frontend can show the running counter
+    from datetime import date as _d
+    _today_key = str(_d.today())
+    daily = _msd_daily_totals.get(_today_key, {})
+    return jsonify({
+        "ok": True,
+        "files": files,
+        "daily_date":       _today_key,
+        "daily_new_wo":     daily.get("new_wo",     0),
+        "daily_updated_wo": daily.get("updated_wo", 0),
+        "daily_new_users":  daily.get("new_users",  0),
+    })
 
 
 @admin_bp.route("/admin/msd-wo-updates/relogin", methods=["POST"])
@@ -1457,31 +1527,48 @@ def data_import_upsert_preview(category_key: str):
                     else pd.DataFrame()
 
             elif category_key == "GTAAP":
-                # Impacted rows = Excel rows where:
-                #   1. SOID exists in wo_product_detail, AND
-                #   2. DB dc_number IS NULL or '0' (eligible to be filled), AND
-                #   3. Excel DC# is non-null  (pass 1 — real value)
-                #      OR return_flag is N/No  (pass 2 — sentinel '0')
+                # Impacted rows = Excel rows where SOID exists in wo_product_detail AND:
+                #   Pass 1 — DB dc_number is NULL/'0' and Excel DC# is non-null
+                #   Pass 2 — DB dc_number is NULL/'0', no DC#, Return Flag = N/No
+                #   Pass 3 — Excel Status is a forward move in the status hierarchy
+                #             (PENDING FOR DC GENERATION → PENDING WITH PARTNER → DC GENERATED)
+                #             Rows blocked by the hierarchy appear in a separate skipped table.
+                from app.services.database.upsert import (
+                    _GTAAP_STATUS_RANK,
+                    _gtaap_status_eligible,
+                )
                 import math as _math
 
-                db_dc = {
-                    r[0]: r[1]  # soid → dc_number (None when empty)
+                db_gtaap = {
+                    r[0]: {"dc_number": r[1], "return_status": r[2], "work_order_id": r[3]}
                     for r in db_conn.execute(
-                        "SELECT soid, dc_number FROM wo_product_detail"
+                        "SELECT soid, dc_number, return_status, work_order_id FROM wo_product_detail"
                     ).fetchall()
                 }
+                db_dc = {soid: v["dc_number"] for soid, v in db_gtaap.items()}
 
-                soid_col       = "SOID"
-                dc_col         = "DC#"
-                rf_col         = "Return Flag"
-                dc_insert_col  = "DC# (will be inserted)"
-                date_col       = "Tanggal Pengiriman Suku Cadang"
+                soid_col          = "SOID"
+                dc_col            = "DC#"
+                rf_col            = "Return Flag"
+                status_col        = "Status"
+                dc_insert_col     = "DC# (will be inserted)"
+                status_insert_col = "Return Status (will be inserted)"
+                reason_col        = "Reason"
+                skip_reason_col   = "Skip Reason"
+                date_col          = "Labor Fix Date/time"
                 preview_cols = [
-                    soid_col, "WO#", "Status",
+                    reason_col,
+                    soid_col, "WO#", status_col,
+                    status_insert_col,
                     dc_insert_col,
                     rf_col,
-                    "Nomor Suku Cadang", "Deskripsi Suku Cadang",
-                    "Nama Penyedia Layanan", date_col,
+                    date_col,
+                ]
+                skipped_cols = [
+                    soid_col, "WO#", status_col,
+                    skip_reason_col,
+                    rf_col,
+                    date_col,
                 ]
 
                 def _has_dc_val(v) -> bool:
@@ -1493,8 +1580,8 @@ def data_import_upsert_preview(category_key: str):
                     return s not in ("", "nan", "nat", "none", "null", "NaT")
 
                 def _dc_eligible(current) -> bool:
-                    """DB value is eligible to be overwritten."""
-                    return current is None or str(current).strip() == "0"
+                    """DB dc_number is eligible to be overwritten."""
+                    return current is None
 
                 def _dc_to_str(v):
                     """Normalise whole-number floats: 17731.0 → '17731'."""
@@ -1508,37 +1595,264 @@ def data_import_upsert_preview(category_key: str):
                         pass
                     return str(v).strip()
 
-                _no_return = {"n", "no"}
-
-                def _is_new_dc(row):
+                def _dc_will_write(row):
+                    """True when a real DC# will be written to this row."""
                     soid = _safe_int(row.get(soid_col))
-                    if soid is None or soid not in db_dc:
+                    if soid is None or not _dc_eligible(db_dc.get(soid)):
                         return False
-                    # Only rows whose DB value is eligible (NULL or '0')
-                    if not _dc_eligible(db_dc[soid]):
+                    return _has_dc_val(row.get(dc_col))
+
+                def _status_skip_reason(row) -> str:
+                    """Return a human-readable reason why the status is blocked,
+                    or '' if the status transition is allowed."""
+                    soid = _safe_int(row.get(soid_col))
+                    if soid is None or soid not in db_gtaap:
+                        return ""
+                    excel_status = str(row.get(status_col) or "").strip()
+                    db_status    = str(db_gtaap[soid]["return_status"] or "").strip()
+                    if not excel_status:
+                        return ""
+                    if excel_status == db_status:
+                        return ""  # same value — not blocked, just not changed
+                    incoming_rank = _GTAAP_STATUS_RANK.get(excel_status, -1)
+                    current_rank  = _GTAAP_STATUS_RANK.get(db_status, -1)
+                    if incoming_rank < 0:
+                        return f'Unrecognised status "{excel_status}"'
+                    if current_rank >= incoming_rank:
+                        return (
+                            f'Blocked: current status "{db_status}" '
+                            f'(rank {current_rank}) cannot be overwritten '
+                            f'by "{excel_status}" (rank {incoming_rank})'
+                        )
+                    return ""
+
+                def _is_impacted(row):
+                    soid = _safe_int(row.get(soid_col))
+                    if soid is None or soid not in db_gtaap:
                         return False
-                    dc_val = row.get(dc_col)
-                    if _has_dc_val(dc_val):
-                        return True   # pass 1: real DC# to write
-                    # pass 2: no real DC# but return_flag is N → will write '0'
-                    return_flag = str(row.get(rf_col) or "").strip().lower()
-                    return return_flag in _no_return
+                    if _dc_will_write(row):
+                        return True
+                    # Pass 3: status is a valid forward move
+                    excel_status = str(row.get(status_col) or "").strip()
+                    db_status    = db_gtaap[soid]["return_status"]
+                    return _gtaap_status_eligible(db_status, excel_status)
+
+                def _is_status_blocked(row) -> bool:
+                    """True when the Excel Status exists in db but is blocked by hierarchy."""
+                    soid = _safe_int(row.get(soid_col))
+                    if soid is None or soid not in db_gtaap:
+                        return False
+                    return bool(_status_skip_reason(row))
 
                 def _preview_dc(row):
-                    """Value that will actually be written — real DC# or '0'."""
+                    """Value that will actually be written — real DC# only."""
                     dc_val = row.get(dc_col)
                     if _has_dc_val(dc_val):
                         return _dc_to_str(dc_val)
-                    return_flag = str(row.get(rf_col) or "").strip().lower()
-                    if return_flag in _no_return:
-                        return "0"
                     return ""
 
+                def _preview_status(row):
+                    """Status value that will be written to return_status."""
+                    return str(row.get(status_col) or "").strip()
+
+                def _preview_reason(row):
+                    """Human-readable reason why this row was selected for upsert."""
+                    soid = _safe_int(row.get(soid_col))
+                    parts = []
+                    if soid is not None and _dc_will_write(row):
+                        parts.append(f"New DC# ({_dc_to_str(row.get(dc_col))})")
+                    if soid is not None and soid in db_gtaap:
+                        excel_status = str(row.get(status_col) or "").strip()
+                        db_status    = db_gtaap[soid]["return_status"]
+                        if _gtaap_status_eligible(db_status, excel_status):
+                            parts.append(f"Status: {db_status or 'NULL'} → {excel_status}")
+                    return "; ".join(parts) if parts else ""
+
                 if soid_col in df.columns and dc_col in df.columns:
-                    new_df = df[df.apply(_is_new_dc, axis=1)].copy()
-                    new_df[dc_insert_col] = new_df.apply(_preview_dc, axis=1)
+                    new_df = df[df.apply(_is_impacted, axis=1)].copy()
+                    new_df[dc_insert_col]     = new_df.apply(_preview_dc, axis=1)
+                    new_df[status_insert_col] = new_df.apply(_preview_status, axis=1)
+                    new_df[reason_col]        = new_df.apply(_preview_reason, axis=1)
+
+                    # Skipped rows: in db, not impacted, but blocked by hierarchy
+                    _blocked_mask = df.apply(_is_status_blocked, axis=1)
+                    skipped_df = df[_blocked_mask & ~df.apply(_is_impacted, axis=1)].copy()
+                    skipped_df[skip_reason_col] = skipped_df.apply(
+                        lambda r: _status_skip_reason(r), axis=1
+                    )
+
+                    # Absent rows (Pass 4 preview) — DB rows with an open status
+                    # whose SOID and work_order_id are both absent from the Excel file.
+                    _open_statuses = {"PENDING FOR DC GENERATION", "PENDING WITH PARTNER"}
+                    _excel_soids  = {
+                        _safe_int(r.get(soid_col))
+                        for _, r in df.iterrows()
+                        if _safe_int(r.get(soid_col)) is not None
+                    }
+                    _excel_wo_ids = {
+                        _safe_int(r.get("WO#"))
+                        for _, r in df.iterrows()
+                        if _safe_int(r.get("WO#")) is not None
+                    }
+                    _absent_rows: list[dict] = []
+                    for _soid, _dbrow in db_gtaap.items():
+                        _db_rs = str(_dbrow["return_status"] or "").strip()
+                        if _db_rs not in _open_statuses:
+                            continue
+                        _wo_id = _dbrow.get("work_order_id")
+                        if _soid in _excel_soids:
+                            continue
+                        if _wo_id is not None and _safe_int(_wo_id) in _excel_wo_ids:
+                            continue
+                        _absent_rows.append({
+                            "SOID":              str(_soid),
+                            "Work Order ID":     str(_wo_id) if _wo_id else "—",
+                            "Current Status":    _db_rs,
+                            "Will be set to":    "DC GENERATED",
+                        })
                 else:
-                    new_df = pd.DataFrame()
+                    new_df     = pd.DataFrame()
+                    skipped_df = pd.DataFrame()
+                    _absent_rows = []
+
+            elif category_key == "UNRETURN":
+                # Impacted rows = Excel rows whose SOID is in wo_product_detail.
+                # Preview shows exactly what dc_lenovo and return_status will be written
+                # and the reason for each change.
+                import math as _math_ur
+
+                db_unreturn = {
+                    r[0]: {"dc_lenovo": r[1], "return_status": r[2]}
+                    for r in db_conn.execute(
+                        "SELECT soid, dc_lenovo, return_status FROM wo_product_detail"
+                    ).fetchall()
+                }
+
+                soid_col        = "SOID"
+                dc_col          = "DC/Collection Form"
+                rs_col          = "Return Status"
+                date_col        = "SO Completion Date"
+                dc_write_col    = "dc_lenovo (will write)"
+                rs_write_col    = "return_status (will write)"
+                reason_col      = "Reason"
+                no_match_col    = "No Match Reason"
+                preview_cols    = [
+                    soid_col, dc_col, dc_write_col,
+                    rs_col, rs_write_col, "Vendor Name", date_col,
+                ]
+                skipped_cols    = [
+                    soid_col, dc_col, rs_col, "Vendor Name", no_match_col,
+                ]
+
+                def _ur_has_val(v) -> bool:
+                    if v is None:
+                        return False
+                    if isinstance(v, float) and _math_ur.isnan(v):
+                        return False
+                    s = str(v).strip()
+                    return s not in ("", "nan", "nat", "none", "null", "NaT", "0")
+
+                def _ur_to_str_or_none(v):
+                    if v is None:
+                        return None
+                    if isinstance(v, float) and _math_ur.isnan(v):
+                        return None
+                    s = str(v).strip()
+                    return None if s in ("", "nan", "nat", "none", "null", "NaT") else s
+
+                # Stage dc_lenovo in-memory first (needed for Condition B)
+                staged_dc: dict[int, str | None] = {
+                    soid: v["dc_lenovo"] for soid, v in db_unreturn.items()
+                }
+                for _, _r in df.iterrows():
+                    _s = _safe_int(_r.get(soid_col))
+                    if _s is not None and _s in db_unreturn:
+                        staged_dc[_s] = _ur_to_str_or_none(_r.get(dc_col))
+
+                # Track which SOIDs we've already decided on for return_status
+                _staged_rs: dict[int, str | None] = {
+                    soid: v["return_status"] for soid, v in db_unreturn.items()
+                }
+
+                impacted_rows: list[dict] = []
+                skipped_rows:  list[dict] = []
+
+                for _, row in df.iterrows():
+                    soid = _safe_int(row.get(soid_col))
+                    vendor = str(row.get("Vendor Name") or "").strip()
+                    dc_val  = _ur_to_str_or_none(row.get(dc_col))
+                    rs_val  = str(row.get(rs_col) or "").strip()
+                    so_comp = str(row.get(date_col) or "").strip()
+
+                    if soid is None or soid not in db_unreturn:
+                        skipped_rows.append({
+                            soid_col:     str(soid) if soid is not None else "—",
+                            "Vendor Name": vendor,
+                            dc_col:        str(dc_val or "—"),
+                            rs_col:        rs_val,
+                            no_match_col:  "SOID not found in wo_product_detail",
+                        })
+                        continue
+
+                    current_status = str(_staged_rs.get(soid) or "").strip()
+
+                    # Only rows with a real dc_lenovo value qualify for the impacted view
+                    # (dc_val "0", "—", or None → skip to skipped panel)
+                    dc_is_real = _ur_has_val(staged_dc.get(soid))
+
+                    if not dc_is_real:
+                        skipped_rows.append({
+                            soid_col:      str(soid),
+                            dc_col:        str(dc_val or "—"),
+                            rs_col:        rs_val,
+                            "Vendor Name": vendor,
+                            no_match_col:  "DC/Collection Form is empty, 0, or —",
+                        })
+                        continue
+
+                    # What will be written to return_status?
+                    # Only DC GENERATED is written; Unreturned is never written.
+                    rs_write = ""
+                    if not current_status:
+                        rs_write = "DC GENERATED"
+
+                    # Build reason string
+                    reasons = []
+                    if dc_val is not None:
+                        reasons.append(f"dc_lenovo ← '{dc_val}'")
+                    if rs_write:
+                        reasons.append(f"return_status: NULL → '{rs_write}'")
+                    elif current_status:
+                        reasons.append(f"return_status unchanged ('{current_status}')")
+
+                    if not reasons:
+                        skipped_rows.append({
+                            soid_col:      str(soid),
+                            dc_col:        str(dc_val or "—"),
+                            rs_col:        rs_val,
+                            "Vendor Name": vendor,
+                            no_match_col:  "No changes to write",
+                        })
+                        continue
+
+                    # Update staged return_status so subsequent rows see it
+                    if rs_write:
+                        _staged_rs[soid] = rs_write
+
+                    impacted_rows.append({
+                        reason_col:    "; ".join(reasons),
+                        soid_col:      str(soid),
+                        dc_col:        str(dc_val or "—"),
+                        dc_write_col:  dc_val or "",
+                        rs_col:        rs_val,
+                        rs_write_col:  rs_write,
+                        "Vendor Name": vendor,
+                        date_col:      so_comp,
+                    })
+
+                import pandas as _pd_ur
+                new_df      = _pd_ur.DataFrame(impacted_rows) if impacted_rows else _pd_ur.DataFrame()
+                skipped_df  = _pd_ur.DataFrame(skipped_rows)  if skipped_rows  else _pd_ur.DataFrame()
 
             else:
                 return jsonify({"ok": False, "error": "Category has no DB preview support."})
@@ -1552,14 +1866,14 @@ def data_import_upsert_preview(category_key: str):
         # All other categories: sort by date_col descending (newest first).
         _sort_asc = (category_key in ("WOID", "SOID"))
 
-        def _all_rows_sorted(frame):
+        def _all_rows_sorted(frame, col_list):
             if frame.empty or date_col not in frame.columns:
                 return []
             tmp = frame.copy()
             tmp["_sort_date"] = pd.to_datetime(tmp[date_col], errors="coerce")
             tmp = tmp.sort_values("_sort_date", ascending=_sort_asc, na_position="last")
             tmp = tmp.drop(columns=["_sort_date"])
-            cols = [c for c in preview_cols if c in tmp.columns]
+            cols = [c for c in col_list if c in tmp.columns]
             rows_out = []
             for _, r in tmp[cols].iterrows():
                 rows_out.append({
@@ -1569,9 +1883,9 @@ def data_import_upsert_preview(category_key: str):
                 })
             return rows_out
 
-        # Use new_df for WOID, GTAAP, SOID, and SHIPMENT because they carry a synthetic
-        # "Reason" / "Upsert Reason" / "DC# (will be inserted)" column not in the raw df.
-        _preview_col_source = new_df if (not new_df.empty and category_key in ("WOID", "GTAAP", "SOID", "SHIPMENT")) else df
+        # Use new_df for WOID, GTAAP, SOID, SHIPMENT, and UNRETURN because they carry
+        # synthetic columns ("Reason", "dc_lenovo (will write)", etc.) not in the raw df.
+        _preview_col_source = new_df if (not new_df.empty and category_key in ("WOID", "GTAAP", "SOID", "SHIPMENT", "UNRETURN")) else df
         _resp = {
             "ok":               True,
             "category_key":     category_key,
@@ -1580,23 +1894,75 @@ def data_import_upsert_preview(category_key: str):
             "total_excel_rows": len(df),
             "date_col":         date_col,
             "preview_cols":     [c for c in preview_cols if c in _preview_col_source.columns],
-            "all_rows":         _all_rows_sorted(new_df),
+            "all_rows":         _all_rows_sorted(new_df, preview_cols),
         }
         if category_key == "WOID":
             _resp["active_wo_not_in_excel"] = active_wo_not_in_excel
             _resp["active_wo_cols"]         = active_wo_cols
+
+            # ── New technicians preview ───────────────────────────────────────
+            _leap_col   = "LEAP ID (Technician ID) (Contact)"
+            _tname_col  = "Technician ID"
+            _vendor_col = "Labor Vendor Related"
+            _new_tech_rows: list[dict] = []
+            if _leap_col in df.columns:
+                _seen_leaps: set[str] = set()
+                for _, _tr in df.iterrows():
+                    _leap = str(_tr.get(_leap_col) or "").strip()
+                    if not _leap or _leap in _seen_leaps:
+                        continue
+                    _seen_leaps.add(_leap)
+                    _tname  = str(_tr.get(_tname_col)  or "").strip()
+                    _vendor = str(_tr.get(_vendor_col) or "").strip()
+                    if _tname:
+                        _new_tech_rows.append({
+                            "LEAP ID":   _leap,
+                            "Full Name": _tname,
+                            "Vendor ID": _vendor,
+                        })
+                if _new_tech_rows:
+                    _existing_leaps = {
+                        r[0]
+                        for r in db_conn.execute(
+                            "SELECT tech_id FROM asp_users WHERE tech_id IS NOT NULL"
+                        ).fetchall()
+                    }
+                    _new_tech_rows = [
+                        t for t in _new_tech_rows
+                        if t["LEAP ID"] not in _existing_leaps
+                    ]
+            _resp["new_technicians"]      = _new_tech_rows
+            _resp["new_technicians_cols"] = ["LEAP ID", "Full Name", "Vendor ID"]
         if category_key == "SOID":
             _resp["wo_product_mismatch"]      = _soid_mismatch_rows
             _resp["wo_product_mismatch_cols"] = [
                 "Reason", "Created On", "Work Order ID", "Line Order",
                 "Product", "Description", "WO Product Status",
             ]
+        if category_key == "GTAAP":
+            _skipped_cols = [c for c in skipped_cols if c in skipped_df.columns] \
+                            if not skipped_df.empty else skipped_cols
+            _resp["gtaap_skipped_rows"]      = _all_rows_sorted(skipped_df, skipped_cols)
+            _resp["gtaap_skipped_cols"]      = _skipped_cols
+            _resp["gtaap_skipped_count"]     = len(skipped_df)
+            _resp["gtaap_absent_rows"]       = _absent_rows
+            _resp["gtaap_absent_cols"]       = ["SOID", "Work Order ID", "Current Status", "Will be set to"]
+            _resp["gtaap_absent_count"]      = len(_absent_rows)
         if category_key == "SHIPMENT":
             _resp["incomplete_prev_soids"]      = _incomplete_soids
             _resp["incomplete_prev_soid_cols"]  = _incomplete_soid_cols
             _resp["excel_month"]                = _excel_month or ""
             _resp["filled_by_excel"]            = _filled_by_excel
             _resp["filled_by_excel_cols"]       = _incomplete_soid_cols
+        if category_key == "UNRETURN":
+            _ur_skipped_cols = [c for c in skipped_cols if c in skipped_df.columns] \
+                               if not skipped_df.empty else skipped_cols
+            _resp["unreturn_skipped_rows"]  = (
+                skipped_df[_ur_skipped_cols].to_dict(orient="records")
+                if not skipped_df.empty else []
+            )
+            _resp["unreturn_skipped_cols"]  = _ur_skipped_cols
+            _resp["unreturn_skipped_count"] = len(skipped_df)
         return jsonify(_resp)
 
     except Exception:
@@ -1640,9 +2006,17 @@ def data_import_upsert(category_key: str):
         db_conn = sqlite3.connect(db_path)
         db_conn.row_factory = sqlite3.Row
         try:
-            n_rows = dispatch_upsert(category_key, filepath, db_conn)
+            _upsert_result = dispatch_upsert(category_key, filepath, db_conn)
         finally:
             db_conn.close()
+        if category_key == "WOID":
+            n_new_wo, n_updated, n_new_users = _upsert_result
+            n_rows = n_new_wo + n_updated
+        else:
+            n_rows = _upsert_result
+            n_new_wo    = 0
+            n_updated   = 0
+            n_new_users = 0
         mark_upserted(meta_folder, target_file)
         # ── SOID: rebuild the WO-product mismatch cache ───────────────────────
         # Only written here (on confirmed upsert), never during preview-only.
@@ -1795,10 +2169,21 @@ def data_import_upsert(category_key: str):
                 current_app.logger.warning(
                     "rebuild_active_open_wos failed after upsert:\n" + _tb.format_exc()
                 )
-        flash(
-            f'"{target_file}" upserted successfully — {n_rows} row{"s" if n_rows != 1 else ""} processed.',
-            "success",
-        )
+        if category_key == "WOID":
+            _parts = [f"{n_new_wo} new WO{'s' if n_new_wo != 1 else ''}"]
+            if n_updated:
+                _parts.append(f"{n_updated} updated")
+            if n_new_users:
+                _parts.append(f"{n_new_users} new technician{'s' if n_new_users != 1 else ''} added to asp_users")
+            flash(
+                f'"{target_file}" upserted successfully — ' + ", ".join(_parts) + ".",
+                "success",
+            )
+        else:
+            flash(
+                f'"{target_file}" upserted successfully — {n_rows} row{"s" if n_rows != 1 else ""} processed.',
+                "success",
+            )
     except Exception:
         current_app.logger.error("manual upsert failed for %s:\n%s", target_file, _tb.format_exc())
         flash(f'Upsert failed for "{target_file}". Check server logs.', "danger")
@@ -2014,17 +2399,17 @@ def asp_directory_create():
 
 # ── ASP Users (admin read) ───────────────────────────────────────────────────
 
-@admin_bp.route("/admin/users/asp-directory/<asp_username>/users", methods=["GET"])
-def asp_directory_users(asp_username):
+@admin_bp.route("/admin/users/asp-directory/<labor_vendor_related>/users", methods=["GET"])
+def asp_directory_users(labor_vendor_related):
     """Return the asp_users list for a given ASP as JSON (admin use)."""
     from app.services.database.db import get_db
     db = get_db()
     rows = db.execute(
-        """SELECT id, full_name, email, phone_number, is_active, created_at
+        """SELECT id, tech_id, full_name, email, phone_number, is_active, created_at
            FROM asp_users
-           WHERE asp_username = ?
+           WHERE labor_vendor_related = ?
            ORDER BY id""",
-        (asp_username,)
+        (labor_vendor_related,)
     ).fetchall()
     return jsonify({"ok": True, "users": [dict(r) for r in rows]})
 
@@ -2621,6 +3006,66 @@ def _run_msd_download_task(app, run_once: bool = False) -> None:
     stdout_writer = _QueueWriter(logger, logging.INFO)
     stderr_writer = _QueueWriter(logger, logging.ERROR)
 
+    # ── auto-upsert hook ─────────────────────────────────────────────────────
+    # Called by the download script after a successful file move/copy.
+    # Runs dispatch_upsert("WOID", ...) on the downloaded file and logs results.
+    def _msd_auto_upsert(filepath: str, fname: str) -> None:
+        try:
+            import sqlite3 as _sqlite3
+            from app.services.database.upsert import dispatch_upsert as _dispatch
+            db_path = app.config["DATABASE_PATH"]
+            logger.info("Auto-upsert: starting WOID upsert for %s …", fname)
+            _db = _sqlite3.connect(db_path)
+            _db.row_factory = _sqlite3.Row
+            try:
+                n_new_wo, n_updated, n_usr = _dispatch("WOID", filepath, _db)
+            finally:
+                _db.close()
+            from datetime import date as _date
+            _today = str(_date.today())   # "YYYY-MM-DD"
+
+            # Accumulate daily totals — reset when the date key changes
+            if _today not in _msd_daily_totals:
+                _msd_daily_totals.clear()   # drop all previous-day keys
+                _msd_daily_totals[_today] = {"new_wo": 0, "updated_wo": 0, "new_users": 0}
+            _msd_daily_totals[_today]["new_wo"]     += n_new_wo
+            _msd_daily_totals[_today]["updated_wo"] += n_updated
+            _msd_daily_totals[_today]["new_users"]  += n_usr
+
+            # Store per-file stats (per-run, not cumulative)
+            _msd_upsert_stats[fname] = {
+                "new_wo":       n_new_wo,
+                "updated_wo":   n_updated,
+                "new_users":    n_usr,
+                "status":       "success",
+                "upsert_date":  _today,
+            }
+            _msd_stats_save()   # persist to disk immediately
+            # Emit individual log lines — each appears in the live stream
+            _day = _msd_daily_totals[_today]
+            logger.info("Auto-upsert: ✅ Upsert complete for %s", fname)
+            logger.info("Auto-upsert:    ↳ New WOs added      : %d  (today total: %d)", n_new_wo, _day["new_wo"])
+            logger.info("Auto-upsert:    ↳ Existing WOs updated: %d (today total: %d)", n_updated, _day["updated_wo"])
+            if n_usr:
+                logger.info(
+                    "Auto-upsert:    ↳ New technician%s added : %d",
+                    "s" if n_usr != 1 else "", n_usr,
+                )
+        except Exception:
+            import traceback as _tbk
+            from datetime import date as _date_err
+            _today_err = str(_date_err.today())
+            _msd_upsert_stats[fname] = {
+                "new_wo":       None,
+                "updated_wo":   None,
+                "new_users":    None,
+                "status":       "failed",
+                "upsert_date":  _today_err,
+            }
+            _msd_stats_save()   # persist failure status too
+            logger.error("Auto-upsert: ❌ upsert failed for %s", fname)
+            logger.error(_tbk.format_exc())
+
     # ── stdin shim ────────────────────────────────────────────────────────────
     # Replace builtins.input inside the script. Handles two cases:
     #   • OTP prompt  — shows OTP panel in browser, waits for /otp
@@ -2652,9 +3097,10 @@ def _run_msd_download_task(app, run_once: bool = False) -> None:
                 runpy.run_path(
                     script_path,
                     init_globals={
-                        "input":            _web_input,
-                        "_MSD_RUN_ONCE":    run_once,
-                        "_MSD_INTERVAL_SEC": app.config.get("MSD_INTERVAL_SEC", 30 * 60),
+                        "input":              _web_input,
+                        "_MSD_RUN_ONCE":      run_once,
+                        "_MSD_INTERVAL_SEC":  app.config.get("MSD_INTERVAL_SEC", 30 * 60),
+                        "_msd_auto_upsert":   _msd_auto_upsert,
                     },
                     run_name="__main__",
                 )
@@ -2759,7 +3205,7 @@ def escalation_center():
             # One latest row per board_id — run_at shifted to WIB (UTC+7)
             rows = edb.execute(
                 "SELECT s1.board_id, s1.asp_board, s1.run_type, s1.items_found, "
-                "s1.items_upserted, s1.duration_sec, "
+                "s1.items_upserted, s1.updates_count, s1.duration_sec, "
                 "datetime(s1.run_at, '+7 hours') AS run_at, "
                 "COALESCE(t.total_items, 0) AS total_items "
                 "FROM sync_log s1 "
@@ -2967,7 +3413,7 @@ def escalation_center_boards():
         try:
             rows = edb.execute(
                 "SELECT s1.board_id, s1.asp_board, s1.run_type, s1.items_found, "
-                "s1.items_upserted, s1.duration_sec, "
+                "s1.items_upserted, s1.updates_count, s1.duration_sec, "
                 "datetime(s1.run_at, '+7 hours') AS run_at, "
                 "COALESCE(t.total_items, 0) AS total_items "
                 "FROM sync_log s1 "
@@ -2985,6 +3431,53 @@ def escalation_center_boards():
             edb.close()
 
     return jsonify({"ok": True, "boards": boards, "latest_runs": latest_runs})
+
+
+# ── Monday collector: daily totals persistence ───────────────────────────────
+
+_MONDAY_DAILY_TOTALS_FILE = os.path.join(
+    os.path.normpath(os.path.join(os.path.dirname(__file__), "..")),
+    "templates", "admin", "upload_meta", "monday_daily_totals.json",
+)
+
+
+def _monday_daily_totals_load() -> dict:
+    """Read the monday daily totals JSON from disk (returns {} on miss/error)."""
+    import json as _j
+    try:
+        if os.path.isfile(_MONDAY_DAILY_TOTALS_FILE):
+            with open(_MONDAY_DAILY_TOTALS_FILE, "r", encoding="utf-8") as f:
+                return _j.load(f)
+    except Exception:
+        pass
+    return {}
+
+
+def _monday_daily_totals_save(data: dict) -> None:
+    """Persist the monday daily totals JSON to disk."""
+    import json as _j
+    try:
+        with open(_MONDAY_DAILY_TOTALS_FILE, "w", encoding="utf-8") as f:
+            _j.dump(data, f, indent=2)
+    except Exception:
+        pass
+
+
+@admin_bp.route("/admin/escalation-center/daily-totals", methods=["GET"])
+def escalation_center_daily_totals_get():
+    """Return the persisted monday daily totals JSON."""
+    return jsonify({"ok": True, "data": _monday_daily_totals_load()})
+
+
+@admin_bp.route("/admin/escalation-center/daily-totals", methods=["POST"])
+def escalation_center_daily_totals_post():
+    """Save updated monday daily totals sent from the browser."""
+    payload = request.get_json(silent=True) or {}
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        return jsonify({"ok": False, "error": "Invalid payload"}), 400
+    _monday_daily_totals_save(data)
+    return jsonify({"ok": True})
 
 
 # ── Monday token management ───────────────────────────────────────────────────
