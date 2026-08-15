@@ -65,20 +65,22 @@ def mobile_login():
 
     # ── 1. Try asp_users first (email login) ─────────────────────────────────
     asp_user_row = conn.execute(
-        "SELECT u.id, u.asp_username, u.full_name, u.email, u.password, "
-        "       u.is_active, d.labor_vendor_related, d.service_provider "
+        "SELECT u.id, u.tech_id, u.full_name, u.email, u.password, "
+        "       u.is_active, u.labor_vendor_related, d.service_provider "
         "FROM asp_users u "
-        "JOIN asp_details d ON d.username = u.asp_username "
+        "LEFT JOIN asp_details d ON d.labor_vendor_related = u.labor_vendor_related "
         "WHERE LOWER(u.email) = LOWER(?)",
         (username,),
     ).fetchone()
 
-    if asp_user_row and str(asp_user_row["password"]) == password:
+    if asp_user_row:
         if not asp_user_row["is_active"]:
-            return jsonify({"error": "Your account is disabled. Contact your ASP administrator."}), 401
+            return jsonify({"error": "Your account is disabled. Please contact your ASP administrator."}), 401
+        if str(asp_user_row["password"]) != password:
+            return jsonify({"error": "Wrong password. Please try again or use Forgot Password."}), 401
         token = generate_token(
             user_id      = asp_user_row["id"],
-            username     = asp_user_row["asp_username"],
+            username     = asp_user_row["tech_id"],
             role         = "asp_user",
             labor_vendor = asp_user_row["labor_vendor_related"],
             display_name = asp_user_row["full_name"] or asp_user_row["email"],
@@ -87,10 +89,10 @@ def mobile_login():
             "token":        token,
             "role":         "asp_user",
             "display_name": asp_user_row["full_name"] or asp_user_row["email"],
-            "username":     asp_user_row["asp_username"],
+            "username":     asp_user_row["tech_id"],
             "email":        asp_user_row["email"],
             "labor_vendor": asp_user_row["labor_vendor_related"],
-            "asp_name":     asp_user_row["service_provider"] or asp_user_row["asp_username"],
+            "asp_name":     asp_user_row["service_provider"] or asp_user_row["tech_id"],
         })
 
     # ── 2. Try asp_details (ASP HQ username login) ───────────────────────────

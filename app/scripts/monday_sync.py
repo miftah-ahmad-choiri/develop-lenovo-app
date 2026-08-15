@@ -429,14 +429,15 @@ CREATE INDEX IF NOT EXISTS idx_rep_update_id  ON item_update_replies(update_id);
 
 SYNC_LOG_SCHEMA = """
 CREATE TABLE IF NOT EXISTS sync_log (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    run_at      TEXT NOT NULL,
-    board_id    TEXT,
-    asp_board   TEXT,
-    run_type    TEXT NOT NULL,
-    items_found INTEGER,
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_at         TEXT NOT NULL,
+    board_id       TEXT,
+    asp_board      TEXT,
+    run_type       TEXT NOT NULL,
+    items_found    INTEGER,
     items_upserted INTEGER,
-    duration_sec REAL
+    updates_count  INTEGER,
+    duration_sec   REAL
 );
 """
 
@@ -478,7 +479,9 @@ def _needs_migration(conn: sqlite3.Connection) -> bool:
 
 def _needs_sync_log_migration(conn: sqlite3.Connection) -> bool:
     sync_log_cols = {r[1] for r in conn.execute("PRAGMA table_info(sync_log)")}
-    return "board_id" not in sync_log_cols or "asp_board" not in sync_log_cols
+    return ("board_id" not in sync_log_cols
+            or "asp_board" not in sync_log_cols
+            or "updates_count" not in sync_log_cols)
 
 
 def get_db(path: str = DB_FILE) -> sqlite3.Connection:
@@ -502,10 +505,17 @@ def get_db(path: str = DB_FILE) -> sqlite3.Connection:
         log.info("PK migration complete.")
     if _needs_sync_log_migration(conn):
         log.info("Migrating sync_log schema...")
-        try:
-            conn.executescript(_MIGRATE_SYNC_LOG_SQL)
-        except Exception:
-            pass
+        sync_log_cols = {r[1] for r in conn.execute("PRAGMA table_info(sync_log)")}
+        for col, typedef in (
+            ("board_id",      "TEXT"),
+            ("asp_board",     "TEXT"),
+            ("updates_count", "INTEGER"),
+        ):
+            if col not in sync_log_cols:
+                try:
+                    conn.execute(f"ALTER TABLE sync_log ADD COLUMN {col} {typedef}")
+                except Exception:
+                    pass
     conn.executescript(_POST_MIGRATE_INDEXES)
     conn.commit()
     return conn
@@ -581,10 +591,8 @@ DROP TABLE technical_escalation;
 ALTER TABLE technical_escalation_new RENAME TO technical_escalation;
 """
 
-_MIGRATE_SYNC_LOG_SQL = """
-ALTER TABLE sync_log ADD COLUMN board_id  TEXT;
-ALTER TABLE sync_log ADD COLUMN asp_board TEXT;
-"""
+# _MIGRATE_SYNC_LOG_SQL is no longer used as a script — migration is now done
+# column-by-column in get_db() to avoid aborting on already-existing columns.
 
 
 # ─── Data extraction ──────────────────────────────────────────────────────────
@@ -911,9 +919,10 @@ def run_sync_board(conn: sqlite3.Connection, state: dict, board: dict,
 
     conn.execute(
         "INSERT INTO sync_log "
-        "(run_at, board_id, asp_board, run_type, items_found, items_upserted, duration_sec) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (run_started_at, board_id, asp_board, run_type, len(items), upserted, round(duration, 2)),
+        "(run_at, board_id, asp_board, run_type, items_found, items_upserted, updates_count, duration_sec) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (run_started_at, board_id, asp_board, run_type,
+         len(items), upserted, total_updates, round(duration, 2)),
     )
     conn.commit()
     conn.execute("DELETE FROM sync_log WHERE run_at < datetime('now', '-4 months')")

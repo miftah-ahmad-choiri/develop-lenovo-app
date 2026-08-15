@@ -128,6 +128,70 @@
     .btn-login:hover { background: #2d3340; }
     .btn-login:active { background: #111317; }
 
+    /* ── Label row + hover tooltip ── */
+    .label-row {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-bottom: 5px;
+    }
+    .label-row label { margin-bottom: 0; }
+
+    .tip-wrap { position: relative; display: inline-flex; align-items: center; }
+    .tip-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #e5e7eb;
+      border: none;
+      cursor: default;
+      padding: 0;
+      flex-shrink: 0;
+      color: #57606a;
+      font-size: 9.5px;
+      font-weight: 700;
+      font-family: inherit;
+      line-height: 1;
+    }
+    .tip-btn:hover { background: #d0d7de; color: #1f2328; }
+    .tip-box {
+      display: none;
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 8px);
+      transform: translateX(-50%);
+      z-index: 100;
+      width: 280px;
+      background: #1f2328;
+      color: #f0f6ff;
+      border-radius: 8px;
+      padding: 11px 14px;
+      font-size: 11.5px;
+      line-height: 1.65;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.22);
+      pointer-events: none;
+    }
+    /* arrow pointing down */
+    .tip-box::before {
+      content: '';
+      position: absolute;
+      bottom: -5px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 5px solid #1f2328;
+    }
+    .tip-wrap:hover .tip-box { display: block; }
+    .tip-box table { border-collapse: collapse; width: 100%; }
+    .tip-box td { padding: 2px 0; vertical-align: top; }
+    .tip-box td:first-child { font-weight: 600; white-space: nowrap; color: #93c5fd; padding-right: 10px; width: 80px; }
+    .tip-box .tip-or { color: #6b7280; font-size: 10.5px; }
+    .tip-divider { border: none; border-top: 1px solid #374151; margin: 7px 0; }
+
     /* ── Forgot password ── */
     .forgot-wrap {
       margin-top: 14px;
@@ -145,19 +209,96 @@
       text-underline-offset: 2px;
     }
     .forgot-link:hover { color: #2563b0; }
-    .forgot-info {
+
+    /* ── Forgot password modal ── */
+    .fp-overlay {
       display: none;
-      margin-top: 10px;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+    .fp-overlay.open { display: flex; }
+    .fp-modal {
+      background: #fff;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 380px;
+      padding: 28px 28px 24px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+      position: relative;
+    }
+    .fp-modal-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #eff6ff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 14px;
+    }
+    .fp-modal h2 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #1f2328;
+    }
+    .fp-modal p {
+      font-size: 13px;
+      color: #57606a;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+    .fp-contact-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
       background: #f0f6ff;
       border: 1px solid #bfdbfe;
-      color: #1e40af;
-      border-radius: 6px;
+      border-radius: 7px;
       padding: 10px 14px;
-      font-size: 12.5px;
-      line-height: 1.55;
-      text-align: left;
+      margin-bottom: 20px;
     }
-    .forgot-info.visible { display: block; }
+    .fp-contact-row svg { flex-shrink: 0; color: #3b82d4; }
+    .fp-contact-info { font-size: 12.5px; line-height: 1.5; }
+    .fp-contact-info strong { display: block; color: #1f2328; font-size: 13px; }
+    .fp-contact-info a { color: #3b82d4; text-decoration: none; }
+    .fp-contact-info a:hover { text-decoration: underline; }
+    .fp-note {
+      font-size: 11.5px;
+      color: #8c959f;
+      line-height: 1.55;
+      margin-bottom: 18px;
+    }
+    .fp-close-btn {
+      width: 100%;
+      padding: 9px 16px;
+      font-size: 13.5px;
+      font-weight: 600;
+      font-family: inherit;
+      background: #1f2328;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .fp-close-btn:hover { background: #2d3340; }
+    .fp-x {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #8c959f;
+      padding: 4px;
+      line-height: 1;
+    }
+    .fp-x:hover { color: #1f2328; }
 
     /* ── Footer ── */
     .page-footer {
@@ -198,13 +339,33 @@
       <input type="hidden" name="next" value="{{ next }}" />
 
       <div class="field">
-        <label for="username">Username / Email</label>
+        <div class="label-row">
+          <label for="username">Username / Email / ID</label>
+          <!-- Hover tooltip -->
+          <span class="tip-wrap">
+            <span class="tip-btn" tabindex="0" aria-label="How to sign in">?</span>
+            <div class="tip-box" role="tooltip">
+              <table>
+                <tr>
+                  <td>ASP Admin</td>
+                  <td>Username <span class="tip-or">or</span> Vendor Code <span class="tip-or">or</span> ASP&nbsp;ID</td>
+                </tr>
+                <tr>
+                  <td>Technician</td>
+                  <td>Email <span class="tip-or">or</span> Phone Number <span class="tip-or">or</span> Tech&nbsp;ID</td>
+                </tr>
+              </table>
+              <hr class="tip-divider">
+              <span style="color:#9ca3af;font-size:10.5px">All account types use their own password.</span>
+            </div>
+          </span>
+        </div>
         <input
           type="text"
           id="username"
           name="username"
           autocomplete="username"
-          placeholder="Username or email address"
+          placeholder="Username, email, vendor code, or tech ID"
           class="{{ 'error' if error else '' }}"
           autofocus
         />
@@ -226,22 +387,41 @@
     </form>
 
     <div class="forgot-wrap">
-      <button type="button" class="forgot-link" onclick="toggleForgot()">Forgot password?</button>
-      <div class="forgot-info" id="forgotInfo">
-        Please submit your request to IBM Admin email:
-        <strong>xxxx@ibm.com</strong><br>
-        by informing your <strong>username</strong>.
+      <button type="button" class="forgot-link" onclick="openForgot()">Forgot password?</button>
+    </div>
+  </div>
+
+  <!-- Forgot password modal -->
+  <div class="fp-overlay" id="fpOverlay" onclick="if(event.target===this)closeForgot()">
+    <div class="fp-modal">
+      <button class="fp-x" onclick="closeForgot()" aria-label="Close">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div class="fp-modal-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82d4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
       </div>
+      <h2>Forgot your password?</h2>
+      <p>Contact your IBM Superadmin to reset your password. Include your <strong>username</strong> or <strong>registered email</strong> in the message.</p>
+      <div class="fp-contact-row">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        <div class="fp-contact-info">
+          <strong>IBM Admin</strong>
+          <a href="mailto:miftah.choiri@ibm.com">miftah.choiri@ibm.com</a>
+        </div>
+      </div>
+      <p class="fp-note">Include your <strong>username</strong> or <strong>registered email / Tech ID</strong> so the admin can identify your account.</p>
+      <button class="fp-close-btn" onclick="closeForgot()">Got it</button>
     </div>
   </div>
 
   <p class="page-footer">Lenovo Authorized Service Provider Portal &mdash; IBM &copy; {{ now.year }}</p>
 
   <script>
-    function toggleForgot() {
-      var el = document.getElementById('forgotInfo');
-      el.classList.toggle('visible');
-    }
+    function openForgot()  { document.getElementById('fpOverlay').classList.add('open'); }
+    function closeForgot() { document.getElementById('fpOverlay').classList.remove('open'); }
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closeForgot();
+    });
   </script>
 </body>
 </html>

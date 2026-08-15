@@ -406,13 +406,19 @@ def open_work_orders():
         TARGET_DIR.mkdir(parents=True, exist_ok=True)
         
         dest_file = TARGET_DIR / fname
+        _moved_ok = False
         try:
             shutil.move(downloaded_file, dest_file)
             print(f"File successfully moved to local workspace: {dest_file}")
             print(f"✅ Work Orders exported & moved to local workspace: {fname}")
+            _moved_ok = True
         except Exception as move_err:
             print(f"Error moving file: {move_err}")
             print(f"✅ Work Orders exported: {fname} (failed to move: {move_err})")
+
+        # ── Auto-upsert on successful export ──────────────────────────────────
+        if _moved_ok and "_msd_auto_upsert" in globals():
+            _msd_auto_upsert(str(dest_file), fname)
 
         # Rolling retention: keep only 5 newest files in local workspace Downloads
         try:
@@ -468,11 +474,17 @@ def open_work_orders():
 
             if fallback_found:
                 dest_file = TARGET_DIR / fallback_found.name
+                _copy_ok = False
                 try:
                     shutil.copy2(str(fallback_found), str(dest_file))
                     print(f"Fallback file copied to workspace: {dest_file}")
+                    _copy_ok = True
                 except Exception as copy_err:
                     print(f"Error copying fallback file: {copy_err}")
+
+                # ── Auto-upsert on successful fallback copy ────────────────────
+                if _copy_ok and "_msd_auto_upsert" in globals():
+                    _msd_auto_upsert(str(dest_file), fallback_found.name)
 
                 # Rolling retention: keep only 5 newest files
                 try:

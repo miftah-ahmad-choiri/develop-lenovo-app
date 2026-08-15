@@ -714,6 +714,12 @@
   function buildIndex() {
     const list  = document.getElementById('board-filter-list');
     const index = document.getElementById('board-index');
+
+    // Remove any separators that may have been inserted by a previous call
+    list.querySelectorAll('.md-filter-letter-sep').forEach(el => el.remove());
+    // Clear the right-rail index so letters aren't appended twice
+    index.innerHTML = '';
+
     const items = Array.from(list.querySelectorAll('.md-filter-item:not(.md-filter-all)'));
     const lettersWithItems = new Set(items.map(el => (el.dataset.initial || '').toUpperCase()).filter(l => /[A-Z]/.test(l)));
     const seen = new Set();

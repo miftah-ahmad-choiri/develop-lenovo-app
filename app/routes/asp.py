@@ -339,7 +339,7 @@ def api_wo_no_awb():
 @asp_bp.route("/asp/api/return-part-same-asp", methods=["GET"])
 @login_required
 def api_return_part_same_asp():
-    """Return closed WOs for a given ASP that have return_flag=Y parts with no DC number yet."""
+    """Return closed WOs for a given ASP that have pending return_status (PENDING WITH PARTNER or PENDING FOR DC GENERATION)."""
     from app.services.database.queries import get_return_part_wos_by_asp
     customer = request.args.get("customer", "").strip()
     if not customer:
@@ -533,11 +533,11 @@ def api_list_asp_users():
     err = _asp_users_forbidden()
     if err: return err
     from app.services.database.db import get_db
-    username = session.get("username")
+    labor_vendor = session.get("labor_vendor")
     rows = get_db().execute(
-        "SELECT id, full_name, email, password, phone_number, is_active, created_at "
-        "FROM asp_users WHERE asp_username = ? ORDER BY id",
-        (username,)
+        "SELECT id, tech_id, full_name, email, password, phone_number, is_active, created_at "
+        "FROM asp_users WHERE labor_vendor_related = ? ORDER BY id",
+        (labor_vendor,)
     ).fetchall()
     return jsonify({"ok": True, "users": [dict(r) for r in rows]})
 
@@ -549,12 +549,13 @@ def api_create_asp_user():
     err = _asp_users_forbidden()
     if err: return err
     from app.services.database.db import get_db
-    username = session.get("username")
+    labor_vendor = session.get("labor_vendor")
     data      = request.get_json(silent=True) or {}
     full_name = (data.get("full_name")    or "").strip()
     email     = (data.get("email")        or "").strip()
     password  = (data.get("password")     or "").strip()
     phone     = (data.get("phone_number") or "").strip() or None
+    tech_id   = (data.get("tech_id")      or "").strip() or None
     if not full_name:
         return jsonify({"error": "full_name is required"}), 400
     if not email:
@@ -576,14 +577,14 @@ def api_create_asp_user():
     if dup_name:
         return jsonify({"error": "That full name is already registered.", "field": "full_name"}), 409
     cur = db.execute(
-        "INSERT INTO asp_users (asp_username, full_name, email, password, phone_number) "
-        "VALUES (?, ?, ?, ?, ?)",
-        (username, full_name, email, password, phone)
+        "INSERT INTO asp_users (labor_vendor_related, tech_id, full_name, email, password, phone_number) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (labor_vendor, tech_id, full_name, email, password, phone)
     )
     db.commit()
     new_id = cur.lastrowid
     row = db.execute(
-        "SELECT id, full_name, email, password, phone_number, is_active, created_at "
+        "SELECT id, tech_id, full_name, email, password, phone_number, is_active, created_at "
         "FROM asp_users WHERE id = ?", (new_id,)
     ).fetchone()
     return jsonify({"ok": True, "user": dict(row)}), 201
@@ -596,12 +597,12 @@ def api_update_asp_user(user_id):
     err = _asp_users_forbidden()
     if err: return err
     from app.services.database.db import get_db
-    username = session.get("username")
+    labor_vendor = session.get("labor_vendor")
     db   = get_db()
     # Verify ownership
     existing = db.execute(
-        "SELECT id FROM asp_users WHERE id = ? AND asp_username = ?",
-        (user_id, username)
+        "SELECT id FROM asp_users WHERE id = ? AND labor_vendor_related = ?",
+        (user_id, labor_vendor)
     ).fetchone()
     if not existing:
         return jsonify({"error": "User not found"}), 404
@@ -653,7 +654,7 @@ def api_update_asp_user(user_id):
         )
     db.commit()
     row = db.execute(
-        "SELECT id, full_name, email, password, phone_number, is_active, created_at "
+        "SELECT id, tech_id, full_name, email, password, phone_number, is_active, created_at "
         "FROM asp_users WHERE id = ?", (user_id,)
     ).fetchone()
     return jsonify({"ok": True, "user": dict(row)})
@@ -666,11 +667,11 @@ def api_delete_asp_user(user_id):
     err = _asp_users_forbidden()
     if err: return err
     from app.services.database.db import get_db
-    username = session.get("username")
+    labor_vendor = session.get("labor_vendor")
     db = get_db()
     existing = db.execute(
-        "SELECT id FROM asp_users WHERE id = ? AND asp_username = ?",
-        (user_id, username)
+        "SELECT id FROM asp_users WHERE id = ? AND labor_vendor_related = ?",
+        (user_id, labor_vendor)
     ).fetchone()
     if not existing:
         return jsonify({"error": "User not found"}), 404
@@ -686,11 +687,11 @@ def api_toggle_asp_user_status(user_id):
     err = _asp_users_forbidden()
     if err: return err
     from app.services.database.db import get_db
-    username = session.get("username")
+    labor_vendor = session.get("labor_vendor")
     db = get_db()
     existing = db.execute(
-        "SELECT id, is_active FROM asp_users WHERE id = ? AND asp_username = ?",
-        (user_id, username)
+        "SELECT id, is_active FROM asp_users WHERE id = ? AND labor_vendor_related = ?",
+        (user_id, labor_vendor)
     ).fetchone()
     if not existing:
         return jsonify({"error": "User not found"}), 404
@@ -702,7 +703,7 @@ def api_toggle_asp_user_status(user_id):
     )
     db.commit()
     row = db.execute(
-        "SELECT id, full_name, email, password, phone_number, is_active, created_at "
+        "SELECT id, tech_id, full_name, email, password, phone_number, is_active, created_at "
         "FROM asp_users WHERE id = ?", (user_id,)
     ).fetchone()
     return jsonify({"ok": True, "user": dict(row)})
@@ -743,7 +744,7 @@ def api_in_prepare():
 @asp_bp.route("/asp/api/return-part", methods=["GET"])
 @login_required
 def api_return_part():
-    """Return Part Follow-Up — closed/completed WOs with computed input_dc / return_part state."""
+    """Return Part Follow-Up — closed/completed WOs with return_status set; computed need_to_return / dc_generated state."""
     from app.services.database.queries import get_asp_part_return_page
     per_page = min(_int_arg("per_page", 25), 100)
     return jsonify(get_asp_part_return_page(
@@ -759,7 +760,7 @@ def api_return_part():
 @login_required
 def api_return_part_export():
     """Export Return Part Follow-Up rows expanded by SOID (one row per part line)
-    for every WO that exists on the Return Part tab (followup_state=input_dc).
+    for every WO that exists on the Return Part tab (followup_state=need_to_return).
     Saves to files/report/ and streams the file back as a download."""
     import openpyxl
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -769,7 +770,7 @@ def api_return_part_export():
     # ── 1. Collect WOs in the Return Part tab ─────────────────────────────────
     result = get_asp_part_return_page(
         search         = request.args.get("q", "").strip(),
-        followup_state = "input_dc",
+        followup_state = "need_to_return",
         page           = 1,
         page_size      = 9999,
         vendor_filter  = _vendor_filter(),
@@ -795,15 +796,15 @@ def api_return_part_export():
                 p.order_date,
                 p.delivery_date,
                 p.wo_product_status,
-                p.return_flag,
+                p.return_status,
                 p.awb,
                 p.ship_pou_pod_time,
                 p.dc_number
             FROM wo_product_detail p
             WHERE p.work_order_id IN ({placeholders})
-              AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
-              AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != ''
-              AND UPPER(TRIM(COALESCE(p.return_flag,''))) = 'Y'
+              AND UPPER(TRIM(COALESCE(p.return_status,''))) IN (
+                  'PENDING WITH PARTNER','PENDING FOR DC GENERATION'
+              )
             ORDER BY p.work_order_id, p.soid
             """,
             wo_ids,
@@ -836,7 +837,7 @@ def api_return_part_export():
             "order_date":                   _fmt_date(p.get("order_date")),
             "delivery_date":                _fmt_date(p.get("delivery_date")),
             "wo_product_status":            p.get("wo_product_status", ""),
-            "return_flag":                  p.get("return_flag", ""),
+            "return_status":                p.get("return_status", ""),
             "awb":                          p.get("awb", ""),
             "ship_pou_pod_time":            _fmt_date(p.get("ship_pou_pod_time")),
             "dc_number":                    p.get("dc_number", ""),
@@ -852,7 +853,7 @@ def api_return_part_export():
         "WO Status", "Committed Delivery", "Actual Committed",
         "Contact Name", "ASP",
         "SOID", "Part Number", "Description", "Order Date", "Delivery Date",
-        "Part Status", "Return Flag", "AWB", "POD Date", "DC Number",
+        "Part Status", "Return Status", "AWB", "POD Date", "DC Number",
     ]
     col_keys = [
         None,
@@ -860,7 +861,7 @@ def api_return_part_export():
         "work_order_status", "committed_delivery_date", "actual_committed_onsite_date",
         "contact_name", "customer",
         "soid", "product", "description", "order_date", "delivery_date",
-        "wo_product_status", "return_flag", "awb", "ship_pou_pod_time", "dc_number",
+        "wo_product_status", "return_status", "awb", "ship_pou_pod_time", "dc_number",
     ]
     col_widths = [6, 16, 16, 14, 32, 22, 20, 20, 22, 28, 14, 16, 30, 14, 14, 22, 12, 18, 14, 14]
 

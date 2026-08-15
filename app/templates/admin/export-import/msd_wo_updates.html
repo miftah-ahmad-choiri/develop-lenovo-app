@@ -224,6 +224,14 @@
   .msd-file-table tr:last-child td { border-bottom: none; }
   .msd-file-name { font-weight: 600; color: #1f2328; }
   .msd-muted { color: #57606a; font-size: 12px; }
+  .msd-stat-badge  { display: inline-block; min-width: 28px; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; text-align: center; }
+  .msd-stat-new    { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+  .msd-stat-upd    { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+  .msd-stat-tech   { background: #fef9c3; color: #854d0e; border: 1px solid #fef08a; }
+  .msd-stat-ok     { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+  .msd-stat-fail   { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+  .msd-daily-row td { background: #f0f9ff; border-top: 2px solid #bfdbfe; font-size: 12px; }
+  .msd-daily-label  { font-size: 11px; font-weight: 700; color: #1e40af; text-transform: uppercase; letter-spacing: 0.04em; }
   .msd-empty { padding: 24px 18px; text-align: center; font-size: 13px; color: #57606a; }
 
   /* ── Top action bar ─────────────────────────────────────────────────────── */
@@ -374,6 +382,10 @@
               <th>File Name</th>
               <th style="width:110px">Size</th>
               <th style="width:140px">Modified</th>
+              <th style="width:100px;text-align:center">New WOs</th>
+              <th style="width:110px;text-align:center">Updated WOs</th>
+              <th style="width:100px;text-align:center">New Techs</th>
+              <th style="width:120px;text-align:center">Upsert Status</th>
             </tr>
           </thead>
           <tbody id="msd-files-tbody">
@@ -383,10 +395,24 @@
                 <td><div class="msd-file-name">{{ file.name }}</div></td>
                 <td><span class="msd-muted">{{ file.size_kb }} KB</span></td>
                 <td><span class="msd-muted">{{ file.modified_fmt }}</span></td>
+                <td style="text-align:center">
+                  {% if file.new_wo is not none %}<span class="msd-stat-badge msd-stat-new">{{ file.new_wo }}</span>{% else %}<span class="msd-muted">—</span>{% endif %}
+                </td>
+                <td style="text-align:center">
+                  {% if file.updated_wo is not none %}<span class="msd-stat-badge msd-stat-upd">{{ file.updated_wo }}</span>{% else %}<span class="msd-muted">—</span>{% endif %}
+                </td>
+                <td style="text-align:center">
+                  {% if file.new_users is not none %}<span class="msd-stat-badge msd-stat-tech">{{ file.new_users }}</span>{% else %}<span class="msd-muted">—</span>{% endif %}
+                </td>
+                <td style="text-align:center">
+                  {% if file.upsert_status == 'success' %}<span class="msd-stat-badge msd-stat-ok">✅ Success</span>
+                  {% elif file.upsert_status == 'failed' %}<span class="msd-stat-badge msd-stat-fail">❌ Failed</span>
+                  {% else %}<span class="msd-muted">—</span>{% endif %}
+                </td>
               </tr>
               {% endfor %}
             {% else %}
-              <tr><td colspan="3" class="msd-empty">No downloaded MSD files found yet.</td></tr>
+              <tr><td colspan="7" class="msd-empty">No downloaded MSD files found yet.</td></tr>
             {% endif %}
           </tbody>
         </table>
@@ -847,18 +873,52 @@ function refreshFiles() {
       const tbody = document.getElementById('msd-files-tbody');
       const count = document.getElementById('msd-files-count');
       if (!data.files || data.files.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" class="msd-empty">No downloaded MSD files found yet.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="msd-empty">No downloaded MSD files found yet.</td></tr>';
         count.textContent = '0';
         return;
       }
       count.textContent = String(data.files.length);
-      tbody.innerHTML = data.files.map(function (f) {
+      function statCell(val, cls) {
+        return val !== null && val !== undefined
+          ? '<span class="msd-stat-badge ' + cls + '">' + _esc(String(val)) + '</span>'
+          : '<span class="msd-muted">—</span>';
+      }
+      function statusCell(s) {
+        if (s === 'success') return '<span class="msd-stat-badge msd-stat-ok">✅ Success</span>';
+        if (s === 'failed')  return '<span class="msd-stat-badge msd-stat-fail">❌ Failed</span>';
+        return '<span class="msd-muted">—</span>';
+      }
+      var rows = data.files.map(function (f) {
         return '<tr>'
           + '<td><div class="msd-file-name">' + _esc(f.name) + '</div></td>'
           + '<td><span class="msd-muted">' + _esc(String(f.size_kb)) + ' KB</span></td>'
           + '<td><span class="msd-muted">' + _esc(f.modified_fmt) + '</span></td>'
+          + '<td style="text-align:center">' + statCell(f.new_wo,     'msd-stat-new')  + '</td>'
+          + '<td style="text-align:center">' + statCell(f.updated_wo, 'msd-stat-upd')  + '</td>'
+          + '<td style="text-align:center">' + statCell(f.new_users,  'msd-stat-tech') + '</td>'
+          + '<td style="text-align:center">' + statusCell(f.upsert_status) + '</td>'
           + '</tr>';
       }).join('');
+
+      // Daily totals footer row — shown when at least one upsert ran today
+      var dNew  = data.daily_new_wo     || 0;
+      var dUpd  = data.daily_updated_wo || 0;
+      var dUsr  = data.daily_new_users  || 0;
+      var dDate = data.daily_date       || '';
+      var footerRow = (dNew + dUpd + dUsr > 0)
+        ? '<tr class="msd-daily-row">'
+            + '<td colspan="3" style="padding-left:16px;">'
+                + '<span class="msd-daily-label">Today\'s Total</span>'
+                + ' <span style="font-size:11px;color:#57606a;">' + _esc(dDate) + '</span>'
+            + '</td>'
+            + '<td style="text-align:center">' + statCell(dNew, 'msd-stat-new')  + '</td>'
+            + '<td style="text-align:center">' + statCell(dUpd, 'msd-stat-upd')  + '</td>'
+            + '<td style="text-align:center">' + statCell(dUsr, 'msd-stat-tech') + '</td>'
+            + '<td></td>'
+          + '</tr>'
+        : '';
+
+      tbody.innerHTML = rows + footerRow;
     })
     .catch(function () {})
     .finally(function () {
@@ -922,6 +982,11 @@ function connectMsdStream() {
       _msdHideProgress();
       // If no "Next download in" line has arrived yet, seed with full 30 min as fallback
       if (!_msdIdleTarget) _msdStartIdleCountdown(_MSD_IDLE_DURATION_MS);
+    }
+
+    // Detect auto-upsert complete → refresh file table so stats appear immediately
+    if (/Auto-upsert:.*Upsert complete/.test(rawMsg)) {
+      setTimeout(refreshFiles, 400);
     }
 
     const ts  = data.ts ? '[' + data.ts + '] ' : '';
@@ -1063,6 +1128,7 @@ function pollMsdStatus() {
 
 connectMsdStream();
 pollMsdStatus();
+refreshFiles();
 _msdStatusTimer = setInterval(pollMsdStatus, 5000);
 window.addEventListener('beforeunload', function () {
   if (_msdEs) _msdEs.close();

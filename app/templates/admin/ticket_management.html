@@ -625,7 +625,7 @@ function renderHero(d) {
     </div>`).join('')}
   </div>`;
   const hasContact = d.contact_name || d.mobile_phone || d.primary_email || d.address || d.company_name;
-  const hasAsp     = d.customer || d.labor_vendor_related || d.technician_id;
+  const hasAsp     = d.customer || d.labor_vendor_related || d.tech_id;
   const customerCard = (hasContact || hasAsp) ? `
     <div class="wo-customer-wrap">
       ${hasContact ? `
@@ -646,7 +646,7 @@ function renderHero(d) {
         <div class="wo-customer-col">
           ${d.customer             ? `<div class="wo-customer-asp">${esc(d.customer)}</div>` : ''}
           ${d.labor_vendor_related ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Vendor ID:</span><span class="wo-customer-val">${esc(d.labor_vendor_related)}</span></div>` : ''}
-          ${d.technician_id        ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Technician:</span><span class="wo-customer-val">${esc(d.technician_id)}</span></div>` : ''}
+          ${d.tech_id        ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Technician:</span><span class="wo-customer-val"><span style="color:#3b82d4;font-weight:600">${esc(d.tech_id)}</span>${d.tech_name ? ` - ${esc(d.tech_name)}` : ''}</span></div>` : ''}
         </div>
       </div>` : ''}
     </div>` : '';

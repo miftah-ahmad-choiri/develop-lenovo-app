@@ -71,7 +71,7 @@
     /* fill from top of card to bottom of viewport, accounting for
        main-content top padding (28px) + page header (~60px) +
        stat cards (~88px) + control panel (~66px) + tab bar (~43px) */
-    height: calc(100vh - 28px - 60px - 88px - 66px - 43px);
+    height: calc(100vh - 28px - 60px - 88px - 66px - 43px - 36px);
     min-height: 400px;
   }
   /* Pane base — hidden; active pane is a flex column filling the card */
@@ -113,6 +113,15 @@
   .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .data-table thead { background: #f7f8fa; position: sticky; top: 0; z-index: 2; }
   .data-table th { padding: 9px 12px; text-align: left; font-size: 11px; font-weight: 700; color: #57606a; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #e5e7eb; white-space: nowrap; background: #f7f8fa; }
+  /* ── Daily totals summary row ────────────────────────────── */
+  .daily-totals-row td { padding: 6px 12px; border-bottom: 2px solid #e5e7eb; background: #f0f6ff; font-size: 12px; white-space: nowrap; }
+  .daily-totals-row .dt-label { font-size: 11px; font-weight: 700; color: #3b82d4; text-transform: uppercase; letter-spacing: 0.04em; }
+  .daily-totals-row .dt-val   { font-size: 13px; }
+  .daily-totals-row .dt-sub   { font-size: 10px; color: #57606a; font-weight: 400; }
+  .daily-totals-row .dt-date  { font-size: 10px; color: #57606a; }
+  .dt-pill { display: inline-block; min-width: 32px; padding: 3px 10px; border-radius: 999px; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 13px; font-weight: 700; text-align: center; }
+  .dt-pill-green { background: #dcfce7; color: #15803d; }
+  .dt-pill-blue  { background: #dbeafe; color: #1d4ed8; }
   .data-table td { padding: 9px 12px; border-bottom: 1px solid #f0f2f5; vertical-align: middle; }
   .data-table tr:last-child td { border-bottom: none; }
   .data-table tr:hover td { background: #f9fafb; }
@@ -357,6 +366,15 @@
     <div class="table-scroll">
       <table class="data-table" id="board-table">
         <thead>
+          <tr class="daily-totals-row" id="daily-totals-row">
+            <td colspan="6" class="dt-label">
+              Today's Totals
+              <span class="dt-date" id="dt-date-label"></span>
+            </td>
+            <td class="dt-val"><span class="dt-pill dt-pill-green" id="dt-found">0</span></td>
+            <td class="dt-val"><span class="dt-pill dt-pill-blue"  id="dt-updates">0</span></td>
+            <td colspan="4" class="dt-sub" id="dt-syncs-label"></td>
+          </tr>
           <tr>
             <th style="width:40px">#</th>
             <th>ASP Board</th>
@@ -364,8 +382,8 @@
             <th>ASP Name</th>
             <th style="width:130px">Last Run At</th>
             <th style="width:100px">Type</th>
-            <th style="width:65px">Found</th>
-            <th style="width:75px">Upserted</th>
+            <th style="width:65px">New Case</th>
+            <th style="width:75px">Updates</th>
             <th style="width:80px">Total Items</th>
             <th style="width:75px">Duration</th>
             <th style="width:90px">Status</th>
@@ -395,8 +413,24 @@
                 <span style="color:#d0d7de">—</span>
               {% endif %}
             </td>
-            <td class="mono bs-found" style="width:65px">{{ run.items_found if run else '—' }}</td>
-            <td class="mono bs-upserted" style="width:75px">{{ run.items_upserted if run else '—' }}</td>
+            <td class="mono bs-found" style="width:65px;text-align:center">
+              {% if run and run.items_found is not none %}
+                {% if run.items_found > 0 %}
+                  <span class="dt-pill dt-pill-green">{{ run.items_found }}</span>
+                {% else %}
+                  {{ run.items_found }}
+                {% endif %}
+              {% else %}—{% endif %}
+            </td>
+            <td class="mono bs-updates" style="width:75px;text-align:center">
+              {% if run and run.updates_count is not none %}
+                {% if run.updates_count > 0 %}
+                  <span class="dt-pill dt-pill-blue">{{ run.updates_count }}</span>
+                {% else %}
+                  {{ run.updates_count }}
+                {% endif %}
+              {% else %}—{% endif %}
+            </td>
             <td class="mono bs-total" style="width:80px">{{ run.total_items if run else '—' }}</td>
             <td class="mono bs-duration" style="color:#57606a; width:75px">
               {{ "%.1f"|format(run.duration_sec or 0) ~ 's' if run else '—' }}
@@ -798,6 +832,132 @@ function _typeBadge(run_type) {
   return '<span style="color:#d0d7de">—</span>';
 }
 
+/* ── Daily totals (WIB) — persisted to server JSON ─────────── */
+
+function _wibDateStr() {
+  // UTC+7
+  const now = new Date(Date.now() + 7 * 3600 * 1000);
+  return now.toISOString().slice(0, 10);  // "YYYY-MM-DD"
+}
+
+// In-memory cache of the daily totals object loaded from / saved to the server.
+// Shape: { date: "YYYY-MM-DD", found: N, updates: N, syncs: N }
+let _dtCache = null;
+
+function _dtEmpty() {
+  return { date: _wibDateStr(), found: 0, updates: 0, syncs: 0 };
+}
+
+function _dtGet() {
+  if (!_dtCache || _dtCache.date !== _wibDateStr()) {
+    _dtCache = _dtEmpty();   // new day or uninitialised — start fresh in memory
+  }
+  return _dtCache;
+}
+
+function _renderDailyTotals(obj) {
+  const o = obj || _dtGet();
+  const dateEl   = document.getElementById('dt-date-label');
+  const foundEl  = document.getElementById('dt-found');
+  const updEl    = document.getElementById('dt-updates');
+  const syncsEl  = document.getElementById('dt-syncs-label');
+  if (dateEl)  dateEl.textContent  = '— ' + o.date + ' WIB';
+  if (foundEl) foundEl.textContent = (o.found   || 0).toLocaleString();
+  if (updEl)   updEl.textContent   = (o.updates || 0).toLocaleString();
+  if (syncsEl) syncsEl.textContent = (o.syncs || 0) + ' sync' + ((o.syncs || 0) !== 1 ? 's' : '') + ' today';
+}
+
+// Load persisted totals from the server JSON file, then render.
+// Also fetches the current latest_runs so we can pre-seed _seenRunKeys —
+// this prevents the first poll cycle from double-counting runs that were
+// already accumulated before the app was restarted.
+function _loadDailyTotalsFromServer() {
+  const today = _wibDateStr();
+
+  Promise.all([
+    fetch('/admin/escalation-center/daily-totals').then(function(r) { return r.json(); }),
+    fetch('/admin/escalation-center/boards').then(function(r) { return r.json(); }),
+  ]).then(function(results) {
+    const totalsResp = results[0];
+    const boardsResp = results[1];
+
+    // ── Restore persisted totals ─────────────────────────────
+    if (totalsResp.ok) {
+      const saved = totalsResp.data && totalsResp.data[today];
+      if (saved) {
+        _dtCache = { date: today,
+                     found:    saved.found   || 0,
+                     updates:  saved.updates || 0,
+                     syncs:    saved.syncs   || 0 };
+      } else {
+        _dtCache = _dtEmpty();
+      }
+    }
+
+    // ── Pre-seed _seenRunKeys from current latest_runs ───────
+    // Any board whose run_at is already within today's WIB date is marked as
+    // "already counted" so the first accumulation pass won't add them again.
+    if (boardsResp.ok && boardsResp.latest_runs) {
+      Object.entries(boardsResp.latest_runs).forEach(function([boardId, run]) {
+        if (run && run.run_at) {
+          _seenRunKeys[boardId] = boardId + '|' + run.run_at;
+        }
+      });
+    }
+
+    _renderDailyTotals(_dtCache);
+  }).catch(function() {});
+}
+
+// Persist the current in-memory cache to the server JSON file.
+function _saveDailyTotalsToServer() {
+  const obj = _dtGet();
+  // The server stores all days; load existing first, merge today's entry, save.
+  fetch('/admin/escalation-center/daily-totals')
+    .then(function(r) { return r.json(); })
+    .then(function(resp) {
+      const existing = (resp.ok && resp.data) ? resp.data : {};
+      existing[obj.date] = { found:   obj.found,
+                              updates: obj.updates,
+                              syncs:   obj.syncs };
+      return fetch('/admin/escalation-center/daily-totals', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ data: existing }),
+      });
+    })
+    .catch(function() {});
+}
+
+// Accumulate new run results into daily totals.
+// `latestRuns` is the map of board_id → run object from the API.
+// We track seen run_at keys to avoid double-counting across poll cycles.
+let _seenRunKeys = {};   // boardId → last "run_at" string already counted
+
+function _accumulateDailyTotals(latestRuns) {
+  const obj = _dtGet();
+  let changed = false;
+  Object.entries(latestRuns).forEach(function([boardId, run]) {
+    if (!run || !run.run_at) return;
+    const key = boardId + '|' + run.run_at;
+    if (_seenRunKeys[boardId] === key) return;   // already counted this run
+    _seenRunKeys[boardId] = key;
+    // run_at from the API is already WIB (the SQL query adds +7 hours).
+    // The date portion is therefore directly comparable to _wibDateStr().
+    const runWibDate = run.run_at.slice(0, 10);   // "YYYY-MM-DD"
+    if (runWibDate !== obj.date) return;
+    obj.found   += (run.items_found   != null ? parseInt(run.items_found,   10) : 0);
+    obj.updates += (run.updates_count != null ? parseInt(run.updates_count, 10) : 0);
+    obj.syncs    += 1;
+    changed = true;
+  });
+  if (changed) {
+    _dtCache = obj;
+    _saveDailyTotalsToServer();
+  }
+  _renderDailyTotals(obj);
+}
+
 function _applyLatestRuns(latestRuns) {
   Object.entries(latestRuns).forEach(function([boardId, run]) {
     const row = document.getElementById('board-row-' + boardId);
@@ -806,11 +966,12 @@ function _applyLatestRuns(latestRuns) {
     const dur   = run.duration_sec != null ? parseFloat(run.duration_sec).toFixed(1) + 's' : '—';
     row.querySelector('.bs-run-at').textContent   = runAt;
     row.querySelector('.bs-run-type').innerHTML   = _typeBadge(run.run_type);
-    row.querySelector('.bs-found').textContent    = run.items_found    != null ? run.items_found    : '—';
-    row.querySelector('.bs-upserted').textContent = run.items_upserted != null ? run.items_upserted : '—';
+    row.querySelector('.bs-found').textContent   = run.items_found   != null ? run.items_found   : '—';
+    row.querySelector('.bs-updates').textContent = run.updates_count != null ? run.updates_count : '—';
     row.querySelector('.bs-total').textContent    = run.total_items    != null ? run.total_items    : '—';
     row.querySelector('.bs-duration').textContent = dur;
   });
+  _accumulateDailyTotals(latestRuns);
 }
 
 /* ── Refresh button on Board Status toolbar ─────────────────── */
@@ -849,8 +1010,10 @@ function _boardRow(b, latestRun, idx) {
     + '<td>'                                                    + (b.asp_name || '—') + '</td>'
     + '<td class="mono bs-run-at" style="font-size:12px;color:#57606a; width:130px">' + runAt + '</td>'
     + '<td class="bs-run-type" style="width:100px">'           + _typeBadge(run.run_type) + '</td>'
-    + '<td class="mono bs-found" style="width:65px">'          + (run.items_found    != null ? run.items_found    : '—') + '</td>'
-    + '<td class="mono bs-upserted" style="width:75px">'       + (run.items_upserted != null ? run.items_upserted : '—') + '</td>'
+    + '<td class="mono bs-found" style="width:65px;text-align:center">'
+      + (run.items_found   != null ? (run.items_found   > 0 ? '<span class="dt-pill dt-pill-green">' + run.items_found   + '</span>' : run.items_found)   : '—') + '</td>'
+    + '<td class="mono bs-updates" style="width:75px;text-align:center">'
+      + (run.updates_count != null ? (run.updates_count > 0 ? '<span class="dt-pill dt-pill-blue">'  + run.updates_count + '</span>' : run.updates_count) : '—') + '</td>'
     + '<td class="mono bs-total" style="width:80px">'          + (run.total_items    != null ? run.total_items    : '—') + '</td>'
     + '<td class="mono bs-duration" style="color:#57606a; width:75px">' + dur + '</td>'
     + '<td class="bs-status" style="width:90px">'              + badge + '</td>'
@@ -879,6 +1042,9 @@ function refreshSections() {
       document.getElementById('board-count-label').textContent = total + ' board' + (total !== 1 ? 's' : '');
       const tabBoardCount = document.getElementById('tab-board-count');
       if (tabBoardCount) tabBoardCount.textContent = total;
+
+      // Accumulate daily totals from the refreshed run data
+      _accumulateDailyTotals(lr);
     })
     .catch(() => {});
 }
@@ -1123,6 +1289,8 @@ document.addEventListener('keydown', function(e) {
 
 /* ── Init ──────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', function() {
+  // Load persisted daily totals from server JSON on page load
+  _loadDailyTotalsFromServer();
   {% if is_running %}
   setRunning(true);
   connectStream();

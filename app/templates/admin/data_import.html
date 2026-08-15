@@ -886,16 +886,26 @@
       return;
     }
 
-    var impactedCount = data.impacted_count;
-    var totalRows     = data.total_excel_rows;
-    var dateCol       = data.date_col || 'Date';
-    var cols          = data.preview_cols || [];
-    var allRows       = data.all_rows || [];
-    var isWoid        = (categoryKey === 'WOID');
-    var isSoid        = (categoryKey === 'SOID');
-    var isShipment    = (categoryKey === 'SHIPMENT');
-    var isPartOnHold  = (categoryKey === 'PARTONHOLD');
-    var isGtaap       = (categoryKey === 'GTAAP');
+    var impactedCount  = data.impacted_count;
+    var totalRows      = data.total_excel_rows;
+    var dateCol        = data.date_col || 'Date';
+    var cols           = data.preview_cols || [];
+    var allRows        = data.all_rows || [];
+    var isWoid         = (categoryKey === 'WOID');
+    var isSoid         = (categoryKey === 'SOID');
+    var isShipment     = (categoryKey === 'SHIPMENT');
+    var isPartOnHold   = (categoryKey === 'PARTONHOLD');
+    var isGtaap        = (categoryKey === 'GTAAP');
+    var isUnreturn     = (categoryKey === 'UNRETURN');
+    var gtaapSkipped      = data.gtaap_skipped_rows  || [];
+    var gtaapSkippedCols  = data.gtaap_skipped_cols  || [];
+    var gtaapSkippedCount = data.gtaap_skipped_count || 0;
+    var gtaapAbsent       = data.gtaap_absent_rows   || [];
+    var gtaapAbsentCols   = data.gtaap_absent_cols   || [];
+    var gtaapAbsentCount  = data.gtaap_absent_count  || 0;
+    var urSkipped      = data.unreturn_skipped_rows  || [];
+    var urSkippedCols  = data.unreturn_skipped_cols  || [];
+    var urSkippedCount = data.unreturn_skipped_count || 0;
 
     // Stat card labels per category
     var impactedLabel, skippedLabel;
@@ -912,8 +922,11 @@
       impactedLabel = 'Rows missing shipment data';
       skippedLabel  = 'Fully filled (skip)';
     } else if (isGtaap) {
-      impactedLabel = 'DC# Rows to Write';
-      skippedLabel  = 'No DC# / Already up-to-date (skip)';
+      impactedLabel = 'DC# / Return Status Rows to Write';
+      skippedLabel  = 'No Change / Already up-to-date (skip)';
+    } else if (isUnreturn) {
+      impactedLabel = 'Rows to Write (dc_lenovo / return_status)';
+      skippedLabel  = 'No Match / No Change (skip)';
     } else {
       impactedLabel = 'New Rows (INSERT)';
       skippedLabel  = 'Existing Rows (UPDATE)';
@@ -937,8 +950,16 @@
       subDesc = 'Rows shown are shipment lines whose Work Order ID matches <code>wo_summary</code> and where the DB currently has <code>NULL</code> for at least one of <code>ship_pn</code>, <code>awb</code>, or <code>ship_pou_pod_time</code> — and the Excel file has a real value to fill it. ' +
                 'The <em>Upsert Reason</em> column shows exactly which field(s) will be written.';
     } else if (isGtaap) {
-      subDesc = 'Rows shown are GTAAP lines whose SOID exists in <code>wo_product_detail</code> and whose <code>dc_number</code> is currently <strong>NULL or 0</strong>. ' +
-                'A real DC# from Excel will be inserted where available; rows with <em>Return Flag = N</em> and no DC# will be marked <strong>0</strong>.';
+      subDesc = 'Rows shown are GTAAP lines whose SOID exists in <code>wo_product_detail</code> and that have at least one change to write: ' +
+                '<code>dc_number</code> is currently <strong>NULL or 0</strong> (a real DC# will be inserted, or <strong>0</strong> for non-returnable parts), ' +
+                'or the Excel <strong>Status</strong> value differs from the stored <code>return_status</code>.';
+    } else if (isUnreturn) {
+      subDesc = 'Rows shown are POU Unreturned lines whose SOID matches <code>wo_product_detail</code>. ' +
+                'For each matched SOID, <code>dc_lenovo</code> is written from the <strong>DC/Collection Form</strong> column. ' +
+                'Additionally, <code>return_status</code> is set to <strong>Unreturned</strong> when the Excel ' +
+                '<em>Return Status</em> is "Unreturned" and the DB value is empty, or to <strong>DC GENERATED</strong> ' +
+                'when <em>DC/Collection Form</em> has a real value and the DB <code>return_status</code> is empty. ' +
+                'An existing <code>return_status</code> is never overwritten.';
     } else {
       subDesc = 'Rows already present will be updated; new rows will be inserted.';
     }
@@ -991,10 +1012,17 @@
                  '(3) <em>Ship POU POD Time</em> is <code>NULL</code> in the DB and Excel provides a real value → tagged <strong>New Ship POU POD Time</strong>. ' +
                  'Rows where all three DB columns are already filled are excluded — there is nothing new to write.';
     } else if (isGtaap) {
-      noteText = '<strong>Note:</strong> Eligible rows are those whose <code>dc_number</code> is <code>NULL</code> or <code>0</code>. ' +
-                 'Pass 1 writes the real DC# from Excel (overwrites <code>0</code> too). ' +
-                 'Pass 2 writes <code>0</code> for rows still empty where <em>Return Flag = N/No</em>. ' +
-                 'Any row whose <code>dc_number</code> already holds a real value is never touched.';
+      noteText = '<strong>Upsert conditions (any one is sufficient):</strong> ' +
+                 '(1) <code>dc_number</code> is <code>NULL</code> or <code>0</code> — Pass 1 writes the real DC# from Excel; Pass 2 writes <code>0</code> for rows where <em>Return Flag = N/No</em>. ' +
+                 'Any row whose <code>dc_number</code> already holds a real value is never touched for DC#. ' +
+                 '(2) Excel <strong>Status</strong> value is non-empty and differs from the stored <code>return_status</code> — always overwritten with the latest value from Excel.';
+    } else if (isUnreturn) {
+      noteText = '<strong>Write rules (applied in this order):</strong> ' +
+                 '(1) <code>dc_lenovo</code> is always written from Excel <em>DC/Collection Form</em> for every matched SOID (NULL when the Excel cell is empty). ' +
+                 '(2) <code>return_status</code> is written <strong>only when the current DB value is empty</strong>: ' +
+                 'set to <strong style="color:#b45309;">Unreturned</strong> when Excel <em>Return Status</em> = "Unreturned", ' +
+                 'or to <strong style="color:#15803d;">DC GENERATED</strong> when <em>DC/Collection Form</em> has a real value (not NULL / 0). ' +
+                 'An existing <code>return_status</code> is never overwritten.';
     } else {
       noteText = '<strong>Note:</strong> Only rows whose Work Order ID already exists in <code>wo_summary</code> are written to <code>wo_product_detail</code>. Rows referencing an unknown Work Order ID are skipped.';
     }
@@ -1011,7 +1039,9 @@
       } else if (isShipment) {
         zeroMsg = '<strong>No rows to update.</strong> All matched Excel rows already have <code>ship_pn</code>, <code>awb</code>, and <code>ship_pou_pod_time</code> populated in the database.';
       } else if (isGtaap) {
-        zeroMsg = '<strong>No DC# rows to update.</strong> All matched SOIDs already have a real <code>dc_number</code> (not NULL or 0), or no eligible rows were found in the Excel file.';
+        zeroMsg = '<strong>No rows to update.</strong> All matched SOIDs already have a real <code>dc_number</code> and an up-to-date <code>return_status</code>, or no eligible rows were found in the Excel file.';
+      } else if (isUnreturn) {
+        zeroMsg = '<strong>No rows to update.</strong> No Excel SOIDs matched <code>wo_product_detail</code>, or all matched rows have no changes to write.';
       } else {
         zeroMsg = '<strong>No new rows to insert.</strong> All ' + totalRows + ' Excel rows already exist in the database (they will be updated in-place).';
       }
@@ -1020,7 +1050,7 @@
           zeroMsg +
         '</div>';
     } else {
-      var sortLabel = (isWoid || isSoid) ? '(oldest first)' : '(newest first)';
+      var sortLabel = (isWoid || isSoid || isUnreturn) ? '(oldest first)' : '(newest first)';
       html +=
         '<div class="modal-section-title" style="margin-bottom:8px;">' +
           'All ' + impactedCount + ' impacted rows &mdash; sorted by ' + esc(dateCol) + ' ' + sortLabel +
@@ -1029,14 +1059,17 @@
           '<table class="modal-preview-table" style="margin-bottom:0;">' +
             '<thead style="position:sticky;top:0;z-index:1;background:#f0f2f5;"><tr>' +
               cols.map(function(c) {
-                var isInsert   = isGtaap && c === 'DC# (will be inserted)';
-                var isReason   = (isWoid || isSoid || isShipment) && c === 'Reason';
+                var isInsert       = (isGtaap && c === 'DC# (will be inserted)') || (isUnreturn && c === 'dc_lenovo (will write)');
+                var isStatusInsert = (isGtaap && c === 'Return Status (will be inserted)') || (isUnreturn && c === 'return_status (will write)');
+                var isReason       = (isWoid || isSoid || isShipment || isGtaap || isUnreturn) && c === 'Reason';
                 var isUpsertReason = (isSoid || isShipment) && c === 'Upsert Reason';
                 var thStyle = isInsert
                   ? 'background:#dcfce7;color:#15803d;font-weight:700;'
-                  : (isReason || isUpsertReason)
-                    ? 'background:#eff6ff;color:#1d4ed8;font-weight:700;min-width:260px;white-space:nowrap;'
-                    : '';
+                  : isStatusInsert
+                    ? 'background:#eff6ff;color:#1d4ed8;font-weight:700;'
+                    : (isReason || isUpsertReason)
+                      ? 'background:#eff6ff;color:#1d4ed8;font-weight:700;min-width:220px;max-width:380px;white-space:normal;'
+                      : '';
                 return '<th style="' + thStyle + '">' + esc(c) + '</th>';
               }).join('') +
             '</tr></thead>' +
@@ -1047,19 +1080,185 @@
                     return '<tr>' +
                       cols.map(function(c) {
                         var v = row[c] !== undefined ? row[c] : '';
-                        var isInsert = isGtaap && c === 'DC# (will be inserted)';
-                        var isReason = (isWoid || isSoid || isShipment) && c === 'Reason';
+                        var isInsert       = (isGtaap && c === 'DC# (will be inserted)') || (isUnreturn && c === 'dc_lenovo (will write)');
+                        var isStatusInsert = (isGtaap && c === 'Return Status (will be inserted)') || (isUnreturn && c === 'return_status (will write)');
+                        var isReason       = (isWoid || isSoid || isShipment || isGtaap || isUnreturn) && c === 'Reason';
                         var isUpsertReason = (isSoid || isShipment) && c === 'Upsert Reason';
                         var style = isInsert
                           ? 'background:#f0fdf4;color:#15803d;font-weight:600;'
-                          : (isReason || isUpsertReason)
-                            ? 'background:#eff6ff;color:#1d4ed8;font-weight:600;min-width:260px;white-space:nowrap;'
-                            : '';
+                          : isStatusInsert
+                            ? 'background:#eff6ff;color:#1d4ed8;font-weight:600;'
+                            : (isReason || isUpsertReason)
+                              ? 'background:#eff6ff;color:#1d4ed8;font-weight:600;min-width:220px;max-width:380px;white-space:normal;word-break:break-word;'
+                              : '';
                         return '<td style="' + style + '" title="' + esc(v) + '">' + esc(v) + '</td>';
                       }).join('') +
                     '</tr>';
                   }).join('')
               ) +
+            '</tbody>' +
+          '</table>' +
+        '</div>';
+    }
+
+    // ── GTAAP hierarchy-blocked rows ─────────────────────────────────────────
+    if (isGtaap && gtaapSkippedCount > 0) {
+      html += '<hr class="modal-divider">';
+      html +=
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
+          '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b91c1c" stroke-width="2.5" ' +
+               'stroke-linecap="round" stroke-linejoin="round">' +
+            '<circle cx="12" cy="12" r="10"/>' +
+            '<line x1="12" y1="8" x2="12" y2="12"/>' +
+            '<line x1="12" y1="16" x2="12.01" y2="16"/>' +
+          '</svg>' +
+          '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#b91c1c;">' +
+            'Blocked by status hierarchy' +
+            ' <span style=\'background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:10px;padding:1px 8px;font-size:10px;\'>' + gtaapSkippedCount + '</span>' +
+          '</span>' +
+        '</div>';
+
+      html +=
+        '<div style="font-size:12px;color:#991b1b;background:#fff1f2;border:1px solid #fca5a5;' +
+             'border-radius:6px;padding:8px 12px;margin-bottom:8px;">' +
+          'These rows will <strong>not</strong> be written because their current <code>return_status</code> ' +
+          'is already at an equal or higher rank in the hierarchy. ' +
+          'The hierarchy is: ' +
+          '<strong>PENDING FOR DC GENERATION</strong> (0) &rarr; ' +
+          '<strong>PENDING WITH PARTNER</strong> (1) &rarr; ' +
+          '<strong>DC GENERATED</strong> (2, locked). ' +
+          'A stored <code>DC GENERATED</code> is never overwritten. ' +
+          'The <em>Skip Reason</em> column explains each blocked row.' +
+        '</div>';
+
+      html +=
+        '<div style="overflow-x:auto;max-height:260px;overflow-y:auto;border:1px solid #fca5a5;border-radius:6px;margin-bottom:12px;">' +
+          '<table class="modal-preview-table" style="margin-bottom:0;">' +
+            '<thead style="position:sticky;top:0;z-index:1;background:#fee2e2;"><tr>' +
+              gtaapSkippedCols.map(function(c) {
+                var isReason = (c === 'Skip Reason');
+                var thStyle  = isReason
+                  ? 'background:#fca5a5;color:#b91c1c;font-weight:700;min-width:320px;white-space:nowrap;'
+                  : 'color:#991b1b;';
+                return '<th style="' + thStyle + '">' + esc(c) + '</th>';
+              }).join('') +
+            '</tr></thead>' +
+            '<tbody>' +
+              gtaapSkipped.map(function(row) {
+                return '<tr>' +
+                  gtaapSkippedCols.map(function(c) {
+                    var v       = row[c] !== undefined ? row[c] : '';
+                    var isLocked = (c === 'Status') && (v === 'DC GENERATED');
+                    var isReason = (c === 'Skip Reason');
+                    var style = isReason
+                      ? 'background:#fff1f2;color:#b91c1c;font-weight:600;min-width:320px;white-space:normal;'
+                      : isLocked
+                        ? 'color:#b91c1c;font-weight:700;'
+                        : '';
+                    return '<td style="' + style + '" title="' + esc(v) + '">' + esc(v) + '</td>';
+                  }).join('') +
+                '</tr>';
+              }).join('') +
+            '</tbody>' +
+          '</table>' +
+        '</div>';
+    }
+
+    // ── GTAAP absent rows — promoted to DC GENERATED ─────────────────────────
+    if (isGtaap && gtaapAbsentCount > 0) {
+      html += '<hr class="modal-divider">';
+      html +=
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
+          '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2.5" ' +
+               'stroke-linecap="round" stroke-linejoin="round">' +
+            '<circle cx="12" cy="12" r="10"/>' +
+            '<polyline points="12 8 12 12 14 14"/>' +
+          '</svg>' +
+          '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#7c3aed;">' +
+            'Not in Excel &mdash; promoted to DC Generated' +
+            ' <span style=\'background:#ede9fe;color:#7c3aed;border:1px solid #c4b5fd;border-radius:10px;padding:1px 8px;font-size:10px;\'>' + gtaapAbsentCount + '</span>' +
+          '</span>' +
+        '</div>';
+
+      html +=
+        '<div style="font-size:12px;color:#5b21b6;background:#f5f3ff;border:1px solid #c4b5fd;' +
+             'border-radius:6px;padding:8px 12px;margin-bottom:8px;">' +
+          'These DB rows currently have <strong>PENDING FOR DC GENERATION</strong> or ' +
+          '<strong>PENDING WITH PARTNER</strong> as their <code>return_status</code>, ' +
+          'but neither their <code>soid</code> nor their <code>work_order_id</code> appears ' +
+          'in the uploaded Excel file. This means the DC has already been generated and the ' +
+          'work order is no longer open. Their status will be promoted to ' +
+          '<strong>DC GENERATED</strong> when you confirm this upsert.' +
+        '</div>';
+
+      html +=
+        '<div style="overflow-x:auto;max-height:260px;overflow-y:auto;border:1px solid #c4b5fd;border-radius:6px;margin-bottom:12px;">' +
+          '<table class="modal-preview-table" style="margin-bottom:0;">' +
+            '<thead style="position:sticky;top:0;z-index:1;background:#ede9fe;"><tr>' +
+              gtaapAbsentCols.map(function(c) {
+                var isWill = (c === 'Will be set to');
+                return '<th style="' + (isWill ? 'background:#ddd6fe;color:#5b21b6;font-weight:700;' : 'color:#5b21b6;') + '">' + esc(c) + '</th>';
+              }).join('') +
+            '</tr></thead>' +
+            '<tbody>' +
+              gtaapAbsent.map(function(row) {
+                return '<tr>' +
+                  gtaapAbsentCols.map(function(c) {
+                    var v      = row[c] !== undefined ? row[c] : '';
+                    var isWill = (c === 'Will be set to');
+                    var style  = isWill ? 'background:#f5f3ff;color:#5b21b6;font-weight:700;' : '';
+                    return '<td style="' + style + '" title="' + esc(v) + '">' + esc(v) + '</td>';
+                  }).join('') +
+                '</tr>';
+              }).join('') +
+            '</tbody>' +
+          '</table>' +
+        '</div>';
+    }
+
+    // ── UNRETURN skipped rows (no SOID match or no changes) ──────────────────
+    if (isUnreturn && urSkippedCount > 0) {
+      html += '<hr class="modal-divider">';
+      html +=
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
+          '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2.5" ' +
+               'stroke-linecap="round" stroke-linejoin="round">' +
+            '<circle cx="12" cy="12" r="10"/>' +
+            '<line x1="12" y1="8" x2="12" y2="12"/>' +
+            '<line x1="12" y1="16" x2="12.01" y2="16"/>' +
+          '</svg>' +
+          '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#b45309;">' +
+            'Skipped (SOID not matched / no changes)' +
+            ' <span style=\'background:#fef3c7;color:#b45309;border:1px solid #fde68a;border-radius:10px;padding:1px 8px;font-size:10px;\'>' + urSkippedCount + '</span>' +
+          '</span>' +
+        '</div>';
+
+      html +=
+        '<div style="font-size:12px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;' +
+             'border-radius:6px;padding:8px 12px;margin-bottom:8px;">' +
+          'These rows were either <strong>not found</strong> in <code>wo_product_detail</code> (SOID mismatch), ' +
+          'or had <strong>nothing new to write</strong> (all fields already up-to-date).' +
+        '</div>';
+
+      html +=
+        '<div style="overflow-x:auto;max-height:260px;overflow-y:auto;border:1px solid #fde68a;border-radius:6px;margin-bottom:12px;">' +
+          '<table class="modal-preview-table" style="margin-bottom:0;">' +
+            '<thead style="position:sticky;top:0;z-index:1;background:#fef3c7;"><tr>' +
+              urSkippedCols.map(function(c) {
+                var isR = (c === 'No Match Reason');
+                return '<th style="' + (isR ? 'background:#fde68a;color:#92400e;font-weight:700;' : 'color:#92400e;') + '">' + esc(c) + '</th>';
+              }).join('') +
+            '</tr></thead>' +
+            '<tbody>' +
+              urSkipped.map(function(row) {
+                return '<tr>' +
+                  urSkippedCols.map(function(c) {
+                    var v = row[c] !== undefined ? row[c] : '';
+                    var isR = (c === 'No Match Reason');
+                    return '<td style="' + (isR ? 'background:#fffbeb;color:#b45309;font-weight:600;' : '') + '" title="' + esc(v) + '">' + esc(v) + '</td>';
+                  }).join('') +
+                '</tr>';
+              }).join('') +
             '</tbody>' +
           '</table>' +
         '</div>';
@@ -1267,6 +1466,60 @@
               'Please <strong>download the latest Work Order Advanced Find View (Active WO) from MSD</strong> ' +
               'for the Work Order IDs shown above, then upload and upsert that file to bring these records up to date.' +
             '</div>' +
+          '</div>';
+      }
+    }
+
+    // ── New technicians to be added to asp_users (WOID only) — hidden when 0 ──
+    if (isWoid) {
+      var newTechRows  = data.new_technicians      || [];
+      var newTechCols  = data.new_technicians_cols || [];
+      var newTechCount = newTechRows.length;
+
+      if (newTechCount > 0) {
+        html += '<hr class="modal-divider">';
+
+        html +=
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
+            '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="2.5" ' +
+                 'stroke-linecap="round" stroke-linejoin="round">' +
+              '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>' +
+              '<circle cx="9" cy="7" r="4"/>' +
+              '<line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/>' +
+            '</svg>' +
+            '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#166534;">' +
+              'New Technicians to be added to asp_users' +
+              ' <span style=\'background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:10px;padding:1px 8px;font-size:10px;\'>' + newTechCount + '</span>' +
+            '</span>' +
+          '</div>';
+
+        html +=
+          '<div style="font-size:12px;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;' +
+               'border-radius:6px;padding:8px 12px;margin-bottom:8px;">' +
+            'These technician LEAP IDs appear in the uploaded file but are <strong>not yet in asp_users</strong>. ' +
+            'They will be <strong>inserted automatically</strong> when you confirm the upsert.' +
+          '</div>';
+
+        html +=
+          '<div style="overflow-x:auto;max-height:200px;overflow-y:auto;border:1px solid #bbf7d0;' +
+               'border-radius:6px;margin-bottom:10px;">' +
+            '<table class="modal-preview-table" style="margin-bottom:0;">' +
+              '<thead style="position:sticky;top:0;z-index:1;background:#dcfce7;"><tr>' +
+                newTechCols.map(function(c) {
+                  return '<th style="color:#166534;">' + esc(c) + '</th>';
+                }).join('') +
+              '</tr></thead>' +
+              '<tbody>' +
+                newTechRows.map(function(row) {
+                  return '<tr>' +
+                    newTechCols.map(function(c) {
+                      var v = row[c] !== undefined ? row[c] : '';
+                      return '<td title="' + esc(v) + '">' + esc(v) + '</td>';
+                    }).join('') +
+                  '</tr>';
+                }).join('') +
+              '</tbody>' +
+            '</table>' +
           '</div>';
       }
     }
@@ -1514,6 +1767,13 @@
       { label: 'Matching SOID records…',        pct: 40, ms: 1400 },
       { label: 'Writing DC# values…',           pct: 80, ms: 1800 },
       { label: 'Finalising…',                   pct: 95, ms: 700  },
+    ],
+    UNRETURN:   [
+      { label: 'Reading Excel file…',           pct: 15, ms: 500  },
+      { label: 'Matching SOID records…',        pct: 40, ms: 1200 },
+      { label: 'Writing dc_lenovo values…',     pct: 70, ms: 1400 },
+      { label: 'Writing return_status…',        pct: 88, ms: 1000 },
+      { label: 'Finalising…',                   pct: 95, ms: 600  },
     ],
     DEFAULT:    [
       { label: 'Reading file…',                 pct: 20, ms: 700  },

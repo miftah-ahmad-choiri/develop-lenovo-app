@@ -8,7 +8,7 @@ Three user types are supported:
 
 Session keys stored on successful login:
   session["user_id"]            : int  primary-key id
-  session["username"]           : str  login username  (asp_user → parent asp_username)
+  session["username"]           : str  login username  (asp_user → their tech_id)
   session["role"]               : str  "admin" | "asp" | "asp_user"
   session["display_name"]       : str  full_name (admin/asp_user) or service_provider (asp)
   session["labor_vendor"]       : str | None  labor_vendor_related from asp_details (asp / asp_user)
@@ -93,11 +93,15 @@ def login():
 
             else:
                 # ── 2. Try asp_details ────────────────────────────────────────
+                # Match on username, vendor_code, or labor_vendor_related
                 asp_row = conn.execute(
                     "SELECT id, username, password, service_provider, labor_vendor_related, "
                     "       office_type, parent_group "
-                    "FROM asp_details WHERE LOWER(username) = LOWER(?)",
-                    (username,),
+                    "FROM asp_details "
+                    "WHERE LOWER(username) = LOWER(?)"
+                    "   OR LOWER(vendor_code) = LOWER(?)"
+                    "   OR labor_vendor_related = ?",
+                    (username, username, username),
                 ).fetchone()
 
                 if asp_row and str(asp_row["password"]) == password:
@@ -122,15 +126,16 @@ def login():
                     return redirect(next_url)
 
                 else:
-                    # ── 3. Try asp_users (staff accounts under an ASP) ────────
-                    # asp_users log in with their email address as the identifier
+                    # ── 3. Try asp_users ─────────────────────────────────────
+                    # Match on email, phone_number, or tech_id
                     asp_user_row = conn.execute(
-                        "SELECT u.id, u.asp_username, u.full_name, u.email, u.password, "
-                        "       u.is_active, d.labor_vendor_related "
+                        "SELECT u.id, u.tech_id, u.full_name, u.email, u.password, "
+                        "       u.is_active, u.labor_vendor_related "
                         "FROM asp_users u "
-                        "JOIN asp_details d ON d.username = u.asp_username "
-                        "WHERE LOWER(u.email) = LOWER(?)",
-                        (username,),
+                        "WHERE LOWER(u.email) = LOWER(?)"
+                        "   OR u.phone_number = ?"
+                        "   OR (u.tech_id IS NOT NULL AND LOWER(u.tech_id) = LOWER(?))",
+                        (username, username, username),
                     ).fetchone()
 
                     if asp_user_row and str(asp_user_row["password"]) == password:
@@ -139,8 +144,8 @@ def login():
                         else:
                             session.clear()
                             session["user_id"]      = asp_user_row["id"]
-                            # username = parent ASP username so vendor filter works
-                            session["username"]     = asp_user_row["asp_username"]
+                            # username = tech_id so vendor filter works
+                            session["username"]     = asp_user_row["tech_id"]
                             session["role"]         = "asp_user"
                             session["display_name"] = asp_user_row["full_name"] or asp_user_row["email"]
                             session["labor_vendor"] = asp_user_row["labor_vendor_related"]
@@ -189,20 +194,20 @@ def profile():
 
     elif role == "asp_user":
         row = conn.execute(
-            "SELECT id, asp_username, full_name, email, phone_number, is_active, created_at "
+            "SELECT id, tech_id, labor_vendor_related, full_name, email, phone_number, is_active, created_at "
             "FROM asp_users WHERE id = ?", (uid,)
         ).fetchone()
         if row:
             user = dict(row)
             user["display_name"] = row["full_name"] or row["email"]
             user["username"]     = row["email"]   # shown as the login identifier
-            # Fetch the parent ASP details to show in the ASP Information section
+            # Fetch the parent ASP details via labor_vendor_related FK
             asp_detail_row = conn.execute(
                 "SELECT service_provider, vendor_code, labor_vendor_related, "
                 "store_name, kota, island, address, phone_number, "
                 "operational_status, operation_support, working_hours "
-                "FROM asp_details WHERE username = ?",
-                (row["asp_username"],)
+                "FROM asp_details WHERE labor_vendor_related = ?",
+                (row["labor_vendor_related"],)
             ).fetchone()
             if asp_detail_row:
                 asp_detail = dict(asp_detail_row)
@@ -245,11 +250,11 @@ def profile():
 
     # Load ASP users for the ASP profile card (parent ASP only)
     asp_users = []
-    if role == "asp" and user.get("username"):
+    if role == "asp" and user.get("labor_vendor_related"):
         asp_user_rows = conn.execute(
-            "SELECT id, full_name, email, password, phone_number, is_active, created_at "
-            "FROM asp_users WHERE asp_username = ? ORDER BY id",
-            (user["username"],)
+            "SELECT id, tech_id, full_name, email, password, phone_number, is_active, created_at "
+            "FROM asp_users WHERE labor_vendor_related = ? ORDER BY id",
+            (user["labor_vendor_related"],)
         ).fetchall()
         asp_users = [dict(r) for r in asp_user_rows]
 
