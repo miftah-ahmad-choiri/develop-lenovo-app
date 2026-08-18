@@ -951,8 +951,9 @@
                 'The <em>Upsert Reason</em> column shows exactly which field(s) will be written.';
     } else if (isGtaap) {
       subDesc = 'Rows shown are GTAAP lines whose SOID exists in <code>wo_product_detail</code> and that have at least one change to write: ' +
-                '<code>dc_number</code> is currently <strong>NULL or 0</strong> (a real DC# will be inserted, or <strong>0</strong> for non-returnable parts), ' +
-                'or the Excel <strong>Status</strong> value differs from the stored <code>return_status</code>.';
+                '<code>dc_number</code> is currently <strong>NULL</strong> and Excel provides a real DC# value, ' +
+                'or the Excel <strong>Status</strong> is a forward move in the hierarchy: ' +
+                '<strong>PENDING WITH PARTNER</strong> (0) &rarr; <strong>PENDING FOR DC GENERATION</strong> (1) &rarr; <strong>DC GENERATED</strong> (2, locked).';
     } else if (isUnreturn) {
       subDesc = 'Rows shown are POU Unreturned lines whose SOID matches <code>wo_product_detail</code>. ' +
                 'For each matched SOID, <code>dc_lenovo</code> is written from the <strong>DC/Collection Form</strong> column. ' +
@@ -1013,9 +1014,11 @@
                  'Rows where all three DB columns are already filled are excluded — there is nothing new to write.';
     } else if (isGtaap) {
       noteText = '<strong>Upsert conditions (any one is sufficient):</strong> ' +
-                 '(1) <code>dc_number</code> is <code>NULL</code> or <code>0</code> — Pass 1 writes the real DC# from Excel; Pass 2 writes <code>0</code> for rows where <em>Return Flag = N/No</em>. ' +
+                 '(1) <code>dc_number</code> is <code>NULL</code> — Pass 1 writes the real DC# from Excel and immediately promotes <code>return_status</code> to <strong>DC GENERATED</strong>. ' +
                  'Any row whose <code>dc_number</code> already holds a real value is never touched for DC#. ' +
-                 '(2) Excel <strong>Status</strong> value is non-empty and differs from the stored <code>return_status</code> — always overwritten with the latest value from Excel.';
+                 '(2) Excel <strong>Status</strong> is a recognised forward move in the hierarchy ' +
+                 '(<strong>PENDING WITH PARTNER</strong> &rarr; <strong>PENDING FOR DC GENERATION</strong> &rarr; <strong>DC GENERATED</strong>) — ' +
+                 'written only when the incoming rank is strictly higher than the stored rank.';
     } else if (isUnreturn) {
       noteText = '<strong>Write rules (applied in this order):</strong> ' +
                  '(1) <code>dc_lenovo</code> is always written from Excel <em>DC/Collection Form</em> for every matched SOID (NULL when the Excel cell is empty). ' +
@@ -1124,8 +1127,8 @@
           'These rows will <strong>not</strong> be written because their current <code>return_status</code> ' +
           'is already at an equal or higher rank in the hierarchy. ' +
           'The hierarchy is: ' +
-          '<strong>PENDING FOR DC GENERATION</strong> (0) &rarr; ' +
-          '<strong>PENDING WITH PARTNER</strong> (1) &rarr; ' +
+          '<strong>PENDING WITH PARTNER</strong> (0) &rarr; ' +
+          '<strong>PENDING FOR DC GENERATION</strong> (1) &rarr; ' +
           '<strong>DC GENERATED</strong> (2, locked). ' +
           'A stored <code>DC GENERATED</code> is never overwritten. ' +
           'The <em>Skip Reason</em> column explains each blocked row.' +
