@@ -275,3 +275,76 @@ def mobile_wo_detail(work_order_id: int):
 
     parts = get_parts_for_wo(work_order_id)
     return jsonify({"wo": row, "parts": parts})
+
+
+# ── Input DC ──────────────────────────────────────────────────────────────────
+
+@mobile_bp.route("/api/v1/mobile/wo/<int:work_order_id>/input-dc", methods=["POST"])
+@jwt_required
+def mobile_input_dc(work_order_id: int):
+    """
+    Save DC number for one or more WOs.
+    Body: { "dc_number": "19127", "wo_ids": [4023123, 4023456] }
+    wo_ids is optional — falls back to [work_order_id] if omitted.
+    """
+    from app.services.database.db import get_db
+    from app.services.database.queries import get_wo_detail
+
+    # Vendor gate on the primary WO
+    row = get_wo_detail(work_order_id)
+    if not row:
+        return jsonify({"error": "Work order not found"}), 404
+    vf = mobile_vendor_filter()
+    if vf and row.get("labor_vendor_related") != vf:
+        return jsonify({"error": "Work order not found"}), 404
+
+    body = request.get_json(silent=True) or {}
+    dc = str(body.get("dc_number", "")).strip()
+    if not dc:
+        return jsonify({"error": "dc_number is required"}), 400
+
+    raw_ids = body.get("wo_ids") or [work_order_id]
+    try:
+        wo_ids = [int(i) for i in raw_ids]
+    except (TypeError, ValueError):
+        return jsonify({"error": "Invalid wo_ids"}), 400
+
+    conn = get_db()
+    updated = 0
+    for wid in wo_ids:
+        # If vendor-filtered, only allow WOs belonging to the same vendor
+        if vf:
+            r = get_wo_detail(wid)
+            if not r or r.get("labor_vendor_related") != vf:
+                continue
+        conn.execute(
+            "UPDATE wo_product_detail SET dc_number = ? WHERE work_order_id = ?",
+            (dc, wid)
+        )
+        updated += 1
+    conn.commit()
+    return jsonify({"ok": True, "updated_wos": updated, "dc_number": dc})
+
+
+@mobile_bp.route("/api/v1/mobile/wo/<int:work_order_id>/return-same-asp", methods=["GET"])
+@jwt_required
+def mobile_return_same_asp(work_order_id: int):
+    """
+    Return all return-part WOs for the same ASP (customer) as the given WO,
+    excluding cancelled, with pending return_status lines.
+    Used to pre-populate the "Also apply to" checklist in the Input DC modal.
+    """
+    from app.services.database.queries import get_wo_detail, get_return_part_wos_by_asp
+
+    row = get_wo_detail(work_order_id)
+    if not row:
+        return jsonify([])
+    vf = mobile_vendor_filter()
+    if vf and row.get("labor_vendor_related") != vf:
+        return jsonify([])
+
+    customer = row.get("customer") or ""
+    if not customer:
+        return jsonify([])
+    rows = get_return_part_wos_by_asp(customer)
+    return jsonify({"current_wo_id": work_order_id, "rows": rows})

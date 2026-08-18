@@ -518,12 +518,12 @@ def upsert_eta_parthold_from_backlog(df: pd.DataFrame, conn: sqlite3.Connection)
 # Status hierarchy for GTAAP return_status.
 # A row can only move forward (higher rank) — never backward, never overwrite
 # a value of equal or higher rank.
-#   PENDING FOR DC GENERATION  → rank 0  (lowest / open)
-#   PENDING WITH PARTNER       → rank 1  (pickup requested)
+#   PENDING WITH PARTNER       → rank 0  (lowest / open — pickup stage)
+#   PENDING FOR DC GENERATION  → rank 1  (DC form being prepared)
 #   DC GENERATED               → rank 2  (locked — never overwritten)
 _GTAAP_STATUS_RANK: dict[str, int] = {
-    "PENDING FOR DC GENERATION": 0,
-    "PENDING WITH PARTNER":      1,
+    "PENDING WITH PARTNER":      0,
+    "PENDING FOR DC GENERATION": 1,
     "DC GENERATED":              2,
 }
 
@@ -537,6 +537,9 @@ def _gtaap_status_eligible(db_status: str | None, excel_status: str) -> bool:
       higher than the stored rank (forward-only movement).
     - Unknown status strings (not in the hierarchy) are treated as rank -1
       so they can always be overwritten but never used to overwrite anything.
+
+    Hierarchy (lowest → highest):
+      PENDING WITH PARTNER (0) → PENDING FOR DC GENERATION (1) → DC GENERATED (2, locked)
     """
     incoming_rank = _GTAAP_STATUS_RANK.get(excel_status, -1)
     if incoming_rank < 0:
