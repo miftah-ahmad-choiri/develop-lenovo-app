@@ -5,6 +5,7 @@ All paths are resolved relative to the repository root so they work
 on any machine without hardcoding absolute paths.
 """
 import os
+import secrets
 
 # Repository root — two levels up from this file (app/config/settings.py → root)
 _ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -12,7 +13,9 @@ _ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 class Config:
     # ── Flask core ─────────────────────────────────────────────────────────────
-    SECRET_KEY = "lenovo-asp-secret-key"
+    # Read from environment; fall back to a per-process random key (dev only).
+    # In production set SECRET_KEY as an environment variable — never hardcode.
+    SECRET_KEY = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB
     TEMPLATES_AUTO_RELOAD = True           # always re-read templates from disk
 
