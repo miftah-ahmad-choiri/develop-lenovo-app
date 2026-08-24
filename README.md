@@ -596,10 +596,13 @@ To create a brand-new tunnel on a **different** account:
 .\cloudflared\cloudflared.exe tunnel create asp-ticketing
 ```
 
-To Run it
+To run the tunnel once everything is configured:
 
 ```powershell
-.\cloudflared\cloudflared.exe tunnel token --cred-file "C:\Users\MiftahAhmadChoiri\.cloudflared\ce858d75-6e3f-416f-b4f0-d1b5ebb1f016.json" ce858d75-6e3f-416f-b4f0-d1b5ebb1f016
+# Export a token for the tunnel (replace TUNNEL_ID with your tunnel's UUID)
+.\cloudflared\cloudflared.exe tunnel token --cred-file "C:\Users\<you>\.cloudflared\<TUNNEL_ID>.json" <TUNNEL_ID>
+
+# Start the tunnel
 .\cloudflared\cloudflared.exe tunnel --config cloudflared\config.yml run
 ```
 
