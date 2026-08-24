@@ -118,12 +118,19 @@
       "new_users": 0,
       "status": "success",
       "upsert_date": "2026-08-18"
+    },
+    "WO Status - IBM TLS MSD 8-24-2026 6-22-03 PM.xlsx": {
+      "new_wo": 593,
+      "updated_wo": 1039,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-08-24"
     }
   },
   "daily_totals": {
-    "2026-08-18": {
-      "new_wo": 212,
-      "updated_wo": 1104,
+    "2026-08-24": {
+      "new_wo": 593,
+      "updated_wo": 1039,
       "new_users": 0
     }
   }

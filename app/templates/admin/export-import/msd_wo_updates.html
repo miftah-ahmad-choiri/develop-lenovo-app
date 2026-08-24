@@ -107,6 +107,13 @@
   }
   .btn-otp-submit:hover { background: #d97706; }
   .btn-otp-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+  .btn-otp-cancel {
+    padding: 8px 14px; background: #fff; border: 1px solid #d0d7de; border-radius: 6px;
+    color: #374151; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
+    font-family: inherit; transition: background 0.12s, border-color 0.12s;
+  }
+  .btn-otp-cancel:hover:not(:disabled) { background: #f3f4f6; border-color: #9ca3af; }
+  .btn-otp-cancel:disabled { opacity: 0.6; cursor: not-allowed; }
 
   /* ── Session-expired / Re-login panel ───────────────────────────────────── */
   .msd-relogin-panel {
@@ -326,6 +333,9 @@
                  placeholder="_ _ _ _ _ _" autocomplete="one-time-code" />
           <button type="button" class="btn-otp-submit" id="btn-otp-submit" onclick="submitOtp()">
             Submit OTP
+          </button>
+          <button type="button" class="btn-otp-cancel" id="btn-otp-cancel" onclick="cancelOtp()">
+            Cancel
           </button>
         </div>
       </div>
@@ -825,15 +835,47 @@ function submitRelogin() {
 
 /* ── OTP panel ─────────────────────────────────────────────────────────── */
 function setOtpPanelVisible(visible) {
-  const panel = document.getElementById('msd-otp-panel');
-  const input = document.getElementById('msd-otp-input');
+  const panel      = document.getElementById('msd-otp-panel');
+  const input      = document.getElementById('msd-otp-input');
+  const submitBtn  = document.getElementById('btn-otp-submit');
+  const cancelBtn  = document.getElementById('btn-otp-cancel');
   if (visible) {
+    const alreadyVisible = panel.classList.contains('visible');
     panel.classList.add('visible');
-    input.value = '';
-    input.focus();
+    submitBtn.disabled = false;
+    cancelBtn.disabled = false;
+    // Only reset the input and grab focus on the FIRST show.
+    // Subsequent calls (e.g. from the status poll) must not touch the
+    // value — the user may already be typing their OTP code.
+    if (!alreadyVisible) {
+      input.value = '';
+      input.focus();
+    }
   } else {
     panel.classList.remove('visible');
   }
+}
+
+function cancelOtp() {
+  const submitBtn = document.getElementById('btn-otp-submit');
+  const cancelBtn = document.getElementById('btn-otp-cancel');
+  submitBtn.disabled = true;
+  cancelBtn.disabled = true;
+  fetch('/admin/msd-wo-updates/otp/cancel', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  })
+    .then(async function (r) {
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.error || 'Failed to cancel OTP.');
+      appendMsdLog('msd-log-system', '— OTP cancelled — Chrome session closed (session preserved). —');
+      setOtpPanelVisible(false);
+    })
+    .catch(function (err) {
+      appendMsdLog('msd-log-error', err.message || String(err));
+      submitBtn.disabled = false;
+      cancelBtn.disabled = false;
+    });
 }
 
 function submitOtp() {
@@ -1076,7 +1118,14 @@ function pollMsdStatus() {
       const wasRunning = _msdRunning;
       setMsdRunning(!!data.is_running);
       if (typeof data.in_window === 'boolean') setInWindow(data.in_window);
-      if (data.otp_pending)     setOtpPanelVisible(true);
+      // Only call setOtpPanelVisible(true) when the panel isn't already open.
+      // Calling it while the panel is visible would re-focus the input and could
+      // interfere with typing — the alreadyVisible guard above handles this, but
+      // skipping the call entirely is cleaner and avoids the focus steal.
+      const _otpPanel = document.getElementById('msd-otp-panel');
+      if (data.otp_pending && !_otpPanel.classList.contains('visible')) {
+        setOtpPanelVisible(true);
+      }
       if (data.relogin_pending) setReloginPanelVisible(true);
       // Auto-refresh files list when a run just finished
       if (wasRunning && !data.is_running) refreshFiles();

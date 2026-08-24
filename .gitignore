@@ -28,6 +28,9 @@ Thumbs.db
 
 # Local env files
 .env
+*.env
+env
+app/scripts/msd-auto-download/env
 *.local
 nul
 # Upload metadata cache — runtime-generated, not for version control

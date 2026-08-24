@@ -14,7 +14,13 @@ from selenium.common.exceptions import TimeoutException
 import time
 from dotenv import load_dotenv
 
-load_dotenv()
+# Always load from this script's own directory, regardless of the current
+# working directory (which differs when run via runpy from Flask).
+# The file is named "env" (no leading dot) in this project.
+_env_file = pathlib.Path(__file__).resolve().parent / ".env"
+if not _env_file.exists():
+    _env_file = pathlib.Path(__file__).resolve().parent / "env"
+load_dotenv(dotenv_path=_env_file)
 
 # =====================================
 # CONFIG
@@ -37,10 +43,11 @@ PASSWORD = os.getenv("DYNAMICS_PASSWORD", "")
 # CHROME SETUP
 # =====================================
 
-# Download destination — use the user's standard Downloads folder
+# Download destination — resolve to the current user's Downloads folder so it
+# works on any machine regardless of the Windows username.
 DOWNLOADS_DIR = os.getenv(
     "DOWNLOADS_DIR",
-    r"C:\Users\mifta\Downloads"
+    str(pathlib.Path.home() / "Downloads")
 )
 
 # Use a dedicated Chrome profile directory for Selenium to persist cookies/login session.
@@ -153,6 +160,37 @@ def _kill_chrome_on_profile(profile_dir: str) -> None:
     else:
         print("No previous Chrome window found on this profile.")
 
+# ── Patch the persisted Chrome Preferences file BEFORE launching Chrome ──────
+# When --user-data-dir points to an existing profile, Chrome loads its saved
+# Preferences file from disk and IGNORES any prefs passed via add_experimental_option.
+# The saved profile typically has "download.prompt_for_download": true (the user's
+# real Chrome setting) which causes the "Save As" dialog to appear.
+# Fix: write the correct download prefs directly into the Preferences JSON file
+# before Chrome starts, so it picks them up on launch.
+_prefs_file = pathlib.Path(SELENIUM_PROFILE_DIR) / "Default" / "Preferences"
+try:
+    import json as _json
+    _prefs_file.parent.mkdir(parents=True, exist_ok=True)
+    _existing = {}
+    if _prefs_file.exists():
+        try:
+            _existing = _json.loads(_prefs_file.read_text(encoding="utf-8"))
+        except Exception:
+            _existing = {}
+    # Patch only the download sub-keys — leave all other prefs intact
+    _existing.setdefault("download", {})
+    _existing["download"]["default_directory"]    = DOWNLOADS_DIR
+    _existing["download"]["prompt_for_download"]  = False
+    _existing["download"]["directory_upgrade"]    = True
+    _existing.setdefault("safebrowsing", {})
+    _existing["safebrowsing"]["enabled"] = True
+    _prefs_file.write_text(
+        _json.dumps(_existing, indent=2), encoding="utf-8"
+    )
+    print(f"Chrome Preferences patched: download dir → {DOWNLOADS_DIR}")
+except Exception as _pe:
+    print(f"Warning: could not patch Chrome Preferences: {_pe}")
+
 options = Options()
 options.add_argument("--start-maximized")
 options.add_argument("--force-device-scale-factor=0.6")
@@ -160,6 +198,7 @@ options.add_argument(f"--user-data-dir={SELENIUM_PROFILE_DIR}")
 
 # No "detach" — on normal exit the browser closes; on Ctrl+C only the window
 # is closed so the Chrome profile (cookies/session) is preserved on disk.
+# These prefs are also written into Preferences above for the persistent profile.
 options.add_experimental_option("prefs", {
     "download.default_directory":         DOWNLOADS_DIR,
     "download.prompt_for_download":       False,
@@ -578,49 +617,219 @@ def do_login():
     print("Redirected to login page. Starting login flow...")
 
     # =====================================
-    # INPUT EMAIL
+    # HANDLE "PICK AN ACCOUNT" SCREEN
     # =====================================
-    print("Finding email field...")
-
-    email_box = wait.until(
-        EC.visibility_of_element_located(
-            (
-                By.XPATH,
-                "//input[@type='email' or @name='loginfmt' or @id='i0116']"
+    # When the Chrome profile has cached account tiles but no active session,
+    # Microsoft shows a "Pick an account" chooser instead of the email input.
+    # DOM structure (confirmed):
+    #   <div class="table" role="button"
+    #        data-bind="..., click: tile_onClick, ..."
+    #        data-test-id="ibmid_02@extlenovo.com">   ← THIS is the clickable element
+    #     <div class="table-row">
+    #       <div class="table-cell text-left content">
+    #         <div data-bind="text: session.tileDisplayName">IBMID_02@extlenovo.com</div>
+    # Detect the screen, then find the tile whose data-test-id matches EMAIL and click it.
+    # If no match → click "Use another account" so the normal email field appears.
+    try:
+        # Wait up to 5 s — short so we don't slow down the normal flow when the
+        # email field appears directly without the account chooser.
+        WebDriverWait(driver, 5).until(
+            EC.presence_of_element_located(
+                (By.XPATH, "//*[@data-bind and contains(@data-bind,'tileDisplayName')]")
             )
         )
-    )
 
-    print("Email field found.")
+        print("'Pick an account' screen detected. Looking for matching account tile...")
 
-    driver.execute_script("arguments[0].scrollIntoView(true);", email_box)
-    time.sleep(1)
-    email_box.click()
-    driver.execute_script("arguments[0].value='';", email_box)
-    driver.execute_script("arguments[0].value = arguments[1];", email_box, EMAIL)
-    driver.execute_script("""
-        arguments[0].dispatchEvent(new Event('input',  { bubbles: true }));
-        arguments[0].dispatchEvent(new Event('change', { bubbles: true }));
-    """, email_box)
-    print("Email entered.")
-    time.sleep(2)
+        email_lower = EMAIL.lower()
+        account_tile = None
+
+        # ── Strategy 1 (most precise) ─────────────────────────────────────────
+        # The real clickable element (confirmed from DOM) is:
+        #   <div class="table" role="button" data-bind="..., click: tile_onClick, ..."
+        #        data-test-id="ibmid_02@extlenovo.com" ...>
+        # Primary selector: match by data-test-id attribute (equals the email exactly).
+        try:
+            account_tile = driver.find_element(
+                By.XPATH,
+                f"//*[@data-test-id and contains("
+                f"translate(@data-test-id,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),"
+                f"'{email_lower}')][@role='button']"
+            )
+            if not account_tile.is_displayed():
+                account_tile = None
+        except Exception:
+            account_tile = None
+
+        # ── Strategy 2 — data-bind tile_onClick + tileDisplayName text match ──
+        # Find the tileDisplayName div whose text contains the email, then walk up
+        # to the nearest ancestor whose data-bind contains "tile_onClick".
+        if account_tile is None:
+            name_els = driver.find_elements(
+                By.XPATH,
+                "//*[@data-bind and contains(@data-bind,'tileDisplayName')]"
+            )
+            for el in name_els:
+                try:
+                    if email_lower not in el.text.strip().lower():
+                        continue
+                    # Walk up — stop at the first ancestor with tile_onClick
+                    node = el
+                    for _ in range(10):
+                        node = driver.execute_script(
+                            "return arguments[0].parentElement;", node
+                        )
+                        if node is None:
+                            break
+                        db = (node.get_attribute("data-bind") or "")
+                        if "tile_onClick" in db:
+                            account_tile = node
+                            break
+                    if account_tile:
+                        break
+                except Exception:
+                    pass
+
+        # ── Strategy 3 — broadest fallback ───────────────────────────────────
+        # Any role=button element whose text or data-test-id contains the email.
+        if account_tile is None:
+            for xpath in (
+                # role=button + tile_onClick binding containing email text
+                f"//*[@role='button' and contains(@data-bind,'tile_onClick')]"
+                f"[contains(translate(normalize-space(.),"
+                f"'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),"
+                f"'{email_lower}')]",
+                # class=table row that is the tile container
+                f"//*[contains(@class,'table') and @role='button']"
+                f"[contains(translate(normalize-space(.),"
+                f"'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),"
+                f"'{email_lower}')]",
+            ):
+                try:
+                    candidates = driver.find_elements(By.XPATH, xpath)
+                    for c in candidates:
+                        if c.is_displayed():
+                            account_tile = c
+                            break
+                except Exception:
+                    pass
+                if account_tile:
+                    break
+
+        # ── Click the matched tile ────────────────────────────────────────────
+        if account_tile is not None:
+            print(f"Account tile found: '{account_tile.text.strip()[:60]}'. Clicking...")
+            driver.execute_script(
+                "arguments[0].scrollIntoView({block:'center'});", account_tile
+            )
+            time.sleep(0.5)
+            driver.execute_script("arguments[0].click();", account_tile)
+            print("Account tile clicked. Waiting for password page...")
+            # Wait for the password field to appear (confirms the click worked)
+            try:
+                WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located(
+                        (By.XPATH,
+                         "//input[@type='password' or @name='passwd' or @id='i0118']")
+                    )
+                )
+                print("Password field detected — tile click successful.")
+            except TimeoutException:
+                print("Password field not yet visible — continuing anyway.")
+        else:
+            # No matching tile — click "Use another account" so email field appears
+            print(f"No tile matched '{EMAIL}'. Clicking 'Use another account'...")
+            use_other = None
+            for xpath in (
+                # data-bind attribute approach (most reliable on this page)
+                "//*[@data-bind and contains(@data-bind,'useAnotherAccount')]",
+                # Visible text approach
+                "//*[contains(translate(normalize-space(text()),"
+                "'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),"
+                "'use another account')]",
+            ):
+                try:
+                    els = driver.find_elements(By.XPATH, xpath)
+                    for el in els:
+                        if el.is_displayed():
+                            use_other = el
+                            break
+                except Exception:
+                    pass
+                if use_other:
+                    break
+
+            if use_other:
+                driver.execute_script("arguments[0].click();", use_other)
+                print("'Use another account' clicked.")
+                time.sleep(2)
+            else:
+                print("'Use another account' not found — proceeding to email entry.")
+
+    except TimeoutException:
+        print("No 'Pick an account' screen — proceeding directly to email entry.")
 
     # =====================================
-    # CLICK NEXT (EMAIL)
+    # INPUT EMAIL  (skipped when tile click already landed on password page)
     # =====================================
-    print("Finding Next button...")
-    next_button = wait.until(EC.element_to_be_clickable((By.ID, "idSIButton9")))
-    print("Next button found.")
-    driver.execute_script("arguments[0].scrollIntoView({block:'center'});", next_button)
-    time.sleep(1)
-    driver.execute_script("arguments[0].click();", next_button)
-    print("Clicked Next.")
-    time.sleep(3)
+    # After clicking an account tile, Microsoft goes straight to the password
+    # field — no email entry step.  Check for the password field first so we
+    # don't waste 30 s waiting for an email box that will never appear.
+    _password_already_visible = False
+    try:
+        WebDriverWait(driver, 3).until(
+            EC.presence_of_element_located(
+                (By.XPATH,
+                 "//input[@type='password' or @name='passwd' or @id='i0118']")
+            )
+        )
+        _password_already_visible = True
+        print("Password field already visible — skipping email entry step.")
+    except TimeoutException:
+        pass
 
-    print("Current URL:")
-    print(driver.current_url)
-    print("Page title:")
-    print(driver.title)
+    if not _password_already_visible:
+        print("Finding email field...")
+
+        email_box = wait.until(
+            EC.visibility_of_element_located(
+                (
+                    By.XPATH,
+                    "//input[@type='email' or @name='loginfmt' or @id='i0116']"
+                )
+            )
+        )
+
+        print("Email field found.")
+
+        driver.execute_script("arguments[0].scrollIntoView(true);", email_box)
+        time.sleep(1)
+        email_box.click()
+        driver.execute_script("arguments[0].value='';", email_box)
+        driver.execute_script("arguments[0].value = arguments[1];", email_box, EMAIL)
+        driver.execute_script("""
+            arguments[0].dispatchEvent(new Event('input',  { bubbles: true }));
+            arguments[0].dispatchEvent(new Event('change', { bubbles: true }));
+        """, email_box)
+        print("Email entered.")
+        time.sleep(2)
+
+        # =====================================
+        # CLICK NEXT (EMAIL)
+        # =====================================
+        print("Finding Next button...")
+        next_button = wait.until(EC.element_to_be_clickable((By.ID, "idSIButton9")))
+        print("Next button found.")
+        driver.execute_script("arguments[0].scrollIntoView({block:'center'});", next_button)
+        time.sleep(1)
+        driver.execute_script("arguments[0].click();", next_button)
+        print("Clicked Next.")
+        time.sleep(3)
+
+        print("Current URL:")
+        print(driver.current_url)
+        print("Page title:")
+        print(driver.title)
 
     # =====================================
     # INPUT PASSWORD
