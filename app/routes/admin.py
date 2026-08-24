@@ -397,6 +397,9 @@ _msd_otp_queue:    _queue.Queue = _queue.Queue(maxsize=1)
 _msd_otp_pending:  bool = False   # True while script is waiting for OTP
 _msd_relogin_pending: bool = False  # True while script is waiting for re-login
 
+class _OtpCancelledError(Exception):
+    """Raised inside the MSD script thread when the user clicks Cancel on the OTP panel."""
+
 # ── Startup auto-run ─────────────────────────────────────────────────────────
 # Delay is read from Config.MSD_STARTUP_DELAY_SEC (app/config/settings.py).
 # Default is 10 minutes; reduce it there for testing without touching this file.
@@ -617,6 +620,23 @@ def msd_wo_updates_otp():
         _msd_otp_pending = False
     except _queue.Full:
         return jsonify({"ok": False, "error": "OTP already queued."}), 409
+    return jsonify({"ok": True})
+
+
+@admin_bp.route("/admin/msd-wo-updates/otp/cancel", methods=["POST"])
+def msd_wo_updates_otp_cancel():
+    """User dismissed the OTP panel without entering a code.
+    Send the __OTP_CANCELLED__ sentinel so the script thread unblocks and
+    closes Chrome cleanly — without wiping the saved Chrome session on disk.
+    """
+    global _msd_otp_pending
+    if not _msd_otp_pending:
+        return jsonify({"ok": False, "error": "No OTP is currently pending."}), 409
+    try:
+        _msd_otp_queue.put_nowait("__OTP_CANCELLED__")
+        _msd_otp_pending = False
+    except _queue.Full:
+        return jsonify({"ok": False, "error": "OTP queue is full — try again."}), 409
     return jsonify({"ok": True})
 
 
@@ -3067,9 +3087,10 @@ def _run_msd_download_task(app, run_once: bool = False) -> None:
             logger.error(_tbk.format_exc())
 
     # ── stdin shim ────────────────────────────────────────────────────────────
-    # Replace builtins.input inside the script. Handles two cases:
-    #   • OTP prompt  — shows OTP panel in browser, waits for /otp
-    #   • Re-login    — shows Re-login panel, waits for /relogin
+    # Replace builtins.input inside the script. Handles three cases:
+    #   • OTP prompt      — shows OTP panel in browser, waits for /otp
+    #   • OTP cancelled   — user clicked Cancel; close Chrome, preserve session
+    #   • Re-login        — shows Re-login panel, waits for /relogin
     def _web_input(prompt: str = "") -> str:
         global _msd_otp_pending, _msd_relogin_pending
         if prompt == "__RELOGIN_WAIT__":
@@ -3084,7 +3105,10 @@ def _run_msd_download_task(app, run_once: bool = False) -> None:
             logger.info(prompt)
         logger.info("__OTP_REQUIRED__")   # sentinel picked up by SSE stream
         _msd_otp_pending = True
-        code = _msd_otp_queue.get()       # blocks until /otp route puts a value
+        code = _msd_otp_queue.get()       # blocks until /otp or /otp/cancel puts a value
+        if code == "__OTP_CANCELLED__":
+            # Raise so the except _OtpCancelledError block above closes Chrome cleanly.
+            raise _OtpCancelledError("OTP cancelled by user.")
         logger.info("OTP code received from browser.")
         return code
 
@@ -3106,6 +3130,39 @@ def _run_msd_download_task(app, run_once: bool = False) -> None:
                 )
             stdout_writer.flush()
             stderr_writer.flush()
+        except _OtpCancelledError:
+            # User cancelled OTP — close the Chrome window but keep the profile on disk
+            # so the saved session (cookies) is preserved for the next run.
+            logger.info("MSD auto-download cancelled by user (OTP dismissed).")
+            try:
+                # runpy executes the script in its own globals dict — the script's
+                # `driver` variable lives there. We injected _web_input via init_globals
+                # so we can reach the script module's globals through the exception
+                # traceback frame.  Simplest safe approach: import the selenium driver
+                # that was already instantiated at module level in the script by finding
+                # it on the thread's current stack.
+                import sys as _sys
+                _frame = _sys._getframe()
+                _drv = None
+                while _frame is not None:
+                    if "driver" in _frame.f_locals:
+                        _candidate = _frame.f_locals["driver"]
+                        # Make sure it's a Selenium WebDriver instance
+                        try:
+                            from selenium.webdriver.remote.webdriver import WebDriver as _WD
+                            if isinstance(_candidate, _WD):
+                                _drv = _candidate
+                                break
+                        except Exception:
+                            pass
+                    _frame = _frame.f_back
+                if _drv is not None:
+                    _drv.close()   # close window only — profile/cookies stay on disk
+                    logger.info("Chrome window closed (session preserved).")
+                else:
+                    logger.warning("Could not locate Chrome driver to close window.")
+            except Exception as _ce:
+                logger.warning("Warning closing Chrome after OTP cancel: %s", _ce)
         except SystemExit as exc:
             code = exc.code if isinstance(exc.code, int) else 0
             if code == 0:
