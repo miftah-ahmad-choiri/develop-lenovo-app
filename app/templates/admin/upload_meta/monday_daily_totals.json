@@ -1,7 +1,12 @@
 {
   "2026-08-15": {
     "found": 5,
-    "updates": 24,
-    "syncs": 94
+    "syncs": 94,
+    "updates": 24
+  },
+  "2026-08-24": {
+    "found": 14,
+    "updates": 33,
+    "syncs": 2
   }
 }
