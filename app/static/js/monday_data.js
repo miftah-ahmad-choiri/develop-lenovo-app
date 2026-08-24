@@ -1,53 +1,32 @@
 /* monday_data.js — all interactive logic for the Monday Data page.
    Loaded as a static asset so the browser caches it across page loads.
-   Data is fetched from /admin/api/monday-data on page load instead of
-   being embedded in the HTML. */
+   Data is fetched from /admin/api/monday-data (paginated) on demand.
+   Filtering, search, and pagination are handled server-side. */
 (function () {
   /* ── State ───────────────────────────────────────────────────── */
-  let ALL_ROWS    = [];
-  let BOARD_NAMES = {};
+  let BOARD_NAMES   = {};
   let _activeBoard  = '';
-  let _activeStatus = '';   // '' = all statuses
+  let _activeStatus = '';
   let _searchQ      = '';
   let _page         = 1;
+  let _totalPages   = 1;
+  let _totalRows    = 0;
   const PAGE_SIZE   = 50;
 
-  /* ── Fast lookup map: monday_item_id → row ───────────────────── */
+  /* ── Per-page row cache (keyed by monday_item_id) for detail drawer ── */
   let _ROW_MAP = {};
 
-  /* ── Status grouping — merge these raw values into one dropdown option ── */
+  /* ── Search debounce timer ───────────────────────────────────── */
+  let _searchTimer = null;
+
+  /* ── Status grouping — must match backend STATUS_GROUPS ─────── */
   const STATUS_GROUPS = {
     'in progress': ['technical escalation', 'progress', 'qa result'],
   };
-  // Reverse map: raw value → group key
   const _RAW_TO_GROUP = {};
   Object.entries(STATUS_GROUPS).forEach(([group, raws]) => {
     raws.forEach(raw => { _RAW_TO_GROUP[raw] = group; });
   });
-
-  /* ── Filtered data ───────────────────────────────────────────── */
-  function _filtered() {
-    let rows = ALL_ROWS;
-    if (_activeBoard) rows = rows.filter(r => r.board_id === _activeBoard);
-    if (_activeStatus) {
-      const members = STATUS_GROUPS[_activeStatus];
-      if (members) {
-        rows = rows.filter(r => members.includes((r.status || '').toLowerCase()));
-      } else {
-        rows = rows.filter(r => (r.status || '').toLowerCase() === _activeStatus);
-      }
-    }
-    if (_searchQ) {
-      const q = _searchQ.toLowerCase();
-      rows = rows.filter(r =>
-        (r.item_name     || '').toLowerCase().includes(q) ||
-        (r.wo_case_id    || '').toLowerCase().includes(q) ||
-        (r.serial_number || '').toLowerCase().includes(q) ||
-        (r.status        || '').toLowerCase().includes(q)
-      );
-    }
-    return rows;
-  }
 
   /* ── Status filter dropdown ──────────────────────────────────── */
   window.selectStatus = function(status) {
@@ -57,18 +36,17 @@
     const btn = document.getElementById('status-clear-btn');
     if (sel) { sel.value = status; sel.classList.toggle('has-filter', !!status); }
     if (btn) btn.classList.toggle('visible', !!status);
-    render();
+    loadData(false);
   };
 
-  /* Populate <select> — grouped statuses appear as one combined option.
+  /* Populate <select> from meta endpoint counts.
      "In Progress" is always pinned as the first option after "All". */
   const PINNED_STATUS = 'in progress';
 
-  function _buildStatusPills() {
+  function _buildStatusPills(statusList, totalCount) {
     const rawCounts = {};
-    ALL_ROWS.forEach(r => {
-      const s = (r.status || '—').trim();
-      rawCounts[s] = (rawCounts[s] || 0) + 1;
+    (statusList || []).forEach(s => {
+      rawCounts[(s.status || '—').trim()] = s.cnt;
     });
 
     const displayCounts = {};
@@ -78,7 +56,6 @@
       displayCounts[key] = (displayCounts[key] || 0) + n;
     });
 
-    // Sort by count descending, but keep pinned entry first
     const sorted = Object.entries(displayCounts).sort((a, b) => {
       if (a[0].toLowerCase() === PINNED_STATUS) return -1;
       if (b[0].toLowerCase() === PINNED_STATUS) return  1;
@@ -87,7 +64,7 @@
 
     const sel = document.getElementById('status-select');
     if (!sel) return;
-    sel.innerHTML = `<option value="">All statuses (${ALL_ROWS.length})</option>`;
+    sel.innerHTML = `<option value="">All statuses (${totalCount})</option>`;
     sorted.forEach(([label, count]) => {
       const opt     = document.createElement('option');
       opt.value     = label.toLowerCase();
@@ -97,23 +74,27 @@
     });
   }
 
-  /* ── Render table ────────────────────────────────────────────── */
-  function render() {
-    const rows  = _filtered();
-    const total = rows.length;
-    const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-    if (_page > pages) _page = pages;
-    const start = (_page - 1) * PAGE_SIZE;
-    const slice = rows.slice(start, start + PAGE_SIZE);
+  /* ── Render table from server response ──────────────────────── */
+  function render(data) {
+    const rows  = data.rows   || [];
+    const total = data.total  || 0;
+    const pages = data.pages  || 1;
+    _totalRows  = total;
+    _totalPages = pages;
+
+    // update row cache for detail drawer
+    _ROW_MAP = {};
+    rows.forEach(r => { _ROW_MAP[r.monday_item_id] = r; });
 
     document.getElementById('row-count-label').textContent =
       total.toLocaleString() + ' item' + (total !== 1 ? 's' : '');
 
+    const start = (_page - 1) * PAGE_SIZE;
     const tbody = document.getElementById('data-tbody');
-    if (!slice.length) {
+    if (!rows.length) {
       tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#9ca3af;padding:32px">No records found.</td></tr>';
     } else {
-      tbody.innerHTML = slice.map((r, i) => {
+      tbody.innerHTML = rows.map((r, i) => {
         const rowNum      = start + i + 1;
         const statusBadge = _statusBadge(r.status);
         const date        = _fmtDate(r.item_created_at || r.db_synced_at);
@@ -196,7 +177,7 @@
 
   window.goPage = function(p) {
     _page = p;
-    render();
+    loadData(false);
     document.querySelector('.md-main').scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
@@ -217,7 +198,7 @@
       lbl.textContent = '';
       sub.textContent = 'Showing all boards';
     }
-    render();
+    loadData(false);
   };
 
   window.filterBoardList = function(q) {
@@ -229,9 +210,12 @@
   };
 
   window.applySearch = function(q) {
-    _searchQ = q.trim();
-    _page = 1;
-    render();
+    clearTimeout(_searchTimer);
+    _searchTimer = setTimeout(function() {
+      _searchQ = q.trim();
+      _page = 1;
+      loadData(false);
+    }, 300);
   };
 
   /* ── Discussion drawer ───────────────────────────────────────── */
@@ -269,13 +253,38 @@
 
   /* ── Detail modal ────────────────────────────────────────────── */
   function _openDetail(itemId) {
-    const row = _ROW_MAP[itemId];
-    if (!row) return;
-    document.getElementById('detail-title').textContent    = row.item_name || 'Escalation Detail';
-    document.getElementById('detail-subtitle').textContent = row.asp_board || '';
-    document.getElementById('detail-body').innerHTML = _renderDetail(row);
-    document.getElementById('detail-drawer').classList.add('open');
-    document.getElementById('detail-overlay').classList.add('open');
+    // If the row is cached from the current page, render immediately.
+    // Otherwise fetch it from the per-item API endpoint.
+    const cached = _ROW_MAP[itemId];
+    if (cached) {
+      document.getElementById('detail-title').textContent    = cached.item_name || 'Escalation Detail';
+      document.getElementById('detail-subtitle').textContent = cached.asp_board || '';
+      document.getElementById('detail-body').innerHTML = _renderDetail(cached);
+      document.getElementById('detail-drawer').classList.add('open');
+      document.getElementById('detail-overlay').classList.add('open');
+    } else {
+      // Show drawer immediately with a loading state while we fetch
+      document.getElementById('detail-title').textContent    = 'Escalation Detail';
+      document.getElementById('detail-subtitle').textContent = '';
+      document.getElementById('detail-body').innerHTML = '<div class="disc-loading">Loading…</div>';
+      document.getElementById('detail-drawer').classList.add('open');
+      document.getElementById('detail-overlay').classList.add('open');
+      fetch('/admin/api/monday-data/item/' + encodeURIComponent(itemId))
+        .then(r => r.json())
+        .then(row => {
+          if (row.error) {
+            document.getElementById('detail-body').innerHTML = '<div class="disc-empty">Item not found.</div>';
+            return;
+          }
+          _ROW_MAP[itemId] = row;
+          document.getElementById('detail-title').textContent    = row.item_name || 'Escalation Detail';
+          document.getElementById('detail-subtitle').textContent = row.asp_board || '';
+          document.getElementById('detail-body').innerHTML = _renderDetail(row);
+        })
+        .catch(() => {
+          document.getElementById('detail-body').innerHTML = '<div class="disc-empty">Failed to load detail.</div>';
+        });
+    }
   }
 
   window.closeDetail = function() {
@@ -749,38 +758,27 @@
     });
   }
 
-  /* ── Fetch data from API and initialise ──────────────────────── */
+  /* ── Fetch data from API and render ─────────────────────────── */
   window.loadData = function(isRefresh) {
+    // When the user clicks the refresh button (isRefresh=true), also
+    // reload meta so board/status counts stay current.
+    if (isRefresh) { _loadMeta(false); return; }
+
     const tbody = document.getElementById('data-tbody');
     const btn   = document.getElementById('btn-refresh-data');
     tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#9ca3af;padding:32px">Loading…</td></tr>';
     if (btn) { btn.disabled = true; btn.classList.add('spinning'); }
 
-    fetch('/admin/api/monday-data')
+    // Build query string from current filter state
+    const params = new URLSearchParams({ page: _page, per_page: PAGE_SIZE });
+    if (_activeBoard)  params.set('board_id', _activeBoard);
+    if (_activeStatus) params.set('status',   _activeStatus);
+    if (_searchQ)      params.set('q',        _searchQ);
+
+    fetch('/admin/api/monday-data?' + params.toString())
       .then(r => r.json())
       .then(data => {
-        ALL_ROWS    = data.rows;
-        BOARD_NAMES = data.board_names;
-        _ROW_MAP    = Object.fromEntries(ALL_ROWS.map(r => [r.monday_item_id, r]));
-
-        // Update sidebar counts
-        document.getElementById('fi-count-all').textContent = ALL_ROWS.length;
-
-        _buildStatusPills();
-        if (!isRefresh) buildIndex();
-        const sel = document.getElementById('status-select');
-        if (!isRefresh) {
-          // Default to "In Progress" on first load only
-          _activeStatus = PINNED_STATUS;
-          if (sel) { sel.value = PINNED_STATUS; sel.classList.add('has-filter'); }
-        } else {
-          // Restore the current selection after _buildStatusPills wiped innerHTML
-          if (sel) {
-            sel.value = _activeStatus;
-            sel.classList.toggle('has-filter', !!_activeStatus);
-          }
-        }
-        render();
+        render(data);
       })
       .catch(() => {
         tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#dc2626;padding:32px">Failed to load data. Please try again.</td></tr>';
@@ -791,6 +789,42 @@
       });
   };
 
-  loadData(false);
+  /* ── Load meta (boards + status counts) ─────────────────────── */
+  function _loadMeta(isFirstLoad) {
+    fetch('/admin/api/monday-data/meta')
+      .then(r => r.json())
+      .then(meta => {
+        BOARD_NAMES = meta.board_names || {};
+
+        // Update sidebar "All Boards" count
+        const countAll = document.getElementById('fi-count-all');
+        if (countAll) countAll.textContent = meta.total_count || 0;
+
+        _buildStatusPills(meta.statuses || [], meta.total_count || 0);
+
+        if (isFirstLoad) {
+          buildIndex();
+          // Default to "In Progress" on first load only
+          _activeStatus = PINNED_STATUS;
+          const sel = document.getElementById('status-select');
+          if (sel) { sel.value = PINNED_STATUS; sel.classList.add('has-filter'); }
+        } else {
+          // Restore current selection after _buildStatusPills rebuilt innerHTML
+          const sel = document.getElementById('status-select');
+          if (sel) {
+            sel.value = _activeStatus;
+            sel.classList.toggle('has-filter', !!_activeStatus);
+          }
+        }
+
+        loadData(false);
+      })
+      .catch(() => {
+        // If meta fails, still try to load data
+        loadData(false);
+      });
+  }
+
+  _loadMeta(true);
 
 })();
