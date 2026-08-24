@@ -3699,19 +3699,125 @@ def monday_data():
     )
 
 
-# ── Monday Data: JSON API ──────────────────────────────────────────────────────
+# ── Monday Data: meta API (boards + status counts — lightweight) ──────────────
 
-@admin_bp.route("/admin/api/monday-data", methods=["GET"])
-def monday_data_api():
-    """Return all Monday sync rows as JSON — consumed by monday_data.js."""
-    import json as _json
+@admin_bp.route("/admin/api/monday-data/meta", methods=["GET"])
+def monday_data_meta():
+    """Return board list and status counts only — no row data.
+    Used to populate the sidebar and status dropdown without pulling all rows."""
     edb = _get_monday_sync_db()
-    rows_list   = []
-    boards_list = []
+    boards_list  = []
+    status_list  = []
+    total_count  = 0
 
     if edb:
         try:
-            raw = edb.execute("""
+            total_count = edb.execute(
+                "SELECT COUNT(*) FROM technical_escalation"
+            ).fetchone()[0]
+
+            board_raw = edb.execute("""
+                SELECT asp_board, board_id, COUNT(*) AS item_count
+                FROM technical_escalation
+                GROUP BY board_id
+                ORDER BY asp_board
+            """).fetchall()
+            boards_list = [dict(r) for r in board_raw]
+
+            status_raw = edb.execute("""
+                SELECT COALESCE(status, '') AS status, COUNT(*) AS cnt
+                FROM technical_escalation
+                GROUP BY status
+            """).fetchall()
+            status_list = [dict(r) for r in status_raw]
+        except Exception:
+            pass
+        finally:
+            edb.close()
+
+    board_names = {b["board_id"]: b["asp_board"] for b in boards_list}
+    return jsonify({
+        "total_count": total_count,
+        "boards": boards_list,
+        "board_names": board_names,
+        "statuses": status_list,
+    })
+
+
+# ── Monday Data: JSON API (paginated, filtered) ────────────────────────────────
+
+@admin_bp.route("/admin/api/monday-data", methods=["GET"])
+def monday_data_api():
+    """Return a paginated, filtered page of Monday sync rows.
+    Query params:
+      page     (int, default 1)
+      per_page (int, default 50, max 200)
+      board_id (str, optional)
+      status   (str, optional — comma-separated group like 'in progress')
+      q        (str, optional — search across item_name, wo_case_id, serial_number, status)
+    """
+    from flask import request as _req
+
+    # ── parse params ──────────────────────────────────────────────
+    try:
+        page = max(1, int(_req.args.get("page", 1)))
+    except (ValueError, TypeError):
+        page = 1
+    try:
+        per_page = min(200, max(1, int(_req.args.get("per_page", 50))))
+    except (ValueError, TypeError):
+        per_page = 50
+
+    board_id   = (_req.args.get("board_id") or "").strip()
+    status_arg = (_req.args.get("status")   or "").strip()
+    q          = (_req.args.get("q")        or "").strip()
+
+    # Status grouping (mirrors the JS STATUS_GROUPS)
+    STATUS_GROUPS = {
+        "in progress": ["technical escalation", "progress", "qa result"],
+    }
+
+    # ── build WHERE clauses ───────────────────────────────────────
+    where_parts  = []
+    params       = []
+
+    if board_id:
+        where_parts.append("te.board_id = ?")
+        params.append(board_id)
+
+    if status_arg:
+        members = STATUS_GROUPS.get(status_arg.lower())
+        if members:
+            placeholders = ",".join("?" * len(members))
+            where_parts.append(f"LOWER(COALESCE(te.status,'')) IN ({placeholders})")
+            params.extend(members)
+        else:
+            where_parts.append("LOWER(COALESCE(te.status,'')) = ?")
+            params.append(status_arg.lower())
+
+    if q:
+        where_parts.append(
+            "(te.item_name LIKE ? OR te.wo_case_id LIKE ? "
+            "OR te.serial_number LIKE ? OR te.status LIKE ?)"
+        )
+        like = f"%{q}%"
+        params.extend([like, like, like, like])
+
+    where_sql = ("WHERE " + " AND ".join(where_parts)) if where_parts else ""
+
+    edb       = _get_monday_sync_db()
+    rows_list = []
+    total     = 0
+
+    if edb:
+        try:
+            # ── total count for this filter ───────────────────────
+            count_sql = f"SELECT COUNT(*) FROM technical_escalation te {where_sql}"
+            total = edb.execute(count_sql, params).fetchone()[0]
+
+            # ── disc_count subquery (no expensive GROUP-BY JOIN) ──
+            offset = (page - 1) * per_page
+            data_sql = f"""
                 SELECT
                     te.monday_item_id,
                     te.board_id,
@@ -3737,30 +3843,68 @@ def monday_data_api():
                     te.diagnose_note,
                     te.repair_note,
                     c.creator_name,
-                    COUNT(DISTINCT u.update_id) + COUNT(DISTINCT r.reply_id) AS disc_count
+                    (
+                        SELECT COUNT(DISTINCT u2.update_id) + COUNT(DISTINCT r2.reply_id)
+                        FROM item_updates u2
+                        LEFT JOIN item_update_replies r2 ON u2.update_id = r2.update_id
+                        WHERE u2.monday_item_id = te.monday_item_id
+                    ) AS disc_count
                 FROM technical_escalation te
                 LEFT JOIN creators c ON te.creator_id = c.creator_id
-                LEFT JOIN item_updates u ON te.monday_item_id = u.monday_item_id
-                LEFT JOIN item_update_replies r ON u.update_id = r.update_id
-                GROUP BY te.monday_item_id
+                {where_sql}
                 ORDER BY te.item_created_at DESC
-            """).fetchall()
+                LIMIT ? OFFSET ?
+            """
+            raw = edb.execute(data_sql, params + [per_page, offset]).fetchall()
             rows_list = [dict(r) for r in raw]
-
-            board_raw = edb.execute("""
-                SELECT asp_board, board_id, COUNT(*) AS item_count
-                FROM technical_escalation
-                GROUP BY board_id
-                ORDER BY asp_board
-            """).fetchall()
-            boards_list = [dict(r) for r in board_raw]
         except Exception:
             pass
         finally:
             edb.close()
 
-    board_names = {b["board_id"]: b["asp_board"] for b in boards_list}
-    return jsonify({"rows": rows_list, "board_names": board_names})
+    import math
+    pages = max(1, math.ceil(total / per_page)) if total else 1
+    return jsonify({
+        "rows":  rows_list,
+        "total": total,
+        "page":  page,
+        "pages": pages,
+        "per_page": per_page,
+    })
+
+
+# ── Monday Data: single item detail API ───────────────────────────────────────
+
+@admin_bp.route("/admin/api/monday-data/item/<item_id>", methods=["GET"])
+def monday_data_item(item_id):
+    """Return the full detail row for a single Monday item (used by the detail drawer)."""
+    edb = _get_monday_sync_db()
+    row = None
+    if edb:
+        try:
+            raw = edb.execute("""
+                SELECT
+                    te.monday_item_id, te.board_id, te.asp_board, te.item_name,
+                    te.item_created_at, te.item_updated_at, te.db_synced_at,
+                    te.status, te.work_order_type, te.wo_case_id, te.serial_number,
+                    te.location, te.ppsn_category, te.rrr_category,
+                    te.diag_datetime, te.diag_agent_ce, te.diag_model,
+                    te.diag_warranty, te.diag_problem, te.diag_esc_approval,
+                    te.diag_parts_request, te.diagnose_note, te.repair_note,
+                    c.creator_name
+                FROM technical_escalation te
+                LEFT JOIN creators c ON te.creator_id = c.creator_id
+                WHERE te.monday_item_id = ?
+            """, (item_id,)).fetchone()
+            if raw:
+                row = dict(raw)
+        except Exception:
+            pass
+        finally:
+            edb.close()
+    if not row:
+        return jsonify({"error": "not found"}), 404
+    return jsonify(row)
 
 
 # ── Monday Data: discussion JSON API ─────────────────────────────────────────

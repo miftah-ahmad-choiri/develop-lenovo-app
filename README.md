@@ -354,6 +354,12 @@ git add .
 git commit -m "your message"
 git push origin main
 ```
+or pull in safe way
+
+```bash
+git checkout -- files/lenovo_asp.db
+git pull origin master
+```
 
 ### Step 2 — Create a new Web Service on Render
 
