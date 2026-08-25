@@ -22,6 +22,9 @@
   .btn-msd:hover { background: #f3f4f6; }
   .btn-msd.primary { background: #3b82d4; border-color: #3b82d4; color: #fff; }
   .btn-msd.primary:hover { background: #2563b0; border-color: #2563b0; }
+  .btn-msd.danger { background: #fff; border-color: #fca5a5; color: #dc2626; }
+  .btn-msd.danger:hover { background: #fff1f2; border-color: #f87171; }
+  .btn-msd.danger:disabled { opacity: 0.6; cursor: not-allowed; }
   .btn-msd:disabled { opacity: 0.6; cursor: not-allowed; }
   .btn-msd-sm {
     display: inline-flex; align-items: center; gap: 5px;
@@ -182,6 +185,36 @@
   .btn-cred-save:hover { background: #2563b0; border-color: #2563b0; }
   .btn-cred-save:disabled { opacity: 0.6; cursor: not-allowed; }
 
+  /* ── Reset confirmation modal ───────────────────────────────────────────── */
+  .msd-reset-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    z-index: 9100; align-items: center; justify-content: center;
+  }
+  .msd-reset-overlay.visible { display: flex; }
+  .msd-reset-modal {
+    background: #fff; border-radius: 10px; padding: 28px 28px 24px;
+    width: 100%; max-width: 400px; box-shadow: 0 8px 32px rgba(0,0,0,.2);
+  }
+  .msd-reset-title {
+    font-size: 15px; font-weight: 700; color: #b91c1c; margin: 0 0 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .msd-reset-body  { font-size: 13px; color: #374151; margin: 0 0 8px; line-height: 1.6; }
+  .msd-reset-note  { font-size: 12px; color: #57606a; margin: 0 0 22px; line-height: 1.55; }
+  .msd-reset-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .btn-reset-cancel {
+    padding: 9px 18px; background: #fff; border: 1px solid #d0d7de; border-radius: 6px;
+    font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; color: #374151;
+  }
+  .btn-reset-cancel:hover { background: #f3f4f6; }
+  .btn-reset-confirm {
+    padding: 9px 20px; background: #dc2626; border: 1px solid #b91c1c; border-radius: 6px;
+    font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; color: #fff;
+    transition: background 0.12s;
+  }
+  .btn-reset-confirm:hover { background: #b91c1c; border-color: #991b1b; }
+  .btn-reset-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
+
   /* ── Wrong-password alert panel ─────────────────────────────────────────── */
   .msd-wrongpw-panel {
     margin-top: 16px; padding: 14px 18px; border-radius: 8px; display: none;
@@ -300,7 +333,10 @@
           ⏸ Off-hours — active Mon–Fri 06:00–20:00
         </span>
 
-        <!-- ring progress: shown while running -->
+        <!-- spacer pushes everything after it to the right -->
+        <span style="flex:1"></span>
+
+        <!-- ring progress: right-aligned, shown while running -->
         <div class="msd-progress-wrap" id="msd-progress-wrap">
           <span class="msd-progress-step" id="msd-progress-step"></span>
           <!-- r=15.5 → circumference = 2π×15.5 ≈ 97.4 -->
@@ -312,13 +348,21 @@
           <span class="msd-progress-label" id="msd-progress-label">0%</span>
         </div>
 
-        <!-- idle countdown: shown when idle after a completed download -->
+        <!-- idle / startup countdown — right-aligned -->
         <div class="msd-idle-countdown" id="msd-idle-countdown">
           <span class="msd-idle-countdown-label">Next download in</span>
           <span class="msd-idle-countdown-val" id="msd-idle-countdown-val">30:00</span>
         </div>
 
-        <!-- RUNNING badge: always rightmost, after progress bar -->
+        <!-- Reset button -->
+        <button type="button" class="btn-msd danger" id="btn-reset-msd" onclick="openResetModal()"
+                style="flex-shrink:0"
+                title="Force-close Chrome and restart the download script from scratch">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+          Reset
+        </button>
+
+        <!-- RUNNING badge -->
         <span class="msd-running-badge" id="msd-running-badge" {% if not is_running %}style="display:none"{% endif %}>
           <span class="msd-running-dot"></span>RUNNING
         </span>
@@ -435,11 +479,34 @@
         <span>Live Execution Log</span>
         <button type="button" class="btn-msd" onclick="clearMsdLog()">Clear Log</button>
       </div>
-      <div class="msd-console" id="msd-console">
-        <p class="msd-log-line msd-log-system">— ready — click "Run MSD Auto-Download" to start streaming logs —</p>
-      </div>
+      <div class="msd-console" id="msd-console"></div>
     </div>
 
+  </div>
+</div>
+
+<!-- ── Reset confirmation modal ─────────────────────────────────────────── -->
+<div class="msd-reset-overlay" id="msd-reset-overlay" onclick="if(event.target===this)closeResetModal()">
+  <div class="msd-reset-modal">
+    <p class="msd-reset-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+      Reset MSD Download?
+    </p>
+    <p class="msd-reset-body">
+      This will <strong>force-close the Chrome window</strong> and clear the stuck task state,
+      then automatically start a fresh download.
+    </p>
+    <p class="msd-reset-note">
+      ✅ Your saved Chrome session (cookies &amp; Dynamics login) will be <strong>preserved</strong> —
+      the next run will not need to log in again.
+    </p>
+    <div class="msd-reset-actions">
+      <button type="button" class="btn-reset-cancel" id="btn-reset-modal-cancel" onclick="closeResetModal()">Cancel</button>
+      <button type="button" class="btn-reset-confirm" id="btn-reset-modal-confirm" onclick="confirmResetMsd()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+        Yes, Reset &amp; Restart
+      </button>
+    </div>
   </div>
 </div>
 
@@ -483,7 +550,12 @@ let _msdStatusTimer = null;
 let _msdSessionExpiredLogged = false;  // guard: log SESSION EXPIRED only once per expiry
 
 /* ── Log persistence key ────────────────────────────────────────────────── */
+// localStorage is used for the log, idle target, and run state so they
+// survive navigation across tabs and browser windows.
+// sessionStorage is kept only for msd_boot_id (server-restart detection
+// per tab) because that must reset when a new tab opens.
 const _MSD_LOG_KEY = 'msd_exec_log';
+const _msdStore = window.localStorage;
 
 /* ── Next-download countdown ───────────────────────────────────────────── */
 let _nextTarget   = null;   // ms epoch when next download fires
@@ -594,7 +666,7 @@ function _msdScanStepProgress(text) {
 function _msdStartIdleCountdown(remainingMs) {
   // remainingMs: exact ms remaining parsed from the log line — always in sync with the script
   _msdIdleTarget = Date.now() + remainingMs;
-  sessionStorage.setItem('msd_idle_target', String(_msdIdleTarget));
+  _msdStore.setItem('msd_idle_target', String(_msdIdleTarget));
   if (_msdIdleCountdownInterval) clearInterval(_msdIdleCountdownInterval);
   _msdTickIdle();
   _msdIdleCountdownInterval = setInterval(_msdTickIdle, 1000);
@@ -606,7 +678,7 @@ function _msdStopIdleCountdown() {
     _msdIdleCountdownInterval = null;
   }
   _msdIdleTarget = null;
-  sessionStorage.removeItem('msd_idle_target');
+  _msdStore.removeItem('msd_idle_target');
   document.getElementById('msd-idle-countdown').classList.remove('visible');
 }
 
@@ -647,7 +719,7 @@ function appendMsdLog(level, text) {
     if (last && last.dataset.spinnerKey === key) {
       last.textContent = text;
       el.scrollTop = el.scrollHeight;
-      sessionStorage.setItem(_MSD_LOG_KEY, el.innerHTML);
+      _msdStore.setItem(_MSD_LOG_KEY, el.innerHTML);
       return;
     }
   }
@@ -656,15 +728,15 @@ function appendMsdLog(level, text) {
   p.textContent = text;
   if (key) p.dataset.spinnerKey = key;
   el.appendChild(p);
-  while (el.children.length > 500) el.removeChild(el.firstChild);
+  while (el.children.length > 1000) el.removeChild(el.firstChild);
   el.scrollTop = el.scrollHeight;
-  sessionStorage.setItem(_MSD_LOG_KEY, el.innerHTML);
+  _msdStore.setItem(_MSD_LOG_KEY, el.innerHTML);
 }
 
 function clearMsdLog() {
   document.getElementById('msd-console').innerHTML =
     '<p class="msd-log-line msd-log-system">— log cleared —</p>';
-  sessionStorage.removeItem(_MSD_LOG_KEY);
+  _msdStore.removeItem(_MSD_LOG_KEY);
 }
 
 /* ── Running state ─────────────────────────────────────────────────────── */
@@ -779,7 +851,7 @@ function saveCredentials() {
 
 // Close modal on Escape key
 document.addEventListener('keydown', function (e) {
-  if (e.key === 'Escape') closeCredModal();
+  if (e.key === 'Escape') { closeCredModal(); closeResetModal(); }
 });
 
 /* ── Wrong-password panel ──────────────────────────────────────────────── */
@@ -830,6 +902,63 @@ function submitRelogin() {
     .catch(function (err) {
       appendMsdLog('msd-log-error', err.message || String(err));
       btn.disabled = false;
+    });
+}
+
+/* ── Reset modal ────────────────────────────────────────────────────────── */
+function openResetModal() {
+  document.getElementById('msd-reset-overlay').classList.add('visible');
+  document.getElementById('btn-reset-modal-confirm').disabled = false;
+  document.getElementById('btn-reset-modal-cancel').disabled  = false;
+}
+
+function closeResetModal() {
+  document.getElementById('msd-reset-overlay').classList.remove('visible');
+}
+
+function confirmResetMsd() {
+  const confirmBtn = document.getElementById('btn-reset-modal-confirm');
+  const cancelBtn  = document.getElementById('btn-reset-modal-cancel');
+  confirmBtn.disabled = true;
+  cancelBtn.disabled  = true;
+  closeResetModal();
+
+  appendMsdLog('msd-log-system', '— Resetting MSD download: closing Chrome and clearing task state… —');
+  fetch('/admin/msd-wo-updates/reset', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  })
+    .then(async function (r) {
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.error || 'Reset failed.');
+      appendMsdLog('msd-log-system', '— Reset complete. ' + (data.msg || '') + ' Starting fresh run… —');
+      // Clear stuck panels
+      setOtpPanelVisible(false);
+      setReloginPanelVisible(false);
+      setWrongPasswordPanelVisible(false);
+      _msdHideProgress();
+      _msdStopIdleCountdown();
+      setMsdRunning(false);
+      // Start a fresh run automatically
+      fetch('/admin/msd-wo-updates/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+        .then(async function (r2) {
+          const d2 = await r2.json();
+          if (d2.ok) {
+            appendMsdLog('msd-log-system', '— Fresh MSD run started. —');
+            setMsdRunning(true);
+          } else {
+            appendMsdLog('msd-log-error', 'Could not start fresh run: ' + (d2.error || 'Unknown error'));
+          }
+        })
+        .catch(function (err2) {
+          appendMsdLog('msd-log-error', 'Trigger after reset failed: ' + (err2.message || String(err2)));
+        });
+    })
+    .catch(function (err) {
+      appendMsdLog('msd-log-error', 'Reset failed: ' + (err.message || String(err)));
     });
 }
 
@@ -1040,7 +1169,9 @@ function connectMsdStream() {
     else                        appendMsdLog('msd-log-system',  msg);
   };
   _msdEs.onerror = function () {
-    appendMsdLog('msd-log-system', '— log stream disconnected —');
+    // Silently ignore SSE disconnects when the task is idle — they are normal
+    // (the server closes the stream between runs). Only log if actively running.
+    if (_msdRunning) appendMsdLog('msd-log-system', '— log stream disconnected —');
   };
 }
 
@@ -1117,6 +1248,11 @@ function pollMsdStatus() {
       if (!data.ok) return;
       const wasRunning = _msdRunning;
       setMsdRunning(!!data.is_running);
+      // If we just discovered the task is running (e.g. page opened mid-run),
+      // connect the SSE stream so live log lines start flowing immediately.
+      if (data.is_running && !wasRunning && !_msdEs) {
+        connectMsdStream();
+      }
       if (typeof data.in_window === 'boolean') setInWindow(data.in_window);
       // Only call setOtpPanelVisible(true) when the panel isn't already open.
       // Calling it while the panel is visible would re-focus the input and could
@@ -1144,25 +1280,30 @@ function pollMsdStatus() {
 
 /* ── Restore log + idle countdown from previous visit ──────────────────── */
 (function() {
-  // If the server restarted (new boot_id), wipe any stale log from storage
+  // msd_boot_id stays in sessionStorage (tab-scoped) so each new tab can
+  // detect a server restart independently. Log and countdown use localStorage
+  // so they survive across tabs and browser windows.
   const bootId = '{{ boot_id }}';
   const storedBootId = sessionStorage.getItem('msd_boot_id');
   if (storedBootId !== bootId) {
-    sessionStorage.removeItem(_MSD_LOG_KEY);
-    sessionStorage.removeItem('msd_idle_target');
+    // Server restarted — wipe persisted log so stale output is not shown.
+    _msdStore.removeItem(_MSD_LOG_KEY);
+    _msdStore.removeItem('msd_idle_target');
     sessionStorage.setItem('msd_boot_id', bootId);
   }
 
-  const saved = sessionStorage.getItem(_MSD_LOG_KEY);
+  const el = document.getElementById('msd-console');
+  const saved = _msdStore.getItem(_MSD_LOG_KEY);
   if (saved) {
-    const el = document.getElementById('msd-console');
     el.innerHTML = saved;
     el.scrollTop = el.scrollHeight;
+  } else {
+    // No persisted log — show the ready placeholder
+    el.innerHTML = '<p class="msd-log-line msd-log-system">— ready — click "Run MSD Auto-Download" to start streaming logs —</p>';
   }
+
   // Restore idle countdown if still within its window.
-  // Always restore regardless of _msdRunning — setMsdRunning transition logic
-  // will clear it correctly if a new run starts.
-  const savedTarget = sessionStorage.getItem('msd_idle_target');
+  const savedTarget = _msdStore.getItem('msd_idle_target');
   if (savedTarget) {
     const target = parseInt(savedTarget, 10);
     if (target > Date.now()) {
@@ -1170,12 +1311,15 @@ function pollMsdStatus() {
       _msdTickIdle();
       _msdIdleCountdownInterval = setInterval(_msdTickIdle, 1000);
     } else {
-      sessionStorage.removeItem('msd_idle_target');
+      _msdStore.removeItem('msd_idle_target');
     }
   }
 })();
 
-connectMsdStream();
+// Connect SSE stream only when the task is already running.
+// pollMsdStatus() fires immediately below and will call connectMsdStream()
+// if is_running is true — so we never open an idle SSE connection that
+// immediately errors and overwrites the restored log.
 pollMsdStatus();
 refreshFiles();
 _msdStatusTimer = setInterval(pollMsdStatus, 5000);

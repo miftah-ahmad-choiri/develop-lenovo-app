@@ -30,8 +30,12 @@ def get_db() -> sqlite3.Connection:
     """
     if "db" not in g:
         db_path: str = current_app.config["DATABASE_PATH"]
-        conn = sqlite3.connect(db_path)
+        conn = sqlite3.connect(db_path, timeout=10)
         conn.row_factory = sqlite3.Row
+        # WAL mode allows concurrent readers alongside a writer — prevents
+        # "database is locked" 500s when the background MSD/sync thread is
+        # mid-write while a request tries to read.
+        conn.execute("PRAGMA journal_mode=WAL")
         # Enforce foreign-key constraints
         conn.execute("PRAGMA foreign_keys = ON")
         g.db = conn
