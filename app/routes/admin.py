@@ -606,6 +606,96 @@ def msd_wo_updates_status():
     })
 
 
+@admin_bp.route("/admin/msd-wo-updates/reset", methods=["POST"])
+def msd_wo_updates_reset():
+    """Hard-reset the MSD download task.
+
+    Steps:
+      1. Unblock any pending OTP / re-login queue so the script thread can
+         exit cleanly (we send a cancel sentinel, same as the Cancel button).
+      2. Kill every Chrome process that is using the Selenium profile dir —
+         closes the stuck window without deleting the saved session/cookies.
+      3. Clear the running-state flags so the UI and /status reflect idle.
+      4. Return ok=True — the frontend will then restart a fresh run.
+
+    The saved Chrome profile (cookies, Dynamics session) is intentionally
+    preserved so the next run can skip the login page.
+    """
+    global _msd_otp_pending, _msd_relogin_pending, _msd_thread
+
+    # ── Step 1: unblock the queue so the thread exits rather than hanging ───
+    _msd_otp_pending    = False
+    _msd_relogin_pending = False
+    try:
+        _msd_otp_queue.put_nowait("__OTP_CANCELLED__")
+    except _queue.Full:
+        pass
+
+    # ── Step 2: kill Chrome PIDs on the Selenium profile ────────────────────
+    import pathlib as _pl
+    try:
+        import psutil as _psutil
+        script_dir = os.path.normpath(
+            os.path.join(os.path.dirname(__file__), "..", "scripts",
+                         "msd-auto-download")
+        )
+        # Read SELENIUM_PROFILE_DIR from the script's .env (same logic as script)
+        env_path = _msd_env_path()
+        env_vals = _read_env_file(env_path)
+        profile_dir = env_vals.get(
+            "SELENIUM_PROFILE_DIR",
+            str(_pl.Path.home() / ".selenium_chrome_profile"),
+        )
+        target = os.path.normcase(os.path.normpath(profile_dir))
+        killed = 0
+        for proc in _psutil.process_iter(["pid", "name", "cmdline"]):
+            try:
+                name = (proc.info["name"] or "").lower()
+                if "chrome" not in name:
+                    continue
+                cmdline = proc.info["cmdline"] or []
+                for arg in cmdline:
+                    if "--user-data-dir=" in arg:
+                        arg_path = os.path.normcase(
+                            os.path.normpath(arg.split("=", 1)[1])
+                        )
+                        if arg_path == target:
+                            proc.terminate()
+                            killed += 1
+                            break
+            except (_psutil.NoSuchProcess, _psutil.AccessDenied):
+                pass
+
+        import time as _t
+        if killed:
+            _t.sleep(1.5)
+
+        # Remove stale Chrome lock files so the next launch starts cleanly
+        _profile_path = _pl.Path(profile_dir)
+        for _lk in ("SingletonLock", "SingletonCookie", "SingletonSocket"):
+            _lf = _profile_path / _lk
+            if _lf.exists() or _lf.is_symlink():
+                try:
+                    _lf.unlink()
+                except Exception:
+                    pass
+
+        killed_msg = f"Chrome closed ({killed} process(es) terminated)." if killed else "No Chrome process found on this profile."
+    except ImportError:
+        killed_msg = "psutil not installed — Chrome process not killed."
+    except Exception as _exc:
+        killed_msg = f"Chrome kill warning: {_exc}"
+
+    # ── Step 3: mark thread as dead in our bookkeeping ──────────────────────
+    # The thread will exit on its own once the OTP cancel sentinel unblocks it.
+    # We don't join() here (would block the request); just null out the reference
+    # so the next /trigger call treats it as idle.
+    with _msd_lock:
+        _msd_thread = None
+
+    return jsonify({"ok": True, "msg": killed_msg})
+
+
 @admin_bp.route("/admin/msd-wo-updates/otp", methods=["POST"])
 def msd_wo_updates_otp():
     global _msd_otp_pending

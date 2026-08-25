@@ -132,12 +132,47 @@
       "new_users": 0,
       "status": "success",
       "upsert_date": "2026-08-24"
+    },
+    "WO Status - IBM TLS MSD 8-24-2026 7-25-34 PM.xlsx": {
+      "new_wo": 1,
+      "updated_wo": 43,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-08-24"
+    },
+    "WO Status - IBM TLS MSD 8-24-2026 7-57-19 PM.xlsx": {
+      "new_wo": 1,
+      "updated_wo": 26,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-08-24"
+    },
+    "WO Status - IBM TLS MSD 8-25-2026 2-43-33 PM.xlsx": {
+      "new_wo": 42,
+      "updated_wo": 196,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-08-25"
+    },
+    "WO Status - IBM TLS MSD 8-25-2026 3-11-17 PM.xlsx": {
+      "new_wo": 3,
+      "updated_wo": 14,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-08-25"
+    },
+    "WO Status - IBM TLS MSD 8-25-2026 3-27-33 PM.xlsx": {
+      "new_wo": 1,
+      "updated_wo": 8,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-08-25"
     }
   },
   "daily_totals": {
-    "2026-08-24": {
-      "new_wo": 595,
-      "updated_wo": 1055,
+    "2026-08-25": {
+      "new_wo": 46,
+      "updated_wo": 218,
       "new_users": 0
     }
   }

@@ -38,3 +38,6 @@ nul
 
 # Selenium Chrome runtime profile - generated at runtime, not for version control
 app/scripts/msd-auto-download/selenium_chrome_profile/
+
+# Large/corrupted DB backups — never commit these
+files/lenovo_asp_corrupted_backup.db
