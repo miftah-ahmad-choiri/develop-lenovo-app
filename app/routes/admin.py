@@ -13,7 +13,7 @@ from flask import (
     url_for, flash, current_app, send_file, jsonify,
 )
 from werkzeug.utils import secure_filename
-from app.services.database.db import get_db
+from app.services.database.db import get_db, open_db
 from app.services.upload.excel import allowed_excel, save_excel_upload, list_excel_uploads
 from app.services.upload.upload_verification import verify_uploaded_file
 from app.services.upload.meta_cache import (
@@ -336,6 +336,10 @@ def msd_wo_updates():
 _MSD_BOOT_ID: str = _uuid.uuid4().hex
 
 _msd_log_queue: _queue.Queue = _queue.Queue(maxsize=2000)
+# Ring buffer of the last 500 log records — replayed to new SSE clients so
+# refreshing the page mid-run shows the full current-run log history.
+import collections as _collections
+_msd_log_history: _collections.deque = _collections.deque(maxlen=500)
 _msd_thread: threading.Thread | None = None
 _msd_lock = threading.Lock()
 
@@ -467,20 +471,19 @@ class _MsdQueueHandler(logging.Handler):
         msg = record.getMessage()
         if _WERKZEUG_LINE_RE.search(msg):
             return
+        rec = {
+            "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "level": record.levelname,
+            "msg": msg,
+        }
+        # Always append to the history ring buffer so new SSE clients can replay
+        _msd_log_history.append(rec)
         try:
-            _msd_log_queue.put_nowait({
-                "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "level": record.levelname,
-                "msg": msg,
-            })
+            _msd_log_queue.put_nowait(rec)
         except _queue.Full:
             try:
                 _msd_log_queue.get_nowait()
-                _msd_log_queue.put_nowait({
-                    "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "level": record.levelname,
-                    "msg": msg,
-                })
+                _msd_log_queue.put_nowait(rec)
             except (_queue.Full, _queue.Empty):
                 pass
 
@@ -517,6 +520,14 @@ def msd_wo_updates_trigger():
 def msd_wo_updates_stream():
     def generate():
         import json as _json
+        # Replay recent history so a freshly connected client (page refresh,
+        # server restart mid-run) sees what has already been logged.
+        # The first record carries history=True so the frontend knows to
+        # replace (not append to) its stored log with the replayed content.
+        history = list(_msd_log_history)
+        for i, rec in enumerate(history):
+            payload = dict(rec, history=True, history_first=(i == 0))
+            yield f"data: {_json.dumps(payload)}\n\n"
         while True:
             try:
                 rec = _msd_log_queue.get(timeout=15)
@@ -1050,8 +1061,7 @@ def data_import_upsert_preview(category_key: str):
             df = pd.read_excel(_file_bytes)
 
         db_path = current_app.config["DATABASE_PATH"]
-        db_conn = sqlite3.connect(db_path)
-        db_conn.row_factory = sqlite3.Row
+        db_conn = open_db(db_path)
 
         try:
             if category_key == "WOID":
@@ -2113,8 +2123,7 @@ def data_import_upsert(category_key: str):
     filepath = os.path.join(upload_folder, target_file)
     try:
         db_path = current_app.config["DATABASE_PATH"]
-        db_conn = sqlite3.connect(db_path)
-        db_conn.row_factory = sqlite3.Row
+        db_conn = open_db(db_path)
         try:
             _upsert_result = dispatch_upsert(category_key, filepath, db_conn)
         finally:
@@ -2147,8 +2156,7 @@ def data_import_upsert(category_key: str):
                     _pd_soid.read_excel(_fb_soid, sheet_name=_sn_soid)
                     if _sn_soid else _pd_soid.read_excel(_fb_soid)
                 )
-                _db_soid = sqlite3.connect(db_path)
-                _db_soid.row_factory = sqlite3.Row
+                _db_soid = open_db(db_path)
                 try:
                     _valid_ids_soid = {
                         r[0] for r in _db_soid.execute(
@@ -2405,8 +2413,7 @@ def _resolve_region(kota: str | None, island: str | None) -> str:
 @admin_bp.route("/admin/users/asp-directory", methods=["GET"])
 def asp_directory():
     db_path = current_app.config["DATABASE_PATH"]
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
+    conn = open_db(db_path)
 
     # Refresh wo_count for all ASPs in one UPDATE pass
     conn.execute(
@@ -2460,7 +2467,7 @@ def asp_directory_edit(asp_id):
     params = [values[f] for f in fields] + [asp_id]
 
     db_path = current_app.config["DATABASE_PATH"]
-    conn = sqlite3.connect(db_path)
+    conn = open_db(db_path)
     try:
         conn.execute(
             f"UPDATE asp_details SET {set_clause} WHERE id = ?", params
@@ -2493,7 +2500,7 @@ def asp_directory_create():
     params = [values[f] for f in fields]
 
     db_path = current_app.config["DATABASE_PATH"]
-    conn = sqlite3.connect(db_path)
+    conn = open_db(db_path)
     try:
         conn.execute(
             f"INSERT INTO asp_details ({cols}) VALUES ({placeholders})", params
@@ -2868,8 +2875,7 @@ def _get_monday_sync_db():
     db_path = _os.path.join(project_root, "files", "lenovo_asp.db")
     if not _os.path.isfile(db_path):
         return None
-    conn = _sqlite3.connect(db_path)
-    conn.row_factory = _sqlite3.Row
+    conn = open_db(db_path)
     return conn
 
 
@@ -3121,12 +3127,10 @@ def _run_msd_download_task(app, run_once: bool = False) -> None:
     # Runs dispatch_upsert("WOID", ...) on the downloaded file and logs results.
     def _msd_auto_upsert(filepath: str, fname: str) -> None:
         try:
-            import sqlite3 as _sqlite3
             from app.services.database.upsert import dispatch_upsert as _dispatch
             db_path = app.config["DATABASE_PATH"]
             logger.info("Auto-upsert: starting WOID upsert for %s …", fname)
-            _db = _sqlite3.connect(db_path)
-            _db.row_factory = _sqlite3.Row
+            _db = open_db(db_path)
             try:
                 n_new_wo, n_updated, n_usr = _dispatch("WOID", filepath, _db)
             finally:
@@ -3201,6 +3205,9 @@ def _run_msd_download_task(app, run_once: bool = False) -> None:
             raise _OtpCancelledError("OTP cancelled by user.")
         logger.info("OTP code received from browser.")
         return code
+
+    # Clear the history ring buffer so each new run starts with a clean log slate.
+    _msd_log_history.clear()
 
     with app.app_context():
         try:

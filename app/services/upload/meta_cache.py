@@ -37,6 +37,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+from app.services.database.db import open_db
 
 _SUFFIX = ".meta.json"
 _ACTIVE_WO_FILE              = "active_open_wos.json"
@@ -178,8 +179,7 @@ def rebuild_active_open_wos(
     """
     rows: list[dict] = []
     try:
-        conn = sqlite3.connect(db_path)
-        conn.row_factory = sqlite3.Row
+        conn = open_db(db_path)
         try:
             db_rows = conn.execute(_ACTIVE_WO_QUERY).fetchall()
             exclude = excel_wo_ids or set()
@@ -268,7 +268,7 @@ def rebuild_incomplete_prev_shipments(
     if not excel_month:
         return rows
     try:
-        conn = sqlite3.connect(db_path)
+        conn = open_db(db_path)
         try:
             db_rows = conn.execute(
                 _INCOMPLETE_SHIPMENTS_QUERY,

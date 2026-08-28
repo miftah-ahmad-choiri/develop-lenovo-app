@@ -288,8 +288,9 @@ def upsert_wo_summary_and_details(df: pd.DataFrame, conn: sqlite3.Connection) ->
             to_insert = [v for k, v in new_users.items() if k not in existing]
             if to_insert:
                 conn.executemany(
-                    "INSERT INTO asp_users (labor_vendor_related, tech_id, full_name)"
-                    " VALUES (?, ?, ?)",
+                    "INSERT INTO asp_users"
+                    " (labor_vendor_related, tech_id, full_name, email, password)"
+                    " VALUES (?, ?, ?, '', '')",
                     to_insert,
                 )
                 conn.commit()
