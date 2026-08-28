@@ -1111,6 +1111,12 @@ function connectMsdStream() {
   _msdEs.onmessage = function (e) {
     const data = JSON.parse(e.data);
     if (data.keepalive) return;
+    // history_first=true means the server is replaying buffered logs after a
+    // reconnect/restart — clear the current display first so there are no duplicates.
+    if (data.history_first) {
+      document.getElementById('msd-console').innerHTML = '';
+      _msdStore.removeItem(_MSD_LOG_KEY);
+    }
     if ((data.msg || '').indexOf('__OTP_REQUIRED__') !== -1) {
       setOtpPanelVisible(true);
       appendMsdLog('msd-log-warning', '⚠ OTP required — enter the SMS code above.');
