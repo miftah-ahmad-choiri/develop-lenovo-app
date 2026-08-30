@@ -37,6 +37,7 @@ def generate_token(
     role: str,
     labor_vendor: str | None,
     display_name: str,
+    tech_id: str | None = None,
 ) -> str:
     """Return a signed JWT string valid for 24 hours."""
     payload = {
@@ -45,6 +46,7 @@ def generate_token(
         "role":         role,
         "labor_vendor": labor_vendor,
         "display_name": display_name,
+        "tech_id":      tech_id,
         "exp": datetime.datetime.now(datetime.timezone.utc) + _TTL,
     }
     return jwt.encode(payload, _SECRET, algorithm=_ALGO)
@@ -70,11 +72,22 @@ def jwt_required(f):
 
 def mobile_vendor_filter() -> str | None:
     """
-    Return the labor_vendor_related value from the JWT payload.
-    Mirrors _vendor_filter() in asp.py but reads from g.jwt instead of session.
-    Returns None for roles that should see all data (not applicable in mobile MVP).
+    Return the labor_vendor_related value from the JWT payload for asp/asp_master.
+    asp_user is intentionally excluded — use mobile_tech_id_filter() instead.
     """
     role = g.jwt.get("role", "")
-    if role in ("asp", "asp_user"):
+    if role == "asp":
         return g.jwt.get("labor_vendor") or None
+    return None
+
+
+def mobile_tech_id_filter() -> str | None:
+    """
+    Return the tech_id from the JWT payload for asp_user sessions only.
+    When set, every WO query is narrowed to WOs assigned to this technician
+    (wo_details.tech_id), so technicians cannot see each other's WOs.
+    """
+    role = g.jwt.get("role", "")
+    if role == "asp_user":
+        return g.jwt.get("tech_id") or None
     return None

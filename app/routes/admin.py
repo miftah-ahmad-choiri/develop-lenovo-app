@@ -1837,33 +1837,45 @@ def data_import_upsert_preview(category_key: str):
 
             elif category_key == "UNRETURN":
                 # Impacted rows = Excel rows whose SOID is in wo_product_detail.
-                # Preview shows exactly what dc_lenovo and return_status will be written
-                # and the reason for each change.
+                # Preview shows exactly what will be written to each column and
+                # the reason for each change (including date-gate decisions).
                 import math as _math_ur
+                from datetime import datetime as _dt_ur
 
-                db_unreturn = {
-                    r[0]: {"dc_lenovo": r[1], "return_status": r[2]}
-                    for r in db_conn.execute(
-                        "SELECT soid, dc_lenovo, return_status FROM wo_product_detail"
-                    ).fetchall()
-                }
-
-                soid_col        = "SOID"
-                dc_col          = "DC/Collection Form"
-                rs_col          = "Return Status"
-                date_col        = "SO Completion Date"
-                dc_write_col    = "dc_lenovo (will write)"
-                rs_write_col    = "return_status (will write)"
-                reason_col      = "Reason"
-                no_match_col    = "No Match Reason"
-                preview_cols    = [
+                # ── Column name constants ────────────────────────────────────────
+                soid_col             = "SOID"
+                dc_col               = "DC/Collection Form"
+                rs_col               = "Return Status"
+                subdate_col          = "DC/Collection Form-Submitted Date"
+                awb_col              = "AWB Number"
+                note_col             = "Note"
+                date_col             = "SO Completion Date"
+                dc_write_col         = "dc_lenovo (will write)"
+                awb_write_col        = "awb_return (will write)"
+                lrs_write_col        = "lenovo_return_status (will write)"
+                notes_write_col      = "awb_notes (will write)"
+                subdate_gate_col     = "modify_date_dc_lenovo (gate)"
+                is_exist_write_col   = "is_exist_excel (will write)"
+                reason_col           = "Reason"
+                no_match_col         = "No Match Reason"
+                # rs_write_col is used internally for the reason string but NOT shown
+                rs_write_col         = "return_status (will write)"
+                preview_cols     = [
+                    reason_col,
                     soid_col, dc_col, dc_write_col,
-                    rs_col, rs_write_col, "Vendor Name", date_col,
+                    rs_col, lrs_write_col,
+                    awb_col, awb_write_col,
+                    note_col, notes_write_col,
+                    "Vendor Name", date_col,
+                    subdate_col, subdate_gate_col,
                 ]
-                skipped_cols    = [
-                    soid_col, dc_col, rs_col, "Vendor Name", no_match_col,
+                skipped_cols     = [
+                    no_match_col,
+                    soid_col, dc_col, rs_col, awb_col, note_col,
+                    "Vendor Name",
                 ]
 
+                # ── Helper functions ─────────────────────────────────────────────
                 def _ur_has_val(v) -> bool:
                     if v is None:
                         return False
@@ -1880,78 +1892,311 @@ def data_import_upsert_preview(category_key: str):
                     s = str(v).strip()
                     return None if s in ("", "nan", "nat", "none", "null", "NaT") else s
 
-                # Stage dc_lenovo in-memory first (needed for Condition B)
+                def _ur_parse_date(v):
+                    """Convert 'DD-MM-YYYY' → 'YYYY-MM-DD', or None if unparseable."""
+                    raw = _ur_to_str_or_none(v)
+                    if not raw:
+                        return None
+                    try:
+                        return _dt_ur.strptime(raw, "%d-%m-%Y").strftime("%Y-%m-%d")
+                    except ValueError:
+                        return None
+
+                # ── DB snapshot ──────────────────────────────────────────────────
+                db_unreturn = {
+                    r[0]: {
+                        "dc_lenovo":             r[1],
+                        "return_status":         r[2],
+                        "awb_return":            r[3],
+                        "lenovo_return_status":  r[4],
+                        "awb_notes":             r[5],
+                        "modify_date_dc_lenovo": r[6],
+                        "is_exist_excel":        r[7],
+                    }
+                    for r in db_conn.execute(
+                        """SELECT soid, dc_lenovo, return_status,
+                                  awb_return, lenovo_return_status, awb_notes,
+                                  modify_date_dc_lenovo, is_exist_excel
+                           FROM wo_product_detail"""
+                    ).fetchall()
+                }
+
+                # ── File-level version stamp (mirrors upsert logic) ──────────────
+                # Compute max(DC/Collection Form-Submitted Date) across all Excel rows.
+                _ur_max_submitted: str | None = None
+                for _, _ur_r in df.iterrows():
+                    _d = _ur_parse_date(_ur_r.get(subdate_col))
+                    if _d and (_ur_max_submitted is None or _d > _ur_max_submitted):
+                        _ur_max_submitted = _d
+
+                # Single stored stamp = MAX(modify_date_dc_lenovo) already in DB
+                _ur_stamp_row = db_conn.execute(
+                    "SELECT MAX(modify_date_dc_lenovo) FROM wo_product_detail"
+                    " WHERE modify_date_dc_lenovo IS NOT NULL"
+                ).fetchone()
+                _ur_stored_stamp: str | None = _ur_stamp_row[0] if _ur_stamp_row else None
+
+                # file_gate_pass mirrors upsert_from_unreturn():
+                #   True  → file is newer; write all new-col rows
+                #   False → file not newer; all new-col writes blocked
+                #   None  → no parseable dates; first-time fill only
+                if _ur_max_submitted:
+                    _ur_file_gate_pass = (_ur_stored_stamp is None) or (_ur_max_submitted > _ur_stored_stamp)
+                else:
+                    _ur_file_gate_pass = None
+
+                # Stage dc_lenovo in-memory first (needed for return_status decision)
                 staged_dc: dict[int, str | None] = {
                     soid: v["dc_lenovo"] for soid, v in db_unreturn.items()
                 }
                 for _, _r in df.iterrows():
                     _s = _safe_int(_r.get(soid_col))
                     if _s is not None and _s in db_unreturn:
-                        staged_dc[_s] = _ur_to_str_or_none(_r.get(dc_col))
+                        _incoming_dc = _ur_to_str_or_none(_r.get(dc_col))
+                        _current_dc  = _ur_to_str_or_none(db_unreturn[_s]["dc_lenovo"])
+                        # Only stage if real AND different from current DB value
+                        if _ur_has_val(_incoming_dc) and _incoming_dc != _current_dc:
+                            staged_dc[_s] = _incoming_dc
 
-                # Track which SOIDs we've already decided on for return_status
+                # Track staged return_status decisions
                 _staged_rs: dict[int, str | None] = {
                     soid: v["return_status"] for soid, v in db_unreturn.items()
                 }
 
+                # ── Pre-compute Excel SOID set (for is_exist_excel preview) ─────
+                _ur_excel_soids: set[int] = set()
+                for _, _xe_r in df.iterrows():
+                    _xe_s = _safe_int(_xe_r.get(soid_col))
+                    if _xe_s is not None:
+                        _ur_excel_soids.add(_xe_s)
+
                 impacted_rows: list[dict] = []
                 skipped_rows:  list[dict] = []
 
+                # ── Gate guard: file not newer → null-fill for eligible rows ──────────
+                # Mirrors upsert_from_unreturn(): when file_gate_pass is False,
+                # awb_return/lenovo_return_status/awb_notes are written when:
+                #   • awb_return and awb_notes are NULL in the DB, AND
+                #   • lenovo_return_status is NULL or "Unreturned" (unlocked)
+                if _ur_file_gate_pass is False:
+                    _gate_null_reason = (
+                        f"file max date ({_ur_max_submitted}) \u2264 stored ({_ur_stored_stamp})"
+                        " — null/Unreturned-fill"
+                    )
+                    _gate_skip_reason = (
+                        f"file max date ({_ur_max_submitted}) \u2264 stored ({_ur_stored_stamp})"
+                        " — date-gated columns skipped (cols already set)"
+                    )
+                    for _, _gs_row in df.iterrows():
+                        _gs_soid   = _safe_int(_gs_row.get(soid_col))
+                        _gs_vendor = str(_gs_row.get("Vendor Name") or "").strip()
+                        _gs_dc     = _ur_to_str_or_none(_gs_row.get(dc_col))
+                        _gs_rs     = str(_gs_row.get(rs_col) or "").strip()
+                        _gs_awb    = _ur_to_str_or_none(_gs_row.get(awb_col))
+                        _gs_note   = _ur_to_str_or_none(_gs_row.get(note_col))
+                        _gs_rs_clean = _ur_to_str_or_none(_gs_row.get(rs_col))
+
+                        if _gs_soid is None or _gs_soid not in db_unreturn:
+                            skipped_rows.append({
+                                soid_col:      str(_gs_soid) if _gs_soid is not None else "—",
+                                "Vendor Name": _gs_vendor,
+                                dc_col:        str(_gs_dc or "—"),
+                                rs_col:        _gs_rs,
+                                awb_col:       str(_gs_awb or "—"),
+                                note_col:      str(_gs_note or "—"),
+                                no_match_col:  "SOID not found in wo_product_detail",
+                            })
+                            continue
+
+                        _gs_db     = db_unreturn[_gs_soid]
+                        _gs_db_lrs = _ur_to_str_or_none(_gs_db["lenovo_return_status"])
+                        _lrs_unlocked = (
+                            _gs_db_lrs is None
+                            or _gs_db_lrs.strip().lower() == "unreturned"
+                        )
+                        _eligible = (
+                            _ur_to_str_or_none(_gs_db["awb_return"]) is None
+                            and _lrs_unlocked
+                            and _ur_to_str_or_none(_gs_db["awb_notes"]) is None
+                        )
+                        _has_any = (_gs_awb is not None or _gs_rs_clean is not None or _gs_note is not None)
+
+                        if _eligible and _has_any:
+                            _lrs_label = (
+                                f"Unreturned → '{_gs_rs_clean}'"
+                                if _gs_db_lrs is not None
+                                else f"'{_gs_rs_clean or ''}'"
+                            )
+                            impacted_rows.append({
+                                reason_col:       f"fill: awb_return ← '{_gs_awb or ''}'; lenovo_return_status ← {_lrs_label}; awb_notes ← '{_gs_note or ''}' ({_gate_null_reason})",
+                                soid_col:         str(_gs_soid),
+                                dc_col:           str(_gs_dc or "—"),
+                                dc_write_col:     "",
+                                rs_col:           _gs_rs,
+                                awb_col:          str(_gs_awb or "—"),
+                                awb_write_col:    str(_gs_awb or ""),
+                                lrs_write_col:    str(_gs_rs_clean or ""),
+                                note_col:         str(_gs_note or "—"),
+                                notes_write_col:  str(_gs_note or ""),
+                                "Vendor Name":    _gs_vendor,
+                                date_col:         "",
+                                subdate_col:      "",
+                                subdate_gate_col: _gate_null_reason,
+                            })
+                        else:
+                            _skip_why = _gate_skip_reason
+                            if not _lrs_unlocked:
+                                _skip_why = f"lenovo_return_status locked (current: '{_gs_db_lrs}') — skipped"
+                            skipped_rows.append({
+                                soid_col:      str(_gs_soid),
+                                "Vendor Name": _gs_vendor,
+                                dc_col:        str(_gs_dc or "—"),
+                                rs_col:        _gs_rs,
+                                awb_col:       str(_gs_awb or "—"),
+                                note_col:      str(_gs_note or "—"),
+                                no_match_col:  _skip_why,
+                            })
                 for _, row in df.iterrows():
-                    soid = _safe_int(row.get(soid_col))
-                    vendor = str(row.get("Vendor Name") or "").strip()
+                    if _ur_file_gate_pass is False:
+                        break  # already handled above
+                    soid    = _safe_int(row.get(soid_col))
+                    vendor  = str(row.get("Vendor Name") or "").strip()
                     dc_val  = _ur_to_str_or_none(row.get(dc_col))
                     rs_val  = str(row.get(rs_col) or "").strip()
                     so_comp = str(row.get(date_col) or "").strip()
+                    awb_val = _ur_to_str_or_none(row.get(awb_col))
+                    note_val = _ur_to_str_or_none(row.get(note_col))
+                    raw_subdate = str(row.get(subdate_col) or "").strip()
+                    submitted_iso = _ur_parse_date(row.get(subdate_col))
 
                     if soid is None or soid not in db_unreturn:
                         skipped_rows.append({
-                            soid_col:     str(soid) if soid is not None else "—",
+                            soid_col:      str(soid) if soid is not None else "—",
                             "Vendor Name": vendor,
                             dc_col:        str(dc_val or "—"),
                             rs_col:        rs_val,
+                            awb_col:       str(awb_val or "—"),
+                            note_col:      str(note_val or "—"),
                             no_match_col:  "SOID not found in wo_product_detail",
                         })
                         continue
 
                     current_status = str(_staged_rs.get(soid) or "").strip()
+                    # dc_is_real: incoming DC value is real AND differs from current DB value
+                    current_dc = _ur_to_str_or_none(db_unreturn[soid]["dc_lenovo"])
+                    dc_is_real = _ur_has_val(dc_val) and dc_val != current_dc
 
-                    # Only rows with a real dc_lenovo value qualify for the impacted view
-                    # (dc_val "0", "—", or None → skip to skipped panel)
-                    dc_is_real = _ur_has_val(staged_dc.get(soid))
-
-                    if not dc_is_real:
-                        skipped_rows.append({
-                            soid_col:      str(soid),
-                            dc_col:        str(dc_val or "—"),
-                            rs_col:        rs_val,
-                            "Vendor Name": vendor,
-                            no_match_col:  "DC/Collection Form is empty, 0, or —",
-                        })
-                        continue
-
-                    # What will be written to return_status?
-                    # Only DC GENERATED is written; Unreturned is never written.
+                    # ── dc_lenovo / return_status decisions ──────────────────
+                    dc_write = dc_val if dc_is_real else ""
                     rs_write = ""
-                    if not current_status:
+                    if dc_is_real and not current_status:
                         rs_write = "DC GENERATED"
 
-                    # Build reason string
+                    # ── new-column date-gate decision (FILE-LEVEL) ───────────────
+                    # Mirrors the new upsert_from_unreturn() gate:
+                    #   _ur_file_gate_pass = True  → file max date > stored stamp → write
+                    #   _ur_file_gate_pass = False → file not newer → block all new-col writes
+                    #   _ur_file_gate_pass = None  → no dates in file → first-time fill only
+                    db_awb_cur   = _ur_to_str_or_none(db_unreturn[soid]["awb_return"])
+                    db_lrs_cur   = _ur_to_str_or_none(db_unreturn[soid]["lenovo_return_status"])
+                    db_notes_cur = _ur_to_str_or_none(db_unreturn[soid]["awb_notes"])
+                    cols_are_null = (db_awb_cur is None and db_lrs_cur is None and db_notes_cur is None)
+
+                    new_cols_write = False
+                    gate_reason    = ""
+                    skip_reason    = ""
+                    if _ur_file_gate_pass is True:
+                        new_cols_write = True
+                        if _ur_stored_stamp:
+                            gate_reason = f"file max {_ur_max_submitted} > stored {_ur_stored_stamp} — write"
+                        else:
+                            gate_reason = f"file max {_ur_max_submitted} (first write)"
+                    elif _ur_file_gate_pass is False:
+                        gate_reason = f"file max {_ur_max_submitted} ≤ stored {_ur_stored_stamp} — skip"
+                        skip_reason = f"file max date ({_ur_max_submitted}) ≤ stored ({_ur_stored_stamp}) — skip"
+                    else:
+                        # No parseable dates in file
+                        if cols_are_null:
+                            new_cols_write = True
+                            gate_reason = "no dates in file — first-time fill"
+                        else:
+                            gate_reason = "no dates in file, cols already set — skip"
+                            skip_reason = "no dates in file, cols already set — skip"
+
+                    # ── build reasons list ───────────────────────────────────
                     reasons = []
-                    if dc_val is not None:
+                    if dc_is_real:
                         reasons.append(f"dc_lenovo ← '{dc_val}'")
                     if rs_write:
                         reasons.append(f"return_status: NULL → '{rs_write}'")
-                    elif current_status:
-                        reasons.append(f"return_status unchanged ('{current_status}')")
+                    if new_cols_write:
+                        # ── Same rules as upsert Pass 3 ──────────────────────
 
-                    if not reasons:
+                        db_awb_val   = _ur_to_str_or_none(db_unreturn[soid]["awb_return"])
+                        db_lrs_val   = _ur_to_str_or_none(db_unreturn[soid]["lenovo_return_status"])
+                        db_notes_val = _ur_to_str_or_none(db_unreturn[soid]["awb_notes"])
+
+                        # lenovo_return_status lock rule (mirrors upsert Pass 3):
+                        #   NULL or "Unreturned" → unlocked, Excel value wins
+                        #   Any other value      → locked, keep DB value
+                        _lrs_locked_prev = (
+                            db_lrs_val is not None
+                            and db_lrs_val.strip().lower() != "unreturned"
+                        )
+                        eff_lrs_val = db_lrs_val if _lrs_locked_prev else (rs_val if rs_val is not None else db_lrs_val)
+
+                        eff_awb_val   = awb_val  if awb_val   is not None else db_awb_val
+                        eff_notes_val = note_val if note_val  is not None else db_notes_val
+
+                        # Skip if all effective values match what is already in the DB
+                        if eff_awb_val == db_awb_val and eff_lrs_val == db_lrs_val and eff_notes_val == db_notes_val:
+                            new_cols_write = False
+                            gate_reason = gate_reason + " [no change — all values match DB]"
+                            skip_reason  = "no change — all values match DB"
+                        # Nothing to write at all
+                        elif eff_awb_val is None and eff_lrs_val is None and eff_notes_val is None:
+                            new_cols_write = False
+                            gate_reason = gate_reason + " [nothing to write after filters]"
+                            skip_reason  = "nothing to write after filters"
+                        else:
+                            col_notes = []
+                            if eff_awb_val is not None and eff_awb_val != db_awb_val:
+                                col_notes.append(f"awb_return ← '{eff_awb_val}'")
+                            elif eff_awb_val is not None:
+                                col_notes.append("awb same with existing")
+                            else:
+                                col_notes.append("awb — (empty)")
+                            if eff_lrs_val is not None and eff_lrs_val != db_lrs_val:
+                                col_notes.append(f"lenovo_return_status ← '{eff_lrs_val}'")
+                            elif eff_lrs_val is not None:
+                                col_notes.append("return status same with existing")
+                            else:
+                                col_notes.append("return status — (empty)")
+                            if eff_notes_val is not None and eff_notes_val != db_notes_val:
+                                col_notes.append(f"awb_notes ← '{eff_notes_val}'")
+                            elif eff_notes_val is not None:
+                                col_notes.append("note same with existing")
+                            else:
+                                col_notes.append("note — (empty)")
+                            reasons.append("; ".join(col_notes))
+                    else:
+                        # Still read DB values so the preview can show "existing [skipped]"
+                        db_awb_val   = _ur_to_str_or_none(db_unreturn[soid]["awb_return"])
+                        db_lrs_val   = _ur_to_str_or_none(db_unreturn[soid]["lenovo_return_status"])
+                        db_notes_val = _ur_to_str_or_none(db_unreturn[soid]["awb_notes"])
+                        eff_awb_val = eff_lrs_val = eff_notes_val = None
+                        eff_rs_val  = rs_val
+
+                    # Skip rows with nothing at all to write
+                    if not dc_is_real and not new_cols_write:
                         skipped_rows.append({
                             soid_col:      str(soid),
                             dc_col:        str(dc_val or "—"),
                             rs_col:        rs_val,
+                            awb_col:       str(awb_val or "—"),
+                            note_col:      str(note_val or "—"),
                             "Vendor Name": vendor,
-                            no_match_col:  "No changes to write",
+                            no_match_col:  skip_reason or "DC/Collection Form is empty, 0, or — and no new-column write",
                         })
                         continue
 
@@ -1960,19 +2205,26 @@ def data_import_upsert_preview(category_key: str):
                         _staged_rs[soid] = rs_write
 
                     impacted_rows.append({
-                        reason_col:    "; ".join(reasons),
-                        soid_col:      str(soid),
-                        dc_col:        str(dc_val or "—"),
-                        dc_write_col:  dc_val or "",
-                        rs_col:        rs_val,
-                        rs_write_col:  rs_write,
-                        "Vendor Name": vendor,
-                        date_col:      so_comp,
+                        reason_col:       "; ".join(reasons),
+                        soid_col:         str(soid),
+                        dc_col:           str(dc_val or "—"),
+                        dc_write_col:     dc_write,
+                        rs_col:           rs_val,
+                        # rs_write_col not included — hidden from preview
+                        awb_col:          str(awb_val or "—"),
+                        awb_write_col:    str(eff_awb_val or "") if new_cols_write else (f"{db_awb_val} [skipped]"   if db_awb_val   else "[skipped]"),
+                        lrs_write_col:    str(eff_lrs_val or "") if new_cols_write else (f"{db_lrs_val} [skipped]"   if db_lrs_val   else "[skipped]"),
+                        note_col:         str(note_val or "—"),
+                        notes_write_col:  str(eff_notes_val or "") if new_cols_write else (f"{db_notes_val} [skipped]" if db_notes_val else "[skipped]"),
+                        "Vendor Name":    vendor,
+                        date_col:         so_comp,
+                        subdate_col:      raw_subdate,
+                        subdate_gate_col: gate_reason,
                     })
 
                 import pandas as _pd_ur
-                new_df      = _pd_ur.DataFrame(impacted_rows) if impacted_rows else _pd_ur.DataFrame()
-                skipped_df  = _pd_ur.DataFrame(skipped_rows)  if skipped_rows  else _pd_ur.DataFrame()
+                new_df     = _pd_ur.DataFrame(impacted_rows) if impacted_rows else _pd_ur.DataFrame()
+                skipped_df = _pd_ur.DataFrame(skipped_rows)  if skipped_rows  else _pd_ur.DataFrame()
 
             else:
                 return jsonify({"ok": False, "error": "Category has no DB preview support."})
@@ -2349,12 +2601,97 @@ def data_import_reset():
     return redirect(url_for("admin.data_import"))
 
 
+# ── DB Maintenance helpers ───────────────────────────────────────────────────
+
+@admin_bp.route("/admin/api/backfill-return-status", methods=["GET", "POST"])
+def backfill_return_status():
+    """Backfill return_status = 'DC GENERATED' for every wo_product_detail row
+    where dc_lenovo is not empty/null but return_status is still empty/null.
+
+    GET  → dry-run: returns {"count": N} (how many rows would be updated).
+    POST → applies the UPDATE and returns {"updated": N}.
+    """
+    from app.services.database.db import get_db
+    conn = get_db()
+    try:
+        if request.method == "GET":
+            row = conn.execute(
+                """SELECT COUNT(*) FROM wo_product_detail
+                    WHERE dc_lenovo IS NOT NULL
+                      AND TRIM(dc_lenovo) NOT IN ('', '0')
+                      AND (return_status IS NULL OR TRIM(return_status) = '')"""
+            ).fetchone()
+            return jsonify({"count": row[0] if row else 0})
+        else:
+            cur = conn.execute(
+                """UPDATE wo_product_detail
+                      SET return_status = 'DC GENERATED'
+                    WHERE dc_lenovo IS NOT NULL
+                      AND TRIM(dc_lenovo) NOT IN ('', '0')
+                      AND (return_status IS NULL OR TRIM(return_status) = '')"""
+            )
+            conn.commit()
+            return jsonify({"updated": cur.rowcount})
+    except Exception as exc:
+        import traceback as _tb
+        current_app.logger.error("backfill_return_status failed:\n%s", _tb.format_exc())
+        return jsonify({"error": str(exc)}), 500
+
+
 # ── Validation Center ────────────────────────────────────────────────────────
 
 @admin_bp.route("/admin/validation", methods=["GET"])
 def validation():
     return render_template("admin/validation_center.html",
-                           portal="admin", active_page="validation")
+                           portal="admin", active_page="validation",
+                           active_group="validation_center")
+
+
+@admin_bp.route("/admin/validation/pou-unreturn", methods=["GET"])
+def pou_unreturn_report():
+    from app.services.database.queries import get_pou_unreturn_report
+
+    upload_folder = current_app.config["EXCEL_UPLOAD_FOLDER"]
+    meta_folder   = current_app.config["UPLOAD_META_FOLDER"]
+    _POU_CATEGORY = "ID-IBM ID POU Unreturn"
+
+    # Find the most recently uploaded POU Unreturn file
+    pou_file_path = None
+    pou_filename  = None
+    for fname in sorted(os.listdir(upload_folder), reverse=True):
+        if not allowed_excel(fname):
+            continue
+        meta = read_meta(meta_folder, fname)
+        if meta and meta.get("file_category") == _POU_CATEGORY:
+            pou_file_path = os.path.join(upload_folder, fname)
+            pou_filename  = fname
+            break
+
+    if pou_file_path is None:
+        return render_template(
+            "admin/pou_unreturn_report.html",
+            rows=[], no_file=True,
+            portal="admin", active_page="pou_unreturn",
+            active_group="validation_center",
+        )
+
+    # Query DB rows with is_exist_excel = 'yes'.
+    rows = get_pou_unreturn_report()
+
+    # Build unique filter option lists server-side (avoids Jinja list-append quirks)
+    rs_options  = sorted({r["return_status"]         for r in rows if r["return_status"]})
+    lrs_options = sorted({r["lenovo_return_status"]  for r in rows if r["lenovo_return_status"]})
+
+    return render_template(
+        "admin/pou_unreturn_report.html",
+        rows=rows, no_file=False,
+        pou_filename=pou_filename,
+        rs_options=rs_options,
+        lrs_options=lrs_options,
+        portal="admin", active_page="pou_unreturn",
+        active_group="validation_center",
+    )
+
 
 
 # ── User & ASP Management ────────────────────────────────────────────────────

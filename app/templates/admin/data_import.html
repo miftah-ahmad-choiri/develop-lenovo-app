@@ -186,11 +186,16 @@
   }
   .mismatch-header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 20px; border-bottom: 1px solid #fca5a5;
-    background: #fff0f0;
+    padding: 14px 20px;
+    background: #fff0f0; cursor: pointer; user-select: none;
   }
+  .mismatch-card.open .mismatch-header { border-bottom: 1px solid #fca5a5; }
   .mismatch-header-left { display: flex; align-items: center; gap: 10px; }
   .mismatch-header h2 { font-size: 15px; font-weight: 700; color: #b91c1c; margin: 0; }
+  .mismatch-toggle-icon { color: #b91c1c; transition: transform 0.2s; flex-shrink: 0; }
+  .mismatch-card.open .mismatch-toggle-icon { transform: rotate(90deg); }
+  .mismatch-body { display: none; }
+  .mismatch-card.open .mismatch-body { display: block; }
   .mismatch-badge {
     font-size: 11px; font-weight: 700; background: #fee2e2;
     border: 1px solid #fca5a5; border-radius: 12px;
@@ -759,8 +764,8 @@
 
 {# ── WO-Product Mismatch Card (hidden when empty) ─────────────────────────── #}
 {% if wo_product_mismatch %}
-<div class="mismatch-card">
-  <div class="mismatch-header">
+<div class="mismatch-card" id="mismatch-card">
+  <div class="mismatch-header" id="mismatch-toggle" onclick="(function(){var c=document.getElementById('mismatch-card');c.classList.toggle('open');})()">
     <div class="mismatch-header-left">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#b91c1c"
            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -771,61 +776,68 @@
       <h2>Work Order IDs Not Found in Database</h2>
       <span class="mismatch-badge">{{ wo_product_mismatch | length }} WO{{ 's' if wo_product_mismatch | length != 1 }}</span>
     </div>
-  </div>
-  <div class="mismatch-sub">
-    Work Order IDs present in the uploaded <strong>Work Order Product Advance Find View</strong> Excel
-    that do <strong>not exist</strong> in either <code>wo_summary</code> or <code>wo_details</code> in the database.
-    These rows are <strong>skipped</strong> during upsert. Please upload and upsert the matching
-    <strong>Work Order Advance Find View</strong> file first to create these Work Orders in the database.
-  </div>
-  <div style="overflow-x:auto;overflow-y:auto;max-height:400px;border-bottom:1px solid #fca5a5;">
-    <table class="mismatch-table">
-      <thead style="position:sticky;top:0;z-index:1;">
-        <tr>
-          <th>#</th>
-          <th style="background:#fca5a5;color:#b91c1c;">Reason</th>
-          <th>Created On</th>
-          <th>Work Order ID</th>
-          <th>Line Order</th>
-          <th>Product</th>
-          <th>Description</th>
-          <th>WO Product Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in wo_product_mismatch %}
-        <tr>
-          <td><span style="font-size:11px;color:#9ca3af;">{{ loop.index }}</span></td>
-          <td><span style="font-size:12px;font-weight:700;color:#b91c1c;white-space:nowrap;">{{ row['Reason'] }}</span></td>
-          <td><span style="font-size:12px;color:#57606a;white-space:nowrap;">{{ row['Created On'] or '—' }}</span></td>
-          <td><span style="font-weight:700;font-size:12px;color:#b91c1c;white-space:nowrap;">{{ row['Work Order ID'] }}</span></td>
-          <td><span style="font-size:12px;color:#57606a;">{{ row['Line Order'] or '—' }}</span></td>
-          <td><span style="font-size:12px;color:#57606a;">{{ row['Product'] or '—' }}</span></td>
-          <td><span style="font-size:12px;color:#57606a;">{{ row['Description'] or '—' }}</span></td>
-          <td><span style="font-size:12px;color:#57606a;">{{ row['WO Product Status'] or '—' }}</span></td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  <div class="mismatch-info">
-    <svg style="flex-shrink:0;margin-top:1px;" width="14" height="14" viewBox="0 0 24 24"
-         fill="none" stroke="#c2410c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="10"/>
-      <line x1="12" y1="8" x2="12" y2="12"/>
-      <line x1="12" y1="16" x2="12.01" y2="16"/>
+    <svg class="mismatch-toggle-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="9 18 15 12 9 6"/>
     </svg>
-    <span>
-      <strong>Action required:</strong>
-      {{ wo_product_mismatch | length }} Work Order{{ 's' if wo_product_mismatch | length != 1 }}
-      listed above {{ 'were' if wo_product_mismatch | length != 1 else 'was' }} found in the
-      Work Order Product Excel but {{ 'are' if wo_product_mismatch | length != 1 else 'is' }} not yet
-      in the database. Please <strong>download and upload the latest Work Order Advance Find View from MSD</strong>,
-      upsert it first, then re-run the Work Order Product upsert to include these rows.
-    </span>
+  </div>
+  <div class="mismatch-body">
+    <div class="mismatch-sub">
+      Work Order IDs present in the uploaded <strong>Work Order Product Advance Find View</strong> Excel
+      that do <strong>not exist</strong> in either <code>wo_summary</code> or <code>wo_details</code> in the database.
+      These rows are <strong>skipped</strong> during upsert. Please upload and upsert the matching
+      <strong>Work Order Advance Find View</strong> file first to create these Work Orders in the database.
+    </div>
+    <div style="overflow-x:auto;overflow-y:auto;max-height:400px;border-bottom:1px solid #fca5a5;">
+      <table class="mismatch-table">
+        <thead style="position:sticky;top:0;z-index:1;">
+          <tr>
+            <th>#</th>
+            <th style="background:#fca5a5;color:#b91c1c;">Reason</th>
+            <th>Created On</th>
+            <th>Work Order ID</th>
+            <th>Line Order</th>
+            <th>Product</th>
+            <th>Description</th>
+            <th>WO Product Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in wo_product_mismatch %}
+          <tr>
+            <td><span style="font-size:11px;color:#9ca3af;">{{ loop.index }}</span></td>
+            <td><span style="font-size:12px;font-weight:700;color:#b91c1c;white-space:nowrap;">{{ row['Reason'] }}</span></td>
+            <td><span style="font-size:12px;color:#57606a;white-space:nowrap;">{{ row['Created On'] or '—' }}</span></td>
+            <td><span style="font-weight:700;font-size:12px;color:#b91c1c;white-space:nowrap;">{{ row['Work Order ID'] }}</span></td>
+            <td><span style="font-size:12px;color:#57606a;">{{ row['Line Order'] or '—' }}</span></td>
+            <td><span style="font-size:12px;color:#57606a;">{{ row['Product'] or '—' }}</span></td>
+            <td><span style="font-size:12px;color:#57606a;">{{ row['Description'] or '—' }}</span></td>
+            <td><span style="font-size:12px;color:#57606a;">{{ row['WO Product Status'] or '—' }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="mismatch-info">
+      <svg style="flex-shrink:0;margin-top:1px;" width="14" height="14" viewBox="0 0 24 24"
+           fill="none" stroke="#c2410c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <span>
+        <strong>Action required:</strong>
+        {{ wo_product_mismatch | length }} Work Order{{ 's' if wo_product_mismatch | length != 1 }}
+        listed above {{ 'were' if wo_product_mismatch | length != 1 else 'was' }} found in the
+        Work Order Product Excel but {{ 'are' if wo_product_mismatch | length != 1 else 'is' }} not yet
+        in the database. Please <strong>download and upload the latest Work Order Advance Find View from MSD</strong>,
+        upsert it first, then re-run the Work Order Product upsert to include these rows.
+      </span>
+    </div>
   </div>
 </div>
 {% endif %}
+
 
 {% endblock %}
 
@@ -925,8 +937,8 @@
       impactedLabel = 'DC# / Return Status Rows to Write';
       skippedLabel  = 'No Change / Already up-to-date (skip)';
     } else if (isUnreturn) {
-      impactedLabel = 'Rows to Write (dc_lenovo / return_status)';
-      skippedLabel  = 'No Match / No Change (skip)';
+      impactedLabel = 'Rows to Write (dc_lenovo / awb_return / …)';
+      skippedLabel  = 'No Match / No Change / Date-Gated (skip)';
     } else {
       impactedLabel = 'New Rows (INSERT)';
       skippedLabel  = 'Existing Rows (UPDATE)';
@@ -956,11 +968,13 @@
                 '<strong>PENDING WITH PARTNER</strong> (0) &rarr; <strong>PENDING FOR DC GENERATION</strong> (1) &rarr; <strong>DC GENERATED</strong> (2, locked).';
     } else if (isUnreturn) {
       subDesc = 'Rows shown are POU Unreturned lines whose SOID matches <code>wo_product_detail</code>. ' +
-                'For each matched SOID, <code>dc_lenovo</code> is written from the <strong>DC/Collection Form</strong> column. ' +
-                'Additionally, <code>return_status</code> is set to <strong>Unreturned</strong> when the Excel ' +
-                '<em>Return Status</em> is "Unreturned" and the DB value is empty, or to <strong>DC GENERATED</strong> ' +
-                'when <em>DC/Collection Form</em> has a real value and the DB <code>return_status</code> is empty. ' +
-                'An existing <code>return_status</code> is never overwritten.';
+                '<strong>dc_lenovo</strong> is written from <em>DC/Collection Form</em> (real values only). ' +
+                '<strong>return_status</strong> is set to <em>DC GENERATED</em> when dc_lenovo is now real and the DB value is empty. ' +
+                'Three new columns are written when the <strong>max date across the entire file</strong> (<em>DC/Collection Form-Submitted Date</em>) ' +
+                'is strictly later than the stored <code>modify_date_dc_lenovo</code>: ' +
+                '<strong>awb_return</strong> ← AWB Number (including "Hardclose"), ' +
+                '<strong>lenovo_return_status</strong> ← Return Status, <strong>awb_notes</strong> ← Note. ' +
+                'The <em>modify_date_dc_lenovo (gate)</em> column shows the file-level gate decision.';
     } else {
       subDesc = 'Rows already present will be updated; new rows will be inserted.';
     }
@@ -1020,12 +1034,15 @@
                  '(<strong>PENDING WITH PARTNER</strong> &rarr; <strong>PENDING FOR DC GENERATION</strong> &rarr; <strong>DC GENERATED</strong>) — ' +
                  'written only when the incoming rank is strictly higher than the stored rank.';
     } else if (isUnreturn) {
-      noteText = '<strong>Write rules (applied in this order):</strong> ' +
-                 '(1) <code>dc_lenovo</code> is always written from Excel <em>DC/Collection Form</em> for every matched SOID (NULL when the Excel cell is empty). ' +
-                 '(2) <code>return_status</code> is written <strong>only when the current DB value is empty</strong>: ' +
-                 'set to <strong style="color:#b45309;">Unreturned</strong> when Excel <em>Return Status</em> = "Unreturned", ' +
-                 'or to <strong style="color:#15803d;">DC GENERATED</strong> when <em>DC/Collection Form</em> has a real value (not NULL / 0). ' +
-                 'An existing <code>return_status</code> is never overwritten.';
+      noteText = '<strong>Write rules (applied in order):</strong> ' +
+                 '(1) <code>dc_lenovo</code> written from <em>DC/Collection Form</em> when it has a real value (not empty / "0"). ' +
+                 '(2) <code>return_status</code> set to <strong style="color:#15803d;">DC GENERATED</strong> only when dc_lenovo is now real AND the DB value is currently empty — never overwritten. ' +
+                 '(3) <code>awb_return</code>, <code>lenovo_return_status</code>, <code>awb_notes</code> use a <strong>file-level gate</strong>: ' +
+                 'if the file max date is <strong>strictly later</strong> than the stored stamp, all matching rows are written. ' +
+                 'If the file max date is equal or older, a <strong>null-fill</strong> still runs: rows where <em>all three</em> columns are NULL in the DB are written for the first time regardless of the date gate. ' +
+                 'All values including <em>Unreturned</em> are stored as-is. ' +
+                 '"Hardclose" in <em>AWB Number</em> is stored as-is. ' +
+                 'The <em>modify_date_dc_lenovo (gate)</em> column in the preview shows the exact gate decision.';
     } else {
       noteText = '<strong>Note:</strong> Only rows whose Work Order ID already exists in <code>wo_summary</code> are written to <code>wo_product_detail</code>. Rows referencing an unknown Work Order ID are skipped.';
     }
@@ -1044,7 +1061,7 @@
       } else if (isGtaap) {
         zeroMsg = '<strong>No rows to update.</strong> All matched SOIDs already have a real <code>dc_number</code> and an up-to-date <code>return_status</code>, or no eligible rows were found in the Excel file.';
       } else if (isUnreturn) {
-        zeroMsg = '<strong>No rows to update.</strong> No Excel SOIDs matched <code>wo_product_detail</code>, or all matched rows have no changes to write.';
+        zeroMsg = '<strong>No rows to update.</strong> No Excel SOIDs matched <code>wo_product_detail</code>, or all matched rows have no changes to write (dc_lenovo already set, date gate blocked new-column writes, or no parseable submitted date).';
       } else {
         zeroMsg = '<strong>No new rows to insert.</strong> All ' + totalRows + ' Excel rows already exist in the database (they will be updated in-place).';
       }
@@ -1062,17 +1079,20 @@
           '<table class="modal-preview-table" style="margin-bottom:0;">' +
             '<thead style="position:sticky;top:0;z-index:1;background:#f0f2f5;"><tr>' +
               cols.map(function(c) {
-                var isInsert       = (isGtaap && c === 'DC# (will be inserted)') || (isUnreturn && c === 'dc_lenovo (will write)');
-                var isStatusInsert = (isGtaap && c === 'Return Status (will be inserted)') || (isUnreturn && c === 'return_status (will write)');
+                var isInsert       = (isGtaap && c === 'DC# (will be inserted)') || (isUnreturn && (c === 'dc_lenovo (will write)' || c === 'awb_return (will write)' || c === 'awb_notes (will write)'));
+                var isStatusInsert = (isGtaap && c === 'Return Status (will be inserted)') || (isUnreturn && c === 'lenovo_return_status (will write)');
+                var isGateCol      = isUnreturn && c === 'modify_date_dc_lenovo (gate)';
                 var isReason       = (isWoid || isSoid || isShipment || isGtaap || isUnreturn) && c === 'Reason';
                 var isUpsertReason = (isSoid || isShipment) && c === 'Upsert Reason';
                 var thStyle = isInsert
                   ? 'background:#dcfce7;color:#15803d;font-weight:700;'
                   : isStatusInsert
                     ? 'background:#eff6ff;color:#1d4ed8;font-weight:700;'
-                    : (isReason || isUpsertReason)
-                      ? 'background:#eff6ff;color:#1d4ed8;font-weight:700;min-width:220px;max-width:380px;white-space:normal;'
-                      : '';
+                    : isGateCol
+                      ? 'background:#fef9c3;color:#92400e;font-weight:700;min-width:200px;white-space:normal;'
+                      : (isReason || isUpsertReason)
+                        ? 'background:#eff6ff;color:#1d4ed8;font-weight:700;min-width:220px;max-width:380px;white-space:normal;'
+                        : '';
                 return '<th style="' + thStyle + '">' + esc(c) + '</th>';
               }).join('') +
             '</tr></thead>' +
@@ -1083,18 +1103,34 @@
                     return '<tr>' +
                       cols.map(function(c) {
                         var v = row[c] !== undefined ? row[c] : '';
-                        var isInsert       = (isGtaap && c === 'DC# (will be inserted)') || (isUnreturn && c === 'dc_lenovo (will write)');
-                        var isStatusInsert = (isGtaap && c === 'Return Status (will be inserted)') || (isUnreturn && c === 'return_status (will write)');
+                        var isInsert       = (isGtaap && c === 'DC# (will be inserted)') || (isUnreturn && (c === 'dc_lenovo (will write)' || c === 'awb_return (will write)' || c === 'awb_notes (will write)'));
+                        var isStatusInsert = (isGtaap && c === 'Return Status (will be inserted)') || (isUnreturn && c === 'lenovo_return_status (will write)');
+                        var isGateCol      = isUnreturn && c === 'modify_date_dc_lenovo (gate)';
                         var isReason       = (isWoid || isSoid || isShipment || isGtaap || isUnreturn) && c === 'Reason';
                         var isUpsertReason = (isSoid || isShipment) && c === 'Upsert Reason';
-                        var style = isInsert
-                          ? 'background:#f0fdf4;color:#15803d;font-weight:600;'
-                          : isStatusInsert
-                            ? 'background:#eff6ff;color:#1d4ed8;font-weight:600;'
-                            : (isReason || isUpsertReason)
-                              ? 'background:#eff6ff;color:#1d4ed8;font-weight:600;min-width:220px;max-width:380px;white-space:normal;word-break:break-word;'
-                              : '';
-                        return '<td style="' + style + '" title="' + esc(v) + '">' + esc(v) + '</td>';
+                        /* When a write-col value ends with " [skipped]", the gate blocked the write —
+                           render the existing DB value in muted style with a dim [skipped] suffix tag. */
+                        var isSkipped = (isInsert || isStatusInsert) && String(v).slice(-9) === '[skipped]';
+                        var style = isSkipped
+                          ? 'background:#f7f8fa;color:#57606a;font-weight:400;'
+                          : isInsert
+                            ? 'background:#f0fdf4;color:#15803d;font-weight:600;'
+                            : isStatusInsert
+                              ? 'background:#eff6ff;color:#1d4ed8;font-weight:600;'
+                              : isGateCol
+                                ? 'background:#fffbeb;color:#92400e;font-weight:600;min-width:200px;white-space:normal;word-break:break-word;'
+                                : (isReason || isUpsertReason)
+                                  ? 'background:#eff6ff;color:#1d4ed8;font-weight:600;min-width:220px;max-width:380px;white-space:normal;word-break:break-word;'
+                                  : '';
+                        var cellHtml;
+                        if (isSkipped) {
+                          var dbPart = String(v).slice(0, -9).trimEnd(); /* strip " [skipped]" */
+                          cellHtml = (dbPart ? esc(dbPart) + ' ' : '') +
+                                     '<span style="font-size:11px;color:#9ca3af;font-style:italic">[skipped]</span>';
+                        } else {
+                          cellHtml = esc(v);
+                        }
+                        return '<td style="' + style + '" title="' + esc(v) + '">' + cellHtml + '</td>';
                       }).join('') +
                     '</tr>';
                   }).join('')
@@ -1249,7 +1285,7 @@
             '<thead style="position:sticky;top:0;z-index:1;background:#fef3c7;"><tr>' +
               urSkippedCols.map(function(c) {
                 var isR = (c === 'No Match Reason');
-                return '<th style="' + (isR ? 'background:#fde68a;color:#92400e;font-weight:700;' : 'color:#92400e;') + '">' + esc(c) + '</th>';
+                return '<th style="' + (isR ? 'background:#fde68a;color:#92400e;font-weight:700;min-width:280px;white-space:normal;' : 'color:#92400e;') + '">' + esc(c) + '</th>';
               }).join('') +
             '</tr></thead>' +
             '<tbody>' +
@@ -1258,7 +1294,7 @@
                   urSkippedCols.map(function(c) {
                     var v = row[c] !== undefined ? row[c] : '';
                     var isR = (c === 'No Match Reason');
-                    return '<td style="' + (isR ? 'background:#fffbeb;color:#b45309;font-weight:600;' : '') + '" title="' + esc(v) + '">' + esc(v) + '</td>';
+                    return '<td style="' + (isR ? 'background:#fffbeb;color:#b45309;font-weight:600;min-width:280px;white-space:normal;word-break:break-word;' : '') + '" title="' + esc(v) + '">' + esc(v) + '</td>';
                   }).join('') +
                 '</tr>';
               }).join('') +
@@ -1772,11 +1808,12 @@
       { label: 'Finalising…',                   pct: 95, ms: 700  },
     ],
     UNRETURN:   [
-      { label: 'Reading Excel file…',           pct: 15, ms: 500  },
-      { label: 'Matching SOID records…',        pct: 40, ms: 1200 },
-      { label: 'Writing dc_lenovo values…',     pct: 70, ms: 1400 },
-      { label: 'Writing return_status…',        pct: 88, ms: 1000 },
-      { label: 'Finalising…',                   pct: 95, ms: 600  },
+      { label: 'Reading Excel file…',                    pct: 12, ms: 500  },
+      { label: 'Matching SOID records…',                 pct: 32, ms: 1000 },
+      { label: 'Writing dc_lenovo / return_status…',     pct: 55, ms: 1200 },
+      { label: 'Checking modify_date_dc_lenovo gate…',   pct: 68, ms: 800  },
+      { label: 'Writing awb_return / status / notes…',   pct: 85, ms: 1200 },
+      { label: 'Finalising…',                            pct: 95, ms: 600  },
     ],
     DEFAULT:    [
       { label: 'Reading file…',                 pct: 20, ms: 700  },

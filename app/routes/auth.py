@@ -1,17 +1,20 @@
 """
 auth.py — Login / logout routes for the Lenovo ASP portal.
 
-Three user types are supported:
-  admin     — credentials checked against admin_users table
-  asp       — credentials checked against asp_details table
-  asp_user  — credentials checked against asp_users table (staff under an ASP)
+Four user types are supported:
+  admin       — credentials checked against admin_users table
+  asp         — credentials checked against asp_details table (standalone, no branch switcher)
+  asp_master  — credentials checked against asp_master_accounts (multi-branch master account)
+  asp_user    — credentials checked against asp_users table (staff under an ASP)
 
 Session keys stored on successful login:
-  session["user_id"]            : int  primary-key id
+  session["user_id"]            : int | str  primary-key id (asp_master uses masteruser string)
   session["username"]           : str  login username  (asp_user → their tech_id)
-  session["role"]               : str  "admin" | "asp" | "asp_user"
-  session["display_name"]       : str  full_name (admin/asp_user) or service_provider (asp)
+  session["role"]               : str  "admin" | "superadmin" | "asp" | "asp_master" | "asp_user"
+  session["display_name"]       : str  full_name (admin/asp_user) or service_provider (asp/asp_master)
   session["labor_vendor"]       : str | None  labor_vendor_related from asp_details (asp / asp_user)
+  session["parent_group"]       : str | None  parent_group for asp_master accounts
+  session["is_hq_with_branches"]: bool  True only for asp_master role
 """
 
 import re
@@ -56,7 +59,7 @@ def admin_required(f):
 def login():
     # Already logged in → go straight to the right portal
     if "user_id" in session:
-        if session.get("role") in ("asp", "asp_user"):
+        if session.get("role") in ("asp", "asp_user", "asp_master"):
             return redirect(url_for("asp.dashboard"))
         return redirect(url_for("admin.dashboard"))
 
@@ -92,69 +95,108 @@ def login():
                     return redirect(next_url)
 
             else:
-                # ── 2. Try asp_details ────────────────────────────────────────
-                # Match on username, vendor_code, or labor_vendor_related
-                asp_row = conn.execute(
-                    "SELECT id, username, password, service_provider, labor_vendor_related, "
-                    "       office_type, parent_group "
-                    "FROM asp_details "
-                    "WHERE LOWER(username) = LOWER(?)"
-                    "   OR LOWER(vendor_code) = LOWER(?)"
-                    "   OR labor_vendor_related = ?",
-                    (username, username, username),
+                # ── 2. Try asp_master_accounts ───────────────────────────────
+                master_row = conn.execute(
+                    "SELECT parent_group, masteruser, password "
+                    "FROM asp_master_accounts "
+                    "WHERE LOWER(masteruser) = LOWER(?)",
+                    (username,),
                 ).fetchone()
 
-                if asp_row and str(asp_row["password"]) == password:
-                    # Determine if this ASP is an HQ with sibling branch offices
-                    is_hq_with_branches = False
-                    if asp_row["office_type"] == "ASP HQ" and asp_row["parent_group"]:
-                        branch_count = conn.execute(
-                            "SELECT COUNT(*) FROM asp_details "
-                            "WHERE parent_group = ? AND office_type = 'ASP Branch'",
-                            (asp_row["parent_group"],),
-                        ).fetchone()[0]
-                        is_hq_with_branches = branch_count > 0
+                if master_row and str(master_row["password"]) == password:
+                    pg = master_row["parent_group"]
+
+                    # Default selected office = the ASP HQ of this parent_group
+                    hq_row = conn.execute(
+                        "SELECT username, service_provider, labor_vendor_related, kota "
+                        "FROM asp_details "
+                        "WHERE parent_group = ? AND office_type = 'ASP HQ' "
+                        "LIMIT 1",
+                        (pg,),
+                    ).fetchone()
 
                     session.clear()
-                    session["user_id"]            = asp_row["id"]
-                    session["username"]           = asp_row["username"]
-                    session["role"]               = "asp"
-                    session["display_name"]       = asp_row["service_provider"] or asp_row["username"]
-                    session["labor_vendor"]       = asp_row["labor_vendor_related"]
-                    session["is_hq_with_branches"] = is_hq_with_branches
+                    session["user_id"]              = master_row["masteruser"]
+                    session["role"]                 = "asp_master"
+                    session["parent_group"]         = pg
+                    session["is_hq_with_branches"]  = True
+
+                    if hq_row:
+                        # Scope to HQ by default; store master identity in original_*
+                        # so the switcher can restore back to unscoped (all-group) view
+                        session["username"]              = hq_row["username"]
+                        session["display_name"]          = hq_row["service_provider"] or hq_row["username"]
+                        session["labor_vendor"]          = hq_row["labor_vendor_related"]
+                        session["office_kota"]           = hq_row["kota"] or ""
+                        session["original_username"]     = master_row["masteruser"]
+                        session["original_display_name"] = pg
+                        session["original_labor_vendor"] = None
+                        session["original_office_kota"]  = ""
+                    else:
+                        # No HQ found — fall back to unscoped (shows all WOs in group)
+                        session["username"]     = master_row["masteruser"]
+                        session["display_name"] = pg
+                        session["labor_vendor"] = None
+                        session["office_kota"]  = ""
+
                     next_url = request.form.get("next") or url_for("asp.dashboard")
                     return redirect(next_url)
 
                 else:
-                    # ── 3. Try asp_users ─────────────────────────────────────
-                    # Match on email, phone_number, or tech_id
-                    asp_user_row = conn.execute(
-                        "SELECT u.id, u.tech_id, u.full_name, u.email, u.password, "
-                        "       u.is_active, u.labor_vendor_related "
-                        "FROM asp_users u "
-                        "WHERE LOWER(u.email) = LOWER(?)"
-                        "   OR u.phone_number = ?"
-                        "   OR (u.tech_id IS NOT NULL AND LOWER(u.tech_id) = LOWER(?))",
+                    # ── 3. Try asp_details ────────────────────────────────────
+                    # Match on username, vendor_code, or labor_vendor_related
+                    asp_row = conn.execute(
+                        "SELECT id, username, password, service_provider, labor_vendor_related "
+                        "FROM asp_details "
+                        "WHERE LOWER(username) = LOWER(?)"
+                        "   OR LOWER(vendor_code) = LOWER(?)"
+                        "   OR labor_vendor_related = ?",
                         (username, username, username),
                     ).fetchone()
 
-                    if asp_user_row and str(asp_user_row["password"]) == password:
-                        if not asp_user_row["is_active"]:
-                            error = "Your account is disabled. Contact your ASP administrator."
-                        else:
-                            session.clear()
-                            session["user_id"]      = asp_user_row["id"]
-                            # username = tech_id so vendor filter works
-                            session["username"]     = asp_user_row["tech_id"]
-                            session["role"]         = "asp_user"
-                            session["display_name"] = asp_user_row["full_name"] or asp_user_row["email"]
-                            session["labor_vendor"] = asp_user_row["labor_vendor_related"]
-                            # keep the user's own email accessible for the profile page
-                            session["asp_user_email"] = asp_user_row["email"]
-                            next_url = request.form.get("next") or url_for("asp.dashboard")
-                            return redirect(next_url)
+                    if asp_row and str(asp_row["password"]) == password:
+                        # All asp accounts are now standalone — no branch switcher
+                        session.clear()
+                        session["user_id"]             = asp_row["id"]
+                        session["username"]            = asp_row["username"]
+                        session["role"]                = "asp"
+                        session["display_name"]        = asp_row["service_provider"] or asp_row["username"]
+                        session["labor_vendor"]        = asp_row["labor_vendor_related"]
+                        session["is_hq_with_branches"] = False
+                        next_url = request.form.get("next") or url_for("asp.dashboard")
+                        return redirect(next_url)
+
                     else:
-                        error = "Invalid username or password."
+                        # ── 4. Try asp_users ─────────────────────────────────
+                        # Match on email, phone_number, or tech_id
+                        asp_user_row = conn.execute(
+                            "SELECT u.id, u.tech_id, u.full_name, u.email, u.password, "
+                            "       u.is_active, u.labor_vendor_related "
+                            "FROM asp_users u "
+                            "WHERE LOWER(u.email) = LOWER(?)"
+                            "   OR u.phone_number = ?"
+                            "   OR (u.tech_id IS NOT NULL AND LOWER(u.tech_id) = LOWER(?))",
+                            (username, username, username),
+                        ).fetchone()
+
+                        if asp_user_row and str(asp_user_row["password"]) == password:
+                            if not asp_user_row["is_active"]:
+                                error = "Your account is disabled. Contact your ASP administrator."
+                            else:
+                                session.clear()
+                                session["user_id"]      = asp_user_row["id"]
+                                # username = tech_id so vendor filter works
+                                session["username"]     = asp_user_row["tech_id"]
+                                session["role"]         = "asp_user"
+                                session["display_name"] = asp_user_row["full_name"] or asp_user_row["email"]
+                                session["labor_vendor"] = asp_user_row["labor_vendor_related"]
+                                session["tech_id"]      = asp_user_row["tech_id"]
+                                # keep the user's own email accessible for the profile page
+                                session["asp_user_email"] = asp_user_row["email"]
+                                next_url = request.form.get("next") or url_for("asp.dashboard")
+                                return redirect(next_url)
+                        else:
+                            error = "Invalid username or password."
 
     next_url = request.args.get("next", "")
     return render_template(
@@ -172,7 +214,7 @@ def logout():
 
 @auth_bp.route("/profile", methods=["GET"])
 def profile():
-    """User profile page — works for admin, asp, and asp_user roles."""
+    """User profile page — works for admin, asp, asp_master, and asp_user roles."""
     if "user_id" not in session:
         return redirect(url_for("auth.login", next="/profile"))
     conn  = get_db()
@@ -227,6 +269,17 @@ def profile():
                 user["asp_detail"] = asp_detail
             else:
                 user["asp_detail"] = {}
+
+    elif role == "asp_master":
+        row = conn.execute(
+            "SELECT parent_group, masteruser, total_associated_asp "
+            "FROM asp_master_accounts WHERE masteruser = ?", (uid,)
+        ).fetchone()
+        if row:
+            user = dict(row)
+            user["display_name"] = row["parent_group"]
+            user["username"]     = row["masteruser"]
+            user["pw_request_pending"] = False
 
     else:  # asp
         row = conn.execute(
