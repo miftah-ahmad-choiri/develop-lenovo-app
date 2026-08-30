@@ -1,0 +1,438 @@
+{% extends "base.html" %}
+{% block title %}PoU Unreturn Report — Admin Portal{% endblock %}
+
+{% block extra_styles %}
+  /* ── toolbar ──────────────────────────────────────────────── */
+  .report-toolbar {
+    display: flex; align-items: center; gap: 10px;
+    flex-wrap: wrap; margin-bottom: 16px;
+  }
+  .search-wrap {
+    position: relative; flex: 1; min-width: 200px; max-width: 360px;
+  }
+  .search-wrap svg {
+    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    color: #8b949e; pointer-events: none;
+  }
+  .search-input {
+    width: 100%; padding: 7px 10px 7px 34px;
+    border: 1px solid #d0d7de; border-radius: 6px;
+    font-size: 13px; color: #1f2328; background: #fff;
+    outline: none;
+  }
+  .search-input:focus { border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,0.12); }
+
+  .filter-select {
+    padding: 7px 10px; border: 1px solid #d0d7de; border-radius: 6px;
+    font-size: 13px; color: #1f2328; background: #fff; cursor: pointer;
+    outline: none; min-width: 160px;
+  }
+  .filter-select:focus { border-color: #3b82d4; }
+
+  .btn-export {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-radius: 6px; border: 1px solid #d0d7de;
+    background: #fff; font-size: 13px; font-weight: 600; color: #1f2328;
+    cursor: pointer; white-space: nowrap; transition: background 0.12s;
+  }
+  .btn-export:hover { background: #f0fdf4; border-color: #86efac; color: #15803d; }
+  .btn-export svg { flex-shrink: 0; }
+
+  .row-count { font-size: 12px; color: #57606a; margin-left: auto; white-space: nowrap; }
+
+  /* ── meta ─────────────────────────────────────────────────── */
+  .report-meta { font-size: 12px; color: #57606a; margin-bottom: 14px; }
+  .report-meta strong { color: #1f2328; }
+
+  /* ── table ────────────────────────────────────────────────── */
+  .table-wrap { overflow-x: auto; overflow-y: auto; height: calc(100vh - 260px); border: 1px solid #e5e7eb; border-radius: 8px; }
+  table.report-table {
+    width: 100%; border-collapse: collapse; font-size: 13px; min-width: 860px;
+  }
+  table.report-table thead tr {
+    background: #f7f8fa; border-bottom: 2px solid #e5e7eb;
+  }
+  table.report-table th {
+    padding: 9px 12px; text-align: left;
+    font-size: 11.5px; font-weight: 700; color: #57606a;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    white-space: nowrap; user-select: none;
+    cursor: pointer; position: relative;
+    position: sticky; top: 0; z-index: 2;
+    background: #f7f8fa;
+  }
+  table.report-table th:hover { background: #eef0f3; color: #1f2328; }
+  table.report-table th .sort-icon { margin-left: 4px; opacity: 0.35; font-style: normal; }
+  table.report-table th.sort-asc  .sort-icon,
+  table.report-table th.sort-desc .sort-icon { opacity: 1; color: #3b82d4; }
+
+  table.report-table td {
+    padding: 9px 12px; border-bottom: 1px solid #e5e7eb;
+    color: #1f2328; vertical-align: middle; text-align: center;
+  }
+  table.report-table tbody tr:last-child td { border-bottom: none; }
+  table.report-table tbody tr:hover td { background: #f7f8fa; }
+
+  .soid-cell { font-family: monospace; font-size: 12.5px; font-weight: 600; }
+  .date-cell  { white-space: nowrap; }
+  .null-cell  { color: #d0d7de; font-style: italic; }
+  .cell-green { background: #dcfce7; }
+  table.report-table tbody tr:hover td.cell-green { background: #bbf7d0; }
+  .cell-amber { background: #fef9c3; }
+  table.report-table tbody tr:hover td.cell-amber { background: #fef08a; }
+  .cell-red   { background: #fee2e2; }
+  table.report-table tbody tr:hover td.cell-red   { background: #fecaca; }
+  .cell-blue  { background: #dbeafe; }
+  table.report-table tbody tr:hover td.cell-blue  { background: #bfdbfe; }
+
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 11px; font-weight: 600; white-space: nowrap;
+  }
+  .badge-green { background: #f0fdf4; color: #15803d; }
+  .badge-amber { background: #fffbeb; color: #b45309; }
+  .badge-blue  { background: #eff6ff; color: #1e40af; }
+  .badge-red   { background: #fff0f0; color: #b91c1c; }
+
+  /* ── empty / no-file states ───────────────────────────────── */
+  .no-file-box, .empty-box {
+    background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 8px;
+    padding: 40px 24px; text-align: center; margin-top: 8px;
+  }
+  .no-file-box svg, .empty-box svg { color: #d0d7de; margin-bottom: 14px; }
+  .no-file-box h3, .empty-box h3 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+  .no-file-box p,  .empty-box p  { font-size: 13px; color: #57606a; line-height: 1.7; }
+  .no-file-box a { color: #3b82d4; text-decoration: none; }
+  .no-file-box a:hover { text-decoration: underline; }
+
+  /* hidden rows */
+  .report-table tbody tr.hidden-row { display: none; }
+
+  /* pagination */
+  .pager {
+    display: flex; align-items: center; gap: 6px;
+    justify-content: flex-end; margin-top: 14px; flex-wrap: wrap;
+  }
+  .pager-info { font-size: 12px; color: #57606a; margin-right: auto; }
+  .pager-btn {
+    padding: 4px 10px; border: 1px solid #d0d7de; border-radius: 5px;
+    background: #fff; font-size: 12px; cursor: pointer; color: #1f2328;
+  }
+  .pager-btn:hover:not(:disabled) { background: #f7f8fa; }
+  .pager-btn:disabled { opacity: 0.4; cursor: default; }
+  .pager-btn.active { background: #3b82d4; color: #fff; border-color: #3b82d4; }
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>PoU Unreturn Report</h1>
+  <p>SOIDs confirmed present in the latest uploaded ID-IBM ID POU Unreturn file with their return details.</p>
+</div>
+
+{% if no_file %}
+  <div class="no-file-box">
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="12" y1="11" x2="12" y2="17"/>
+      <line x1="9" y1="14" x2="15" y2="14"/>
+    </svg>
+    <h3>No POU Unreturn File Uploaded</h3>
+    <p>
+      No <strong>ID-IBM ID POU Unreturn</strong> file has been uploaded yet.<br>
+      Please upload the file via <a href="/admin/data-import">Data Import / Export</a> first.
+    </p>
+  </div>
+
+{% elif rows|length == 0 %}
+  {% if pou_filename %}
+    <div class="report-meta">Source file: <strong>{{ pou_filename }}</strong></div>
+  {% endif %}
+  <div class="empty-box">
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+    <h3>No Data</h3>
+    <p>No SOIDs found that are both marked <em>is_exist_excel = yes</em> in the database<br>and present in the uploaded POU Unreturn file.</p>
+  </div>
+
+{% else %}
+  {% if pou_filename %}
+    <div class="report-meta">Source file: <strong>{{ pou_filename }}</strong></div>
+  {% endif %}
+
+  <!-- Toolbar -->
+  <div class="report-toolbar">
+    <div class="search-wrap">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" class="search-input" id="tbl-search" placeholder="Search SOID, DC, AWB, status…">
+    </div>
+
+    <select class="filter-select" id="filter-return-status">
+      <option value="">All Return Status</option>
+      {% for v in rs_options %}
+        <option value="{{ v }}">{{ v }}</option>
+      {% endfor %}
+    </select>
+
+    <select class="filter-select" id="filter-lenovo-status">
+      <option value="">All Lenovo Return Status</option>
+      {% for v in lrs_options %}
+        <option value="{{ v }}">{{ v }}</option>
+      {% endfor %}
+    </select>
+
+    <button class="btn-export" id="btn-export">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export Excel
+    </button>
+
+    <span class="row-count" id="row-count"></span>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <table class="report-table" id="report-table">
+      <thead>
+        <tr>
+          <th data-col="-1" style="width:42px;text-align:center;">#</th>
+          <th data-col="0">SOID <i class="sort-icon">⇅</i></th>
+          <th data-col="1">Completion / Closing Date <i class="sort-icon">⇅</i></th>
+          <th data-col="2">Return Status <i class="sort-icon">⇅</i></th>
+          <th data-col="3">DC Resolve <i class="sort-icon">⇅</i></th>
+          <th data-col="4">DC Lenovo <i class="sort-icon">⇅</i></th>
+          <th data-col="5">AWB Return <i class="sort-icon">⇅</i></th>
+          <th data-col="6">AWB Notes <i class="sort-icon">⇅</i></th>
+          <th data-col="7">Lenovo Return Status <i class="sort-icon">⇅</i></th>
+          <th data-col="8">Exist on Excel? <i class="sort-icon">⇅</i></th>
+        </tr>
+      </thead>
+      <tbody id="report-tbody">
+        {% for r in rows %}
+        {% set date_val = r.completion_date or r.closing_date %}
+        <tr>
+          <td style="color:#8b949e;font-size:12px;width:42px;">{{ loop.index }}</td>
+          <td class="soid-cell" data-v="{{ r.soid }}">{{ r.soid }}</td>
+          <td class="date-cell"  data-v="{{ date_val[:10] if date_val else '' }}">
+            {% if date_val %}{{ date_val[:10] }}{% else %}<span class="null-cell">—</span>{% endif %}
+          </td>
+          <td data-v="{{ r.return_status or '' }}" class="{% if r.return_status %}cell-blue{% else %}cell-red{% endif %}">
+            {% if r.return_status %}
+              {% set rs = r.return_status|lower %}
+              <span class="badge {% if 'picked up by logistics' in rs %}badge-green{% elif 'pending' in rs %}badge-amber{% elif 'unreturned' == rs %}badge-red{% else %}badge-blue{% endif %}">{{ r.return_status }}</span>
+            {% else %}<span class="null-cell">—</span>{% endif %}
+          </td>
+          <td data-v="{{ r.dc_number or '' }}" class="{% if r.dc_number %}cell-green{% else %}cell-red{% endif %}">
+            {{ r.dc_number or '<span class="null-cell">—</span>'|safe }}
+          </td>
+          <td data-v="{{ r.dc_lenovo or '' }}" class="{% if not r.dc_number and r.dc_lenovo %}cell-green{% elif r.dc_lenovo %}cell-amber{% else %}cell-red{% endif %}">
+            {{ r.dc_lenovo or '<span class="null-cell">—</span>'|safe }}
+          </td>
+          <td data-v="{{ r.awb_return or '' }}" class="{% if r.awb_return %}cell-green{% else %}cell-red{% endif %}">
+            {{ r.awb_return or '<span class="null-cell">—</span>'|safe }}
+          </td>
+          <td data-v="{{ r.awb_notes or '' }}" class="{% if r.awb_notes %}cell-green{% else %}cell-red{% endif %}">
+            {{ r.awb_notes or '<span class="null-cell">—</span>'|safe }}
+          </td>
+          <td data-v="{{ r.lenovo_return_status or '' }}">
+            {% if r.lenovo_return_status %}
+              {% set lrs = r.lenovo_return_status|lower %}
+              <span class="badge {% if 'picked up by logistics' in lrs %}badge-green{% elif 'pending' in lrs %}badge-amber{% elif 'unreturned' == lrs %}badge-red{% else %}badge-blue{% endif %}">{{ r.lenovo_return_status }}</span>
+            {% else %}<span class="null-cell">—</span>{% endif %}
+          </td>
+          <td data-v="{{ r.is_exist_excel or '' }}">
+            {% if r.is_exist_excel %}
+              <span class="badge {% if r.is_exist_excel|lower == 'yes' %}badge-green{% else %}badge-red{% endif %}">{{ r.is_exist_excel }}</span>
+            {% else %}<span class="null-cell">—</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  <div class="pager">
+    <span class="pager-info" id="pager-info"></span>
+    <button class="pager-btn" id="btn-first">«</button>
+    <button class="pager-btn" id="btn-prev">‹</button>
+    <span id="pager-pages" style="display:flex;gap:4px;flex-wrap:wrap;"></span>
+    <button class="pager-btn" id="btn-next">›</button>
+    <button class="pager-btn" id="btn-last">»</button>
+  </div>
+{% endif %}
+
+<script>
+(function () {
+  const tbody     = document.getElementById('report-tbody');
+  if (!tbody) return;
+
+  const searchEl  = document.getElementById('tbl-search');
+  const filterRS  = document.getElementById('filter-return-status');
+  const filterLRS = document.getElementById('filter-lenovo-status');
+  const countEl   = document.getElementById('row-count');
+  const pagerInfo = document.getElementById('pager-info');
+  const pagesEl   = document.getElementById('pager-pages');
+
+  const PAGE_SIZE = 50;
+  let sortCol = -1, sortAsc = true, currentPage = 1;
+
+  // ── collect all rows ─────────────────────────────────────
+  const allRows = Array.from(tbody.querySelectorAll('tr'));
+
+  // ── sort ─────────────────────────────────────────────────
+  document.querySelectorAll('#report-table thead th').forEach(th => {
+    const col = parseInt(th.dataset.col);
+    if (col < 0) return;                          // skip the # index column
+    th.addEventListener('click', () => {
+      if (sortCol === col) { sortAsc = !sortAsc; }
+      else { sortCol = col; sortAsc = true; }
+      document.querySelectorAll('#report-table thead th').forEach(h => {
+        h.classList.remove('sort-asc', 'sort-desc');
+        if (h.querySelector('.sort-icon')) h.querySelector('.sort-icon').textContent = '⇅';
+      });
+      th.classList.add(sortAsc ? 'sort-asc' : 'sort-desc');
+      th.querySelector('.sort-icon').textContent = sortAsc ? '↑' : '↓';
+      applyAll();
+    });
+  });
+
+  // col is data-col value (0-based for data columns); tds[0] is the index cell so offset by +1
+  function cellVal(row, col) {
+    const td = row.querySelectorAll('td')[col + 1];
+    return td ? (td.dataset.v || '').toLowerCase() : '';
+  }
+
+  function sortedRows(rows) {
+    if (sortCol < 0) return rows.slice();
+    return rows.slice().sort((a, b) => {
+      const av = cellVal(a, sortCol), bv = cellVal(b, sortCol);
+      // Always push empty values to the bottom regardless of sort direction
+      if (av === '' && bv === '') return 0;
+      if (av === '') return 1;
+      if (bv === '') return -1;
+      const n = (s) => { const f = parseFloat(s); return isNaN(f) ? null : f; };
+      const an = n(av), bn = n(bv);
+      let cmp = (an !== null && bn !== null) ? an - bn : av.localeCompare(bv);
+      return sortAsc ? cmp : -cmp;
+    });
+  }
+
+  // ── filter + search ──────────────────────────────────────
+  function matchRow(row) {
+    const q   = searchEl.value.trim().toLowerCase();
+    // Compare option value directly against data-v (both stored as original case)
+    const rs  = filterRS.value;
+    const lrs = filterLRS.value;
+    const tds = row.querySelectorAll('td');
+
+    if (rs  && (tds[3]  ? (tds[3].dataset.v  || '') : '') !== rs)  return false;
+    if (lrs && (tds[8]  ? (tds[8].dataset.v  || '') : '') !== lrs) return false;
+    if (q) {
+      let found = false;
+      tds.forEach(td => { if ((td.dataset.v || '').toLowerCase().includes(q)) found = true; });
+      if (!found) return false;
+    }
+    return true;
+  }
+
+  // ── pagination ───────────────────────────────────────────
+  let visibleRows = [];
+
+  function renderPage() {
+    const total  = visibleRows.length;
+    const pages  = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    currentPage  = Math.min(currentPage, pages);
+    const start  = (currentPage - 1) * PAGE_SIZE;
+    const end    = Math.min(start + PAGE_SIZE, total);
+
+    allRows.forEach(r => { r.classList.add('hidden-row'); r.style.display = 'none'; });
+    visibleRows.forEach((r, i) => {
+      if (i >= start && i < end) {
+        r.classList.remove('hidden-row');
+        r.style.display = '';
+        r.querySelectorAll('td')[0].textContent = start + i + 1;
+      }
+    });
+
+    countEl.textContent   = total + ' record' + (total !== 1 ? 's' : '');
+    pagerInfo.textContent = total === 0 ? '' : `Showing ${start + 1}–${end} of ${total}`;
+
+    // page buttons
+    pagesEl.innerHTML = '';
+    const range = pageRange(currentPage, pages);
+    range.forEach(p => {
+      if (p === '…') {
+        const s = document.createElement('span');
+        s.textContent = '…'; s.style.padding = '4px 4px'; s.style.color = '#8b949e';
+        pagesEl.appendChild(s);
+      } else {
+        const b = document.createElement('button');
+        b.className = 'pager-btn' + (p === currentPage ? ' active' : '');
+        b.textContent = p;
+        b.addEventListener('click', () => { currentPage = p; renderPage(); });
+        pagesEl.appendChild(b);
+      }
+    });
+
+    document.getElementById('btn-first').disabled = currentPage === 1;
+    document.getElementById('btn-prev').disabled  = currentPage === 1;
+    document.getElementById('btn-next').disabled  = currentPage === pages;
+    document.getElementById('btn-last').disabled  = currentPage === pages;
+  }
+
+  function pageRange(cur, total) {
+    if (total <= 7) return Array.from({length: total}, (_, i) => i + 1);
+    const r = [];
+    r.push(1);
+    if (cur > 3) r.push('…');
+    for (let i = Math.max(2, cur - 1); i <= Math.min(total - 1, cur + 1); i++) r.push(i);
+    if (cur < total - 2) r.push('…');
+    r.push(total);
+    return r;
+  }
+
+  function applyAll() {
+    const sorted = sortedRows(allRows);
+    visibleRows  = sorted.filter(matchRow);
+    // Re-order DOM
+    visibleRows.concat(sorted.filter(r => !visibleRows.includes(r))).forEach(r => tbody.appendChild(r));
+    currentPage  = 1;
+    renderPage();
+  }
+
+  // ── wire controls ────────────────────────────────────────
+  searchEl.addEventListener('input', applyAll);
+  filterRS.addEventListener('change', applyAll);
+  filterLRS.addEventListener('change', applyAll);
+
+  document.getElementById('btn-first').addEventListener('click', () => { currentPage = 1; renderPage(); });
+  document.getElementById('btn-last').addEventListener('click',  () => { currentPage = Math.ceil(visibleRows.length / PAGE_SIZE); renderPage(); });
+  document.getElementById('btn-prev').addEventListener('click',  () => { currentPage--; renderPage(); });
+  document.getElementById('btn-next').addEventListener('click',  () => { currentPage++; renderPage(); });
+
+  // ── export ───────────────────────────────────────────────
+  document.getElementById('btn-export').addEventListener('click', () => {
+    // Build CSV and trigger download (no external lib needed)
+    const headers = ['#','SOID','Completion/Closing Date','Return Status','DC Resolve','DC Lenovo','AWB Return','AWB Notes','Lenovo Return Status','Exist on Excel?'];
+    const colIdx  = [0,1,2,3,4,5,6,7,8,9];
+    const escape  = v => '"' + String(v).replace(/"/g, '""') + '"';
+
+    let csv = headers.map(escape).join(',') + '\r\n';
+    visibleRows.forEach(row => {
+      const tds = row.querySelectorAll('td');
+      csv += colIdx.map(i => escape(tds[i] ? (tds[i].dataset.v || '') : '')).join(',') + '\r\n';
+    });
+
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'POU_Unreturn_Report.csv'; a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // ── init ─────────────────────────────────────────────────
+  applyAll();
+})();
+</script>
+{% endblock %}

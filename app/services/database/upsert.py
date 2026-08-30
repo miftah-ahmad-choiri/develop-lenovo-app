@@ -716,28 +716,40 @@ def upsert_dc_from_gtaap(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
 # ── UNRETURN upsert ──────────────────────────────────────────────────────────
 
 def upsert_from_unreturn(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
-    """Update ``dc_lenovo`` and ``return_status`` on wo_product_detail using the
-    ID-IBM ID POU Unreturn Excel file.
+    """Update wo_product_detail using the ID-IBM ID POU Unreturn Excel file.
 
-    Logic
-    -----
-    Match by SOID (Excel column "SOID" → wo_product_detail.soid).
+    Match key: Excel "SOID" → wo_product_detail.soid
 
-    dc_lenovo write
-        Only written when Excel "DC/Collection Form" has a real value
+    ── Existing columns (unchanged behaviour) ───────────────────────────────
+    dc_lenovo
+        Written from "DC/Collection Form" only when it has a real value
         (not NULL, not empty, not "0", not "—").
-        Rows with no real DC value are skipped entirely.
 
-    return_status write
-        Written only when dc_lenovo has a real value AND
-        wo_product_detail.return_status is currently NULL/empty.
-        → always set to 'DC GENERATED'.
-        "Unreturned" is never written; an existing return_status is never
+    return_status
+        Set to 'DC GENERATED' only when dc_lenovo is now real AND the DB
+        value is currently NULL/empty.  An existing return_status is never
         overwritten.
 
-    Returns the total number of rows updated (dc_lenovo + return_status).
+    ── New columns (date-gated) ─────────────────────────────────────────────
+    awb_return            ← "AWB Number"   (real AWB string, "Hardclose", or NULL)
+    lenovo_return_status  ← "Return Status"
+    awb_notes             ← "Note"
+    unreturn_submitted_date ← "DC/Collection Form-Submitted Date" stored as
+                              YYYY-MM-DD (converted from DD-MM-YYYY in Excel).
+
+    Date-gate rule (per SOID):
+        A row qualifies to write the new columns when:
+          (a) "DC/Collection Form-Submitted Date" is a parseable DD-MM-YYYY date, AND
+          (b) the stored unreturn_submitted_date is NULL/empty
+              OR the incoming ISO date is strictly later than the stored one.
+        When the gate passes, ALL four new columns are written together so the
+        stored date always matches the data in the other three columns.
+        "Hardclose" in AWB Number is treated as a valid value and stored as-is.
+
+    Returns the total number of individual column-writes made.
     """
     import math as _math
+    from datetime import datetime as _dt
 
     def _has_val(v) -> bool:
         if v is None:
@@ -748,31 +760,191 @@ def upsert_from_unreturn(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
         return s not in ("", "nan", "nat", "none", "null", "NaT", "0")
 
     def _to_str_or_none(v):
-        """Return the string value, or None when empty/NaN."""
+        """Return stripped string, or None when the cell is empty/NaN."""
         if v is None:
             return None
         if isinstance(v, float) and _math.isnan(v):
             return None
         s = str(v).strip()
-        if s in ("", "nan", "nat", "none", "null", "NaT"):
-            return None
-        return s
+        return None if s in ("", "nan", "nat", "none", "null", "NaT") else s
 
-    # Snapshot current db state: soid → {dc_lenovo, return_status}
+    def _to_str_or_empty(v):
+        """Like _to_str_or_none but returns '' instead of None (for AWB Number
+        which may legitimately be an empty string meaning 'not assigned yet')."""
+        result = _to_str_or_none(v)
+        return result  # keep as None so DB stores NULL for unassigned AWB
+
+    def _parse_submitted_date(v) -> str | None:
+        """Convert 'DD-MM-YYYY' string → 'YYYY-MM-DD' ISO string.
+        Returns None if unparseable so the row is skipped for the new columns.
+        """
+        raw = _to_str_or_none(v)
+        if not raw:
+            return None
+        try:
+            return _dt.strptime(raw, "%d-%m-%Y").strftime("%Y-%m-%d")
+        except ValueError:
+            return None
+
+    # ── Snapshot current DB state ─────────────────────────────────────────
     db_rows: dict[int, dict] = {
-        r[0]: {"dc_lenovo": r[1], "return_status": r[2]}
+        r[0]: {
+            "dc_lenovo":             r[1],
+            "return_status":         r[2],
+            "awb_return":            r[3],
+            "lenovo_return_status":  r[4],
+            "awb_notes":             r[5],
+            "modify_date_dc_lenovo": r[6],
+            "is_exist_excel":        r[7],
+        }
         for r in conn.execute(
-            "SELECT soid, dc_lenovo, return_status FROM wo_product_detail"
+            """SELECT soid, dc_lenovo, return_status,
+                      awb_return, lenovo_return_status, awb_notes,
+                      modify_date_dc_lenovo, is_exist_excel
+               FROM wo_product_detail"""
         ).fetchall()
     }
 
-    dc_updates: list[tuple] = []          # (dc_lenovo_value, soid)
-    status_updates: list[tuple] = []      # (return_status_value, soid)
+    # ── Compute file-level version stamp from the Excel file ──────────────
+    # max(DC/Collection Form-Submitted Date) across all parseable rows in the
+    # incoming file.  This single date is compared against the stored
+    # modify_date_dc_lenovo to decide whether the new-column block is written.
+    max_submitted_iso: str | None = None
+    for _, _row in df.iterrows():
+        _d = _parse_submitted_date(_row.get("DC/Collection Form-Submitted Date"))
+        if _d and (max_submitted_iso is None or _d > max_submitted_iso):
+            max_submitted_iso = _d
 
-    # In-memory dc_lenovo after staging writes (used for Condition B)
-    staged_dc: dict[int, str | None] = {soid: v["dc_lenovo"] for soid, v in db_rows.items()}
+    # The single stored stamp is the MAX already in the DB (all rows share the
+    # same value after the first upload; MAX handles any legacy per-SOID values).
+    _stored_stamp_row = conn.execute(
+        "SELECT MAX(modify_date_dc_lenovo) FROM wo_product_detail"
+        " WHERE modify_date_dc_lenovo IS NOT NULL"
+    ).fetchone()
+    stored_stamp: str | None = _stored_stamp_row[0] if _stored_stamp_row else None
 
-    # ── Pass 1: stage dc_lenovo values (real values only) ────────────────────
+    # File-level gate decision (applied uniformly to all rows):
+    #   • max_submitted_iso present AND > stored_stamp (or stored_stamp is NULL) → write
+    #   • max_submitted_iso present AND ≤ stored_stamp                           → skip all new cols
+    #   • max_submitted_iso absent (no parseable dates in file)                  → first-time fill only
+    #     (per-SOID cols-null check still applies so existing data is never overwritten blindly)
+    if max_submitted_iso:
+        file_gate_pass = (stored_stamp is None) or (max_submitted_iso > stored_stamp)
+    else:
+        file_gate_pass = None   # None = "no date info — fall back to per-SOID null check"
+
+    dc_updates:     list[tuple] = []   # (dc_lenovo_value, soid)
+    status_updates: list[tuple] = []   # (return_status_value, soid)
+    # New columns — all written atomically per SOID when date gate passes
+    new_col_updates: list[tuple] = []  # (awb_return, lenovo_return_status, awb_notes, submitted_date, soid)
+
+    # In-memory dc_lenovo after staging writes (needed for return_status decision)
+    staged_dc: dict[int, str | None] = {
+        soid: v["dc_lenovo"] for soid, v in db_rows.items()
+    }
+
+    # ── Pass 2b: DB-wide backfill — runs unconditionally, before any gate check ──
+    # Backfill return_status = 'DC GENERATED' for every row already in the DB
+    # where dc_lenovo is real but return_status is still empty.
+    # This runs regardless of the file gate so that rows imported by previous
+    # uploads (before this rule existed) are always fixed on the next upsert.
+    for soid, v in db_rows.items():
+        current_status = str(v["return_status"] or "").strip()
+        if current_status:
+            continue  # already has a value — never overwrite
+        current_dc = _to_str_or_none(v["dc_lenovo"])
+        if not _has_val(current_dc):
+            continue  # dc_lenovo is empty — nothing to do
+        status_updates.append(("DC GENERATED", soid))
+        db_rows[soid]["return_status"] = "DC GENERATED"
+
+    # ── Pass 5: is_exist_excel ────────────────────────────────────────────────
+    # Runs unconditionally — not gated on the file date stamp.
+    # Build the set of SOIDs that appear in the uploaded Excel file.
+    excel_soids: set[int] = set()
+    for _, _xe_row in df.iterrows():
+        _xe_soid = _safe_int(_xe_row.get("SOID"))
+        if _xe_soid is not None:
+            excel_soids.add(_xe_soid)
+
+    is_exist_updates: list[tuple] = []  # (value, soid)
+    for soid, v in db_rows.items():
+        current_val = _to_str_or_none(v["is_exist_excel"])
+        if soid in excel_soids:
+            # SOID found in this excel → mark/keep 'yes'
+            if current_val != "yes":
+                is_exist_updates.append(("yes", soid))
+        else:
+            # SOID absent from this excel → demote to 'no' only if previously non-NULL
+            if current_val is not None:
+                is_exist_updates.append(("no", soid))
+            # else: was NULL → stays NULL (never appeared in any excel)
+
+    # ── Gate guard: when the file is not newer, skip file-driven passes ──────
+    # file_gate_pass = False means this file's max date is ≤ the stored stamp.
+    # Pass 2b (DB backfill) and Pass 5 (is_exist_excel) above already ran.
+    #
+    # Exception — null-fill: all three new columns (awb_return, lenovo_return_status,
+    # awb_notes) are written atomically even when the gate is blocked, provided ALL
+    # three DB values are currently NULL for that SOID (first-time fill).
+    # This ensures rows that were never touched by a previous upload get their
+    # values regardless of whether the file stamp has advanced.
+    #
+    # lenovo_return_status lock rule (applies everywhere):
+    #   • NULL → can be written (first-time fill)
+    #   • "Unreturned" → can be overwritten with any new value from Excel
+    #   • Any other value → locked; never overwritten
+    if file_gate_pass is False:
+        null_fill_updates: list[tuple] = []  # (awb_return, lenovo_return_status, awb_notes, stamp, soid)
+        for _, _gf_row in df.iterrows():
+            _gf_soid = _safe_int(_gf_row.get("SOID"))
+            if _gf_soid is None or _gf_soid not in db_rows:
+                continue
+            _gf_db = db_rows[_gf_soid]
+            _gf_db_lrs = _to_str_or_none(_gf_db["lenovo_return_status"])
+            # Only null-fill when ALL three target columns allow writing:
+            #   awb_return and awb_notes must be NULL;
+            #   lenovo_return_status must be NULL or "Unreturned" (unlocked).
+            _lrs_unlocked = (
+                _gf_db_lrs is None
+                or _gf_db_lrs.strip().lower() == "unreturned"
+            )
+            if not (
+                _to_str_or_none(_gf_db["awb_return"]) is None
+                and _lrs_unlocked
+                and _to_str_or_none(_gf_db["awb_notes"]) is None
+            ):
+                continue
+            _gf_awb   = _to_str_or_none(_gf_row.get("AWB Number"))
+            _gf_rs    = _to_str_or_none(_gf_row.get("Return Status"))
+            _gf_notes = _to_str_or_none(_gf_row.get("Note"))
+            # Nothing to write at all
+            if _gf_awb is None and _gf_rs is None and _gf_notes is None:
+                continue
+            null_fill_updates.append((_gf_awb, _gf_rs, _gf_notes, max_submitted_iso, _gf_soid))
+
+        conn.executemany(
+            "UPDATE wo_product_detail SET is_exist_excel = ? WHERE soid = ?",
+            is_exist_updates,
+        )
+        conn.executemany(
+            "UPDATE wo_product_detail SET return_status = ? WHERE soid = ?",
+            status_updates,
+        )
+        if null_fill_updates:
+            conn.executemany(
+                """UPDATE wo_product_detail
+                      SET awb_return = ?,
+                          lenovo_return_status = ?,
+                          awb_notes = ?,
+                          modify_date_dc_lenovo = ?
+                    WHERE soid = ?""",
+                null_fill_updates,
+            )
+        conn.commit()
+        return len(status_updates) + len(is_exist_updates) + len(null_fill_updates)
+
+    # ── Pass 1: stage dc_lenovo values (real values only, changed only) ──
     for _, row in df.iterrows():
         soid = _safe_int(row.get("SOID"))
         if soid is None or soid not in db_rows:
@@ -780,25 +952,115 @@ def upsert_from_unreturn(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
         dc_val = _to_str_or_none(row.get("DC/Collection Form"))
         if not _has_val(dc_val):
             continue  # skip rows where DC/Collection Form is empty, 0, or —
+        current_dc = _to_str_or_none(db_rows[soid]["dc_lenovo"])
+        if dc_val == current_dc:
+            continue  # value unchanged — no write needed
         dc_updates.append((dc_val, soid))
         staged_dc[soid] = dc_val  # keep in-memory state current
 
-    # ── Pass 2: set return_status = DC GENERATED where dc_lenovo is now real ─
+    # ── Pass 2a: set return_status = DC GENERATED for dc_lenovo written this upload
+    _already_backfilled = {s for _, s in status_updates}  # already queued in 2b
     for dc_val, soid in dc_updates:
+        if soid in _already_backfilled:
+            continue  # 2b already covered this one
         current_status = str(db_rows[soid]["return_status"] or "").strip()
         if current_status:
             continue  # never overwrite an existing return_status
         status_updates.append(("DC GENERATED", soid))
         db_rows[soid]["return_status"] = "DC GENERATED"
 
+    # ── Pass 3: awb_return / lenovo_return_status / awb_notes (date-gated) ─
+    #
+    # The date gate is FILE-LEVEL (not per-SOID):
+    #   file_gate_pass = True  → this file is newer than the last upload; write all rows
+    #   file_gate_pass = False → handled above (null-fill only); skip here
+    #   file_gate_pass = None  → no dates in file; first-time fill only (cols-null check)
+    #
+    # Per-row rules (applied when the gate passes):
+    #   • Per-column protection: if the DB already has a value and the incoming cell is
+    #     empty, the existing DB value is kept.
+    #   • Skip a row entirely when all three effective values match the DB.
+
+    # Short-circuit: if the file gate is explicitly False, null-fill already ran above.
+    if file_gate_pass is False:
+        pass  # new_col_updates stays empty
+    else:
+        for _, row in df.iterrows():
+            soid = _safe_int(row.get("SOID"))
+            if soid is None or soid not in db_rows:
+                continue
+
+            db_awb        = _to_str_or_none(db_rows[soid]["awb_return"])
+            db_lrs        = _to_str_or_none(db_rows[soid]["lenovo_return_status"])
+            db_notes      = _to_str_or_none(db_rows[soid]["awb_notes"])
+            cols_are_null = (db_awb is None and db_lrs is None and db_notes is None)
+
+            # When file_gate_pass is None (no date info), only write first-time rows
+            if file_gate_pass is None and not cols_are_null:
+                continue
+
+            awb_val   = _to_str_or_none(row.get("AWB Number"))   # "Hardclose" kept as-is
+            rs_val    = _to_str_or_none(row.get("Return Status"))
+            notes_val = _to_str_or_none(row.get("Note"))
+
+            # lenovo_return_status lock rule:
+            #   NULL or "Unreturned" → unlocked, can be overwritten
+            #   Any other value      → locked, keep existing DB value regardless of Excel
+            _lrs_locked = (
+                db_lrs is not None
+                and db_lrs.strip().lower() != "unreturned"
+            )
+            if _lrs_locked:
+                rs_val = db_lrs  # preserve locked value
+
+            # Per-column protection: don't overwrite other existing DB values with empty
+            if awb_val is None and db_awb is not None:
+                awb_val = db_awb
+            if rs_val is None and db_lrs is not None:
+                rs_val = db_lrs
+            if notes_val is None and db_notes is not None:
+                notes_val = db_notes
+
+            # Skip the row entirely when all three effective values match what is stored
+            if awb_val == db_awb and rs_val == db_lrs and notes_val == db_notes:
+                continue
+
+            new_col_updates.append((awb_val, rs_val, notes_val, max_submitted_iso, soid))
+
+    unreturned_clear: list[tuple] = []  # no longer clearing Unreturned values
+
+    # ── Write to DB ───────────────────────────────────────────────────────
+    # Note: is_exist_excel and the gate-blocked status_updates are already
+    # written and committed in the early-return path above when
+    # file_gate_pass is False; they are written here for the normal path.
     conn.executemany(
-        "UPDATE wo_product_detail SET dc_lenovo = ? WHERE soid = ?", dc_updates
+        "UPDATE wo_product_detail SET is_exist_excel = ? WHERE soid = ?",
+        is_exist_updates,
     )
     conn.executemany(
-        "UPDATE wo_product_detail SET return_status = ? WHERE soid = ?", status_updates
+        "UPDATE wo_product_detail SET dc_lenovo = ? WHERE soid = ?",
+        dc_updates,
     )
+    conn.executemany(
+        "UPDATE wo_product_detail SET return_status = ? WHERE soid = ?",
+        status_updates,
+    )
+    conn.executemany(
+        """UPDATE wo_product_detail
+              SET awb_return = ?,
+                  lenovo_return_status = ?,
+                  awb_notes = ?,
+                  modify_date_dc_lenovo = ?
+            WHERE soid = ?""",
+        new_col_updates,
+    )
+    if unreturned_clear:
+        conn.executemany(
+            "UPDATE wo_product_detail SET lenovo_return_status = NULL WHERE soid = ?",
+            unreturned_clear,
+        )
     conn.commit()
-    return len(dc_updates) + len(status_updates)
+    return len(dc_updates) + len(status_updates) + len(new_col_updates) + len(unreturned_clear) + len(is_exist_updates)
 
 
 # ── public dispatcher ─────────────────────────────────────────────────────────

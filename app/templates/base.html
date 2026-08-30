@@ -43,6 +43,37 @@
     }
     .topbar-brand span { color: #e8490f; }
 
+    /* Current office indicator (asp_master only) */
+    .topbar-office {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: 10px;
+      padding: 3px 10px 3px 8px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 6px;
+      font-size: 12px;
+      color: #c9d0d8;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 260px;
+    }
+    .topbar-office-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #4ade80;
+      flex-shrink: 0;
+    }
+    .topbar-office-label {
+      color: #fff;
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     /* Portal switcher pills */
     .portal-switcher {
       display: flex;
@@ -545,6 +576,17 @@
 <div class="topbar">
   <a class="topbar-brand" href="/">Lenovo <span>ASP</span></a>
 
+  {% if session_role == 'asp_master' %}
+  <div class="topbar-office">
+    <span class="topbar-office-dot"></span>
+    <span class="topbar-office-label">{{ session_display_name }}</span>
+    {% if session_office_kota %}
+      <span style="color:#8b949e;font-weight:400">·</span>
+      <span style="color:#c9d0d8;font-weight:400">{{ session_office_kota }}</span>
+    {% endif %}
+  </div>
+  {% endif %}
+
   {% if session_role in ('admin', 'superadmin') %}
   <div class="portal-switcher">
     <a href="/asp/dashboard"   class="portal-btn {% if portal == 'asp' %}active{% endif %}">ASP Portal</a>
@@ -552,9 +594,9 @@
   </div>
   {% endif %}
 
-  {% if session_role in ('asp', 'asp_user') %}
+  {% if session_role in ('asp', 'asp_user', 'asp_master') %}
   <span class="topbar-user topbar-user-asp">
-    {% if session_display_name %}
+    {% if session_display_name and session_role != 'asp_master' %}
       <span class="topbar-greeting">Hi, <strong>{{ session_display_name }}</strong></span>
     {% endif %}
   </span>
@@ -674,12 +716,17 @@
         <a href="/admin/msd-wo-updates" class="nav-sub-item {% if active_page == 'msd_wo_updates' %}active{% endif %}"><span class="nav-sub-dot"></span>MSD WO Updates</a>
       </div>
 
-      <a href="/admin/validation" class="nav-item {% if active_page == 'validation' %}active{% endif %}">
+      <div class="nav-group-header {% if active_group == 'validation_center' %}open{% endif %}" data-group="grp-validation">
         <span class="nav-icon">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         </span>
         <span class="nav-label">Validation Center</span>
-      </a>
+        <svg class="nav-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <div class="nav-sub {% if active_group == 'validation_center' %}open{% endif %}" id="grp-validation">
+        <a href="/admin/validation" class="nav-sub-item {% if active_page == 'validation' %}active{% endif %}"><span class="nav-sub-dot"></span>Overview</a>
+        <a href="/admin/validation/pou-unreturn" class="nav-sub-item {% if active_page == 'pou_unreturn' %}active{% endif %}"><span class="nav-sub-dot"></span>PoU Unreturn Report</a>
+      </div>
 
       <div class="nav-group-header {% if active_group == 'user_mgmt' %}open{% endif %}" data-group="grp-user-mgmt">
         <span class="nav-icon">
@@ -718,7 +765,7 @@
 
     <!-- ── Sidebar footer: profile + logout ──────────────────────────────── -->
     <div class="sidebar-footer">
-      {% if session_role == 'superadmin' or (session_role == 'asp' and session_is_hq_with_branches) %}
+      {% if session_role == 'superadmin' or session_role == 'asp_master' %}
       <div class="branch-switcher" id="branch-switcher">
 
         <!-- Flyout list — renders above the button -->

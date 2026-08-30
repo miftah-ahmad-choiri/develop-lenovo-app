@@ -918,33 +918,43 @@
         </div>
       </div>
 
-      <!-- SECTION 1 — Instruction -->
-      <div class="mf-section" style="background:#fffbeb;border-left:3px solid #f59e0b;">
-        <div style="display:flex;align-items:flex-start;gap:10px;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          <div>
-            <div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:4px">How to get the DC Number</div>
-            <ol style="font-size:12px;color:#78350f;margin:0;padding-left:18px;line-height:1.8">
-              <li>Open the <strong>Resolv App</strong> on your device.</li>
-              <li>Go to <strong>Part Return</strong> → find this WO number.</li>
-              <li>Tap <strong>Request Pickup</strong> to generate the DC number.</li>
-              <li>Once the DC number is generated, enter it below.</li>
-            </ol>
-          </div>
+      <!-- SECTION 1 — Instruction (collapsible) -->
+      <div class="mf-section" style="background:#fffbeb;border-left:3px solid #f59e0b;padding:0;overflow:hidden;">
+        <button type="button" id="idc-howto-toggle"
+                onclick="(function(){var b=document.getElementById('idc-howto-body');var a=document.getElementById('idc-howto-arrow');var open=b.style.display!=='none';b.style.display=open?'none':'block';a.style.transform=open?'rotate(0deg)':'rotate(180deg)';})()"
+                style="width:100%;display:flex;align-items:center;gap:10px;background:none;border:none;cursor:pointer;padding:10px 14px;text-align:left;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span style="font-size:12px;font-weight:700;color:#92400e;flex:1">How to get the DC Number &amp; AWB?</span>
+          <svg id="idc-howto-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;transition:transform .2s"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div id="idc-howto-body" style="display:none;padding:0 14px 12px 14px;">
+          <ol style="font-size:12px;color:#78350f;margin:0;padding-left:18px;line-height:1.8">
+            <li>Open the <strong>Resolv App</strong> on your device.</li>
+            <li>Go to <strong>Part Return</strong> → find this WO number.</li>
+            <li>Tap <strong>Request Pickup</strong> to generate the DC number.</li>
+            <li>Once the DC number is generated, enter it below.</li>
+            <li>The <strong>AWB</strong> (Air Waybill) number will also appear in Resolv after pickup is requested.</li>
+          </ol>
         </div>
       </div>
 
-      <!-- SECTION 2 — DC Number input -->
+      <!-- SECTION 2 — DC Number + AWB input -->
       <div class="mf-section">
         <div class="mf-section-label">
           <span class="sec-num" style="background:#7c5cd8">1</span>
           DC Number
         </div>
-        <div class="mf-group" style="margin-bottom:0">
+        <div class="mf-group">
           <span class="mf-label">DC Number <span class="req">*</span></span>
           <input type="text" id="idc-number" placeholder="e.g. 19127" autocomplete="off"
                  style="font-family:ui-monospace,monospace;letter-spacing:.04em;font-size:14px" />
           <div style="font-size:11px;color:#8c959f;margin-top:5px">Enter the DC number exactly as shown in Resolv.</div>
+        </div>
+        <div class="mf-group" style="margin-bottom:0">
+          <span class="mf-label">AWB Return</span>
+          <input type="text" id="idc-awb-return" placeholder="e.g. 1Z999AA10123456784" autocomplete="off"
+                 style="font-family:ui-monospace,monospace;letter-spacing:.04em;font-size:14px" />
+          <div style="font-size:11px;color:#8c959f;margin-top:5px">Air Waybill number for the return shipment (optional).</div>
         </div>
       </div>
 
@@ -3432,9 +3442,11 @@ const returnPartTable = makeTabTable({
       }
     },
     { key: 'dc_number', render: r => {
-        const dc = r.dc_number || '';
-        if (!dc || dc === '0') return '<span style="color:#8c959f">—</span>';
-        return `<span style="font-family:ui-monospace,monospace;font-size:12px;font-weight:700;color:#1f2328">${esc(dc)}</span>`;
+        const dc = (r.dc_number != null ? String(r.dc_number).trim() : '') ;
+        const dcLenovo = (r.dc_lenovo != null ? String(r.dc_lenovo).trim() : '');
+        const display = (dc && dc !== '0') ? dc : ((dcLenovo && dcLenovo !== '0') ? dcLenovo : '');
+        if (!display) return '<span style="color:#8c959f">—</span>';
+        return `<span style="font-family:ui-monospace,monospace;font-size:12px;font-weight:700;color:#1f2328">${esc(display)}</span>`;
       }
     },
   ],
@@ -3940,6 +3952,11 @@ function openInputDc(woId, woType, woStatus, aspName) {
   document.getElementById('idc-asp').textContent           = aspName || '—';
   document.getElementById('idc-wo-status-badge').innerHTML = woStatus ? statusBadge(woStatus) : '';
   document.getElementById('idc-number').value              = '';
+  document.getElementById('idc-awb-return').value          = '';
+
+  /* Reset how-to toggle back to collapsed */
+  document.getElementById('idc-howto-body').style.display  = 'none';
+  document.getElementById('idc-howto-arrow').style.transform = 'rotate(0deg)';
 
   /* Reset parts list */
   const idcPartsList = document.getElementById('idc-parts-list');
@@ -4059,7 +4076,8 @@ function _renderIdcWoList(rows, currentWoId) {
 }
 
 document.getElementById('btn-confirm-input-dc').addEventListener('click', () => {
-  const dc = document.getElementById('idc-number').value.trim();
+  const dc  = document.getElementById('idc-number').value.trim();
+  const awb = document.getElementById('idc-awb-return').value.trim();
   if (!dc) { toast('Please enter the DC Number.', 'err'); return; }
 
   /* Collect all checked WOs from the same-ASP list; fall back to current WO only */

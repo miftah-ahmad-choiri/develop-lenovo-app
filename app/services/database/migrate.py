@@ -36,6 +36,10 @@ def run_migrations(app: Flask) -> None:
         _migrate_wo_product_detail_add_dc_number(conn)
         _migrate_wo_product_detail_add_return_status(conn)
         _migrate_wo_product_detail_add_dc_lenovo(conn)
+        _migrate_wo_product_detail_add_unreturn_fields(conn)
+        _migrate_wo_product_detail_rename_submitted_date(conn)
+        _backfill_return_status_dc_generated(conn)
+        _migrate_wo_product_detail_add_is_exist_excel(conn)
         _migrate_create_asp_details(conn)
         _migrate_create_admin_users(conn)
         _migrate_create_asp_users(conn)
@@ -45,6 +49,7 @@ def run_migrations(app: Flask) -> None:
         _migrate_asp_details_add_monday_fields(conn)
         _migrate_asp_users_drop_asp_username(conn)
         _migrate_wo_details_technician_id_to_tech_id(conn)
+        _migrate_create_asp_master_accounts(conn)
     finally:
         conn.close()
 
@@ -708,3 +713,216 @@ def _migrate_asp_details_add_monday_fields(conn: sqlite3.Connection) -> None:
         conn.commit()
     except Exception:
         pass  # backfill is best-effort
+
+
+def _migrate_create_asp_master_accounts(conn: sqlite3.Connection) -> None:
+    """Create asp_master_accounts and seed one row per multi-ASP parent_group.
+
+    Rules:
+    - Only parent_groups with COUNT(asp_details) > 1 get a row.
+    - masteruser is assigned sequentially: master001, master002, …
+      ordered alphabetically by parent_group for stability across re-runs.
+    - Default password: P@ssw0rd
+    - total_associated_asp: live count from asp_details, refreshed every run.
+    - Safe to re-run: INSERT OR IGNORE skips already-existing rows;
+      total_associated_asp is always refreshed at the end.
+    """
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS asp_master_accounts (
+            parent_group            TEXT PRIMARY KEY,
+            masteruser              TEXT UNIQUE NOT NULL,
+            password                TEXT NOT NULL,
+            total_associated_asp    INTEGER DEFAULT 0
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_asp_master_masteruser
+            ON asp_master_accounts(masteruser);
+        """
+    )
+    conn.commit()
+
+    # Fetch all multi-ASP parent_groups ordered alphabetically (stable numbering)
+    groups = conn.execute(
+        """
+        SELECT parent_group, COUNT(*) AS cnt
+        FROM asp_details
+        WHERE parent_group IS NOT NULL
+        GROUP BY parent_group
+        HAVING COUNT(*) > 1
+        ORDER BY parent_group COLLATE NOCASE
+        """
+    ).fetchall()
+
+    # Collect already-assigned masteruser names so we never collide on re-runs
+    existing_users = {
+        row[0]
+        for row in conn.execute(
+            "SELECT masteruser FROM asp_master_accounts"
+        ).fetchall()
+    }
+
+    counter = 1
+    for row in groups:
+        pg  = row[0]
+        cnt = row[1]
+        # Find the next unused masterXXX slot
+        while True:
+            candidate = f"master{counter:03d}"
+            if candidate not in existing_users:
+                break
+            counter += 1
+
+        conn.execute(
+            "INSERT OR IGNORE INTO asp_master_accounts "
+            "(parent_group, masteruser, password, total_associated_asp) "
+            "VALUES (?, ?, 'P@ssw0rd', ?)",
+            (pg, candidate, cnt),
+        )
+        existing_users.add(candidate)
+        counter += 1
+
+    # Always refresh total_associated_asp for every row (handles ASP additions/removals)
+    conn.execute(
+        """
+        UPDATE asp_master_accounts
+        SET total_associated_asp = (
+            SELECT COUNT(*)
+            FROM asp_details
+            WHERE asp_details.parent_group = asp_master_accounts.parent_group
+        )
+        """
+    )
+    conn.commit()
+
+
+def _migrate_wo_product_detail_add_unreturn_fields(conn: sqlite3.Connection) -> None:
+    """Add awb_return, lenovo_return_status, awb_notes, and unreturn_submitted_date
+    columns to wo_product_detail if they do not exist yet.
+
+    These columns are populated by the ID-IBM ID POU Unreturn upsert:
+      awb_return              ← Excel "AWB Number"  (real AWB or "Hardclose")
+      lenovo_return_status    ← Excel "Return Status"
+      awb_notes               ← Excel "Note"
+      unreturn_submitted_date ← Excel "DC/Collection Form-Submitted Date" as YYYY-MM-DD
+                                 (legacy per-SOID gate column; superseded by
+                                  modify_date_dc_lenovo in the next migration)
+    """
+    existing = {
+        row[1]
+        for row in conn.execute("PRAGMA table_info(wo_product_detail)").fetchall()
+    }
+    for col in (
+        "awb_return",
+        "lenovo_return_status",
+        "awb_notes",
+        "unreturn_submitted_date",
+    ):
+        if col not in existing:
+            conn.execute(
+                f"ALTER TABLE wo_product_detail ADD COLUMN {col} TEXT"
+            )
+    conn.commit()
+
+
+def _migrate_wo_product_detail_rename_submitted_date(conn: sqlite3.Connection) -> None:
+    """Rename unreturn_submitted_date → modify_date_dc_lenovo and change its semantics.
+
+    Old meaning: per-SOID submitted date (one value per row, from the row's own
+                 "DC/Collection Form-Submitted Date" column).
+
+    New meaning: file-level version stamp.  A single date — the MAX of
+                 "DC/Collection Form-Submitted Date" across ALL rows in the uploaded
+                 Excel file — is stored in every affected SOID row so it can be
+                 compared against future uploads:
+                   • incoming file max date > stored → write all new columns
+                   • incoming file max date ≤ stored → skip (file is not newer)
+                   • stored is NULL               → always write (first-time fill)
+
+    SQLite does not support ALTER TABLE … RENAME COLUMN on older versions, so
+    this migration:
+      1. Adds modify_date_dc_lenovo if it doesn't exist yet.
+      2. Copies any existing unreturn_submitted_date values into the new column
+         (so existing data is preserved with the new name).
+      3. Sets all modify_date_dc_lenovo values to the single MAX value already
+         stored in unreturn_submitted_date (normalises per-SOID dates → one stamp).
+      4. Drops unreturn_submitted_date is NOT attempted (SQLite cannot drop columns
+         on older versions); the column is left in place but ignored by all code.
+    """
+    existing = {
+        row[1]
+        for row in conn.execute("PRAGMA table_info(wo_product_detail)").fetchall()
+    }
+
+    # Step 1: add the new column if needed
+    if "modify_date_dc_lenovo" not in existing:
+        conn.execute(
+            "ALTER TABLE wo_product_detail ADD COLUMN modify_date_dc_lenovo TEXT"
+        )
+
+    # Step 2+3: if the old column exists and the new column is still empty,
+    # seed it with the single MAX value from the old column so the version
+    # stamp is consistent across all rows.
+    if "unreturn_submitted_date" in existing:
+        row = conn.execute(
+            "SELECT MAX(unreturn_submitted_date) FROM wo_product_detail"
+            " WHERE unreturn_submitted_date IS NOT NULL"
+        ).fetchone()
+        max_old = row[0] if row else None
+        if max_old:
+            # Only copy when modify_date_dc_lenovo is uniformly NULL (fresh migration)
+            null_count = conn.execute(
+                "SELECT COUNT(*) FROM wo_product_detail"
+                " WHERE modify_date_dc_lenovo IS NOT NULL"
+            ).fetchone()[0]
+            if null_count == 0:
+                conn.execute(
+                    "UPDATE wo_product_detail SET modify_date_dc_lenovo = ?",
+                    (max_old,),
+                )
+
+    conn.commit()
+
+
+def _migrate_wo_product_detail_add_is_exist_excel(conn: sqlite3.Connection) -> None:
+    """Add is_exist_excel column to wo_product_detail if it does not exist yet.
+
+    This column is populated by the ID-IBM ID POU Unreturn upsert:
+      is_exist_excel = 'yes'  when the SOID appears in the uploaded excel
+      is_exist_excel = 'no'   when the SOID previously had a non-NULL value but is
+                               absent from the newly uploaded excel
+      is_exist_excel = NULL   when the SOID has never appeared in any excel
+    """
+    existing = {
+        row[1]
+        for row in conn.execute("PRAGMA table_info(wo_product_detail)").fetchall()
+    }
+    if "is_exist_excel" not in existing:
+        conn.execute(
+            "ALTER TABLE wo_product_detail ADD COLUMN is_exist_excel TEXT"
+        )
+    conn.commit()
+
+
+def _backfill_return_status_dc_generated(conn: sqlite3.Connection) -> None:
+    """Set return_status = 'DC GENERATED' on every wo_product_detail row where
+    dc_lenovo already holds a real value but return_status is still NULL/empty.
+
+    This runs on every app startup (idempotent — rows that already have any
+    return_status value are never touched).  It covers two scenarios:
+      • Rows imported before the automatic Pass-2 promotion rule existed.
+      • Rows whose dc_lenovo was filled but return_status was missed for any reason.
+
+    Also handles dc_number: if dc_number is filled and return_status is still
+    empty, it is promoted to 'DC GENERATED' the same way.
+    """
+    conn.execute(
+        """UPDATE wo_product_detail
+              SET return_status = 'DC GENERATED'
+            WHERE (
+                    (dc_lenovo IS NOT NULL AND TRIM(dc_lenovo) NOT IN ('', '0'))
+                 OR (dc_number IS NOT NULL AND TRIM(dc_number) NOT IN ('', '0'))
+                  )
+              AND (return_status IS NULL OR TRIM(return_status) = '')"""
+    )
+    conn.commit()
