@@ -41,3 +41,12 @@ app/scripts/msd-auto-download/selenium_chrome_profile/
 
 # Large/corrupted DB backups — never commit these
 files/lenovo_asp_corrupted_backup.db
+
+# Chrome profile for Resolv
+app/scripts/resolve-auto-download/session
+# Resolve downloaded files — runtime output, not for version control
+files/resolve-auto-download/Extract-AWB/*.xlsx
+files/resolve-auto-download/Extract-DC/*.xlsx
+
+# MSD downloaded files — runtime output
+files/msd-auto-download/*.xlsx

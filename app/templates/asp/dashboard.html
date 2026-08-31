@@ -583,6 +583,25 @@
   <p>Overview of all Work Orders — ASP Portal</p>
 </div>
 
+{% if not has_tech_id %}
+<!-- ── No Tech ID: access blocked ───────────────────────────────────────── -->
+<div style="margin:40px auto;max-width:540px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:36px 32px;text-align:center;">
+  <div style="width:56px;height:56px;border-radius:50%;background:#fff7ed;border:2px solid #fed7aa;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#c2410c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  </div>
+  <div style="font-size:17px;font-weight:800;color:#1f2328;margin-bottom:8px;">No Tech ID Assigned</div>
+  <div style="font-size:13px;color:#57606a;line-height:1.7;margin-bottom:20px;">
+    Your account does not have a <strong style="color:#1f2328;">Tech ID</strong> linked yet.<br>
+    Work Orders can only be viewed by technicians with an assigned Tech ID.<br>
+    Please contact your ASP administrator to get a Tech ID assigned to your account.
+  </div>
+  <a href="/profile" style="display:inline-flex;align-items:center;gap:6px;padding:9px 18px;background:#3b82d4;color:#fff;border-radius:7px;font-size:13px;font-weight:600;text-decoration:none;">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    View My Profile
+  </a>
+</div>
+{% else %}
+
 <!-- Stat cards -->
 <div class="stat-row">
 <div class="stat-card blue"  data-goto="tab-all" data-filter-status="" style="cursor:pointer">
@@ -1831,9 +1850,11 @@
 </div>
 
 <div class="toast-wrap" id="toast-wrap"></div>
+{% endif %}{# end has_tech_id #}
 {% endblock %}
 
 {% block extra_scripts %}
+{% if has_tech_id %}
 <script>
 /* ═══════════════════════════════════════════════════════════════
    UTILITIES
@@ -5322,4 +5343,5 @@ document.getElementById('btn-confirm-reschedule').addEventListener('click', () =
   closeModal('modal-reschedule');
 });
 </script>
+{% endif %}{# end has_tech_id scripts #}
 {% endblock %}
