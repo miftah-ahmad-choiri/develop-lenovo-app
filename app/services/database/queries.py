@@ -787,12 +787,15 @@ def get_asp_part_return_page(
     tech_id_filter: str | None = None,
 ) -> dict:
     """
-    Return Part Follow-Up — closed/completed WOs that have at least one non-cancelled
-    part line with a known return_status value.  Computed followup_state per row:
-        need_to_return   — any active part line has return_status =
-                           'PENDING WITH PARTNER' or 'PENDING FOR DC GENERATION'
-        weekly_dc_report — no pending lines; relevant lines have return_status = 'DC GENERATED'
-    WOs with no return_status on any part line are excluded entirely.
+    Return Part Follow-Up — closed/completed WOs that have at least one SOID
+    with is_exist_excel = 'yes' (regardless of return_status value).
+    Computed followup_state per row:
+        need_to_return   — has an is_exist_excel='yes' SOID with return_status
+                           'PENDING WITH PARTNER', 'PENDING FOR DC GENERATION',
+                           'UNKNOWN', or empty/NULL
+        weekly_dc_report — all is_exist_excel='yes' SOIDs have return_status
+                           'DC GENERATED' (no pending/unknown/empty lines)
+    WOs with no is_exist_excel='yes' SOID are excluded entirely.
     """
     conn = get_db()
     params: list = []
@@ -807,42 +810,38 @@ def get_asp_part_return_page(
         (SELECT 1
          FROM wo_product_detail p
          WHERE p.work_order_id = s.work_order_id
-           AND UPPER(TRIM(COALESCE(p.return_status,''))) IN (
-               'PENDING WITH PARTNER','PENDING FOR DC GENERATION'
-           )
+           AND LOWER(TRIM(COALESCE(p.is_exist_excel,''))) = 'yes'
+           AND UPPER(TRIM(COALESCE(p.return_status,''))) NOT IN ('DC GENERATED')
          LIMIT 1) AS has_pending_return,
         (SELECT p.return_status
          FROM wo_product_detail p
          WHERE p.work_order_id = s.work_order_id
-           AND UPPER(TRIM(COALESCE(p.return_status,''))) IN (
-               'PENDING WITH PARTNER','PENDING FOR DC GENERATION','DC GENERATED'
-           )
+           AND LOWER(TRIM(COALESCE(p.is_exist_excel,''))) = 'yes'
          ORDER BY p.soid DESC LIMIT 1) AS return_status,
         (SELECT p.dc_number
          FROM wo_product_detail p
          WHERE p.work_order_id = s.work_order_id
-           AND UPPER(TRIM(COALESCE(p.return_status,''))) IN (
-               'PENDING WITH PARTNER','PENDING FOR DC GENERATION','DC GENERATED'
-           )
+           AND LOWER(TRIM(COALESCE(p.is_exist_excel,''))) = 'yes'
          ORDER BY p.soid DESC LIMIT 1) AS dc_number,
         (SELECT p.dc_lenovo
          FROM wo_product_detail p
          WHERE p.work_order_id = s.work_order_id
-           AND UPPER(TRIM(COALESCE(p.return_status,''))) IN (
-               'PENDING WITH PARTNER','PENDING FOR DC GENERATION','DC GENERATED'
-           )
-         ORDER BY p.soid DESC LIMIT 1) AS dc_lenovo
+           AND LOWER(TRIM(COALESCE(p.is_exist_excel,''))) = 'yes'
+         ORDER BY p.soid DESC LIMIT 1) AS dc_lenovo,
+        (SELECT p.awb_return
+         FROM wo_product_detail p
+         WHERE p.work_order_id = s.work_order_id
+           AND LOWER(TRIM(COALESCE(p.is_exist_excel,''))) = 'yes'
+         ORDER BY p.soid DESC LIMIT 1) AS awb_return
     """
 
-    # Only closed/completed WOs that have at least one part line with a known return_status
+    # Only closed/completed WOs that have at least one is_exist_excel='yes' SOID
     wheres = [
         _CLOSED_WHERE.replace("work_order_status", "s.work_order_status"),
         """EXISTS (
             SELECT 1 FROM wo_product_detail p
             WHERE p.work_order_id = s.work_order_id
-              AND UPPER(TRIM(COALESCE(p.return_status,''))) IN (
-                  'PENDING WITH PARTNER','PENDING FOR DC GENERATION','DC GENERATED'
-              )
+              AND LOWER(TRIM(COALESCE(p.is_exist_excel,''))) = 'yes'
         )""",
     ]
 

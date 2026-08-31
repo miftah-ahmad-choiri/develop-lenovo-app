@@ -826,8 +826,8 @@
           <th style="width:40px;text-align:center">#</th>
           <th>Created On</th><th>WO Number</th>
           <th style="min-width:160px">Follow-Up State</th>
-          <th>WO Type</th><th>Case</th><th>WO Status</th>
-          <th>Return Status</th><th>DC Number</th>
+          <th>WO Type</th><th>DC Number</th><th>AWB Return</th>
+          <th>Return Status</th><th>WO Status</th>
         </tr></thead>
         <tbody id="tbody-return-part"><tr><td colspan="9" class="loading-state">Loading…</td></tr></tbody>
       </table>
@@ -3428,8 +3428,20 @@ const returnPartTable = makeTabTable({
     { key: 'work_order_id',               render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
     { key: 'followup_state',              render: r => r.has_pending_return ? `<button class="fu-badge fu-input-dc fu-badge-btn" data-action="return-dc" data-wo="${esc(r.work_order_id)}" data-wo-type="${esc(r.work_order_type||'')}" data-asp="${esc(r.customer||'')}">🔢 Input DC Number</button>` : '' },
     { key: 'work_order_type',             render: r => esc(r.work_order_type||'—') },
-    { key: 'case_desc',                   render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
-    { key: 'work_order_status',           render: r => statusBadge(r.work_order_status) },
+    { key: 'dc_number', render: r => {
+        const dc = (r.dc_number != null ? String(r.dc_number).trim() : '');
+        const dcLenovo = (r.dc_lenovo != null ? String(r.dc_lenovo).trim() : '');
+        const display = (dc && dc !== '0') ? dc : ((dcLenovo && dcLenovo !== '0') ? dcLenovo : '');
+        if (!display) return '<span style="color:#8c959f">—</span>';
+        return `<span style="font-family:ui-monospace,monospace;font-size:12px;font-weight:700;color:#1f2328">${esc(display)}</span>`;
+      }
+    },
+    { key: 'awb_return', render: r => {
+        const v = (r.awb_return != null ? String(r.awb_return).trim() : '');
+        if (!v) return '<span style="color:#8c959f">—</span>';
+        return `<span style="font-family:ui-monospace,monospace;font-size:12px;font-weight:700;color:#0f766e">${esc(v)}</span>`;
+      }
+    },
     { key: 'return_status', render: r => {
         const s = r.return_status || '';
         if (!s) return '<span style="color:#8c959f">—</span>';
@@ -3441,14 +3453,7 @@ const returnPartTable = makeTabTable({
         return `<span style="font-size:12px;color:#57606a">${esc(s)}</span>`;
       }
     },
-    { key: 'dc_number', render: r => {
-        const dc = (r.dc_number != null ? String(r.dc_number).trim() : '') ;
-        const dcLenovo = (r.dc_lenovo != null ? String(r.dc_lenovo).trim() : '');
-        const display = (dc && dc !== '0') ? dc : ((dcLenovo && dcLenovo !== '0') ? dcLenovo : '');
-        if (!display) return '<span style="color:#8c959f">—</span>';
-        return `<span style="font-family:ui-monospace,monospace;font-size:12px;font-weight:700;color:#1f2328">${esc(display)}</span>`;
-      }
-    },
+    { key: 'work_order_status',           render: r => statusBadge(r.work_order_status) },
   ],
   onBind: rows => {
     const badge = document.getElementById('tab-return-part-badge');
