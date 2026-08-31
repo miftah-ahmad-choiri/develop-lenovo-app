@@ -22,18 +22,37 @@ def _vendor_filter() -> str | None:
     return None
 
 
+# Sentinel used when an asp_user has no tech_id assigned.
+# Any query that filters by this value will match zero rows because no real
+# tech_id can equal this string — giving the user an empty result set rather
+# than an unfiltered (all-vendor) view.
+_NO_TECH_ID_SENTINEL = "__no_tech_id__"
+
+
 def _tech_id_filter() -> str | None:
     """Return the tech_id for asp_user sessions only, or None for all other roles.
 
     When set, every WO query is narrowed to WOs assigned to this specific
     technician (wo_details.tech_id), so technicians cannot see each other's WOs.
+
+    If the session role is asp_user but no tech_id is assigned, returns
+    _NO_TECH_ID_SENTINEL so that ALL WO queries return zero rows — the user
+    must have a tech_id to see any Work Orders.
     """
     if session.get("role") == "asp_user":
-        return session.get("tech_id") or None
+        tech_id = session.get("tech_id")
+        return tech_id if tech_id else _NO_TECH_ID_SENTINEL
     return None
 
 
 # ── Shared stat context ───────────────────────────────────────────────────────
+
+def _has_tech_id() -> bool:
+    """True for every role except asp_user-without-tech_id."""
+    if session.get("role") == "asp_user":
+        return bool(session.get("tech_id"))
+    return True
+
 
 def _stat_ctx() -> dict:
     """Stat counts only — no row data loaded on page request."""
@@ -47,6 +66,7 @@ def _stat_ctx() -> dict:
         total_part_hold    = s["part_hold"],
         total_part_transit = s["part_transit"],
         portal             = "asp",
+        has_tech_id        = _has_tech_id(),
     )
 
 

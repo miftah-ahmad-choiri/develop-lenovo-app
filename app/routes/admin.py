@@ -3817,6 +3817,415 @@ def _run_msd_download_task(app, run_once: bool = False) -> None:
             logger.removeHandler(_msd_queue_handler)
             # Keep propagate=False permanently — this logger must never reach root
 
+        # Trim files/msd-auto-download to the 5 most recent xlsx files
+        _keep_latest_files(
+            os.path.join(project_root, "files", "msd-auto-download"),
+            keep=5,
+            logger=logger,
+        )
+
+
+# ── Shared file-cleanup helper ────────────────────────────────────────────────
+
+def _keep_latest_files(directory: str, keep: int = 5,
+                       logger: logging.Logger | None = None) -> None:
+    """Permanently delete the oldest .xlsx files in *directory*, keeping only
+    the *keep* most recent ones.  Uses os.remove() — bypasses Recycle Bin."""
+    if not os.path.isdir(directory):
+        return
+    files = sorted(
+        [
+            f for f in (
+                os.path.join(directory, n) for n in os.listdir(directory)
+            )
+            if os.path.isfile(f) and f.lower().endswith(".xlsx")
+        ],
+        key=os.path.getmtime,
+        reverse=True,   # newest first
+    )
+    for old_file in files[keep:]:
+        try:
+            os.remove(old_file)
+            msg = f"[cleanup] Permanently deleted: {os.path.basename(old_file)}"
+            if logger:
+                logger.info(msg)
+            else:
+                print(msg)
+        except OSError as exc:
+            msg = f"[cleanup] Could not delete {os.path.basename(old_file)}: {exc}"
+            if logger:
+                logger.warning(msg)
+            else:
+                print(msg)
+
+
+# ── RESOLV DC Updates ─────────────────────────────────────────────────────────
+
+import collections as _col_resolve
+_resolve_log_queue:   _queue.Queue       = _queue.Queue(maxsize=2000)
+_resolve_log_history: _col_resolve.deque = _col_resolve.deque(maxlen=500)
+_resolve_thread: threading.Thread | None = None
+_resolve_lock    = threading.Lock()
+_RESOLVE_BOOT_ID: str = _uuid.uuid4().hex
+
+
+class _ResolveQueueHandler(logging.Handler):
+    def emit(self, record: logging.LogRecord) -> None:  # type: ignore[override]
+        if not record.name.startswith("resolve_auto_download"):
+            return
+        msg = record.getMessage()
+        if _WERKZEUG_LINE_RE.search(msg):
+            return
+        rec = {
+            "ts":    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "level": record.levelname,
+            "msg":   msg,
+        }
+        _resolve_log_history.append(rec)
+        try:
+            _resolve_log_queue.put_nowait(rec)
+        except _queue.Full:
+            try:
+                _resolve_log_queue.get_nowait()
+                _resolve_log_queue.put_nowait(rec)
+            except (_queue.Full, _queue.Empty):
+                pass
+
+
+_resolve_queue_handler = _ResolveQueueHandler()
+_resolve_queue_handler.setLevel(logging.INFO)
+
+
+def _resolve_env_path() -> str:
+    """Absolute path to the shared .env file (same file used by MSD)."""
+    return _msd_env_path()
+
+
+def _run_resolve_download_task(app) -> None:
+    import runpy
+    import traceback
+    from contextlib import redirect_stderr, redirect_stdout
+
+    class _QueueWriter:
+        def __init__(self, logger: logging.Logger, level: int) -> None:
+            self._logger = logger
+            self._level  = level
+            self._buffer = ""
+
+        def write(self, value: str) -> int:
+            self._buffer += value
+            while "\n" in self._buffer:
+                line, self._buffer = self._buffer.split("\n", 1)
+                if line.strip():
+                    self._logger.log(self._level, line)
+            return len(value)
+
+        def flush(self) -> None:
+            if self._buffer.strip():
+                self._logger.log(self._level, self._buffer.strip())
+            self._buffer = ""
+
+    project_root = os.path.normpath(
+        os.path.join(os.path.dirname(__file__), "..", "..")
+    )
+    script_path = os.path.join(
+        project_root, "app", "scripts", "resolve-auto-download",
+        "lenovo_resolve_login.py",
+    )
+    awb_dir = os.path.join(project_root, "files", "resolve-auto-download", "Extract-AWB")
+    dc_dir  = os.path.join(project_root, "files", "resolve-auto-download", "Extract-DC")
+    os.makedirs(awb_dir, exist_ok=True)
+    os.makedirs(dc_dir,  exist_ok=True)
+
+    # Read credentials from the shared .env file
+    env_vals  = _read_env_file(_resolve_env_path())
+    username  = env_vals.get("RESOLVE_USERNAME", "")
+    password  = env_vals.get("RESOLVE_PASSWORD", "")
+
+    logger = logging.getLogger("resolve_auto_download")
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+    logger.addHandler(_resolve_queue_handler)
+
+    stdout_writer = _QueueWriter(logger, logging.INFO)
+    stderr_writer = _QueueWriter(logger, logging.ERROR)
+
+    _resolve_log_history.clear()
+
+    # Add the script's own directory to sys.path so that
+    # `from RecaptchaSolver import RecaptchaSolver` resolves correctly.
+    script_dir = os.path.dirname(script_path)
+    _resolve_path_inserted = script_dir not in os.sys.path
+    if _resolve_path_inserted:
+        os.sys.path.insert(0, script_dir)
+
+    with app.app_context():
+        try:
+            logger.info("Starting RESOLV DC auto-download script...")
+            original_argv = list(os.sys.argv)
+            os.sys.argv = [script_path]
+            with redirect_stdout(stdout_writer), redirect_stderr(stderr_writer):
+                runpy.run_path(
+                    script_path,
+                    init_globals={
+                        "USERNAME":         username,
+                        "PASSWORD":         password,
+                        "EXTRACT_AWB_DIR":  awb_dir,
+                        "EXTRACT_DC_DIR":   dc_dir,
+                    },
+                    run_name="__main__",
+                )
+            stdout_writer.flush()
+            stderr_writer.flush()
+        except SystemExit as exc:
+            code = exc.code if isinstance(exc.code, int) else 0
+            if code == 0:
+                logger.info("RESOLV DC auto-download finished.")
+            else:
+                logger.error("RESOLV DC auto-download exited with code %s.", code)
+        except Exception:
+            logger.error("RESOLV DC auto-download failed.")
+            logger.error(traceback.format_exc())
+        finally:
+            os.sys.argv = original_argv
+            logger.removeHandler(_resolve_queue_handler)
+            if _resolve_path_inserted and script_dir in os.sys.path:
+                os.sys.path.remove(script_dir)
+
+        # ── Post-run sync ────────────────────────────────────────────────────
+        # The script always writes to its own Extract-AWB / Extract-DC dirs
+        # (module-level assignments overwrite init_globals before they are used).
+        # Copy any new files from the script dirs into the project-level
+        # files/resolve-auto-download/ dirs so the web UI shows them correctly.
+        import shutil as _shutil
+        script_awb = os.path.join(script_dir, "Extract-AWB")
+        script_dc  = os.path.join(script_dir, "Extract-DC")
+        for src_folder, dst_folder in ((script_awb, awb_dir), (script_dc, dc_dir)):
+            if not os.path.isdir(src_folder):
+                continue
+            os.makedirs(dst_folder, exist_ok=True)
+            for fname in os.listdir(src_folder):
+                if fname.startswith("."):          # skip .gitkeep etc.
+                    continue
+                src_file = os.path.join(src_folder, fname)
+                dst_file = os.path.join(dst_folder, fname)
+                if not os.path.isfile(src_file):
+                    continue
+                if not os.path.exists(dst_file):
+                    try:
+                        _shutil.copy2(src_file, dst_file)
+                        logger.info("Copied %s → %s", fname, dst_folder)
+                        # Remove from script-local dir after successful copy
+                        os.remove(src_file)
+                        logger.info("Removed source file: %s", fname)
+                    except Exception as _cp_err:
+                        logger.warning("Could not copy/remove %s: %s", fname, _cp_err)
+
+        # Trim both project-level dirs to 5 most recent xlsx files
+        for _dst in (awb_dir, dc_dir):
+            _keep_latest_files(_dst, keep=5, logger=logger)
+
+
+def _resolve_list_files(directory: str, limit: int = 5) -> list:
+    """Return the *limit* most-recent file dicts for a directory."""
+    result = []
+    if not os.path.isdir(directory):
+        return result
+    for name in sorted(
+        os.listdir(directory),
+        key=lambda n: os.path.getmtime(os.path.join(directory, n)),
+        reverse=True,
+    ):
+        if len(result) >= limit:
+            break
+        file_path = os.path.join(directory, name)
+        if not os.path.isfile(file_path):
+            continue
+        if name.startswith("."):            # hide .gitkeep and other dot-files
+            continue
+        result.append({
+            "name":         name,
+            "size_kb":      round(os.path.getsize(file_path) / 1024, 1),
+            "modified_fmt": datetime.fromtimestamp(
+                os.path.getmtime(file_path)
+            ).strftime("%Y-%m-%d %H:%M"),
+        })
+    return result
+
+
+@admin_bp.route("/admin/resolve-dc-updates", methods=["GET"])
+def resolve_dc_updates():
+    project_root = os.path.normpath(
+        os.path.join(os.path.dirname(__file__), "..", "..")
+    )
+    awb_dir = os.path.join(project_root, "files", "resolve-auto-download", "Extract-AWB")
+    dc_dir  = os.path.join(project_root, "files", "resolve-auto-download", "Extract-DC")
+
+    with _resolve_lock:
+        is_running = _resolve_thread is not None and _resolve_thread.is_alive()
+
+    return render_template(
+        "admin/export-import/resolve_dc_updates.html",
+        portal="admin",
+        active_page="resolve_dc_updates",
+        active_group="data_import_export",
+        awb_files=_resolve_list_files(awb_dir),
+        dc_files=_resolve_list_files(dc_dir),
+        is_running=is_running,
+        boot_id=_RESOLVE_BOOT_ID,
+    )
+
+
+@admin_bp.route("/admin/resolve-dc-updates/trigger", methods=["POST"])
+def resolve_dc_updates_trigger():
+    global _resolve_thread
+    with _resolve_lock:
+        if _resolve_thread is not None and _resolve_thread.is_alive():
+            return jsonify({"ok": False, "error": "RESOLV DC download is already running."}), 409
+        app = current_app._get_current_object()
+        _resolve_thread = threading.Thread(
+            target=_run_resolve_download_task,
+            args=(app,),
+            daemon=True,
+            name="resolve-auto-download",
+        )
+        _resolve_thread.start()
+    return jsonify({"ok": True})
+
+
+@admin_bp.route("/admin/resolve-dc-updates/stream", methods=["GET"])
+def resolve_dc_updates_stream():
+    def generate():
+        import json as _json
+        history = list(_resolve_log_history)
+        for i, rec in enumerate(history):
+            payload = dict(rec, history=True, history_first=(i == 0))
+            yield f"data: {_json.dumps(payload)}\n\n"
+        while True:
+            try:
+                rec = _resolve_log_queue.get(timeout=15)
+                yield f"data: {_json.dumps(rec)}\n\n"
+            except _queue.Empty:
+                yield "data: {\"keepalive\": true}\n\n"
+
+    return current_app.response_class(
+        generate(),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@admin_bp.route("/admin/resolve-dc-updates/status", methods=["GET"])
+def resolve_dc_updates_status():
+    with _resolve_lock:
+        is_running = _resolve_thread is not None and _resolve_thread.is_alive()
+    return jsonify({"ok": True, "is_running": is_running})
+
+
+@admin_bp.route("/admin/resolve-dc-updates/reset", methods=["POST"])
+def resolve_dc_updates_reset():
+    """Force-close Chrome on the resolve session profile and clear thread state."""
+    global _resolve_thread
+
+    import pathlib as _pl
+    try:
+        import psutil as _psutil
+        session_dir = os.path.normpath(
+            os.path.join(os.path.dirname(__file__), "..", "scripts",
+                         "resolve-auto-download", "session")
+        )
+        target  = os.path.normcase(os.path.normpath(session_dir))
+        killed  = 0
+        for proc in _psutil.process_iter(["pid", "name", "cmdline"]):
+            try:
+                name = (proc.info["name"] or "").lower()
+                if "chrome" not in name:
+                    continue
+                for arg in (proc.info["cmdline"] or []):
+                    if "--user-data-dir=" in arg:
+                        arg_path = os.path.normcase(
+                            os.path.normpath(arg.split("=", 1)[1])
+                        )
+                        if arg_path == target:
+                            proc.terminate()
+                            killed += 1
+                            break
+            except (_psutil.NoSuchProcess, _psutil.AccessDenied):
+                pass
+
+        import time as _t
+        if killed:
+            _t.sleep(1.5)
+
+        _profile_path = _pl.Path(session_dir)
+        for _lk in ("SingletonLock", "SingletonCookie", "SingletonSocket"):
+            _lf = _profile_path / _lk
+            if _lf.exists() or _lf.is_symlink():
+                try:
+                    _lf.unlink()
+                except Exception:
+                    pass
+
+        killed_msg = (
+            f"Chrome closed ({killed} process(es) terminated)."
+            if killed else "No Chrome process found on this profile."
+        )
+    except ImportError:
+        killed_msg = "psutil not installed — Chrome process not killed."
+    except Exception as _exc:
+        killed_msg = f"Chrome kill warning: {_exc}"
+
+    with _resolve_lock:
+        _resolve_thread = None
+
+    return jsonify({"ok": True, "msg": killed_msg})
+
+
+@admin_bp.route("/admin/resolve-dc-updates/credentials", methods=["GET"])
+def resolve_dc_updates_credentials_get():
+    env_path = _resolve_env_path()
+    env      = _read_env_file(env_path)
+    username = env.get("RESOLVE_USERNAME", "")
+    has_pw   = bool(env.get("RESOLVE_PASSWORD", ""))
+    return jsonify({"ok": True, "username": username, "has_password": has_pw})
+
+
+@admin_bp.route("/admin/resolve-dc-updates/credentials", methods=["POST"])
+def resolve_dc_updates_credentials_post():
+    data     = request.get_json(silent=True) or {}
+    username = str(data.get("username", "")).strip()
+    password = str(data.get("password", "")).strip()
+
+    if not username:
+        return jsonify({"ok": False, "error": "Username is required."}), 400
+    if not password:
+        return jsonify({"ok": False, "error": "Password is required."}), 400
+
+    env_path = _resolve_env_path()
+    try:
+        _write_env_value(env_path, "RESOLVE_USERNAME", username)
+        _write_env_value(env_path, "RESOLVE_PASSWORD", password)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": f"Failed to write .env: {exc}"}), 500
+
+    return jsonify({"ok": True})
+
+
+@admin_bp.route("/admin/resolve-dc-updates/files", methods=["GET"])
+def resolve_dc_updates_files():
+    project_root = os.path.normpath(
+        os.path.join(os.path.dirname(__file__), "..", "..")
+    )
+    awb_dir = os.path.join(project_root, "files", "resolve-auto-download", "Extract-AWB")
+    dc_dir  = os.path.join(project_root, "files", "resolve-auto-download", "Extract-DC")
+    return jsonify({
+        "ok":        True,
+        "awb_files": _resolve_list_files(awb_dir),
+        "dc_files":  _resolve_list_files(dc_dir),
+    })
+
+
+
 
 # ── Escalation Center page ────────────────────────────────────────────────────
 
