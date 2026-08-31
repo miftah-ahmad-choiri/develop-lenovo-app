@@ -2,6 +2,38 @@
 {% block title %}PoU Unreturn Report — Admin Portal{% endblock %}
 
 {% block extra_styles %}
+  /* ── summary cards ───────────────────────────────────────── */
+  .summary-cards {
+    display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;
+  }
+  .summary-card {
+    flex: 1; min-width: 130px;
+    background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 8px;
+    padding: 12px 16px; text-align: center;
+  }
+  .summary-card--green { background: #f0fdf4; border-color: #bbf7d0; }
+  .summary-card--amber { background: #fffbeb; border-color: #fde68a; }
+  .summary-card--red   { background: #fff0f0; border-color: #fecaca; }
+  .summary-card { cursor: pointer; transition: box-shadow 0.12s, transform 0.1s; }
+  .summary-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.10); transform: translateY(-1px); }
+  .summary-card.active {
+    outline: 2px solid #3b82d4; outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgba(59,130,212,0.15);
+  }
+  .summary-card--green.active { outline-color: #15803d; box-shadow: 0 0 0 4px rgba(21,128,61,0.15); }
+  .summary-card--amber.active { outline-color: #b45309; box-shadow: 0 0 0 4px rgba(180,83,9,0.15); }
+  .summary-card--red.active   { outline-color: #b91c1c; box-shadow: 0 0 0 4px rgba(185,28,28,0.15); }
+  .summary-value {
+    font-size: 22px; font-weight: 700; color: #1f2328; line-height: 1.2;
+  }
+  .summary-card--green .summary-value { color: #15803d; }
+  .summary-card--amber .summary-value { color: #b45309; }
+  .summary-card--red   .summary-value { color: #b91c1c; }
+  .summary-label {
+    font-size: 11px; font-weight: 600; color: #57606a;
+    text-transform: uppercase; letter-spacing: 0.04em; margin-top: 4px;
+  }
+
   /* ── toolbar ──────────────────────────────────────────────── */
   .report-toolbar {
     display: flex; align-items: center; gap: 10px;
@@ -31,11 +63,12 @@
 
   .btn-export {
     display: inline-flex; align-items: center; gap: 6px;
-    padding: 7px 14px; border-radius: 6px; border: 1px solid #d0d7de;
-    background: #fff; font-size: 13px; font-weight: 600; color: #1f2328;
-    cursor: pointer; white-space: nowrap; transition: background 0.12s;
+    padding: 7px 14px; border-radius: 6px; border: 1px solid #86efac;
+    background: #f0fdf4; font-size: 13px; font-weight: 600; color: #15803d;
+    cursor: pointer; white-space: nowrap; transition: background 0.12s, box-shadow 0.12s;
+    text-decoration: none;
   }
-  .btn-export:hover { background: #f0fdf4; border-color: #86efac; color: #15803d; }
+  .btn-export:hover { background: #dcfce7; border-color: #4ade80; box-shadow: 0 1px 4px rgba(21,128,61,0.15); }
   .btn-export svg { flex-shrink: 0; }
 
   .row-count { font-size: 12px; color: #57606a; margin-left: auto; white-space: nowrap; }
@@ -44,8 +77,14 @@
   .report-meta { font-size: 12px; color: #57606a; margin-bottom: 14px; }
   .report-meta strong { color: #1f2328; }
 
-  /* ── table ────────────────────────────────────────────────── */
-  .table-wrap { overflow-x: auto; overflow-y: auto; height: calc(100vh - 260px); border: 1px solid #e5e7eb; border-radius: 8px; }
+  /* ── table fills remaining viewport height ───────────────── */
+  .table-wrap {
+    overflow-x: auto;
+    overflow-y: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    /* height set dynamically by JS */
+  }
   table.report-table {
     width: 100%; border-collapse: collapse; font-size: 13px; min-width: 860px;
   }
@@ -84,6 +123,11 @@
   table.report-table tbody tr:hover td.cell-red   { background: #fecaca; }
   .cell-blue  { background: #dbeafe; }
   table.report-table tbody tr:hover td.cell-blue  { background: #bfdbfe; }
+  .cell-grey  { background: #e5e7eb; color: #9ca3af; }
+  table.report-table tbody tr:hover td.cell-grey  { background: #d1d5db; color: #9ca3af; }
+  .cell-muted { background: #f7f8fa; }
+  table.report-table tbody tr:hover td.cell-muted { background: #eef0f3; }
+
 
   .badge {
     display: inline-block; padding: 2px 8px; border-radius: 4px;
@@ -108,22 +152,12 @@
   /* hidden rows */
   .report-table tbody tr.hidden-row { display: none; }
 
-  /* pagination */
-  .pager {
-    display: flex; align-items: center; gap: 6px;
-    justify-content: flex-end; margin-top: 14px; flex-wrap: wrap;
-  }
-  .pager-info { font-size: 12px; color: #57606a; margin-right: auto; }
-  .pager-btn {
-    padding: 4px 10px; border: 1px solid #d0d7de; border-radius: 5px;
-    background: #fff; font-size: 12px; cursor: pointer; color: #1f2328;
-  }
-  .pager-btn:hover:not(:disabled) { background: #f7f8fa; }
-  .pager-btn:disabled { opacity: 0.4; cursor: default; }
-  .pager-btn.active { background: #3b82d4; color: #fff; border-color: #3b82d4; }
+  /* suppress base page bottom padding so table reaches viewport edge */
+  .main-content { padding-bottom: 0 !important; }
 {% endblock %}
 
 {% block content %}
+<div id="report-above">
 <div class="page-header">
   <h1>PoU Unreturn Report</h1>
   <p>SOIDs confirmed present in the latest uploaded ID-IBM ID POU Unreturn file with their return details.</p>
@@ -161,6 +195,26 @@
     <div class="report-meta">Source file: <strong>{{ pou_filename }}</strong></div>
   {% endif %}
 
+  <!-- Summary cards -->
+  <div class="summary-cards">
+    <div class="summary-card" data-card="all">
+      <div class="summary-value">{{ summary_total }}</div>
+      <div class="summary-label">Total SOID</div>
+    </div>
+    <div class="summary-card summary-card--green" data-card="dc_awb">
+      <div class="summary-value">{{ summary_dc_awb }}</div>
+      <div class="summary-label">DC + AWB Filled</div>
+    </div>
+    <div class="summary-card summary-card--amber" data-card="pending">
+      <div class="summary-value">{{ summary_pending }}</div>
+      <div class="summary-label">Pending Partner / DC Generate</div>
+    </div>
+    <div class="summary-card summary-card--red" data-card="no_awb">
+      <div class="summary-value">{{ summary_no_awb }}</div>
+      <div class="summary-label">Missing AWB</div>
+    </div>
+  </div>
+
   <!-- Toolbar -->
   <div class="report-toolbar">
     <div class="search-wrap">
@@ -182,16 +236,18 @@
       {% endfor %}
     </select>
 
-    <button class="btn-export" id="btn-export">
+    <a class="btn-export" href="/admin/validation/pou-unreturn/export" id="btn-export">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      Export Excel
-    </button>
+      Export Excel (.xlsx)
+    </a>
 
     <span class="row-count" id="row-count"></span>
   </div>
 
+</div><!-- /#report-above -->
+
   <!-- Table -->
-  <div class="table-wrap">
+  <div class="table-wrap" id="table-wrap">
     <table class="report-table" id="report-table">
       <thead>
         <tr>
@@ -210,13 +266,14 @@
       <tbody id="report-tbody">
         {% for r in rows %}
         {% set date_val = r.completion_date or r.closing_date %}
+        {% set rs_upper = (r.return_status or '')|upper %}
         <tr>
           <td style="color:#8b949e;font-size:12px;width:42px;">{{ loop.index }}</td>
           <td class="soid-cell" data-v="{{ r.soid }}">{{ r.soid }}</td>
           <td class="date-cell"  data-v="{{ date_val[:10] if date_val else '' }}">
             {% if date_val %}{{ date_val[:10] }}{% else %}<span class="null-cell">—</span>{% endif %}
           </td>
-          <td data-v="{{ r.return_status or '' }}" class="{% if r.return_status %}cell-blue{% else %}cell-red{% endif %}">
+          <td data-v="{{ r.return_status or '' }}" class="{% if 'PENDING' in rs_upper or rs_upper == 'UNKNOWN' %}cell-amber{% elif r.return_status %}cell-blue{% else %}cell-muted{% endif %}">
             {% if r.return_status %}
               {% set rs = r.return_status|lower %}
               <span class="badge {% if 'picked up by logistics' in rs %}badge-green{% elif 'pending' in rs %}badge-amber{% elif 'unreturned' == rs %}badge-red{% else %}badge-blue{% endif %}">{{ r.return_status }}</span>
@@ -225,13 +282,13 @@
           <td data-v="{{ r.dc_number or '' }}" class="{% if r.dc_number %}cell-green{% else %}cell-red{% endif %}">
             {{ r.dc_number or '<span class="null-cell">—</span>'|safe }}
           </td>
-          <td data-v="{{ r.dc_lenovo or '' }}" class="{% if not r.dc_number and r.dc_lenovo %}cell-green{% elif r.dc_lenovo %}cell-amber{% else %}cell-red{% endif %}">
+          <td data-v="{{ r.dc_lenovo or '' }}" class="{% if r.dc_number %}cell-grey{% elif r.dc_lenovo %}cell-green{% else %}cell-muted{% endif %}">
             {{ r.dc_lenovo or '<span class="null-cell">—</span>'|safe }}
           </td>
           <td data-v="{{ r.awb_return or '' }}" class="{% if r.awb_return %}cell-green{% else %}cell-red{% endif %}">
             {{ r.awb_return or '<span class="null-cell">—</span>'|safe }}
           </td>
-          <td data-v="{{ r.awb_notes or '' }}" class="{% if r.awb_notes %}cell-green{% else %}cell-red{% endif %}">
+          <td data-v="{{ r.awb_notes or '' }}" class="{% if r.awb_notes %}cell-green{% else %}cell-muted{% endif %}">
             {{ r.awb_notes or '<span class="null-cell">—</span>'|safe }}
           </td>
           <td data-v="{{ r.lenovo_return_status or '' }}">
@@ -251,15 +308,6 @@
     </table>
   </div>
 
-  <!-- Pagination -->
-  <div class="pager">
-    <span class="pager-info" id="pager-info"></span>
-    <button class="pager-btn" id="btn-first">«</button>
-    <button class="pager-btn" id="btn-prev">‹</button>
-    <span id="pager-pages" style="display:flex;gap:4px;flex-wrap:wrap;"></span>
-    <button class="pager-btn" id="btn-next">›</button>
-    <button class="pager-btn" id="btn-last">»</button>
-  </div>
 {% endif %}
 
 <script>
@@ -271,11 +319,9 @@
   const filterRS  = document.getElementById('filter-return-status');
   const filterLRS = document.getElementById('filter-lenovo-status');
   const countEl   = document.getElementById('row-count');
-  const pagerInfo = document.getElementById('pager-info');
-  const pagesEl   = document.getElementById('pager-pages');
 
-  const PAGE_SIZE = 50;
-  let sortCol = -1, sortAsc = true, currentPage = 1;
+  let sortCol = -1, sortAsc = true;
+  let activeCard = null;   // 'all' | 'dc_awb' | 'pending' | 'no_awb' | null
 
   // ── collect all rows ─────────────────────────────────────
   const allRows = Array.from(tbody.querySelectorAll('tr'));
@@ -283,7 +329,7 @@
   // ── sort ─────────────────────────────────────────────────
   document.querySelectorAll('#report-table thead th').forEach(th => {
     const col = parseInt(th.dataset.col);
-    if (col < 0) return;                          // skip the # index column
+    if (col < 0) return;
     th.addEventListener('click', () => {
       if (sortCol === col) { sortAsc = !sortAsc; }
       else { sortCol = col; sortAsc = true; }
@@ -307,7 +353,6 @@
     if (sortCol < 0) return rows.slice();
     return rows.slice().sort((a, b) => {
       const av = cellVal(a, sortCol), bv = cellVal(b, sortCol);
-      // Always push empty values to the bottom regardless of sort direction
       if (av === '' && bv === '') return 0;
       if (av === '') return 1;
       if (bv === '') return -1;
@@ -318,16 +363,35 @@
     });
   }
 
+  // ── card filter helpers ───────────────────────────────────
+  // col indices (0-based data-col, so tds[col+1]):
+  //   col 2 → return_status   col 3 → dc_number   col 4 → dc_lenovo   col 5 → awb_return
+  function matchCard(row) {
+    if (!activeCard || activeCard === 'all') return true;
+    const tds = row.querySelectorAll('td');
+    const v   = (col) => (tds[col + 1] ? (tds[col + 1].dataset.v || '').trim() : '');
+    const rs  = v(2).toUpperCase();
+    const dcN = v(3);
+    const dcL = v(4);
+    const awb = v(5);
+    const hasAWB = awb !== '' && awb !== '—';
+    const hasDC  = dcN !== '' || dcL !== '';
+    if (activeCard === 'dc_awb')  return hasAWB && hasDC;
+    if (activeCard === 'pending') return rs !== 'DC GENERATED';
+    if (activeCard === 'no_awb')  return !hasAWB;
+    return true;
+  }
+
   // ── filter + search ──────────────────────────────────────
   function matchRow(row) {
     const q   = searchEl.value.trim().toLowerCase();
-    // Compare option value directly against data-v (both stored as original case)
     const rs  = filterRS.value;
     const lrs = filterLRS.value;
     const tds = row.querySelectorAll('td');
 
-    if (rs  && (tds[3]  ? (tds[3].dataset.v  || '') : '') !== rs)  return false;
-    if (lrs && (tds[8]  ? (tds[8].dataset.v  || '') : '') !== lrs) return false;
+    if (!matchCard(row)) return false;
+    if (rs  && (tds[3] ? (tds[3].dataset.v || '') : '') !== rs)  return false;
+    if (lrs && (tds[8] ? (tds[8].dataset.v || '') : '') !== lrs) return false;
     if (q) {
       let found = false;
       tds.forEach(td => { if ((td.dataset.v || '').toLowerCase().includes(q)) found = true; });
@@ -336,69 +400,23 @@
     return true;
   }
 
-  // ── pagination ───────────────────────────────────────────
-  let visibleRows = [];
-
-  function renderPage() {
-    const total  = visibleRows.length;
-    const pages  = Math.max(1, Math.ceil(total / PAGE_SIZE));
-    currentPage  = Math.min(currentPage, pages);
-    const start  = (currentPage - 1) * PAGE_SIZE;
-    const end    = Math.min(start + PAGE_SIZE, total);
-
-    allRows.forEach(r => { r.classList.add('hidden-row'); r.style.display = 'none'; });
-    visibleRows.forEach((r, i) => {
-      if (i >= start && i < end) {
-        r.classList.remove('hidden-row');
-        r.style.display = '';
-        r.querySelectorAll('td')[0].textContent = start + i + 1;
-      }
-    });
-
-    countEl.textContent   = total + ' record' + (total !== 1 ? 's' : '');
-    pagerInfo.textContent = total === 0 ? '' : `Showing ${start + 1}–${end} of ${total}`;
-
-    // page buttons
-    pagesEl.innerHTML = '';
-    const range = pageRange(currentPage, pages);
-    range.forEach(p => {
-      if (p === '…') {
-        const s = document.createElement('span');
-        s.textContent = '…'; s.style.padding = '4px 4px'; s.style.color = '#8b949e';
-        pagesEl.appendChild(s);
-      } else {
-        const b = document.createElement('button');
-        b.className = 'pager-btn' + (p === currentPage ? ' active' : '');
-        b.textContent = p;
-        b.addEventListener('click', () => { currentPage = p; renderPage(); });
-        pagesEl.appendChild(b);
-      }
-    });
-
-    document.getElementById('btn-first').disabled = currentPage === 1;
-    document.getElementById('btn-prev').disabled  = currentPage === 1;
-    document.getElementById('btn-next').disabled  = currentPage === pages;
-    document.getElementById('btn-last').disabled  = currentPage === pages;
-  }
-
-  function pageRange(cur, total) {
-    if (total <= 7) return Array.from({length: total}, (_, i) => i + 1);
-    const r = [];
-    r.push(1);
-    if (cur > 3) r.push('…');
-    for (let i = Math.max(2, cur - 1); i <= Math.min(total - 1, cur + 1); i++) r.push(i);
-    if (cur < total - 2) r.push('…');
-    r.push(total);
-    return r;
-  }
-
+  // ── render all visible rows ───────────────────────────────
   function applyAll() {
-    const sorted = sortedRows(allRows);
-    visibleRows  = sorted.filter(matchRow);
-    // Re-order DOM
-    visibleRows.concat(sorted.filter(r => !visibleRows.includes(r))).forEach(r => tbody.appendChild(r));
-    currentPage  = 1;
-    renderPage();
+    const sorted      = sortedRows(allRows);
+    const visibleRows = sorted.filter(matchRow);
+    const hiddenRows  = sorted.filter(r => !visibleRows.includes(r));
+
+    // Re-order DOM: visible first, hidden after
+    visibleRows.concat(hiddenRows).forEach(r => tbody.appendChild(r));
+
+    // Show/hide and re-number
+    allRows.forEach(r => { r.style.display = 'none'; });
+    visibleRows.forEach((r, i) => {
+      r.style.display = '';
+      r.querySelectorAll('td')[0].textContent = i + 1;
+    });
+
+    countEl.textContent = visibleRows.length + ' record' + (visibleRows.length !== 1 ? 's' : '');
   }
 
   // ── wire controls ────────────────────────────────────────
@@ -406,33 +424,34 @@
   filterRS.addEventListener('change', applyAll);
   filterLRS.addEventListener('change', applyAll);
 
-  document.getElementById('btn-first').addEventListener('click', () => { currentPage = 1; renderPage(); });
-  document.getElementById('btn-last').addEventListener('click',  () => { currentPage = Math.ceil(visibleRows.length / PAGE_SIZE); renderPage(); });
-  document.getElementById('btn-prev').addEventListener('click',  () => { currentPage--; renderPage(); });
-  document.getElementById('btn-next').addEventListener('click',  () => { currentPage++; renderPage(); });
-
-  // ── export ───────────────────────────────────────────────
-  document.getElementById('btn-export').addEventListener('click', () => {
-    // Build CSV and trigger download (no external lib needed)
-    const headers = ['#','SOID','Completion/Closing Date','Return Status','DC Resolve','DC Lenovo','AWB Return','AWB Notes','Lenovo Return Status','Exist on Excel?'];
-    const colIdx  = [0,1,2,3,4,5,6,7,8,9];
-    const escape  = v => '"' + String(v).replace(/"/g, '""') + '"';
-
-    let csv = headers.map(escape).join(',') + '\r\n';
-    visibleRows.forEach(row => {
-      const tds = row.querySelectorAll('td');
-      csv += colIdx.map(i => escape(tds[i] ? (tds[i].dataset.v || '') : '')).join(',') + '\r\n';
+  // ── summary card clicks ───────────────────────────────────
+  document.querySelectorAll('.summary-card[data-card]').forEach(card => {
+    card.addEventListener('click', () => {
+      const key = card.dataset.card;
+      // Toggle off if already active; otherwise switch to this card
+      activeCard = (activeCard === key) ? null : key;
+      document.querySelectorAll('.summary-card[data-card]').forEach(c => {
+        c.classList.toggle('active', c.dataset.card === activeCard);
+      });
+      applyAll();
     });
-
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url; a.download = 'POU_Unreturn_Report.csv'; a.click();
-    URL.revokeObjectURL(url);
   });
 
   // ── init ─────────────────────────────────────────────────
   applyAll();
+
+  // ── fit table to remaining viewport height ───────────────
+  const tableWrap = document.getElementById('table-wrap');
+  const above     = document.getElementById('report-above');
+  function fitTable() {
+    if (!tableWrap || !above) return;
+    // Distance from top of table-wrap to top of viewport
+    const top     = tableWrap.getBoundingClientRect().top;
+    const padding = 16; // small bottom gap
+    tableWrap.style.height = (window.innerHeight - top - padding) + 'px';
+  }
+  fitTable();
+  window.addEventListener('resize', fitTable);
 })();
 </script>
 {% endblock %}

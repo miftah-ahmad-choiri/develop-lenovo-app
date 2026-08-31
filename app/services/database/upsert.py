@@ -522,6 +522,8 @@ def upsert_eta_parthold_from_backlog(df: pd.DataFrame, conn: sqlite3.Connection)
 #   PENDING WITH PARTNER       → rank 0  (lowest / open — pickup stage)
 #   PENDING FOR DC GENERATION  → rank 1  (DC form being prepared)
 #   DC GENERATED               → rank 2  (locked — never overwritten)
+# UNKNOWN is intentionally excluded from this hierarchy (rank -1) so it can
+# be overwritten by any valid status, including DC GENERATED.
 _GTAAP_STATUS_RANK: dict[str, int] = {
     "PENDING WITH PARTNER":      0,
     "PENDING FOR DC GENERATION": 1,
@@ -573,13 +575,21 @@ def upsert_dc_from_gtaap(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
                                                → DC GENERATED (2, locked).
     A stored 'DC GENERATED' is never overwritten.
 
+    Pass 4 — absent rows:
+        Rows with PENDING WITH PARTNER or PENDING FOR DC GENERATION whose
+        SOID and work_order_id are both absent from the Excel file are set
+        to 'UNKNOWN' (not yet DC GENERATED — dc_number still missing).
+        When a subsequent upload writes a real dc_number to such a row,
+        Pass 1b / Pass 5a will promote it from UNKNOWN → DC GENERATED.
+
     Pass 5a — promote (whole-table, runs after all writes):
         Any row with a real dc_number whose return_status is not already
-        'DC GENERATED' is promoted — catches rows filled by earlier imports.
+        'DC GENERATED' (including UNKNOWN) is promoted to 'DC GENERATED' —
+        catches rows filled by earlier imports.
 
     Pass 5b — cleanup (whole-table, runs after all writes):
-        Any row where dc_number is NULL but return_status is 'DC GENERATED'
-        is inconsistent; return_status is cleared to NULL.
+        Any row where dc_number is NULL or empty but return_status is
+        'DC GENERATED' is inconsistent; return_status is cleared to NULL.
 
     Returns the total number of rows updated across all passes.
     """
@@ -594,8 +604,17 @@ def upsert_dc_from_gtaap(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
         return s not in ("", "nan", "nat", "none", "null", "NaT")
 
     def _dc_eligible(current: str | None) -> bool:
-        """True when the current DB dc_number value should be overwritten."""
-        return current is None
+        """True when the current DB dc_number value should be overwritten.
+
+        A real incoming value (_has_dc check is done before calling this) is
+        always allowed to write — whether the DB slot is empty or already filled.
+        NULL/empty incoming values are rejected upstream, so the only thing this
+        guard needs to do is return True unconditionally: any real value may land.
+
+        Kept as an explicit function so the intent is clear and future rules can
+        be added here without touching the call-site loop.
+        """
+        return True  # real → any (NULL or real): always allow; NULL→NULL blocked by _has_dc
 
     def _normalise_dc(dc_val) -> str:
         """Normalise whole-number floats: 17731.0 → '17731'."""
@@ -616,6 +635,13 @@ def upsert_dc_from_gtaap(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
     }
     db_dc = {soid: v["dc_number"] for soid, v in db_rows.items()}
 
+    # SOIDs whose return_status is already at the top of the hierarchy (DC GENERATED,
+    # rank 2) are fully blocked — no column in their row may be changed by this upload.
+    blocked_soids: set = {
+        soid for soid, v in db_rows.items()
+        if str(v["return_status"] or "").strip() == "DC GENERATED"
+    }
+
     dc_updates: list[tuple] = []
     status_updates: list[tuple] = []
 
@@ -624,11 +650,13 @@ def upsert_dc_from_gtaap(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
         soid = _safe_int(r.get("SOID"))
         if soid is None or soid not in db_rows:
             continue
-        if not _dc_eligible(db_dc[soid]):
+        if soid in blocked_soids:          # fully blocked — skip entire row
             continue
-
         dc_val = r.get("DC#")
         if not _has_dc(dc_val):
+            continue
+
+        if not _dc_eligible(db_dc[soid]):
             continue
 
         dc_str = _normalise_dc(dc_val)
@@ -638,6 +666,7 @@ def upsert_dc_from_gtaap(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
     # ── Pass 1b: promote to DC GENERATED when a real DC# was just written ────
     # Rule: if dc_number is now a real value and return_status is not already
     # 'DC GENERATED', force it to 'DC GENERATED'.
+    # This also promotes UNKNOWN → DC GENERATED when a dc_number arrives.
     for dc_str, soid in dc_updates:
         db_status = str(db_rows[soid]["return_status"] or "").strip()
         if db_status != "DC GENERATED":
@@ -649,15 +678,20 @@ def upsert_dc_from_gtaap(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
         soid = _safe_int(r.get("SOID"))
         if soid is None or soid not in db_rows:
             continue
+        if soid in blocked_soids:          # fully blocked — skip entire row
+            continue
         excel_status = str(r.get("Status") or "").strip()
         db_status    = db_rows[soid]["return_status"]
         if _gtaap_status_eligible(db_status, excel_status):
             status_updates.append((excel_status, soid))
 
-    # ── Pass 4: absent rows — promote to DC GENERATED ────────────────────────
+    # ── Pass 4: absent rows — set to UNKNOWN ─────────────────────────────────
     # DB rows with return_status PENDING FOR DC GENERATION or PENDING WITH PARTNER
     # that have no matching SOID *and* no matching work_order_id in the Excel file
-    # are considered complete (DC already generated) and promoted to DC GENERATED.
+    # are no longer open in GTAAP but we don't have a dc_number yet.
+    # Set to 'UNKNOWN' as a placeholder; a subsequent upload that provides a real
+    # dc_number will promote UNKNOWN → DC GENERATED via Pass 1b / Pass 5a.
+    # Blocked rows (DC GENERATED) are excluded — they never receive UNKNOWN.
     _open_statuses = {"PENDING FOR DC GENERATION", "PENDING WITH PARTNER"}
     excel_soids   = {
         _safe_int(r.get("SOID"))
@@ -670,6 +704,8 @@ def upsert_dc_from_gtaap(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
         if _safe_int(r.get("WO#")) is not None
     }
     for soid, row_data in db_rows.items():
+        if soid in blocked_soids:          # fully blocked — skip
+            continue
         db_status = str(row_data["return_status"] or "").strip()
         if db_status not in _open_statuses:
             continue
@@ -679,14 +715,16 @@ def upsert_dc_from_gtaap(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
             continue
         if wo_id is not None and _safe_int(wo_id) in excel_wo_ids:
             continue
-        status_updates.append(("DC GENERATED", soid))
+        status_updates.append(("UNKNOWN", soid))
+        db_rows[soid]["return_status"] = "UNKNOWN"  # keep in-memory state current
 
     conn.executemany("UPDATE wo_product_detail SET dc_number = ? WHERE soid = ?", dc_updates)
     conn.executemany("UPDATE wo_product_detail SET return_status = ? WHERE soid = ?", status_updates)
 
     # ── Pass 5a: promote any row that already has a real dc_number ────────────
     # Catches rows whose dc_number was set in a previous import but whose
-    # return_status was never promoted (or was wrongly left behind).
+    # return_status was not yet DC GENERATED — including rows sitting at UNKNOWN.
+    # NOTE: dc_lenovo alone never triggers this — only dc_number counts.
     conn.execute(
         """
         UPDATE wo_product_detail
@@ -698,14 +736,14 @@ def upsert_dc_from_gtaap(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
     )
 
     # ── Pass 5b: clear orphaned DC GENERATED on rows with no real dc_number ────
-    # If dc_number is NULL but return_status is 'DC GENERATED', the status is
-    # inconsistent — clear return_status back to NULL.
+    # If dc_number is NULL or empty but return_status is 'DC GENERATED', the
+    # status is inconsistent (dc_lenovo alone is not enough) — clear back to NULL.
     conn.execute(
         """
         UPDATE wo_product_detail
            SET return_status = NULL
          WHERE return_status = 'DC GENERATED'
-           AND dc_number IS NULL
+           AND (dc_number IS NULL OR dc_number = '')
         """
     )
 
@@ -726,9 +764,7 @@ def upsert_from_unreturn(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
         (not NULL, not empty, not "0", not "—").
 
     return_status
-        Set to 'DC GENERATED' only when dc_lenovo is now real AND the DB
-        value is currently NULL/empty.  An existing return_status is never
-        overwritten.
+        Not modified by this function.
 
     ── New columns (date-gated) ─────────────────────────────────────────────
     awb_return            ← "AWB Number"   (real AWB string, "Hardclose", or NULL)
@@ -836,27 +872,9 @@ def upsert_from_unreturn(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
     dc_updates:     list[tuple] = []   # (dc_lenovo_value, soid)
     status_updates: list[tuple] = []   # (return_status_value, soid)
     # New columns — all written atomically per SOID when date gate passes
-    new_col_updates: list[tuple] = []  # (awb_return, lenovo_return_status, awb_notes, submitted_date, soid)
-
-    # In-memory dc_lenovo after staging writes (needed for return_status decision)
-    staged_dc: dict[int, str | None] = {
-        soid: v["dc_lenovo"] for soid, v in db_rows.items()
-    }
-
-    # ── Pass 2b: DB-wide backfill — runs unconditionally, before any gate check ──
-    # Backfill return_status = 'DC GENERATED' for every row already in the DB
-    # where dc_lenovo is real but return_status is still empty.
-    # This runs regardless of the file gate so that rows imported by previous
-    # uploads (before this rule existed) are always fixed on the next upsert.
-    for soid, v in db_rows.items():
-        current_status = str(v["return_status"] or "").strip()
-        if current_status:
-            continue  # already has a value — never overwrite
-        current_dc = _to_str_or_none(v["dc_lenovo"])
-        if not _has_val(current_dc):
-            continue  # dc_lenovo is empty — nothing to do
-        status_updates.append(("DC GENERATED", soid))
-        db_rows[soid]["return_status"] = "DC GENERATED"
+    new_col_updates: list[tuple] = []  # (awb_return, lenovo_return_status, awb_notes, soid)
+    # Tracks every SOID that receives any write this upsert (used to stamp modify_date_dc_lenovo)
+    touched_soids:  set[int]     = set()
 
     # ── Pass 5: is_exist_excel ────────────────────────────────────────────────
     # Runs unconditionally — not gated on the file date stamp.
@@ -882,7 +900,7 @@ def upsert_from_unreturn(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
 
     # ── Gate guard: when the file is not newer, skip file-driven passes ──────
     # file_gate_pass = False means this file's max date is ≤ the stored stamp.
-    # Pass 2b (DB backfill) and Pass 5 (is_exist_excel) above already ran.
+    # Pass 5 (is_exist_excel) above already ran.
     #
     # Exception — null-fill: all three new columns (awb_return, lenovo_return_status,
     # awb_notes) are written atomically even when the gate is blocked, provided ALL
@@ -895,7 +913,7 @@ def upsert_from_unreturn(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
     #   • "Unreturned" → can be overwritten with any new value from Excel
     #   • Any other value → locked; never overwritten
     if file_gate_pass is False:
-        null_fill_updates: list[tuple] = []  # (awb_return, lenovo_return_status, awb_notes, stamp, soid)
+        null_fill_updates: list[tuple] = []  # (awb_return, lenovo_return_status, awb_notes, soid)
         for _, _gf_row in df.iterrows():
             _gf_soid = _safe_int(_gf_row.get("SOID"))
             if _gf_soid is None or _gf_soid not in db_rows:
@@ -921,7 +939,8 @@ def upsert_from_unreturn(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
             # Nothing to write at all
             if _gf_awb is None and _gf_rs is None and _gf_notes is None:
                 continue
-            null_fill_updates.append((_gf_awb, _gf_rs, _gf_notes, max_submitted_iso, _gf_soid))
+            null_fill_updates.append((_gf_awb, _gf_rs, _gf_notes, _gf_soid))
+            touched_soids.add(_gf_soid)
 
         conn.executemany(
             "UPDATE wo_product_detail SET is_exist_excel = ? WHERE soid = ?",
@@ -936,10 +955,14 @@ def upsert_from_unreturn(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
                 """UPDATE wo_product_detail
                       SET awb_return = ?,
                           lenovo_return_status = ?,
-                          awb_notes = ?,
-                          modify_date_dc_lenovo = ?
+                          awb_notes = ?
                     WHERE soid = ?""",
                 null_fill_updates,
+            )
+        if max_submitted_iso and touched_soids:
+            conn.executemany(
+                "UPDATE wo_product_detail SET modify_date_dc_lenovo = ? WHERE soid = ?",
+                [(max_submitted_iso, s) for s in touched_soids],
             )
         conn.commit()
         return len(status_updates) + len(is_exist_updates) + len(null_fill_updates)
@@ -956,18 +979,7 @@ def upsert_from_unreturn(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
         if dc_val == current_dc:
             continue  # value unchanged — no write needed
         dc_updates.append((dc_val, soid))
-        staged_dc[soid] = dc_val  # keep in-memory state current
-
-    # ── Pass 2a: set return_status = DC GENERATED for dc_lenovo written this upload
-    _already_backfilled = {s for _, s in status_updates}  # already queued in 2b
-    for dc_val, soid in dc_updates:
-        if soid in _already_backfilled:
-            continue  # 2b already covered this one
-        current_status = str(db_rows[soid]["return_status"] or "").strip()
-        if current_status:
-            continue  # never overwrite an existing return_status
-        status_updates.append(("DC GENERATED", soid))
-        db_rows[soid]["return_status"] = "DC GENERATED"
+        touched_soids.add(soid)
 
     # ── Pass 3: awb_return / lenovo_return_status / awb_notes (date-gated) ─
     #
@@ -1025,7 +1037,8 @@ def upsert_from_unreturn(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
             if awb_val == db_awb and rs_val == db_lrs and notes_val == db_notes:
                 continue
 
-            new_col_updates.append((awb_val, rs_val, notes_val, max_submitted_iso, soid))
+            new_col_updates.append((awb_val, rs_val, notes_val, soid))
+            touched_soids.add(soid)
 
     unreturned_clear: list[tuple] = []  # no longer clearing Unreturned values
 
@@ -1049,8 +1062,7 @@ def upsert_from_unreturn(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
         """UPDATE wo_product_detail
               SET awb_return = ?,
                   lenovo_return_status = ?,
-                  awb_notes = ?,
-                  modify_date_dc_lenovo = ?
+                  awb_notes = ?
             WHERE soid = ?""",
         new_col_updates,
     )
@@ -1058,6 +1070,31 @@ def upsert_from_unreturn(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
         conn.executemany(
             "UPDATE wo_product_detail SET lenovo_return_status = NULL WHERE soid = ?",
             unreturned_clear,
+        )
+
+    # ── Consistency sweep: clear orphaned DC GENERATED with no real dc_number ──
+    # Mirrors Pass 5b from upsert_dc_from_gtaap so that a POU Unreturn upload
+    # also repairs any row where dc_number is NULL but return_status is
+    # 'DC GENERATED' (stale state left from a previous GTAAP import cycle).
+    # dc_lenovo alone must never be the basis for DC GENERATED.
+    conn.execute(
+        """
+        UPDATE wo_product_detail
+           SET return_status = NULL
+         WHERE return_status = 'DC GENERATED'
+           AND (dc_number IS NULL OR dc_number = '')
+        """
+    )
+
+    # ── Stamp modify_date_dc_lenovo for every SOID touched this upsert ────────
+    # Written as a single sweep over all touched SOIDs, so every row that
+    # received any update (dc_lenovo, awb_return, lenovo_return_status, or
+    # awb_notes) carries the same file-level stamp: the MAX of
+    # DC/Collection Form-Submitted Date across the uploaded file.
+    if max_submitted_iso and touched_soids:
+        conn.executemany(
+            "UPDATE wo_product_detail SET modify_date_dc_lenovo = ? WHERE soid = ?",
+            [(max_submitted_iso, s) for s in touched_soids],
         )
     conn.commit()
     return len(dc_updates) + len(status_updates) + len(new_col_updates) + len(unreturned_clear) + len(is_exist_updates)

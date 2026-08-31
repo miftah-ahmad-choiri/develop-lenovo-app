@@ -1666,6 +1666,11 @@ def data_import_upsert_preview(category_key: str):
                     ).fetchall()
                 }
                 db_dc = {soid: v["dc_number"] for soid, v in db_gtaap.items()}
+                # SOIDs fully blocked from any write (return_status already DC GENERATED)
+                _blocked_soids_preview: set = {
+                    soid for soid, v in db_gtaap.items()
+                    if str(v["return_status"] or "").strip() == "DC GENERATED"
+                }
 
                 soid_col          = "SOID"
                 dc_col            = "DC#"
@@ -1718,7 +1723,9 @@ def data_import_upsert_preview(category_key: str):
                 def _dc_will_write(row):
                     """True when a real DC# will be written to this row."""
                     soid = _safe_int(row.get(soid_col))
-                    if soid is None or not _dc_eligible(db_dc.get(soid)):
+                    if soid is None or soid in _blocked_soids_preview:
+                        return False
+                    if not _dc_eligible(db_dc.get(soid)):
                         return False
                     return _has_dc_val(row.get(dc_col))
 
@@ -1749,6 +1756,8 @@ def data_import_upsert_preview(category_key: str):
                 def _is_impacted(row):
                     soid = _safe_int(row.get(soid_col))
                     if soid is None or soid not in db_gtaap:
+                        return False
+                    if soid in _blocked_soids_preview:   # fully blocked — no write at all
                         return False
                     if _dc_will_write(row):
                         return True
@@ -1828,7 +1837,7 @@ def data_import_upsert_preview(category_key: str):
                             "SOID":              str(_soid),
                             "Work Order ID":     str(_wo_id) if _wo_id else "—",
                             "Current Status":    _db_rs,
-                            "Will be set to":    "DC GENERATED",
+                            "Will be set to":    "UNKNOWN",
                         })
                 else:
                     new_df     = pd.DataFrame()
@@ -1958,11 +1967,6 @@ def data_import_upsert_preview(category_key: str):
                         if _ur_has_val(_incoming_dc) and _incoming_dc != _current_dc:
                             staged_dc[_s] = _incoming_dc
 
-                # Track staged return_status decisions
-                _staged_rs: dict[int, str | None] = {
-                    soid: v["return_status"] for soid, v in db_unreturn.items()
-                }
-
                 # ── Pre-compute Excel SOID set (for is_exist_excel preview) ─────
                 _ur_excel_soids: set[int] = set()
                 for _, _xe_r in df.iterrows():
@@ -2022,13 +2026,20 @@ def data_import_upsert_preview(category_key: str):
                         _has_any = (_gs_awb is not None or _gs_rs_clean is not None or _gs_note is not None)
 
                         if _eligible and _has_any:
-                            _lrs_label = (
-                                f"Unreturned → '{_gs_rs_clean}'"
-                                if _gs_db_lrs is not None
-                                else f"'{_gs_rs_clean or ''}'"
-                            )
+                            _null_parts = []
+                            if _gs_awb is not None:
+                                _null_parts.append(f"awb_return ← '{_gs_awb}'")
+                            if _gs_rs_clean is not None:
+                                _lrs_label = (
+                                    f"lenovo_return_status: Unreturned → '{_gs_rs_clean}'"
+                                    if _gs_db_lrs is not None
+                                    else f"lenovo_return_status ← '{_gs_rs_clean}'"
+                                )
+                                _null_parts.append(_lrs_label)
+                            if _gs_note is not None:
+                                _null_parts.append(f"awb_notes ← '{_gs_note}'")
                             impacted_rows.append({
-                                reason_col:       f"fill: awb_return ← '{_gs_awb or ''}'; lenovo_return_status ← {_lrs_label}; awb_notes ← '{_gs_note or ''}' ({_gate_null_reason})",
+                                reason_col:       "; ".join(_null_parts),
                                 soid_col:         str(_gs_soid),
                                 dc_col:           str(_gs_dc or "—"),
                                 dc_write_col:     "",
@@ -2081,16 +2092,13 @@ def data_import_upsert_preview(category_key: str):
                         })
                         continue
 
-                    current_status = str(_staged_rs.get(soid) or "").strip()
                     # dc_is_real: incoming DC value is real AND differs from current DB value
                     current_dc = _ur_to_str_or_none(db_unreturn[soid]["dc_lenovo"])
                     dc_is_real = _ur_has_val(dc_val) and dc_val != current_dc
 
-                    # ── dc_lenovo / return_status decisions ──────────────────
+                    # ── dc_lenovo decision ───────────────────────────────────
+                    # return_status is not modified by the Unreturn upsert.
                     dc_write = dc_val if dc_is_real else ""
-                    rs_write = ""
-                    if dc_is_real and not current_status:
-                        rs_write = "DC GENERATED"
 
                     # ── new-column date-gate decision (FILE-LEVEL) ───────────────
                     # Mirrors the new upsert_from_unreturn() gate:
@@ -2127,8 +2135,6 @@ def data_import_upsert_preview(category_key: str):
                     reasons = []
                     if dc_is_real:
                         reasons.append(f"dc_lenovo ← '{dc_val}'")
-                    if rs_write:
-                        reasons.append(f"return_status: NULL → '{rs_write}'")
                     if new_cols_write:
                         # ── Same rules as upsert Pass 3 ──────────────────────
 
@@ -2163,22 +2169,18 @@ def data_import_upsert_preview(category_key: str):
                             if eff_awb_val is not None and eff_awb_val != db_awb_val:
                                 col_notes.append(f"awb_return ← '{eff_awb_val}'")
                             elif eff_awb_val is not None:
-                                col_notes.append("awb same with existing")
-                            else:
-                                col_notes.append("awb — (empty)")
+                                col_notes.append("awb (no change)")
                             if eff_lrs_val is not None and eff_lrs_val != db_lrs_val:
-                                col_notes.append(f"lenovo_return_status ← '{eff_lrs_val}'")
+                                _lrs_prefix = f"Unreturned → " if db_lrs_val and db_lrs_val.strip().lower() == "unreturned" else ""
+                                col_notes.append(f"lenovo_return_status: {_lrs_prefix}'{eff_lrs_val}'")
                             elif eff_lrs_val is not None:
-                                col_notes.append("return status same with existing")
-                            else:
-                                col_notes.append("return status — (empty)")
+                                col_notes.append("return status (no change)")
                             if eff_notes_val is not None and eff_notes_val != db_notes_val:
                                 col_notes.append(f"awb_notes ← '{eff_notes_val}'")
                             elif eff_notes_val is not None:
-                                col_notes.append("note same with existing")
-                            else:
-                                col_notes.append("note — (empty)")
-                            reasons.append("; ".join(col_notes))
+                                col_notes.append("note (no change)")
+                            if col_notes:
+                                reasons.append("; ".join(col_notes))
                     else:
                         # Still read DB values so the preview can show "existing [skipped]"
                         db_awb_val   = _ur_to_str_or_none(db_unreturn[soid]["awb_return"])
@@ -2199,10 +2201,6 @@ def data_import_upsert_preview(category_key: str):
                             no_match_col:  skip_reason or "DC/Collection Form is empty, 0, or — and no new-column write",
                         })
                         continue
-
-                    # Update staged return_status so subsequent rows see it
-                    if rs_write:
-                        _staged_rs[soid] = rs_write
 
                     impacted_rows.append({
                         reason_col:       "; ".join(reasons),
@@ -2242,7 +2240,7 @@ def data_import_upsert_preview(category_key: str):
             if frame.empty or date_col not in frame.columns:
                 return []
             tmp = frame.copy()
-            tmp["_sort_date"] = pd.to_datetime(tmp[date_col], errors="coerce")
+            tmp["_sort_date"] = pd.to_datetime(tmp[date_col], format="mixed", errors="coerce")
             tmp = tmp.sort_values("_sort_date", ascending=_sort_asc, na_position="last")
             tmp = tmp.drop(columns=["_sort_date"])
             cols = [c for c in col_list if c in tmp.columns]
@@ -2606,7 +2604,9 @@ def data_import_reset():
 @admin_bp.route("/admin/api/backfill-return-status", methods=["GET", "POST"])
 def backfill_return_status():
     """Backfill return_status = 'DC GENERATED' for every wo_product_detail row
-    where dc_lenovo is not empty/null but return_status is still empty/null.
+    where dc_number is not empty/null but return_status is still empty/null.
+
+    Only dc_number drives DC GENERATED — dc_lenovo alone is never sufficient.
 
     GET  → dry-run: returns {"count": N} (how many rows would be updated).
     POST → applies the UPDATE and returns {"updated": N}.
@@ -2617,8 +2617,8 @@ def backfill_return_status():
         if request.method == "GET":
             row = conn.execute(
                 """SELECT COUNT(*) FROM wo_product_detail
-                    WHERE dc_lenovo IS NOT NULL
-                      AND TRIM(dc_lenovo) NOT IN ('', '0')
+                    WHERE dc_number IS NOT NULL
+                      AND TRIM(dc_number) NOT IN ('', '0')
                       AND (return_status IS NULL OR TRIM(return_status) = '')"""
             ).fetchone()
             return jsonify({"count": row[0] if row else 0})
@@ -2626,8 +2626,8 @@ def backfill_return_status():
             cur = conn.execute(
                 """UPDATE wo_product_detail
                       SET return_status = 'DC GENERATED'
-                    WHERE dc_lenovo IS NOT NULL
-                      AND TRIM(dc_lenovo) NOT IN ('', '0')
+                    WHERE dc_number IS NOT NULL
+                      AND TRIM(dc_number) NOT IN ('', '0')
                       AND (return_status IS NULL OR TRIM(return_status) = '')"""
             )
             conn.commit()
@@ -2682,16 +2682,219 @@ def pou_unreturn_report():
     rs_options  = sorted({r["return_status"]         for r in rows if r["return_status"]})
     lrs_options = sorted({r["lenovo_return_status"]  for r in rows if r["lenovo_return_status"]})
 
+    # ── Summary counts ────────────────────────────────────────────────────────
+    # Total SOID — all rows in the report
+    summary_total = len(rows)
+
+    # DC + AWB Filled — row has a real AWB AND at least one of dc_number / dc_lenovo
+    summary_dc_awb = sum(
+        1 for r in rows
+        if r.get("awb_return") and str(r["awb_return"]).strip() not in ("", "—")
+        and (r.get("dc_number") or r.get("dc_lenovo"))
+    )
+
+    # Pending DC — return_status is not 'DC GENERATED' (includes NULL / empty / UNKNOWN)
+    summary_pending = sum(
+        1 for r in rows
+        if (r.get("return_status") or "").strip().upper() != "DC GENERATED"
+    )
+
+    # Missing AWB — awb_return is NULL or empty
+    summary_no_awb = sum(
+        1 for r in rows
+        if not r.get("awb_return") or str(r["awb_return"]).strip() in ("", "—")
+    )
+
     return render_template(
         "admin/pou_unreturn_report.html",
         rows=rows, no_file=False,
         pou_filename=pou_filename,
         rs_options=rs_options,
         lrs_options=lrs_options,
+        summary_total=summary_total,
+        summary_dc_awb=summary_dc_awb,
+        summary_pending=summary_pending,
+        summary_no_awb=summary_no_awb,
         portal="admin", active_page="pou_unreturn",
         active_group="validation_center",
     )
 
+
+
+@admin_bp.route("/admin/validation/pou-unreturn/export", methods=["GET"])
+def pou_unreturn_export():
+    """Generate a styled .xlsx export of the PoU Unreturn Report."""
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import (
+        PatternFill, Font, Alignment, Border, Side, numbers
+    )
+    from openpyxl.utils import get_column_letter
+    from app.services.database.queries import get_pou_unreturn_report
+
+    rows = get_pou_unreturn_report()
+
+    # ── Palette ───────────────────────────────────────────────────────────────
+    CLR_HEADER_BG  = "1F2328"   # dark header row
+    CLR_HEADER_FG  = "FFFFFF"
+    CLR_GREEN_CELL = "DCFCE7"
+    CLR_RED_CELL   = "FEE2E2"
+    CLR_AMBER_CELL = "FEF9C3"
+    CLR_BLUE_CELL  = "DBEAFE"
+    CLR_GREY_CELL  = "E5E7EB"
+    CLR_MUTED_CELL = "F7F8FA"
+    CLR_SUMM_BG    = "F7F8FA"
+
+    def _fill(hex_col):
+        return PatternFill("solid", fgColor=hex_col)
+
+    def _border():
+        thin = Side(style="thin", color="E5E7EB")
+        return Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    wb = Workbook()
+
+    # ══ Sheet 1 — Report data ═════════════════════════════════════════════════
+    ws = wb.active
+    ws.title = "POU Unreturn Report"
+
+    col_headers = [
+        "#", "SOID", "Completion / Closing Date", "Return Status",
+        "DC Resolve (GTAAP)", "DC Lenovo", "AWB Return",
+        "AWB Notes", "Lenovo Return Status", "Exist on Excel?"
+    ]
+    col_widths = [6, 18, 24, 22, 20, 16, 20, 20, 24, 16]
+
+    # Header row
+    ws.row_dimensions[1].height = 28
+    for ci, (hdr, w) in enumerate(zip(col_headers, col_widths), 1):
+        cell = ws.cell(row=1, column=ci, value=hdr)
+        cell.fill      = _fill(CLR_HEADER_BG)
+        cell.font      = Font(bold=True, color=CLR_HEADER_FG, size=10)
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.border    = _border()
+        ws.column_dimensions[get_column_letter(ci)].width = w
+
+    # Data rows
+    for ri, r in enumerate(rows, 2):
+        ws.row_dimensions[ri].height = 18
+        date_val    = r.get("completion_date") or r.get("closing_date") or ""
+        rs          = r.get("return_status") or ""
+        dc_number   = r.get("dc_number") or ""
+        dc_lenovo   = r.get("dc_lenovo") or ""
+        awb_return  = r.get("awb_return") or ""
+        awb_notes   = r.get("awb_notes") or ""
+        lrs         = r.get("lenovo_return_status") or ""
+        is_exist    = r.get("is_exist_excel") or ""
+        rs_up       = rs.upper()
+
+        row_data = [
+            ri - 1,
+            r.get("soid") or "",
+            date_val[:10] if date_val else "",
+            rs, dc_number, dc_lenovo,
+            awb_return, awb_notes, lrs, is_exist,
+        ]
+
+        for ci, val in enumerate(row_data, 1):
+            cell = ws.cell(row=ri, column=ci, value=val)
+            cell.border    = _border()
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+            cell.font      = Font(size=10)
+
+            # Column-specific colour rules
+            if ci == 4:   # Return Status
+                if "PENDING" in rs_up or rs_up == "UNKNOWN":
+                    cell.fill = _fill(CLR_AMBER_CELL)
+                elif rs:
+                    cell.fill = _fill(CLR_BLUE_CELL)
+                else:
+                    cell.fill = _fill(CLR_MUTED_CELL)
+            elif ci == 5: # DC Resolve
+                cell.fill = _fill(CLR_GREEN_CELL) if dc_number else _fill(CLR_RED_CELL)
+            elif ci == 6: # DC Lenovo
+                if dc_number:
+                    cell.fill = _fill(CLR_GREY_CELL)
+                elif dc_lenovo:
+                    cell.fill = _fill(CLR_GREEN_CELL)
+                else:
+                    cell.fill = _fill(CLR_MUTED_CELL)
+            elif ci == 7: # AWB Return
+                cell.fill = _fill(CLR_GREEN_CELL) if awb_return else _fill(CLR_RED_CELL)
+            elif ci == 8: # AWB Notes
+                cell.fill = _fill(CLR_GREEN_CELL) if awb_notes else _fill(CLR_MUTED_CELL)
+
+        # Alternate row background for readability (very light)
+        if ri % 2 == 0:
+            for ci in range(1, len(row_data) + 1):
+                c = ws.cell(row=ri, column=ci)
+                if c.fill.fgColor.rgb in ("00000000", "FFFFFFFF", "00FFFFFF"):
+                    c.fill = _fill("F9FAFB")
+
+    # Freeze header row
+    ws.freeze_panes = "A2"
+
+    # ══ Sheet 2 — Summary ═════════════════════════════════════════════════════
+    ws2 = wb.create_sheet("Summary")
+    ws2.column_dimensions["A"].width = 30
+    ws2.column_dimensions["B"].width = 14
+
+    def _summ_hdr(row, label):
+        c = ws2.cell(row=row, column=1, value=label)
+        c.font      = Font(bold=True, size=11, color="1F2328")
+        c.fill      = _fill(CLR_SUMM_BG)
+        c.alignment = Alignment(vertical="center")
+        c.border    = _border()
+        ws2.row_dimensions[row].height = 22
+
+    def _summ_val(row, val, fill_hex=CLR_SUMM_BG):
+        c = ws2.cell(row=row, column=2, value=val)
+        c.font      = Font(bold=True, size=11, color="1F2328")
+        c.fill      = _fill(fill_hex)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        c.border    = _border()
+
+    total_soid    = len(rows)
+    total_dc_awb  = sum(
+        1 for r in rows
+        if (r.get("awb_return") or "").strip() not in ("", "—")
+        and (r.get("dc_number") or r.get("dc_lenovo"))
+    )
+    total_pending = sum(
+        1 for r in rows
+        if (r.get("return_status") or "").strip().upper() != "DC GENERATED"
+    )
+    total_no_awb  = sum(
+        1 for r in rows
+        if not (r.get("awb_return") or "").strip()
+        or (r.get("awb_return") or "").strip() == "—"
+    )
+
+    # Title
+    ws2.merge_cells("A1:B1")
+    title_cell = ws2["A1"]
+    title_cell.value     = "PoU Unreturn Report — Summary"
+    title_cell.font      = Font(bold=True, size=13, color=CLR_HEADER_FG)
+    title_cell.fill      = _fill(CLR_HEADER_BG)
+    title_cell.alignment = Alignment(horizontal="center", vertical="center")
+    title_cell.border    = _border()
+    ws2.row_dimensions[1].height = 30
+
+    _summ_hdr(2, "Total SOID");        _summ_val(2, total_soid)
+    _summ_hdr(3, "DC + AWB Filled");   _summ_val(3, total_dc_awb,  "DCFCE7")
+    _summ_hdr(4, "Pending Partner / DC Generate"); _summ_val(4, total_pending, "FEF9C3")
+    _summ_hdr(5, "Missing AWB");       _summ_val(5, total_no_awb,  "FEE2E2")
+
+    # ── Stream to response ────────────────────────────────────────────────────
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return send_file(
+        buf,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name="POU_Unreturn_Report.xlsx",
+    )
 
 
 # ── User & ASP Management ────────────────────────────────────────────────────

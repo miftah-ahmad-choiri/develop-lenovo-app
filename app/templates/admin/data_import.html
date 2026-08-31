@@ -1214,7 +1214,7 @@
             '<polyline points="12 8 12 12 14 14"/>' +
           '</svg>' +
           '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#7c3aed;">' +
-            'Not in Excel &mdash; promoted to DC Generated' +
+            'Not in Excel &mdash; set to Unknown' +
             ' <span style=\'background:#ede9fe;color:#7c3aed;border:1px solid #c4b5fd;border-radius:10px;padding:1px 8px;font-size:10px;\'>' + gtaapAbsentCount + '</span>' +
           '</span>' +
         '</div>';
@@ -1225,9 +1225,10 @@
           'These DB rows currently have <strong>PENDING FOR DC GENERATION</strong> or ' +
           '<strong>PENDING WITH PARTNER</strong> as their <code>return_status</code>, ' +
           'but neither their <code>soid</code> nor their <code>work_order_id</code> appears ' +
-          'in the uploaded Excel file. This means the DC has already been generated and the ' +
-          'work order is no longer open. Their status will be promoted to ' +
-          '<strong>DC GENERATED</strong> when you confirm this upsert.' +
+          'in the uploaded Excel file. Their status will be set to ' +
+          '<strong>UNKNOWN</strong> when you confirm this upsert. ' +
+          'Once a future upload provides a real <code>dc_number</code> for these rows, ' +
+          'their status will automatically be promoted to <strong>DC GENERATED</strong>.' +
         '</div>';
 
       html +=
@@ -1245,7 +1246,7 @@
                   gtaapAbsentCols.map(function(c) {
                     var v      = row[c] !== undefined ? row[c] : '';
                     var isWill = (c === 'Will be set to');
-                    var style  = isWill ? 'background:#f5f3ff;color:#5b21b6;font-weight:700;' : '';
+                    var style  = isWill ? 'background:#fff7ed;color:#b45309;font-weight:700;' : '';
                     return '<td style="' + style + '" title="' + esc(v) + '">' + esc(v) + '</td>';
                   }).join('') +
                 '</tr>';

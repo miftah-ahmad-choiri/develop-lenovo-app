@@ -774,7 +774,7 @@ def api_in_prepare():
 @asp_bp.route("/asp/api/return-part", methods=["GET"])
 @login_required
 def api_return_part():
-    """Return Part Follow-Up — closed/completed WOs with return_status set; computed need_to_return / dc_generated state."""
+    """Return Part Follow-Up — WOs with is_exist_excel='yes' SOIDs; computed need_to_return / weekly_dc_report state."""
     from app.services.database.queries import get_asp_part_return_page
     per_page = min(_int_arg("per_page", 25), 100)
     return jsonify(get_asp_part_return_page(

@@ -906,23 +906,18 @@ def _migrate_wo_product_detail_add_is_exist_excel(conn: sqlite3.Connection) -> N
 
 def _backfill_return_status_dc_generated(conn: sqlite3.Connection) -> None:
     """Set return_status = 'DC GENERATED' on every wo_product_detail row where
-    dc_lenovo already holds a real value but return_status is still NULL/empty.
+    dc_number already holds a real value but return_status is still NULL/empty.
 
     This runs on every app startup (idempotent — rows that already have any
-    return_status value are never touched).  It covers two scenarios:
-      • Rows imported before the automatic Pass-2 promotion rule existed.
-      • Rows whose dc_lenovo was filled but return_status was missed for any reason.
+    return_status value are never touched).
 
-    Also handles dc_number: if dc_number is filled and return_status is still
-    empty, it is promoted to 'DC GENERATED' the same way.
+    Only dc_number drives DC GENERATED — dc_lenovo alone is never sufficient.
     """
     conn.execute(
         """UPDATE wo_product_detail
               SET return_status = 'DC GENERATED'
-            WHERE (
-                    (dc_lenovo IS NOT NULL AND TRIM(dc_lenovo) NOT IN ('', '0'))
-                 OR (dc_number IS NOT NULL AND TRIM(dc_number) NOT IN ('', '0'))
-                  )
+            WHERE dc_number IS NOT NULL
+              AND TRIM(dc_number) NOT IN ('', '0')
               AND (return_status IS NULL OR TRIM(return_status) = '')"""
     )
     conn.commit()
