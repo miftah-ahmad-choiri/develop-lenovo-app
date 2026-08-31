@@ -789,9 +789,9 @@ def get_asp_part_return_page(
     """
     Return Part Follow-Up — closed/completed WOs that have at least one non-cancelled
     part line with a known return_status value.  Computed followup_state per row:
-        need_to_return — any active part line has return_status =
-                         'PENDING WITH PARTNER' or 'PENDING FOR DC GENERATION'
-        dc_generated   — no pending lines; relevant lines have return_status = 'DC GENERATED'
+        need_to_return   — any active part line has return_status =
+                           'PENDING WITH PARTNER' or 'PENDING FOR DC GENERATION'
+        weekly_dc_report — no pending lines; relevant lines have return_status = 'DC GENERATED'
     WOs with no return_status on any part line are excluded entirely.
     """
     conn = get_db()
@@ -804,13 +804,6 @@ def get_asp_part_return_page(
         s.customer, s.work_order_status, s.case_status,
         d.completion_date, d.closing_date,
         u.full_name AS tech_name,
-        (SELECT 1
-         FROM wo_product_detail p
-         WHERE p.work_order_id = s.work_order_id
-           AND UPPER(TRIM(COALESCE(p.return_status,''))) IN (
-               'PENDING WITH PARTNER','PENDING FOR DC GENERATION','DC GENERATED'
-           )
-         LIMIT 1) AS has_return_status,
         (SELECT 1
          FROM wo_product_detail p
          WHERE p.work_order_id = s.work_order_id
@@ -876,7 +869,7 @@ def get_asp_part_return_page(
     def _state(r: dict) -> str:
         if r.get("has_pending_return"):
             return "need_to_return"
-        return "dc_generated"
+        return "weekly_dc_report"   # DC GENERATED lines only
 
     all_rows = conn.execute(
         f"SELECT {cols} FROM wo_summary s LEFT JOIN wo_details d USING (work_order_id) LEFT JOIN asp_users u ON u.tech_id = d.tech_id {where_sql} ORDER BY s.created_on DESC",
@@ -1005,7 +998,8 @@ def get_wo_no_awb_by_asp(customer: str, current_wo_id: int | None = None) -> lis
 def get_return_part_wos_by_asp(customer: str) -> list[dict]:
     """Return closed WOs belonging to the given ASP that have at least one
     non-cancelled part line with return_status PENDING WITH PARTNER or
-    PENDING FOR DC GENERATION."""
+    PENDING FOR DC GENERATION. Returns is_exist_excel so the frontend
+    can filter which SOIDs to display."""
     conn = get_db()
     rows = conn.execute("""
         SELECT DISTINCT
@@ -1013,7 +1007,8 @@ def get_return_part_wos_by_asp(customer: str) -> list[dict]:
             s.work_order_status, s.work_order_type,
             s.committed_delivery_date, s.created_on,
             d.completion_date,
-            p.soid, p.product, p.description, p.wo_product_status, p.return_status
+            p.soid, p.product, p.description, p.wo_product_status,
+            p.return_status, p.is_exist_excel
         FROM wo_summary s
         LEFT JOIN wo_details d USING (work_order_id)
         JOIN wo_product_detail p USING (work_order_id)

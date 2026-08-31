@@ -808,7 +808,7 @@
       <div class="subtab-bar-left">
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;" id="return-part-filter-pills">
           <button class="subtab-pill active sactive-input-dc" data-rpfilter="need_to_return">🔢 Need to Return</button>
-          <button class="subtab-pill" data-rpfilter="dc_generated">✅ DC Number Found</button>
+          <button class="subtab-pill" data-rpfilter="weekly_dc_report">✅ Weekly DC Report</button>
         </div>
       </div>
       <div class="subtab-bar-right">
@@ -3463,7 +3463,7 @@ const returnPartTable = makeTabTable({
   },
 });
 
-let returnPartFilter = 'need_to_return';
+let returnPartFilter = 'need_to_return';  /* 'need_to_return' | 'weekly_dc_report' */
 
 function _returnPartLoad() {
   const q = document.getElementById('search-return-part').value.trim();
@@ -3480,7 +3480,7 @@ document.querySelectorAll('#return-part-filter-pills [data-rpfilter]').forEach(b
     });
     btn.classList.add('active');
     if (btn.dataset.rpfilter === 'need_to_return') btn.classList.add('sactive-input-dc');
-    else if (btn.dataset.rpfilter === 'dc_generated') btn.classList.add('sactive-return-part');
+    else if (btn.dataset.rpfilter === 'weekly_dc_report') btn.classList.add('sactive-return-part');
     returnPartFilter = btn.dataset.rpfilter;
     _returnPartLoad();
   });
@@ -3978,10 +3978,7 @@ function openInputDc(woId, woType, woStatus, aspName) {
     .then(data => {
       if (!data || !data.length) return;
       const parts = data.filter(p =>
-        !(p.wo_product_status || '').toLowerCase().includes('cancel') &&
-        ['PENDING WITH PARTNER', 'PENDING FOR DC GENERATION'].includes(
-          (p.return_status || '').toUpperCase().trim()
-        )
+        (p.is_exist_excel || '').toLowerCase().trim() === 'yes'
       );
       if (!parts.length) return;
       idcPartsList.style.display = 'block';
@@ -4013,15 +4010,21 @@ function _renderIdcWoList(rows, currentWoId) {
   const pill    = document.getElementById('idc-wo-count');
   const allBtn  = document.getElementById('idc-wo-select-all');
 
-  /* Group rows by work_order_id, preserving each part line */
+  /* Group rows by work_order_id.
+     Only include part lines where is_exist_excel = 'yes'; skip WOs with none. */
   const byWo = {};
   rows.forEach(r => {
+    if ((r.is_exist_excel || '').toLowerCase().trim() !== 'yes') return;
     const id = String(r.work_order_id);
     if (!byWo[id]) byWo[id] = { ...r, partLines: [] };
-    byWo[id].partLines.push({ soid: r.soid != null ? String(r.soid) : '', desc: r.description || '', returnStatus: (r.return_status || '').trim() });
+    byWo[id].partLines.push({
+      soid:         r.soid != null ? String(r.soid) : '',
+      desc:         r.description   || '',
+      returnStatus: (r.return_status || '').trim(),
+    });
   });
 
-  /* Sort: current WO first, then others by completion_date descending (latest first) */
+  /* Sort: current WO first, then others by completion_date descending */
   const woList = Object.values(byWo).sort((a, b) => {
     const aIs = String(a.work_order_id) === String(currentWoId);
     const bIs = String(b.work_order_id) === String(currentWoId);
@@ -4038,9 +4041,10 @@ function _renderIdcWoList(rows, currentWoId) {
   body.innerHTML = woList.map(w => {
     const id        = String(w.work_order_id);
     const isCurrent = id === String(currentWoId);
+    /* Current WO checkboxes are pre-checked; others start unchecked */
     const partsHtml = w.partLines.map(p => `
       <label class="idc-wo-part-row">
-        <input type="checkbox" class="idc-wo-cb" data-wo="${esc(id)}"${isCurrent ? ' checked' : ''} />
+        <input type="checkbox" class="idc-wo-cb" data-wo="${esc(id)}" ${isCurrent ? 'checked' : ''} />
         <span class="idc-wo-part-soid">${esc(p.soid || '—')}</span>
         <span class="idc-wo-part-desc">${esc(p.desc || '—')}</span>
         ${p.returnStatus ? `<span class="badge" style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa">${esc(p.returnStatus)}</span>` : '<span style="color:#8c959f">—</span>'}
