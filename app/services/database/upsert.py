@@ -6,10 +6,11 @@ never called automatically on upload.
 
 Public API
 ----------
-dispatch_upsert(category_key, filepath, conn) → int | tuple[int, int, int]
+dispatch_upsert(category_key, filepath, conn) → int | tuple[int, int, int] | tuple[int, int]
     Route a validated upload file to the correct upsert function.
     Returns the number of rows processed (int) for most categories.
     For WOID, returns (n_new_wo, n_updated_wo, n_new_asp_users) as a tuple.
+    For GTAAP, returns (n_new_dc, n_new_status) as a tuple.
     Returns 0 for category keys that have no DB table.
 
 Individual functions (also importable for testing):
@@ -552,7 +553,7 @@ def _gtaap_status_eligible(db_status: str | None, excel_status: str) -> bool:
     return incoming_rank > current_rank
 
 
-def upsert_dc_from_gtaap(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
+def upsert_dc_from_gtaap(df: pd.DataFrame, conn: sqlite3.Connection) -> tuple[int, int]:
     """
     Update ``dc_number`` and ``return_status`` on wo_product_detail using the GTAAP Report.
 
@@ -591,7 +592,11 @@ def upsert_dc_from_gtaap(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
         Any row where dc_number is NULL or empty but return_status is
         'DC GENERATED' is inconsistent; return_status is cleared to NULL.
 
-    Returns the total number of rows updated across all passes.
+    Returns
+    -------
+    (n_new_dc, n_new_status) : tuple[int, int]
+        n_new_dc     — number of dc_number values written (Pass 1)
+        n_new_status — number of return_status values written (Passes 1b + 3 + 4)
     """
     import math as _math
 
@@ -748,7 +753,134 @@ def upsert_dc_from_gtaap(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
     )
 
     conn.commit()
-    return len(dc_updates) + len(status_updates)
+    return len(dc_updates), len(status_updates)
+
+
+# ── AWB RESOLV upsert ────────────────────────────────────────────────────────
+
+def upsert_awb_resolv_from_awb_excel(
+    awb_dir: str, conn: sqlite3.Connection
+) -> tuple[int, int]:
+    """Read the latest Generated_DCs_*.xlsx from awb_dir and upsert awb_resolv
+    and dc_generate_date on wo_product_detail rows by matching Excel DC NO → db dc_number.
+
+    Excel columns used:
+        A = DC NO   → match against wo_product_detail.dc_number
+        B = AWB NO  → write to wo_product_detail.awb_resolv
+        D = DC Generation Date → write to wo_product_detail.dc_generate_date
+
+    Rules:
+    - Only DB rows where dc_number IS NOT NULL and dc_number != '' are candidates.
+    - awb_resolv and dc_generate_date are only written when the incoming value differs
+      from what is already stored (change-detection — avoids spurious writes on every run).
+    - If no Generated_DCs_*.xlsx file exists in awb_dir, returns (0, 0) silently.
+
+    Returns:
+        (matched_dc, new_updates) where:
+            matched_dc  — number of distinct DC numbers that had at least one row
+                           actually written (0 when nothing changed)
+            new_updates — number of individual DB rows whose columns changed
+    """
+    import os as _os
+    import glob as _glob
+    import math as _math
+
+    # Find the latest Generated_DCs_*.xlsx (lexicographic sort on timestamp suffix)
+    pattern = _os.path.join(awb_dir, "Generated_DCs_*.xlsx")
+    files = sorted(_glob.glob(pattern))
+    if not files:
+        return 0, 0
+    latest = files[-1]
+
+    df = pd.read_excel(latest, sheet_name="Generated DCs")
+
+    def _has_val(v) -> bool:
+        if v is None:
+            return False
+        if isinstance(v, float) and _math.isnan(v):
+            return False
+        return str(v).strip() not in ("", "nan", "nat", "none", "null", "NaT")
+
+    def _normalise(v) -> str:
+        """Normalise whole-number floats: 15835.0 → '15835'."""
+        try:
+            f = float(v)
+            if f == int(f):
+                return str(int(f))
+        except (ValueError, TypeError):
+            pass
+        return str(v).strip()
+
+    def _format_date(v) -> str:
+        if not _has_val(v):
+            return ""
+        if hasattr(v, "strftime"):
+            return v.strftime("%Y-%m-%d")
+        s = str(v).strip()
+        if " " in s:
+            s = s.split(" ")[0]
+        return s
+
+    # Build dc_number → (awb_no, dc_generate_date) map from Excel (last row wins on duplicates)
+    dc_to_data: dict[str, tuple[str, str]] = {}
+    
+    dc_col = next((c for c in df.columns if str(c).upper().strip() == "DC NO"), None)
+    awb_col = next((c for c in df.columns if str(c).upper().strip() == "AWB NO"), None)
+    date_col = next(
+        (c for c in df.columns if str(c).upper().strip() in ("DC GENERATION DATE", "DC GENERATE DATE")),
+        None
+    )
+
+    for _, row in df.iterrows():
+        if dc_col is None or awb_col is None:
+            continue
+        dc_val  = row.get(dc_col)
+        awb_val = row.get(awb_col)
+        date_val = row.get(date_col) if date_col is not None else None
+        
+        if not _has_val(dc_val) or not _has_val(awb_val):
+            continue
+            
+        formatted_date = _format_date(date_val)
+        dc_to_data[_normalise(dc_val)] = (_normalise(awb_val), formatted_date)
+
+    if not dc_to_data:
+        return 0, 0
+
+    # Fetch all (soid, dc_number, awb_resolv, dc_generate_date) for rows that have a real dc_number.
+    db_rows = conn.execute(
+        "SELECT soid, dc_number, awb_resolv, dc_generate_date FROM wo_product_detail "
+        "WHERE dc_number IS NOT NULL AND dc_number != ''"
+    ).fetchall()
+
+    updates: list[tuple] = []
+    matched_dcs: set[str] = set()   # distinct DC numbers that produced a real write
+    for soid, dc_number, current_awb, current_date in db_rows:
+        dc_key = str(dc_number).strip()
+        incoming_data = dc_to_data.get(dc_key)
+        if incoming_data is None:
+            continue
+        incoming_awb, incoming_date = incoming_data
+        
+        # Only write when the stored value differs from the incoming value.
+        stored_awb = str(current_awb).strip() if current_awb is not None else ""
+        stored_date = str(current_date).strip() if current_date is not None else ""
+        
+        if stored_awb == incoming_awb and stored_date == incoming_date:
+            continue
+            
+        updates.append((incoming_awb, incoming_date, soid))
+        matched_dcs.add(dc_key)
+
+    if updates:
+        conn.executemany(
+            "UPDATE wo_product_detail SET awb_resolv = ?, dc_generate_date = ? WHERE soid = ?",
+            updates,
+        )
+        conn.commit()
+
+    # matched_dcs: distinct DC numbers that had at least one row actually changed.
+    return len(matched_dcs), len(updates)
 
 
 # ── UNRETURN upsert ──────────────────────────────────────────────────────────
@@ -1178,8 +1310,8 @@ def dispatch_upsert(category_key: str, filepath: str, conn: sqlite3.Connection) 
         n_rows = upsert_eta_parthold_from_backlog(df, conn)
         return n_rows  # no orphan purge needed for this category
     elif key == "GTAAP":
-        n_rows = upsert_dc_from_gtaap(df, conn)
-        return n_rows  # no orphan purge needed for this category
+        n_new_dc, n_new_status = upsert_dc_from_gtaap(df, conn)
+        return n_new_dc, n_new_status  # no orphan purge needed for this category
     elif key == "UNRETURN":
         n_rows = upsert_from_unreturn(df, conn)
         return n_rows  # no orphan purge needed for this category

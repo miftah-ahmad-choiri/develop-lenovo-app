@@ -112,7 +112,9 @@ CREATE TABLE IF NOT EXISTS wo_product_detail (
     target              TEXT,                         -- SLA deadline (from Shipment file)
     eta_parthold_backlog TEXT,                        -- SO ETA from Backlog Report File (On Hold - Part Hold only)
     dc_number            TEXT,                        -- DC# from GTAAP Report (Resolv), mapped by SOID
+    awb_resolv           TEXT,                        -- AWB NO from Resolve Generated DCs, matched by dc_number
     return_status        TEXT,                        -- Status from GTAAP Report (Resolv), mapped by SOID
+    dc_generate_date     TEXT,                        -- DC GENERATION DATE from Resolve Generated DCs
     dc_lenovo            TEXT,                        -- DC/Collection Form from ID-IBM ID POU Unreturn, mapped by SOID
 
     -- POU Unreturn columns (from ID-IBM ID POU Unreturn file)

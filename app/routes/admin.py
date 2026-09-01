@@ -2030,14 +2030,32 @@ def data_import_upsert_preview(category_key: str):
                             if _gs_awb is not None:
                                 _null_parts.append(f"awb_return ← '{_gs_awb}'")
                             if _gs_rs_clean is not None:
-                                _lrs_label = (
-                                    f"lenovo_return_status: Unreturned → '{_gs_rs_clean}'"
-                                    if _gs_db_lrs is not None
-                                    else f"lenovo_return_status ← '{_gs_rs_clean}'"
+                                # Skip if incoming LRS is identical to what's already in DB
+                                _lrs_same = (
+                                    _gs_db_lrs is not None
+                                    and _gs_db_lrs.strip().lower() == _gs_rs_clean.strip().lower()
                                 )
-                                _null_parts.append(_lrs_label)
+                                if not _lrs_same:
+                                    _lrs_label = (
+                                        f"lenovo_return_status: Unreturned → '{_gs_rs_clean}'"
+                                        if _gs_db_lrs is not None
+                                        else f"lenovo_return_status ← '{_gs_rs_clean}'"
+                                    )
+                                    _null_parts.append(_lrs_label)
                             if _gs_note is not None:
                                 _null_parts.append(f"awb_notes ← '{_gs_note}'")
+                            # Nothing actually changes — route to skipped
+                            if not _null_parts:
+                                skipped_rows.append({
+                                    soid_col:      str(_gs_soid),
+                                    "Vendor Name": _gs_vendor,
+                                    dc_col:        str(_gs_dc or "—"),
+                                    rs_col:        _gs_rs,
+                                    awb_col:       str(_gs_awb or "—"),
+                                    note_col:      str(_gs_note or "—"),
+                                    no_match_col:  "no change — all values match DB",
+                                })
+                                continue
                             impacted_rows.append({
                                 reason_col:       "; ".join(_null_parts),
                                 soid_col:         str(_gs_soid),
@@ -2168,19 +2186,18 @@ def data_import_upsert_preview(category_key: str):
                             col_notes = []
                             if eff_awb_val is not None and eff_awb_val != db_awb_val:
                                 col_notes.append(f"awb_return ← '{eff_awb_val}'")
-                            elif eff_awb_val is not None:
-                                col_notes.append("awb (no change)")
                             if eff_lrs_val is not None and eff_lrs_val != db_lrs_val:
                                 _lrs_prefix = f"Unreturned → " if db_lrs_val and db_lrs_val.strip().lower() == "unreturned" else ""
                                 col_notes.append(f"lenovo_return_status: {_lrs_prefix}'{eff_lrs_val}'")
-                            elif eff_lrs_val is not None:
-                                col_notes.append("return status (no change)")
                             if eff_notes_val is not None and eff_notes_val != db_notes_val:
                                 col_notes.append(f"awb_notes ← '{eff_notes_val}'")
-                            elif eff_notes_val is not None:
-                                col_notes.append("note (no change)")
                             if col_notes:
                                 reasons.append("; ".join(col_notes))
+                            else:
+                                # All effective values match DB — nothing real to write
+                                new_cols_write = False
+                                gate_reason = gate_reason + " [no change — all values match DB]"
+                                skip_reason  = "no change — all values match DB"
                     else:
                         # Still read DB values so the preview can show "existing [skipped]"
                         db_awb_val   = _ur_to_str_or_none(db_unreturn[soid]["awb_return"])
@@ -2381,6 +2398,12 @@ def data_import_upsert(category_key: str):
         if category_key == "WOID":
             n_new_wo, n_updated, n_new_users = _upsert_result
             n_rows = n_new_wo + n_updated
+        elif category_key == "GTAAP":
+            n_new_dc_ui, n_new_status_ui = _upsert_result
+            n_rows = n_new_dc_ui + n_new_status_ui
+            n_new_wo    = 0
+            n_updated   = 0
+            n_new_users = 0
         else:
             n_rows = _upsert_result
             n_new_wo    = 0
@@ -2547,6 +2570,12 @@ def data_import_upsert(category_key: str):
                 f'"{target_file}" upserted successfully — ' + ", ".join(_parts) + ".",
                 "success",
             )
+        elif category_key == "GTAAP":
+            flash(
+                f'"{target_file}" upserted successfully — '
+                f'{n_new_dc_ui} new DC#, {n_new_status_ui} status change{"s" if n_new_status_ui != 1 else ""}.',
+                "success",
+            )
         else:
             flash(
                 f'"{target_file}" upserted successfully — {n_rows} row{"s" if n_rows != 1 else ""} processed.',
@@ -2669,7 +2698,7 @@ def pou_unreturn_report():
 
     if pou_file_path is None:
         return render_template(
-            "admin/pou_unreturn_report.html",
+            "admin/verification_center/pou_unreturn_report.html",
             rows=[], no_file=True,
             portal="admin", active_page="pou_unreturn",
             active_group="validation_center",
@@ -2686,27 +2715,35 @@ def pou_unreturn_report():
     # Total SOID — all rows in the report
     summary_total = len(rows)
 
-    # DC + AWB Filled — row has a real AWB AND at least one of dc_number / dc_lenovo
+    # DC + AWB Filled — at least one of dc_number/dc_lenovo AND at least one of awb_resolv/awb_return
+    def _has_val(r, key):
+        v = r.get(key)
+        return bool(v and str(v).strip() not in ("", "—"))
+
     summary_dc_awb = sum(
         1 for r in rows
-        if r.get("awb_return") and str(r["awb_return"]).strip() not in ("", "—")
-        and (r.get("dc_number") or r.get("dc_lenovo"))
+        if (_has_val(r, "dc_number") or _has_val(r, "dc_lenovo"))
+        and (_has_val(r, "awb_resolv") or _has_val(r, "awb_return"))
     )
 
-    # Pending DC — return_status is not 'DC GENERATED' (includes NULL / empty / UNKNOWN)
+    # Pending Partner / DC Generate — return_status is PENDING WITH PARTNER, PENDING FOR DC GENERATION,
+    # UNKNOWN, or empty AND dc_lenovo is empty AND awb_return (AWB Lenovo) is empty
+    _PENDING_STATUSES = {"PENDING WITH PARTNER", "PENDING FOR DC GENERATION", "UNKNOWN", ""}
     summary_pending = sum(
         1 for r in rows
-        if (r.get("return_status") or "").strip().upper() != "DC GENERATED"
+        if (r.get("return_status") or "").strip().upper() in _PENDING_STATUSES
+        and not _has_val(r, "dc_lenovo")
+        and not _has_val(r, "awb_return")
     )
 
-    # Missing AWB — awb_return is NULL or empty
+    # Missing AWB — both awb_resolv and awb_return are NULL or empty
     summary_no_awb = sum(
         1 for r in rows
-        if not r.get("awb_return") or str(r["awb_return"]).strip() in ("", "—")
+        if not _has_val(r, "awb_resolv") and not _has_val(r, "awb_return")
     )
 
     return render_template(
-        "admin/pou_unreturn_report.html",
+        "admin/verification_center/pou_unreturn_report.html",
         rows=rows, no_file=False,
         pou_filename=pou_filename,
         rs_options=rs_options,
@@ -2718,6 +2755,27 @@ def pou_unreturn_report():
         portal="admin", active_page="pou_unreturn",
         active_group="validation_center",
     )
+
+
+
+@admin_bp.route("/admin/validation/pou-unreturn/awb-notes", methods=["PATCH"])
+def pou_unreturn_update_awb_notes():
+    """Update awb_notes for a single SOID in wo_product_detail."""
+    from app.services.database.connection import get_db
+    data  = request.get_json(silent=True) or {}
+    soid  = (data.get("soid") or "").strip()
+    notes = (data.get("awb_notes") or "").strip() or None
+    if not soid:
+        return jsonify({"ok": False, "error": "soid is required."}), 400
+    conn = get_db()
+    cur  = conn.execute(
+        "UPDATE wo_product_detail SET awb_notes = ? WHERE soid = ?",
+        (notes, soid),
+    )
+    conn.commit()
+    if cur.rowcount == 0:
+        return jsonify({"ok": False, "error": "SOID not found."}), 404
+    return jsonify({"ok": True, "soid": soid, "awb_notes": notes})
 
 
 
@@ -3868,6 +3926,47 @@ _resolve_thread: threading.Thread | None = None
 _resolve_lock    = threading.Lock()
 _RESOLVE_BOOT_ID: str = _uuid.uuid4().hex
 
+# Per-run upsert stats — keyed by AWB filename.
+# { filename: {"new_dc": int, "new_awb": int, "status": "success"|"failed",
+#              "upsert_date": "YYYY-MM-DD"} }
+_resolve_upsert_stats: dict = {}
+
+_RESOLVE_STATS_FILE = os.path.join(
+    os.path.normpath(os.path.join(os.path.dirname(__file__), "..")),
+    "templates", "admin", "upload_meta", "_resolve_upsert_stats.json",
+)
+
+
+def _resolve_stats_load() -> None:
+    """Read persisted resolve stats from disk into the in-memory dict."""
+    global _resolve_upsert_stats
+    import json as _json
+    try:
+        if os.path.isfile(_RESOLVE_STATS_FILE):
+            with open(_RESOLVE_STATS_FILE, "r", encoding="utf-8") as _f:
+                _resolve_upsert_stats = _json.load(_f)
+    except Exception:
+        pass  # corrupt / missing — start fresh
+
+
+def _resolve_stats_save() -> None:
+    """Write the in-memory stats dict to disk atomically."""
+    import json as _json, tempfile as _tmp
+    try:
+        os.makedirs(os.path.dirname(_RESOLVE_STATS_FILE), exist_ok=True)
+        _payload = _json.dumps(_resolve_upsert_stats, indent=2)
+        _dir = os.path.dirname(_RESOLVE_STATS_FILE)
+        with _tmp.NamedTemporaryFile("w", dir=_dir, delete=False,
+                                     suffix=".tmp", encoding="utf-8") as _tf:
+            _tf.write(_payload)
+            _tmp_path = _tf.name
+        os.replace(_tmp_path, _RESOLVE_STATS_FILE)
+    except Exception:
+        pass  # non-fatal — next write will retry
+
+
+_resolve_stats_load()
+
 
 class _ResolveQueueHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:  # type: ignore[override]
@@ -3988,9 +4087,8 @@ def _run_resolve_download_task(app) -> None:
             logger.error(traceback.format_exc())
         finally:
             os.sys.argv = original_argv
-            logger.removeHandler(_resolve_queue_handler)
-            if _resolve_path_inserted and script_dir in os.sys.path:
-                os.sys.path.remove(script_dir)
+            # NOTE: handler removal is deferred to after post-run work so all
+            # log lines (file copy, upsert stats) remain visible in the UI stream.
 
         # ── Post-run sync ────────────────────────────────────────────────────
         # The script always writes to its own Extract-AWB / Extract-DC dirs
@@ -4024,6 +4122,96 @@ def _run_resolve_download_task(app) -> None:
         # Trim both project-level dirs to 5 most recent xlsx files
         for _dst in (awb_dir, dc_dir):
             _keep_latest_files(_dst, keep=5, logger=logger)
+
+        # ── Upsert dc_number / return_status from the latest DC (GTAAP) excel ─
+        # Applies the same hierarchy-enforced pass logic as the GTAAP Report
+        # upsert button on data_import.html:
+        #   Pass 1  — write real DC# to rows where db dc_number IS NULL
+        #   Pass 1b — immediately promote return_status → DC GENERATED for those rows
+        #   Pass 3  — forward-only status hierarchy write (PENDING WITH PARTNER →
+        #             PENDING FOR DC GENERATION → DC GENERATED, locked)
+        #   Pass 4  — absent open-status rows → UNKNOWN
+        #   Pass 5a — whole-table promote: real dc_number but not DC GENERATED → promote
+        #   Pass 5b — whole-table cleanup: DC GENERATED but no real dc_number → clear
+        import glob as _g_dc
+        _dc_pattern = os.path.join(dc_dir, "GTAAP_Report_export_*.xlsx")
+        _dc_latest  = sorted(_g_dc.glob(_dc_pattern))
+        _dc_fname   = os.path.basename(_dc_latest[-1]) if _dc_latest else None
+        logger.info("[*] Upserting dc_number/return_status from latest DC excel...")
+        if not _dc_fname:
+            logger.warning("[!] No GTAAP_Report_export_*.xlsx found in %s — skipping DC upsert.", dc_dir)
+        else:
+            try:
+                import pandas as _pd_dc
+                from app.services.database.upsert import (
+                    upsert_dc_from_gtaap as _upsert_dc_from_gtaap,
+                )
+                _dc_filepath = os.path.join(dc_dir, _dc_fname)
+                _dc_df       = _pd_dc.read_excel(_dc_filepath, sheet_name="data")
+                _db_path     = app.config["DATABASE_PATH"]
+                _dc_conn     = open_db(_db_path)
+                try:
+                    _n_dc_new, _n_dc_status = _upsert_dc_from_gtaap(_dc_df, _dc_conn)
+                finally:
+                    _dc_conn.close()
+                logger.info(
+                    "[+] dc upsert complete: %d new DC#, %d status change(s).",
+                    _n_dc_new, _n_dc_status,
+                )
+                from datetime import date as _date_dc
+                _resolve_upsert_stats[_dc_fname] = {
+                    "new_dc":        _n_dc_new,
+                    "new_status":    _n_dc_status,
+                    "status":        "success",
+                    "upsert_date":   str(_date_dc.today()),
+                }
+                _resolve_stats_save()
+            except Exception as _dc_exc:
+                logger.error("[!] dc upsert failed: %s", _dc_exc)
+                _resolve_upsert_stats[_dc_fname] = {
+                    "new_dc": None, "new_status": None, "status": "failed",
+                }
+                _resolve_stats_save()
+
+        # ── Upsert awb_resolv from the latest AWB excel ──────────────────────
+        import glob as _g_awb
+        _awb_pattern = os.path.join(awb_dir, "Generated_DCs_*.xlsx")
+        _awb_latest  = sorted(_g_awb.glob(_awb_pattern))
+        _awb_fname   = os.path.basename(_awb_latest[-1]) if _awb_latest else None
+        logger.info("[*] Upserting awb_resolv from latest AWB excel...")
+        try:
+            from app.services.database.upsert import upsert_awb_resolv_from_awb_excel
+            _db_path  = app.config["DATABASE_PATH"]
+            _awb_conn = open_db(_db_path)
+            try:
+                _n_dc, _n_awb = upsert_awb_resolv_from_awb_excel(awb_dir, _awb_conn)
+            finally:
+                _awb_conn.close()
+            logger.info(
+                "[+] awb_resolv upsert complete: %d DC with new AWB / Date, %d row(s) updated.",
+                _n_dc, _n_awb,
+            )
+            if _awb_fname:
+                from datetime import date as _date_cls
+                _resolve_upsert_stats[_awb_fname] = {
+                    "new_dc":     _n_dc,
+                    "new_awb":    _n_awb,
+                    "status":     "success",
+                    "upsert_date": str(_date_cls.today()),
+                }
+                _resolve_stats_save()
+        except Exception as _awb_exc:
+            logger.error("[!] awb_resolv upsert failed: %s", _awb_exc)
+            if _awb_fname:
+                _resolve_upsert_stats[_awb_fname] = {
+                    "new_dc": None, "new_awb": None, "status": "failed",
+                }
+                _resolve_stats_save()
+
+        # Remove queue handler now that all post-run logging is complete
+        logger.removeHandler(_resolve_queue_handler)
+        if _resolve_path_inserted and script_dir in os.sys.path:
+            os.sys.path.remove(script_dir)
 
 
 def _resolve_list_files(directory: str, limit: int = 5) -> list:
@@ -4064,13 +4252,39 @@ def resolve_dc_updates():
     with _resolve_lock:
         is_running = _resolve_thread is not None and _resolve_thread.is_alive()
 
+    # Enrich AWB file list with per-run upsert stats for initial page render
+    awb_files_raw = _resolve_list_files(awb_dir)
+    awb_files = []
+    for f in awb_files_raw:
+        stats = _resolve_upsert_stats.get(f["name"], {})
+        awb_files.append({
+            **f,
+            "new_dc":        stats.get("new_dc",      None),
+            "new_awb":       stats.get("new_awb",     None),
+            "upsert_status": stats.get("status",      None),
+            "upsert_date":   stats.get("upsert_date", None),
+        })
+
+    # Enrich DC file list with per-run upsert stats for initial page render
+    dc_files_raw = _resolve_list_files(dc_dir)
+    dc_files = []
+    for f in dc_files_raw:
+        stats = _resolve_upsert_stats.get(f["name"], {})
+        dc_files.append({
+            **f,
+            "new_dc":        stats.get("new_dc",      None),
+            "new_status":    stats.get("new_status",  None),
+            "upsert_status": stats.get("status",      None),
+            "upsert_date":   stats.get("upsert_date", None),
+        })
+
     return render_template(
         "admin/export-import/resolve_dc_updates.html",
         portal="admin",
         active_page="resolve_dc_updates",
         active_group="data_import_export",
-        awb_files=_resolve_list_files(awb_dir),
-        dc_files=_resolve_list_files(dc_dir),
+        awb_files=awb_files,
+        dc_files=dc_files,
         is_running=is_running,
         boot_id=_RESOLVE_BOOT_ID,
     )
@@ -4120,6 +4334,20 @@ def resolve_dc_updates_status():
     with _resolve_lock:
         is_running = _resolve_thread is not None and _resolve_thread.is_alive()
     return jsonify({"ok": True, "is_running": is_running})
+
+
+@admin_bp.route("/admin/resolve-dc-updates/next-run", methods=["GET"])
+def resolve_dc_updates_next_run():
+    """Return seconds until next scheduled weekday slot (every 2h, 08:00–20:00 WIB)."""
+    from datetime import datetime as _dt, timedelta as _td
+    _next  = _next_resolve_slot()
+    _now   = _dt.utcnow() + _td(hours=_SCHED_WIB_OFFSET)
+    _secs  = max(0.0, (_next - _now).total_seconds())
+    return jsonify({
+        "ok":            True,
+        "seconds_until": round(_secs),
+        "next_run_wib":  _next.strftime("%Y-%m-%d %H:%M WIB"),
+    })
 
 
 @admin_bp.route("/admin/resolve-dc-updates/reset", methods=["POST"])
@@ -4218,13 +4446,151 @@ def resolve_dc_updates_files():
     )
     awb_dir = os.path.join(project_root, "files", "resolve-auto-download", "Extract-AWB")
     dc_dir  = os.path.join(project_root, "files", "resolve-auto-download", "Extract-DC")
+
+    # Enrich AWB file list with per-run upsert stats
+    awb_files_raw = _resolve_list_files(awb_dir)
+    awb_files = []
+    for f in awb_files_raw:
+        stats = _resolve_upsert_stats.get(f["name"], {})
+        awb_files.append({
+            **f,
+            "new_dc":        stats.get("new_dc",      None),
+            "new_awb":       stats.get("new_awb",     None),
+            "upsert_status": stats.get("status",      None),
+            "upsert_date":   stats.get("upsert_date", None),
+        })
+
+    # Enrich DC file list with per-run upsert stats
+    dc_files_raw = _resolve_list_files(dc_dir)
+    dc_files = []
+    for f in dc_files_raw:
+        stats = _resolve_upsert_stats.get(f["name"], {})
+        dc_files.append({
+            **f,
+            "new_dc":        stats.get("new_dc",      None),
+            "new_status":    stats.get("new_status",  None),
+            "upsert_status": stats.get("status",      None),
+            "upsert_date":   stats.get("upsert_date", None),
+        })
+
     return jsonify({
         "ok":        True,
-        "awb_files": _resolve_list_files(awb_dir),
-        "dc_files":  _resolve_list_files(dc_dir),
+        "awb_files": awb_files,
+        "dc_files":  dc_files,
     })
 
 
+
+
+# ── Resolve scheduler — weekdays 08:00–20:00 WIB, every 2 hours ─────────────
+# Slots: 08:00 10:00 12:00 14:00 16:00 18:00 20:00
+
+_resolve_scheduler_thread: threading.Thread | None = None
+_resolve_scheduler_stop   = threading.Event()
+
+# Scheduler constants (all in WIB = UTC+7)
+_SCHED_WIB_OFFSET   = 7        # UTC+7
+_SCHED_INTERVAL_H   = 2        # every 2 hours
+_SCHED_WINDOW_START = 8        # 08:00 WIB (inclusive)
+_SCHED_WINDOW_END   = 20       # 20:00 WIB (inclusive last slot)
+
+
+def _next_resolve_slot() -> "datetime":
+    """Return the next scheduled run datetime (in WIB, naive)."""
+    from datetime import datetime as _dt, timedelta as _td
+    now = _dt.utcnow() + _td(hours=_SCHED_WIB_OFFSET)
+    # Build all slots for today and tomorrow, pick the first future weekday slot
+    candidate = now.replace(minute=0, second=0, microsecond=0)
+    # Step forward in 1-hour increments until we land on a valid slot
+    for _ in range(7 * 24):  # safety ceiling: max 7 days ahead
+        candidate += _td(hours=1)
+        # Must be a weekday (Mon=0 … Fri=4)
+        if candidate.weekday() >= 5:
+            continue
+        # Must be on an even slot within the window
+        h = candidate.hour
+        if h < _SCHED_WINDOW_START or h > _SCHED_WINDOW_END:
+            continue
+        if (h - _SCHED_WINDOW_START) % _SCHED_INTERVAL_H != 0:
+            continue
+        return candidate
+    # Fallback — should never be reached
+    return now + _td(hours=24)
+
+
+def _resolve_scheduler_loop(app) -> None:
+    """Loop: fire _run_resolve_download_task at every valid weekday slot."""
+    global _resolve_thread  # declared here so the assignment below is valid
+    from datetime import datetime as _dt, timedelta as _td
+    _sched_logger = logging.getLogger("resolve_auto_download")
+    _sched_logger.info(
+        "[scheduler] Resolve scheduler started — weekdays %02d:00–%02d:00 WIB every %dh.",
+        _SCHED_WINDOW_START, _SCHED_WINDOW_END, _SCHED_INTERVAL_H,
+    )
+
+    while not _resolve_scheduler_stop.is_set():
+        next_run = _next_resolve_slot()
+        now_wib  = _dt.utcnow() + _td(hours=_SCHED_WIB_OFFSET)
+        wait_sec = max(0.0, (next_run - now_wib).total_seconds())
+        _sched_logger.info(
+            "[scheduler] Next Resolve auto-run at %s WIB (in %.0fs / %.1fh).",
+            next_run.strftime("%Y-%m-%d %H:%M"),
+            wait_sec,
+            wait_sec / 3600,
+        )
+
+        # Sleep in 60-second ticks so the stop-event is checked regularly
+        slept = 0.0
+        while slept < wait_sec:
+            if _resolve_scheduler_stop.is_set():
+                return
+            tick = min(60.0, wait_sec - slept)
+            _resolve_scheduler_stop.wait(tick)
+            slept += tick
+
+        if _resolve_scheduler_stop.is_set():
+            return
+
+        # Skip if a manual run is already in flight
+        with _resolve_lock:
+            already = _resolve_thread is not None and _resolve_thread.is_alive()
+        if already:
+            _sched_logger.info("[scheduler] Skipping scheduled run — manual run already in progress.")
+            continue
+
+        _sched_logger.info(
+            "[scheduler] Starting scheduled Resolve auto-run (%s WIB).",
+            next_run.strftime("%H:%M"),
+        )
+        with _resolve_lock:
+            if _resolve_thread is not None and _resolve_thread.is_alive():
+                continue  # double-check inside the lock
+            _resolve_thread = threading.Thread(
+                target=_run_resolve_download_task,
+                args=(app,),
+                daemon=True,
+                name="resolve-auto-download-scheduled",
+            )
+            _resolve_thread.start()
+
+        # Wait for this run to finish before sleeping to the next slot
+        _resolve_thread.join()
+        _sched_logger.info("[scheduler] Scheduled Resolve run finished.")
+
+
+def start_resolve_scheduler(app) -> None:
+    """Start the background daily-scheduler thread (idempotent — safe to call twice)."""
+    global _resolve_scheduler_thread
+    if _resolve_scheduler_thread is not None and _resolve_scheduler_thread.is_alive():
+        return
+    _resolve_scheduler_stop.clear()
+    _resolve_scheduler_thread = threading.Thread(
+        target=_resolve_scheduler_loop,
+        args=(app,),
+        daemon=True,
+        name="resolve-scheduler",
+    )
+    _resolve_scheduler_thread.start()
 
 
 # ── Escalation Center page ────────────────────────────────────────────────────

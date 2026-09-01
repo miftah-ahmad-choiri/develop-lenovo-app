@@ -34,12 +34,16 @@ def run_migrations(app: Flask) -> None:
         _migrate_wo_details_add_product_description(conn)
         _migrate_wo_product_detail_add_eta_parthold(conn)
         _migrate_wo_product_detail_add_dc_number(conn)
+        _migrate_wo_product_detail_add_awb_resolv(conn)
         _migrate_wo_product_detail_add_return_status(conn)
+        _migrate_wo_product_detail_reorder_awb_resolv(conn)
         _migrate_wo_product_detail_add_dc_lenovo(conn)
         _migrate_wo_product_detail_add_unreturn_fields(conn)
         _migrate_wo_product_detail_rename_submitted_date(conn)
         _backfill_return_status_dc_generated(conn)
         _migrate_wo_product_detail_add_is_exist_excel(conn)
+        _migrate_wo_product_detail_add_dc_generate_date(conn)
+        _migrate_wo_product_detail_reorder_dc_generate_date(conn)
         _migrate_create_asp_details(conn)
         _migrate_create_admin_users(conn)
         _migrate_create_asp_users(conn)
@@ -171,6 +175,128 @@ def _migrate_wo_product_detail_add_dc_number(conn: sqlite3.Connection) -> None:
             "ALTER TABLE wo_product_detail ADD COLUMN dc_number TEXT"
         )
         conn.commit()
+
+
+def _migrate_wo_product_detail_add_awb_resolv(conn: sqlite3.Connection) -> None:
+    """Add awb_resolv column to wo_product_detail if it does not exist.
+
+    This is the cheap ADD COLUMN pass — it only fires on DBs that do not have
+    the column at all yet (e.g. a freshly seeded database).  The companion
+    _migrate_wo_product_detail_reorder_awb_resolv() function handles moving the
+    column into the correct position on DBs where it was already appended at the
+    end by an earlier migration run.
+    """
+    existing = {
+        row[1]
+        for row in conn.execute("PRAGMA table_info(wo_product_detail)").fetchall()
+    }
+    if "awb_resolv" not in existing:
+        conn.execute(
+            "ALTER TABLE wo_product_detail ADD COLUMN awb_resolv TEXT"
+        )
+        conn.commit()
+
+
+def _migrate_wo_product_detail_reorder_awb_resolv(conn: sqlite3.Connection) -> None:
+    """Move awb_resolv to sit between dc_number and return_status.
+
+    SQLite does not support ALTER TABLE … AFTER …, so we use the standard
+    rename-create-copy-drop pattern.  The migration is a no-op when awb_resolv
+    is already at position 21 (immediately after dc_number at position 20).
+    """
+    cols = conn.execute("PRAGMA table_info(wo_product_detail)").fetchall()
+    # Build {name: cid} map
+    col_pos = {row[1]: row[0] for row in cols}
+
+    # Already in the correct position — nothing to do
+    if col_pos.get("awb_resolv") == 21:
+        return
+
+    # awb_resolv must exist before we can reorder
+    if "awb_resolv" not in col_pos:
+        return
+
+    conn.executescript(
+        """
+        PRAGMA foreign_keys = OFF;
+
+        BEGIN;
+
+        ALTER TABLE wo_product_detail RENAME TO _wo_product_detail_old;
+
+        CREATE TABLE wo_product_detail (
+            -- Key
+            soid                INTEGER PRIMARY KEY,
+            work_order_id       INTEGER
+                                    REFERENCES wo_summary(work_order_id)
+                                    ON DELETE CASCADE,
+            line_order          INTEGER,
+
+            -- MSD columns
+            created_on          TEXT,
+            product             TEXT,
+            description         TEXT,
+            acceptance_date     TEXT,
+            shipment_date       TEXT,
+            delivery_date       TEXT,
+            wo_product_status   TEXT,
+
+            -- Shipment columns
+            order_date          TEXT,
+            ship_pn             TEXT,
+            ship_pn_desc        TEXT,
+            return_flag         TEXT,
+            ship_pickup_time    TEXT,
+            ship_pou_pod_time   TEXT,
+            awb                 TEXT,
+            sla                 TEXT,
+            target              TEXT,
+            eta_parthold_backlog TEXT,
+            dc_number            TEXT,
+            awb_resolv           TEXT,
+            return_status        TEXT,
+            dc_lenovo            TEXT,
+
+            -- POU Unreturn columns
+            awb_return               TEXT,
+            lenovo_return_status     TEXT,
+            awb_notes                TEXT,
+            modify_date_dc_lenovo    TEXT,
+            is_exist_excel           TEXT
+        );
+
+        INSERT INTO wo_product_detail (
+            soid, work_order_id, line_order,
+            created_on, product, description,
+            acceptance_date, shipment_date, delivery_date, wo_product_status,
+            order_date, ship_pn, ship_pn_desc, return_flag,
+            ship_pickup_time, ship_pou_pod_time, awb, sla, target,
+            eta_parthold_backlog, dc_number,
+            awb_resolv,
+            return_status, dc_lenovo,
+            awb_return, lenovo_return_status, awb_notes,
+            modify_date_dc_lenovo, is_exist_excel
+        )
+        SELECT
+            soid, work_order_id, line_order,
+            created_on, product, description,
+            acceptance_date, shipment_date, delivery_date, wo_product_status,
+            order_date, ship_pn, ship_pn_desc, return_flag,
+            ship_pickup_time, ship_pou_pod_time, awb, sla, target,
+            eta_parthold_backlog, dc_number,
+            awb_resolv,
+            return_status, dc_lenovo,
+            awb_return, lenovo_return_status, awb_notes,
+            modify_date_dc_lenovo, is_exist_excel
+        FROM _wo_product_detail_old;
+
+        DROP TABLE _wo_product_detail_old;
+
+        COMMIT;
+
+        PRAGMA foreign_keys = ON;
+        """
+    )
 
 
 def _migrate_wo_product_detail_add_return_status(conn: sqlite3.Connection) -> None:
@@ -921,3 +1047,122 @@ def _backfill_return_status_dc_generated(conn: sqlite3.Connection) -> None:
               AND (return_status IS NULL OR TRIM(return_status) = '')"""
     )
     conn.commit()
+
+
+def _migrate_wo_product_detail_add_dc_generate_date(conn: sqlite3.Connection) -> None:
+    """Add dc_generate_date column to wo_product_detail if it does not exist yet.
+    """
+    existing = {
+        row[1]
+        for row in conn.execute("PRAGMA table_info(wo_product_detail)").fetchall()
+    }
+    if "dc_generate_date" not in existing:
+        conn.execute(
+            "ALTER TABLE wo_product_detail ADD COLUMN dc_generate_date TEXT"
+        )
+    conn.commit()
+
+
+def _migrate_wo_product_detail_reorder_dc_generate_date(conn: sqlite3.Connection) -> None:
+    """Move dc_generate_date to sit between return_status and dc_lenovo.
+
+    SQLite does not support ALTER TABLE … AFTER …, so we use the standard
+    rename-create-copy-drop pattern.  The migration is a no-op when dc_generate_date
+    is already at position 23 (immediately after return_status at position 22).
+    """
+    cols = conn.execute("PRAGMA table_info(wo_product_detail)").fetchall()
+    # Build {name: cid} map
+    col_pos = {row[1]: row[0] for row in cols}
+
+    # Already in the correct position — nothing to do
+    if col_pos.get("dc_generate_date") == 23:
+        return
+
+    # dc_generate_date must exist before we can reorder
+    if "dc_generate_date" not in col_pos:
+        return
+
+    conn.executescript(
+        """
+        PRAGMA foreign_keys = OFF;
+
+        BEGIN;
+
+        ALTER TABLE wo_product_detail RENAME TO _wo_product_detail_old;
+
+        CREATE TABLE wo_product_detail (
+            -- Key
+            soid                INTEGER PRIMARY KEY,
+            work_order_id       INTEGER
+                                    REFERENCES wo_summary(work_order_id)
+                                    ON DELETE CASCADE,
+            line_order          INTEGER,
+
+            -- MSD columns
+            created_on          TEXT,
+            product             TEXT,
+            description         TEXT,
+            acceptance_date     TEXT,
+            shipment_date       TEXT,
+            delivery_date       TEXT,
+            wo_product_status   TEXT,
+
+            -- Shipment columns
+            order_date          TEXT,
+            ship_pn             TEXT,
+            ship_pn_desc        TEXT,
+            return_flag         TEXT,
+            ship_pickup_time    TEXT,
+            ship_pou_pod_time   TEXT,
+            awb                 TEXT,
+            sla                 TEXT,
+            target              TEXT,
+            eta_parthold_backlog TEXT,
+            dc_number            TEXT,
+            awb_resolv           TEXT,
+            return_status        TEXT,
+            dc_generate_date     TEXT,
+            dc_lenovo            TEXT,
+
+            -- POU Unreturn columns
+            awb_return               TEXT,
+            lenovo_return_status     TEXT,
+            awb_notes                TEXT,
+            modify_date_dc_lenovo    TEXT,
+            is_exist_excel           TEXT
+        );
+
+        INSERT INTO wo_product_detail (
+            soid, work_order_id, line_order,
+            created_on, product, description,
+            acceptance_date, shipment_date, delivery_date, wo_product_status,
+            order_date, ship_pn, ship_pn_desc, return_flag,
+            ship_pickup_time, ship_pou_pod_time, awb, sla, target,
+            eta_parthold_backlog, dc_number,
+            awb_resolv, return_status,
+            dc_generate_date,
+            dc_lenovo,
+            awb_return, lenovo_return_status, awb_notes,
+            modify_date_dc_lenovo, is_exist_excel
+        )
+        SELECT
+            soid, work_order_id, line_order,
+            created_on, product, description,
+            acceptance_date, shipment_date, delivery_date, wo_product_status,
+            order_date, ship_pn, ship_pn_desc, return_flag,
+            ship_pickup_time, ship_pou_pod_time, awb, sla, target,
+            eta_parthold_backlog, dc_number,
+            awb_resolv, return_status,
+            dc_generate_date,
+            dc_lenovo,
+            awb_return, lenovo_return_status, awb_notes,
+            modify_date_dc_lenovo, is_exist_excel
+        FROM _wo_product_detail_old;
+
+        DROP TABLE _wo_product_detail_old;
+
+        COMMIT;
+
+        PRAGMA foreign_keys = ON;
+        """
+    )
