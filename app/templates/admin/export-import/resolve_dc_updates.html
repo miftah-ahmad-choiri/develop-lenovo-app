@@ -6,8 +6,6 @@
   .resolve-card {
     background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden;
     display: flex; flex-direction: column;
-    height: calc(100vh - 28px - 90px - 1px);
-    min-height: 480px;
   }
 
   /* ── Buttons ────────────────────────────────────────────────────────────── */
@@ -140,50 +138,103 @@
   .btn-rreset-confirm:hover { background: #b91c1c; border-color: #991b1b; }
   .btn-rreset-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
 
+  /* ── Tab bar ────────────────────────────────────────────────────────────── */
+  .resolve-tab-bar {
+    display: flex; gap: 0; border-top: 1px solid #e5e7eb; flex-shrink: 0;
+    background: #f7f8fa;
+  }
+  .resolve-tab {
+    padding: 10px 20px; font-size: 12px; font-weight: 600; color: #57606a;
+    cursor: pointer; border: none; background: transparent; font-family: inherit;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+    transition: color 0.12s, border-color 0.12s;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .resolve-tab:hover { color: #1f2328; }
+  .resolve-tab.active { color: #3b82d4; border-bottom-color: #3b82d4; background: #fff; }
+  .resolve-tab-body { display: flex; flex-direction: column; }
+  .resolve-tab-pane { display: none; flex-direction: column; }
+  .resolve-tab-pane.active { display: flex; }
+  /* Files pane: shrinks to content */
+  #resolve-pane-files { overflow-y: auto; }
+  /* Log pane: always fills at least the visible viewport below the card header */
+  #resolve-pane-log {
+    flex: 1;
+    min-height: calc(100vh - 280px);
+  }
+
   /* ── Files section ──────────────────────────────────────────────────────── */
-  .resolve-files-section { border-top: 1px solid #e5e7eb; flex-shrink: 0; }
-  .resolve-files-row {
-    display: flex; gap: 0; border-top: 1px solid #e5e7eb;
-  }
-  .resolve-files-col {
-    flex: 1; min-width: 0;
-  }
-  .resolve-files-col + .resolve-files-col {
-    border-left: 1px solid #e5e7eb;
-  }
+  .resolve-files-section { flex-shrink: 0; }
   .resolve-files-head {
     padding: 10px 16px; border-bottom: 1px solid #e5e7eb;
     display: flex; align-items: center; gap: 10px;
+    background: #f7f8fa;
   }
-  .resolve-files-head-label { font-size: 12px; font-weight: 600; color: #57606a; flex: 1; }
+  .resolve-files-head-label { font-size: 12px; font-weight: 700; color: #374151; flex: 1; }
   .resolve-files-head-count {
     font-size: 11px; font-weight: 700; color: #57606a;
     background: #e5e7eb; border-radius: 999px; padding: 1px 7px;
   }
+  /* Each block is its own bordered card with spacing between them */
+  .resolve-files-block {
+    flex-shrink: 0;
+    margin: 12px 16px 0;
+    border: 1.5px solid #c5d3e0;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .resolve-files-block.block-awb {
+    border-color: #c5d3e0;
+  }
+  /* Bottom padding so the last block doesn't press against the pane edge */
+  #resolve-pane-files { padding-bottom: 12px; }
   .resolve-files-scroll { overflow: visible; }
   .resolve-file-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .resolve-file-table thead { background: #f7f8fa; position: sticky; top: 0; z-index: 1; }
+  .resolve-file-table thead { background: #f7f8fa; }
   .resolve-file-table th {
     padding: 8px 16px; text-align: left; font-size: 11px; font-weight: 700; color: #57606a;
-    text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #e5e7eb; white-space: nowrap;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    border-bottom: 1px solid #e5e7eb; white-space: nowrap;
+    vertical-align: middle;
   }
   .resolve-file-table td { padding: 9px 16px; border-bottom: 1px solid #f0f2f5; vertical-align: middle; }
   .resolve-file-table tbody tr:hover td { background: #f9fafb; }
   .resolve-file-table tr:last-child td { border-bottom: none; }
   .resolve-file-name {
     font-weight: 600; color: #1f2328; font-size: 12px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 380px;
   }
   .resolve-muted { color: #57606a; font-size: 12px; white-space: nowrap; }
   .resolve-empty { padding: 24px 18px; text-align: center; font-size: 13px; color: #57606a; }
+
+  /* ── Upsert stat badges ─────────────────────────────────────────────────── */
+  .resolve-stat-badge {
+    display: inline-block; padding: 2px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 700; white-space: nowrap;
+  }
+  .resolve-stat-dc   { background: #dbeafe; color: #1d4ed8; }
+  .resolve-stat-awb  { background: #dcfce7; color: #15803d; }
+  .resolve-stat-ok   { background: #dcfce7; color: #15803d; }
+  .resolve-stat-fail { background: #fee2e2; color: #dc2626; }
+
+  /* ── Scheduler countdown pill ──────────────────────────────────────────── */
+  .resolve-sched-pill {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px;
+    border-radius: 999px; font-size: 12px; font-weight: 600;
+    background: #f0f6ff; color: #1d4ed8; border: 1px solid #bfdbfe;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .resolve-sched-pill svg { flex-shrink: 0; }
+  .resolve-sched-pill.sched-soon {
+    background: #fefce8; color: #a16207; border-color: #fde68a;
+  }
 
   /* ── Top action bar ─────────────────────────────────────────────────────── */
   .resolve-panel-body { padding: 20px; flex-shrink: 0; }
 
   /* ── Console ────────────────────────────────────────────────────────────── */
   .resolve-console-wrap {
-    border-top: 1px solid #e5e7eb;
-    display: flex; flex-direction: column; flex: 1; min-height: 0;
+    display: flex; flex-direction: column; flex: 1;
   }
   .resolve-console-head {
     padding: 10px 16px; border-bottom: 1px solid #e5e7eb; flex-shrink: 0;
@@ -191,7 +242,8 @@
   }
   .resolve-console-head span { font-size: 12px; color: #57606a; font-weight: 600; }
   .resolve-console {
-    background: #0d1117; color: #c9d1d9; overflow-y: auto; flex: 1; min-height: 0;
+    background: #0d1117; color: #c9d1d9; overflow-y: auto; flex: 1;
+    min-height: 0;
     padding: 14px 16px; font-family: ui-monospace, SFMono-Regular, "Courier New", monospace;
     font-size: 12.5px; line-height: 1.55;
   }
@@ -201,8 +253,7 @@
   .resolve-log-error   { color: #f85149; }
   .resolve-log-system  { color: #58a6ff; }
 
-  /* Single panel fills remaining card height */
-  .resolve-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  .resolve-panel { display: flex; flex-direction: column; }
 {% endblock %}
 
 {% block content %}
@@ -259,19 +310,40 @@
         <span class="resolve-running-badge" id="resolve-running-badge" {% if not is_running %}style="display:none"{% endif %}>
           <span class="resolve-running-dot"></span>RUNNING
         </span>
+
+        <!-- Scheduler countdown pill -->
+        <span class="resolve-sched-pill" id="resolve-sched-pill" style="display:none"
+              title="Auto-runs every 2 hours on weekdays, 08:00–20:00 WIB">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span id="resolve-sched-label">Next auto-run: —</span>
+        </span>
       </div>
     </div>
 
-    <!-- ── Downloaded Files (two columns) ────────────────────────────────── -->
-    <div class="resolve-files-section">
-      <div class="resolve-files-row">
+    <!-- ── Tab bar ────────────────────────────────────────────────────────── -->
+    <div class="resolve-tab-bar">
+      <button type="button" class="resolve-tab active" id="resolve-tab-files" onclick="switchResolveTab('files')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Downloaded Files
+      </button>
+      <button type="button" class="resolve-tab" id="resolve-tab-log" onclick="switchResolveTab('log')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Live Execution Log
+      </button>
+    </div>
 
-        <!-- Extract-AWB -->
-        <div class="resolve-files-col">
+    <!-- ── Tab body ───────────────────────────────────────────────────────── -->
+    <div class="resolve-tab-body">
+
+      <!-- ── Files pane ──────────────────────────────────────────────────── -->
+      <div class="resolve-tab-pane active" id="resolve-pane-files">
+
+        <!-- Extract-DC (top) -->
+        <div class="resolve-files-block block-dc">
           <div class="resolve-files-head">
-            <span class="resolve-files-head-label">Extract-AWB Files</span>
-            <span class="resolve-files-head-count" id="resolve-awb-count">{{ awb_files|length }}</span>
-            <button type="button" class="btn-resolve-sm" id="btn-refresh-resolve-files" onclick="refreshResolveFiles()" title="Refresh file lists">
+            <span class="resolve-files-head-label">Extract-DC Files</span>
+            <span class="resolve-files-head-count" id="resolve-dc-count">{{ dc_files|length }}</span>
+            <button type="button" class="btn-resolve-sm" id="btn-refresh-resolve-files" onclick="refreshResolveFiles()" title="Refresh both file lists">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
               Refresh
             </button>
@@ -280,71 +352,106 @@
             <table class="resolve-file-table">
               <thead>
                 <tr>
-                  <th>File Name</th>
-                  <th style="width:90px;white-space:nowrap">Size</th>
-                  <th style="width:120px;white-space:nowrap">Modified</th>
-                </tr>
-              </thead>
-              <tbody id="resolve-awb-tbody">
-                {% if awb_files %}
-                  {% for file in awb_files %}
-                  <tr>
-                    <td><div class="resolve-file-name">{{ file.name }}</div></td>
-                    <td><span class="resolve-muted">{{ file.size_kb }} KB</span></td>
-                    <td><span class="resolve-muted">{{ file.modified_fmt }}</span></td>
-                  </tr>
-                  {% endfor %}
-                {% else %}
-                  <tr><td colspan="3" class="resolve-empty">No AWB files yet.</td></tr>
-                {% endif %}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Extract-DC -->
-        <div class="resolve-files-col">
-          <div class="resolve-files-head">
-            <span class="resolve-files-head-label">Extract-DC Files</span>
-            <span class="resolve-files-head-count" id="resolve-dc-count">{{ dc_files|length }}</span>
-          </div>
-          <div class="resolve-files-scroll">
-            <table class="resolve-file-table">
-              <thead>
-                <tr>
-                  <th>File Name</th>
-                  <th style="width:90px;white-space:nowrap">Size</th>
-                  <th style="width:120px;white-space:nowrap">Modified</th>
+                  <th>File Name Resolv DC Files</th>
+                  <th style="width:80px;text-align:center;white-space:nowrap">Size</th>
+                  <th style="width:130px;text-align:center;white-space:nowrap">Modified</th>
+                  <th style="width:80px;text-align:center;white-space:nowrap">New DC#</th>
+                  <th style="width:110px;text-align:center;white-space:nowrap">Status Changes</th>
+                  <th style="width:120px;text-align:center;white-space:nowrap">Upsert Status</th>
                 </tr>
               </thead>
               <tbody id="resolve-dc-tbody">
                 {% if dc_files %}
                   {% for file in dc_files %}
                   <tr>
-                    <td><div class="resolve-file-name">{{ file.name }}</div></td>
-                    <td><span class="resolve-muted">{{ file.size_kb }} KB</span></td>
-                    <td><span class="resolve-muted">{{ file.modified_fmt }}</span></td>
+                    <td style="vertical-align:middle"><div class="resolve-file-name">{{ file.name }}</div></td>
+                    <td style="width:80px;text-align:center;vertical-align:middle"><span class="resolve-muted">{{ file.size_kb }} KB</span></td>
+                    <td style="width:130px;text-align:center;vertical-align:middle"><span class="resolve-muted">{{ file.modified_fmt }}</span></td>
+                    <td style="width:80px;text-align:center;vertical-align:middle">
+                      {% if file.new_dc is not none %}<span class="resolve-stat-badge resolve-stat-dc">{{ file.new_dc }}</span>{% else %}<span class="resolve-muted">—</span>{% endif %}
+                    </td>
+                    <td style="width:110px;text-align:center;vertical-align:middle">
+                      {% if file.new_status is not none %}<span class="resolve-stat-badge resolve-stat-awb">{{ file.new_status }}</span>{% else %}<span class="resolve-muted">—</span>{% endif %}
+                    </td>
+                    <td style="width:120px;text-align:center;vertical-align:middle">
+                      {% if file.upsert_status == 'success' %}<span class="resolve-stat-badge resolve-stat-ok">✅ Success</span>
+                      {% elif file.upsert_status == 'failed' %}<span class="resolve-stat-badge resolve-stat-fail">❌ Failed</span>
+                      {% else %}<span class="resolve-muted">—</span>{% endif %}
+                    </td>
                   </tr>
                   {% endfor %}
                 {% else %}
-                  <tr><td colspan="3" class="resolve-empty">No DC files yet.</td></tr>
+                  <tr><td colspan="6" class="resolve-empty">No DC files yet.</td></tr>
                 {% endif %}
               </tbody>
             </table>
           </div>
         </div>
 
-      </div>
-    </div>
+        <!-- Extract-AWB (below) -->
+        <div class="resolve-files-block block-awb">
+          <div class="resolve-files-head">
+            <span class="resolve-files-head-label">Extract-AWB Files</span>
+            <span class="resolve-files-head-count" id="resolve-awb-count">{{ awb_files|length }}</span>
+            <button type="button" class="btn-resolve-sm" id="btn-refresh-resolve-awb-files" onclick="refreshResolveFiles()" title="Refresh both file lists">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              Refresh
+            </button>
+          </div>
+          <div class="resolve-files-scroll">
+            <table class="resolve-file-table">
+              <thead>
+                <tr>
+                  <th>File Name Resolv AWB Files</th>
+                  <th style="width:80px;text-align:center;white-space:nowrap">Size</th>
+                  <th style="width:130px;text-align:center;white-space:nowrap">Modified</th>
+                  <th style="width:90px;text-align:center;white-space:nowrap">Match DC</th>
+                  <th style="width:110px;text-align:center;white-space:nowrap">New AWB/Dates</th>
+                  <th style="width:120px;text-align:center;white-space:nowrap">Upsert Status</th>
+                </tr>
+              </thead>
+              <tbody id="resolve-awb-tbody">
+                {% if awb_files %}
+                  {% for file in awb_files %}
+                  <tr>
+                    <td style="vertical-align:middle"><div class="resolve-file-name">{{ file.name }}</div></td>
+                    <td style="width:80px;text-align:center;vertical-align:middle"><span class="resolve-muted">{{ file.size_kb }} KB</span></td>
+                    <td style="width:130px;text-align:center;vertical-align:middle"><span class="resolve-muted">{{ file.modified_fmt }}</span></td>
+                    <td style="width:80px;text-align:center;vertical-align:middle">
+                      {% if file.new_dc is not none %}<span class="resolve-stat-badge resolve-stat-dc">{{ file.new_dc }}</span>{% else %}<span class="resolve-muted">—</span>{% endif %}
+                    </td>
+                    <td style="width:110px;text-align:center;vertical-align:middle">
+                      {% if file.new_awb is not none %}<span class="resolve-stat-badge resolve-stat-awb">{{ file.new_awb }}</span>{% else %}<span class="resolve-muted">—</span>{% endif %}
+                    </td>
+                    <td style="width:120px;text-align:center;vertical-align:middle">
+                      {% if file.upsert_status == 'success' %}<span class="resolve-stat-badge resolve-stat-ok">✅ Success</span>
+                      {% elif file.upsert_status == 'failed' %}<span class="resolve-stat-badge resolve-stat-fail">❌ Failed</span>
+                      {% else %}<span class="resolve-muted">—</span>{% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                {% else %}
+                  <tr><td colspan="6" class="resolve-empty">No AWB files yet.</td></tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-    <!-- ── Live Execution Log ──────────────────────────────────────────────── -->
-    <div class="resolve-console-wrap">
-      <div class="resolve-console-head">
-        <span>Live Execution Log</span>
-        <button type="button" class="btn-resolve" onclick="clearResolveLog()">Clear Log</button>
-      </div>
-      <div class="resolve-console" id="resolve-console"></div>
-    </div>
+      </div><!-- /resolve-pane-files -->
+
+      <!-- ── Log pane ────────────────────────────────────────────────────── -->
+      <div class="resolve-tab-pane" id="resolve-pane-log">
+        <div class="resolve-console-wrap">
+          <div class="resolve-console-head">
+            <span>Live Execution Log</span>
+            <button type="button" class="btn-resolve" onclick="clearResolveLog()">Clear Log</button>
+          </div>
+          <div class="resolve-console" id="resolve-console"></div>
+        </div>
+      </div><!-- /resolve-pane-log -->
+
+    </div><!-- /resolve-tab-body -->
 
   </div>
 </div>
@@ -416,21 +523,25 @@ const _resolveStore    = window.localStorage;
 
 /* ── Progress bar ──────────────────────────────────────────────────────── */
 const _RESOLVE_STEPS = [
-  [/Clicking 'GTAP RPL Work Orders'/,   10, 'Navigating…'],
-  [/Navigating to GTAP RPL page/,       18, 'Loading page…'],
-  [/Clicking 'Generated DC/,            25, 'Opening DC tab…'],
-  [/Setting 100 rows per page/,         32, 'Setting rows…'],
-  [/Starting full table scrape/,        40, 'Scraping…'],
-  [/Scraped \d+ total rows/,            60, 'Scraped'],
-  [/Exporting to Excel/,                68, 'Exporting AWB…'],
-  [/Saved to:/,                         74, 'AWB saved…'],
-  [/Clicking 'Report' menu/,            80, 'Navigating Report…'],
-  [/Clicking 'GTAP RPL Report'/,        85, 'Opening Report…'],
-  [/Clicking Excel download button/,    88, 'Downloading DC…'],
-  [/Download triggered/,                92, 'Waiting for DC…'],
-  [/File saved to:/,                    96, 'DC saved…'],
-  [/Closing Chrome/,                    98, 'Closing…'],
-  [/Done\./,                           100, 'Done ✓'],
+  [/Clicking 'GTAP RPL Work Orders'/,                    10, 'Navigating…'],
+  [/Navigating to GTAP RPL page/,                        18, 'Loading page…'],
+  [/Clicking 'Generated DC/,                             25, 'Opening DC tab…'],
+  [/Setting 100 rows per page/,                          32, 'Setting rows…'],
+  [/Starting full table scrape/,                         40, 'Scraping…'],
+  [/Scraped \d+ total rows/,                             60, 'Scraped'],
+  [/Exporting to Excel/,                                 68, 'Exporting AWB…'],
+  [/Saved to:/,                                          74, 'AWB saved…'],
+  [/Clicking 'Report' menu/,                             80, 'Navigating Report…'],
+  [/Clicking 'GTAP RPL Report'/,                         85, 'Opening Report…'],
+  [/Clicking Excel download button/,                     88, 'Downloading DC…'],
+  [/Download triggered/,                                 92, 'Waiting for DC…'],
+  [/File saved to:/,                                     96, 'DC saved…'],
+  [/Closing Chrome/,                                     98, 'Closing…'],
+  [/Done\./,                                             99, 'Done — upserting…'],
+  [/Upserting dc_number\/return_status/,                 99, 'Upserting DC…'],
+  [/dc upsert complete/,                                 99, 'DC upserted ✓'],
+  [/Upserting awb_resolv/,                               99, 'Upserting AWB/Dates…'],
+  [/awb_resolv upsert complete/,                        100, 'All done ✓'],
 ];
 
 let _resolveCurrentPct = 0;
@@ -628,11 +739,33 @@ function confirmResetResolve() {
     });
 }
 
+/* ── Tab switching ──────────────────────────────────────────────────────── */
+function switchResolveTab(name) {
+  ['files', 'log'].forEach(function (n) {
+    document.getElementById('resolve-tab-' + n).classList.toggle('active', n === name);
+    document.getElementById('resolve-pane-' + n).classList.toggle('active', n === name);
+  });
+}
+
 /* ── Files refresh ─────────────────────────────────────────────────────── */
+function _resolveStatCell(val, cls) {
+  return (val !== null && val !== undefined)
+    ? '<span class="resolve-stat-badge ' + cls + '">' + _resc(String(val)) + '</span>'
+    : '<span class="resolve-muted">—</span>';
+}
+function _resolveStatusCell(s) {
+  if (s === 'success') return '<span class="resolve-stat-badge resolve-stat-ok">✅ Success</span>';
+  if (s === 'failed')  return '<span class="resolve-stat-badge resolve-stat-fail">❌ Failed</span>';
+  return '<span class="resolve-muted">—</span>';
+}
+
 function refreshResolveFiles() {
-  const btn = document.getElementById('btn-refresh-resolve-files');
-  btn.disabled = true;
-  btn.classList.add('spinning');
+  // Spin & disable both Refresh buttons while the fetch is in flight
+  var _refreshBtns = [
+    document.getElementById('btn-refresh-resolve-files'),
+    document.getElementById('btn-refresh-resolve-awb-files'),
+  ].filter(Boolean);
+  _refreshBtns.forEach(function (b) { b.disabled = true; b.classList.add('spinning'); });
 
   fetch('/admin/resolve-dc-updates/files')
     .then(function (r) { return r.json(); })
@@ -640,43 +773,48 @@ function refreshResolveFiles() {
       if (!data.ok) return;
 
       // AWB table
-      const awbTbody = document.getElementById('resolve-awb-tbody');
-      const awbCount = document.getElementById('resolve-awb-count');
+      var awbTbody = document.getElementById('resolve-awb-tbody');
+      var awbCount = document.getElementById('resolve-awb-count');
       if (!data.awb_files || data.awb_files.length === 0) {
-        awbTbody.innerHTML = '<tr><td colspan="3" class="resolve-empty">No AWB files yet.</td></tr>';
+        awbTbody.innerHTML = '<tr><td colspan="6" class="resolve-empty">No AWB files yet.</td></tr>';
         awbCount.textContent = '0';
       } else {
         awbCount.textContent = String(data.awb_files.length);
         awbTbody.innerHTML = data.awb_files.map(function (f) {
           return '<tr>'
-            + '<td><div class="resolve-file-name" title="' + _resc(f.name) + '">' + _resc(f.name) + '</div></td>'
-            + '<td><span class="resolve-muted">' + _resc(String(f.size_kb)) + ' KB</span></td>'
-            + '<td><span class="resolve-muted">' + _resc(f.modified_fmt) + '</span></td>'
+            + '<td style="vertical-align:middle"><div class="resolve-file-name" title="' + _resc(f.name) + '">' + _resc(f.name) + '</div></td>'
+            + '<td style="width:80px;text-align:center;vertical-align:middle"><span class="resolve-muted">' + _resc(String(f.size_kb)) + ' KB</span></td>'
+            + '<td style="width:130px;text-align:center;vertical-align:middle"><span class="resolve-muted">' + _resc(f.modified_fmt) + '</span></td>'
+            + '<td style="width:90px;text-align:center;vertical-align:middle">' + _resolveStatCell(f.new_dc,  'resolve-stat-dc')  + '</td>'
+            + '<td style="width:110px;text-align:center;vertical-align:middle">' + _resolveStatCell(f.new_awb, 'resolve-stat-awb') + '</td>'
+            + '<td style="width:120px;text-align:center;vertical-align:middle">' + _resolveStatusCell(f.upsert_status) + '</td>'
             + '</tr>';
         }).join('');
       }
 
       // DC table
-      const dcTbody = document.getElementById('resolve-dc-tbody');
-      const dcCount = document.getElementById('resolve-dc-count');
+      var dcTbody = document.getElementById('resolve-dc-tbody');
+      var dcCount = document.getElementById('resolve-dc-count');
       if (!data.dc_files || data.dc_files.length === 0) {
-        dcTbody.innerHTML = '<tr><td colspan="3" class="resolve-empty">No DC files yet.</td></tr>';
+        dcTbody.innerHTML = '<tr><td colspan="6" class="resolve-empty">No DC files yet.</td></tr>';
         dcCount.textContent = '0';
       } else {
         dcCount.textContent = String(data.dc_files.length);
         dcTbody.innerHTML = data.dc_files.map(function (f) {
           return '<tr>'
-            + '<td><div class="resolve-file-name" title="' + _resc(f.name) + '">' + _resc(f.name) + '</div></td>'
-            + '<td><span class="resolve-muted">' + _resc(String(f.size_kb)) + ' KB</span></td>'
-            + '<td><span class="resolve-muted">' + _resc(f.modified_fmt) + '</span></td>'
+            + '<td style="vertical-align:middle"><div class="resolve-file-name" title="' + _resc(f.name) + '">' + _resc(f.name) + '</div></td>'
+            + '<td style="width:80px;text-align:center;vertical-align:middle"><span class="resolve-muted">' + _resc(String(f.size_kb)) + ' KB</span></td>'
+            + '<td style="width:130px;text-align:center;vertical-align:middle"><span class="resolve-muted">' + _resc(f.modified_fmt) + '</span></td>'
+            + '<td style="width:80px;text-align:center;vertical-align:middle">' + _resolveStatCell(f.new_dc,     'resolve-stat-dc')  + '</td>'
+            + '<td style="width:110px;text-align:center;vertical-align:middle">' + _resolveStatCell(f.new_status, 'resolve-stat-awb') + '</td>'
+            + '<td style="width:120px;text-align:center;vertical-align:middle">' + _resolveStatusCell(f.upsert_status) + '</td>'
             + '</tr>';
         }).join('');
       }
     })
     .catch(function () {})
     .finally(function () {
-      btn.disabled = false;
-      btn.classList.remove('spinning');
+      _refreshBtns.forEach(function (b) { b.disabled = false; b.classList.remove('spinning'); });
     });
 }
 
@@ -696,9 +834,12 @@ function connectResolveStream() {
     const rawMsg = data.msg || '';
     _resolveScanStepProgress(rawMsg);
 
-    // Refresh files when script finishes downloading
+    // Refresh files when script finishes downloading or upsert completes
     if (/File saved to:/i.test(rawMsg) || /Done\./i.test(rawMsg)) {
       setTimeout(refreshResolveFiles, 600);
+    }
+    if (/awb_resolv upsert complete/i.test(rawMsg)) {
+      setTimeout(refreshResolveFiles, 800);
     }
 
     const ts  = data.ts ? '[' + data.ts + '] ' : '';
@@ -728,6 +869,7 @@ function triggerResolveRun() {
       if (!r.ok || !data.ok) throw new Error(data.error || 'Failed to start RESOLV DC download.');
       clearResolveLog();
       appendResolveLog('resolve-log-system', '— RESOLV DC auto-download triggered —');
+      switchResolveTab('log');  // switch to log tab automatically when run starts
       setResolveRunning(true);  // sets _resolveRunning=true before poll fires
       connectResolveStream();   // opens SSE — guarded above against double-open
     })
@@ -757,6 +899,53 @@ function pollResolveStatus() {
     .catch(function () {});
 }
 
+/* ── Scheduler countdown ───────────────────────────────────────────────── */
+let _schedSecondsLeft = 0;
+let _schedCountTimer  = null;
+
+function _schedFmt(sec) {
+  sec = Math.max(0, Math.round(sec));
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  if (h > 0) return h + 'h ' + String(m).padStart(2,'0') + 'm';
+  if (m > 0) return m + 'm ' + String(s).padStart(2,'0') + 's';
+  return s + 's';
+}
+
+function _schedTick() {
+  _schedSecondsLeft = Math.max(0, _schedSecondsLeft - 1);
+  const pill  = document.getElementById('resolve-sched-pill');
+  const label = document.getElementById('resolve-sched-label');
+  if (!pill || !label) return;
+  if (_schedSecondsLeft <= 0) {
+    label.textContent = 'Auto-run starting…';
+    pill.classList.add('sched-soon');
+    // Re-fetch after 90s so the pill updates to the next slot
+    setTimeout(initResolveCountdown, 90000);
+    if (_schedCountTimer) { clearInterval(_schedCountTimer); _schedCountTimer = null; }
+    return;
+  }
+  const soon = _schedSecondsLeft < 3600;  // < 1 h → amber
+  pill.classList.toggle('sched-soon', soon);
+  label.textContent = 'Next auto-run: ' + _schedFmt(_schedSecondsLeft);
+}
+
+function initResolveCountdown() {
+  fetch('/admin/resolve-dc-updates/next-run')
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (!d.ok) return;
+      _schedSecondsLeft = Math.round(d.seconds_until);
+      const pill = document.getElementById('resolve-sched-pill');
+      if (pill) pill.style.display = '';
+      _schedTick();
+      if (_schedCountTimer) clearInterval(_schedCountTimer);
+      _schedCountTimer = setInterval(_schedTick, 1000);
+    })
+    .catch(function(){});
+}
+
 /* ── Init ──────────────────────────────────────────────────────────────── */
 (function () {
   const bootId       = '{{ boot_id }}';
@@ -778,6 +967,7 @@ function pollResolveStatus() {
 
 pollResolveStatus();
 refreshResolveFiles();
+initResolveCountdown();
 _resolveStatusTimer = setInterval(pollResolveStatus, 10000);
 window.addEventListener('beforeunload', function () {
   if (_resolveEs)          _resolveEs.close();

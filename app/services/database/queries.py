@@ -1663,6 +1663,8 @@ def get_pou_unreturn_report() -> list[dict]:
       dc_number        — from wo_product_detail.dc_number (GTAAP)
       dc_lenovo        — fallback DC from POU Unreturn upload
       lenovo_return_status
+      awb_resolv       — AWB NO from Resolve Generated DCs
+      dc_generate_date — DC GENERATION DATE from Resolve Generated DCs
       awb_return       — AWB Number from POU Unreturn
       awb_notes        — Note from POU Unreturn
       is_exist_excel   — whether SOID is present in the uploaded Excel
@@ -1676,6 +1678,8 @@ def get_pou_unreturn_report() -> list[dict]:
             p.return_status,
             p.dc_number,
             p.dc_lenovo,
+            p.awb_resolv,
+            p.dc_generate_date,
             p.lenovo_return_status,
             p.awb_return,
             p.awb_notes,

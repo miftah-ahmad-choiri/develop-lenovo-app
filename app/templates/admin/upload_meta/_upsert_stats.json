@@ -811,12 +811,19 @@
       "new_users": 0,
       "status": "success",
       "upsert_date": "2026-08-31"
+    },
+    "WO Status - IBM TLS MSD 9-2-2026 1-59-44 AM.xlsx": {
+      "new_wo": 181,
+      "updated_wo": 579,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-02"
     }
   },
   "daily_totals": {
-    "2026-08-31": {
-      "new_wo": 161,
-      "updated_wo": 969,
+    "2026-09-02": {
+      "new_wo": 181,
+      "updated_wo": 579,
       "new_users": 0
     }
   }
