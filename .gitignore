@@ -33,8 +33,20 @@ env
 app/scripts/msd-auto-download/env
 *.local
 nul
+
 # Upload metadata cache — runtime-generated, not for version control
-# app/templates/admin/upload_meta/*.json
+app/templates/admin/upload_meta/_upsert_stats.json
+app/templates/admin/upload_meta/wo_product_mismatch.json
+app/templates/admin/upload_meta/active_open_wos.json
+app/templates/admin/upload_meta/incomplete_prev_shipments.json
+app/templates/admin/upload_meta/monday_daily_totals.json
+app/templates/admin/upload_meta/*.xlsx.meta.json
+
+# Sync state — updated every sync run, not for version control
+sync_state.json
+
+# Uploaded Excel files — user-supplied at runtime, not for version control
+files/upload/excel/
 
 # Selenium Chrome runtime profile - generated at runtime, not for version control
 app/scripts/msd-auto-download/selenium_chrome_profile/
