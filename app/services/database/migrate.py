@@ -203,6 +203,10 @@ def _migrate_wo_product_detail_reorder_awb_resolv(conn: sqlite3.Connection) -> N
     SQLite does not support ALTER TABLE … AFTER …, so we use the standard
     rename-create-copy-drop pattern.  The migration is a no-op when awb_resolv
     is already at position 21 (immediately after dc_number at position 20).
+
+    The INSERT/SELECT list is built dynamically from the columns that actually
+    exist in the old table, so this migration is safe to run regardless of
+    which later ADD COLUMN migrations have (or have not) already run.
     """
     cols = conn.execute("PRAGMA table_info(wo_product_detail)").fetchall()
     # Build {name: cid} map
@@ -216,8 +220,27 @@ def _migrate_wo_product_detail_reorder_awb_resolv(conn: sqlite3.Connection) -> N
     if "awb_resolv" not in col_pos:
         return
 
+    # Full desired column order for the new table definition.
+    # Only columns that already exist in the old table are included in the
+    # INSERT/SELECT so we never reference a column that hasn't been added yet.
+    desired_order = [
+        "soid", "work_order_id", "line_order",
+        "created_on", "product", "description",
+        "acceptance_date", "shipment_date", "delivery_date", "wo_product_status",
+        "order_date", "ship_pn", "ship_pn_desc", "return_flag",
+        "ship_pickup_time", "ship_pou_pod_time", "awb", "sla", "target",
+        "eta_parthold_backlog", "dc_number",
+        "awb_resolv",
+        "return_status", "dc_lenovo",
+        "awb_return", "lenovo_return_status", "awb_notes",
+        "modify_date_dc_lenovo", "is_exist_excel",
+    ]
+    existing_cols = set(col_pos.keys())
+    copy_cols = [c for c in desired_order if c in existing_cols]
+    col_list  = ", ".join(copy_cols)
+
     conn.executescript(
-        """
+        f"""
         PRAGMA foreign_keys = OFF;
 
         BEGIN;
@@ -265,29 +288,8 @@ def _migrate_wo_product_detail_reorder_awb_resolv(conn: sqlite3.Connection) -> N
             is_exist_excel           TEXT
         );
 
-        INSERT INTO wo_product_detail (
-            soid, work_order_id, line_order,
-            created_on, product, description,
-            acceptance_date, shipment_date, delivery_date, wo_product_status,
-            order_date, ship_pn, ship_pn_desc, return_flag,
-            ship_pickup_time, ship_pou_pod_time, awb, sla, target,
-            eta_parthold_backlog, dc_number,
-            awb_resolv,
-            return_status, dc_lenovo,
-            awb_return, lenovo_return_status, awb_notes,
-            modify_date_dc_lenovo, is_exist_excel
-        )
-        SELECT
-            soid, work_order_id, line_order,
-            created_on, product, description,
-            acceptance_date, shipment_date, delivery_date, wo_product_status,
-            order_date, ship_pn, ship_pn_desc, return_flag,
-            ship_pickup_time, ship_pou_pod_time, awb, sla, target,
-            eta_parthold_backlog, dc_number,
-            awb_resolv,
-            return_status, dc_lenovo,
-            awb_return, lenovo_return_status, awb_notes,
-            modify_date_dc_lenovo, is_exist_excel
+        INSERT INTO wo_product_detail ({col_list})
+        SELECT {col_list}
         FROM _wo_product_detail_old;
 
         DROP TABLE _wo_product_detail_old;
@@ -1069,6 +1071,10 @@ def _migrate_wo_product_detail_reorder_dc_generate_date(conn: sqlite3.Connection
     SQLite does not support ALTER TABLE … AFTER …, so we use the standard
     rename-create-copy-drop pattern.  The migration is a no-op when dc_generate_date
     is already at position 23 (immediately after return_status at position 22).
+
+    The INSERT/SELECT list is built dynamically from the columns that actually
+    exist in the old table, so this migration is safe to run regardless of
+    which later ADD COLUMN migrations have (or have not) already run.
     """
     cols = conn.execute("PRAGMA table_info(wo_product_detail)").fetchall()
     # Build {name: cid} map
@@ -1082,8 +1088,25 @@ def _migrate_wo_product_detail_reorder_dc_generate_date(conn: sqlite3.Connection
     if "dc_generate_date" not in col_pos:
         return
 
+    desired_order = [
+        "soid", "work_order_id", "line_order",
+        "created_on", "product", "description",
+        "acceptance_date", "shipment_date", "delivery_date", "wo_product_status",
+        "order_date", "ship_pn", "ship_pn_desc", "return_flag",
+        "ship_pickup_time", "ship_pou_pod_time", "awb", "sla", "target",
+        "eta_parthold_backlog", "dc_number",
+        "awb_resolv", "return_status",
+        "dc_generate_date",
+        "dc_lenovo",
+        "awb_return", "lenovo_return_status", "awb_notes",
+        "modify_date_dc_lenovo", "is_exist_excel",
+    ]
+    existing_cols = set(col_pos.keys())
+    copy_cols = [c for c in desired_order if c in existing_cols]
+    col_list  = ", ".join(copy_cols)
+
     conn.executescript(
-        """
+        f"""
         PRAGMA foreign_keys = OFF;
 
         BEGIN;
@@ -1132,31 +1155,8 @@ def _migrate_wo_product_detail_reorder_dc_generate_date(conn: sqlite3.Connection
             is_exist_excel           TEXT
         );
 
-        INSERT INTO wo_product_detail (
-            soid, work_order_id, line_order,
-            created_on, product, description,
-            acceptance_date, shipment_date, delivery_date, wo_product_status,
-            order_date, ship_pn, ship_pn_desc, return_flag,
-            ship_pickup_time, ship_pou_pod_time, awb, sla, target,
-            eta_parthold_backlog, dc_number,
-            awb_resolv, return_status,
-            dc_generate_date,
-            dc_lenovo,
-            awb_return, lenovo_return_status, awb_notes,
-            modify_date_dc_lenovo, is_exist_excel
-        )
-        SELECT
-            soid, work_order_id, line_order,
-            created_on, product, description,
-            acceptance_date, shipment_date, delivery_date, wo_product_status,
-            order_date, ship_pn, ship_pn_desc, return_flag,
-            ship_pickup_time, ship_pou_pod_time, awb, sla, target,
-            eta_parthold_backlog, dc_number,
-            awb_resolv, return_status,
-            dc_generate_date,
-            dc_lenovo,
-            awb_return, lenovo_return_status, awb_notes,
-            modify_date_dc_lenovo, is_exist_excel
+        INSERT INTO wo_product_detail ({col_list})
+        SELECT {col_list}
         FROM _wo_product_detail_old;
 
         DROP TABLE _wo_product_detail_old;
