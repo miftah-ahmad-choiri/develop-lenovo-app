@@ -112,8 +112,22 @@ CREATE TABLE IF NOT EXISTS wo_product_detail (
     target              TEXT,                         -- SLA deadline (from Shipment file)
     eta_parthold_backlog TEXT,                        -- SO ETA from Backlog Report File (On Hold - Part Hold only)
     dc_number            TEXT,                        -- DC# from GTAAP Report (Resolv), mapped by SOID
+    awb_resolv           TEXT,                        -- AWB NO from Resolve Generated DCs, matched by dc_number
     return_status        TEXT,                        -- Status from GTAAP Report (Resolv), mapped by SOID
-    dc_lenovo            TEXT                         -- DC/Collection Form from ID-IBM ID POU Unreturn, mapped by SOID
+    dc_generate_date     TEXT,                        -- DC GENERATION DATE from Resolve Generated DCs
+    dc_lenovo            TEXT,                        -- DC/Collection Form from ID-IBM ID POU Unreturn, mapped by SOID
+
+    -- POU Unreturn columns (from ID-IBM ID POU Unreturn file)
+    awb_return               TEXT,                    -- "AWB Number" from POU Unreturn (real AWB or "Hardclose")
+    lenovo_return_status     TEXT,                    -- "Return Status" from POU Unreturn
+    awb_notes                TEXT,                    -- "Note" from POU Unreturn
+    modify_date_dc_lenovo    TEXT,                    -- max(DC/Collection Form-Submitted Date) across the uploaded file,
+                                                      -- stored as YYYY-MM-DD.  Acts as a file-level version stamp:
+                                                      -- the new-column block is only written when the incoming file's
+                                                      -- max date is strictly later than (or the DB is NULL/empty).
+    is_exist_excel           TEXT                     -- 'yes' if SOID present in latest ID-IBM ID POU Unreturn excel;
+                                                      -- 'no'  if SOID was previously 'yes' but absent in newer excel;
+                                                      -- NULL  if SOID has never appeared in any uploaded excel.
 );
 
 -- Index for lookup by work_order_id (most common query pattern)
@@ -173,3 +187,23 @@ CREATE TABLE IF NOT EXISTS admin_users (
 
 CREATE INDEX IF NOT EXISTS idx_admin_users_username
     ON admin_users(username);
+
+-- ------------------------------------------------------------
+-- 6. asp_master_accounts
+--    One row per multi-ASP parent_group (groups with > 1 ASP
+--    sharing the same parent_group in asp_details).
+--    Single-ASP parent_groups are NOT stored here.
+--    parent_group is the PRIMARY KEY (TEXT).
+--    masteruser / password are the login credentials.
+--    total_associated_asp is a denormalised count refreshed on
+--    each migration run.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS asp_master_accounts (
+    parent_group            TEXT PRIMARY KEY,
+    masteruser              TEXT UNIQUE NOT NULL,
+    password                TEXT NOT NULL,
+    total_associated_asp    INTEGER DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_asp_master_masteruser
+    ON asp_master_accounts(masteruser);

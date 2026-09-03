@@ -1,0 +1,977 @@
+{% extends "base.html" %}
+{% block title %}RESOLV DC Updates — Admin Portal{% endblock %}
+
+{% block extra_styles %}
+  /* ── Card shell ─────────────────────────────────────────────────────────── */
+  .resolve-card {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+
+  /* ── Buttons ────────────────────────────────────────────────────────────── */
+  .btn-resolve {
+    display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px;
+    border: 1px solid #d0d7de; border-radius: 6px; cursor: pointer; font-family: inherit;
+    font-size: 13px; font-weight: 600; background: #fff; color: #1f2328;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  .btn-resolve:hover { background: #f3f4f6; }
+  .btn-resolve.primary { background: #3b82d4; border-color: #3b82d4; color: #fff; }
+  .btn-resolve.primary:hover { background: #2563b0; border-color: #2563b0; }
+  .btn-resolve.danger { background: #fff; border-color: #fca5a5; color: #dc2626; }
+  .btn-resolve.danger:hover { background: #fff1f2; border-color: #f87171; }
+  .btn-resolve:disabled { opacity: 0.6; cursor: not-allowed; }
+  .btn-resolve-sm {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 10px; border: 1px solid #d0d7de; border-radius: 6px;
+    cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600;
+    background: #fff; color: #374151; transition: background 0.12s, border-color 0.12s;
+  }
+  .btn-resolve-sm:hover:not(:disabled) { background: #f3f4f6; border-color: #9ca3af; }
+  .btn-resolve-sm:disabled { opacity: 0.55; cursor: not-allowed; }
+  @keyframes _rspin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+  .btn-resolve-sm.spinning svg { animation: _rspin 0.75s linear infinite; }
+
+  /* ── Running badge ──────────────────────────────────────────────────────── */
+  .resolve-running-badge {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px;
+    border-radius: 999px; font-size: 12px; font-weight: 700;
+    background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;
+  }
+  .resolve-running-dot { width: 8px; height: 8px; border-radius: 50%; background: #16a34a; animation: resolve-pulse 1.2s infinite; }
+  @keyframes resolve-pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+  .resolve-actions { display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; width: 100%; }
+
+  /* ── Ring progress ───────────────────────────────────────────────────────── */
+  .resolve-progress-wrap {
+    display: none; align-items: center; gap: 10px; margin-left: auto; flex-shrink: 0;
+  }
+  .resolve-progress-wrap.visible { display: flex; }
+  .resolve-ring { width: 36px; height: 36px; flex-shrink: 0; }
+  .resolve-ring-bg  { fill: none; stroke: #e5e7eb; stroke-width: 3.5; }
+  .resolve-ring-arc {
+    fill: none; stroke: #3b82d4; stroke-width: 3.5; stroke-linecap: round;
+    transform: rotate(-90deg); transform-origin: 50% 50%;
+    transition: stroke-dashoffset 0.5s ease;
+  }
+  .resolve-progress-label {
+    font-size: 12px; font-weight: 700; color: #3b82d4; white-space: nowrap; min-width: 30px;
+  }
+  .resolve-progress-step {
+    font-size: 11px; color: #57606a; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; max-width: 200px;
+  }
+
+  /* ── Credentials modal ──────────────────────────────────────────────────── */
+  .resolve-cred-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    z-index: 9000; align-items: center; justify-content: center;
+  }
+  .resolve-cred-overlay.visible { display: flex; }
+  .resolve-cred-modal {
+    background: #fff; border-radius: 10px; padding: 28px 28px 24px;
+    width: 100%; max-width: 420px; box-shadow: 0 8px 32px rgba(0,0,0,.18);
+    position: relative;
+  }
+  .resolve-cred-title {
+    font-size: 15px; font-weight: 700; color: #1f2328; margin: 0 0 4px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .resolve-cred-sub { font-size: 12px; color: #57606a; margin: 0 0 20px; line-height: 1.6; }
+  .resolve-cred-field { margin-bottom: 14px; }
+  .resolve-cred-label {
+    display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 5px;
+  }
+  .resolve-cred-input {
+    width: 100%; padding: 8px 11px; border: 1px solid #d0d7de; border-radius: 6px;
+    font-size: 13px; font-family: inherit; color: #1f2328; outline: none;
+    box-sizing: border-box;
+  }
+  .resolve-cred-input:focus { border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,.18); }
+  .resolve-cred-current { font-size: 11px; color: #57606a; margin-top: 4px; }
+  .resolve-cred-error {
+    font-size: 12px; color: #dc2626; background: #fff1f2; border: 1px solid #fca5a5;
+    border-radius: 5px; padding: 7px 11px; margin-bottom: 14px; display: none;
+  }
+  .resolve-cred-error.visible { display: block; }
+  .resolve-cred-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+  .btn-rcred-cancel {
+    padding: 8px 16px; background: #fff; border: 1px solid #d0d7de; border-radius: 6px;
+    font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; color: #374151;
+  }
+  .btn-rcred-cancel:hover { background: #f3f4f6; }
+  .btn-rcred-save {
+    padding: 8px 18px; background: #3b82d4; border: 1px solid #3b82d4; border-radius: 6px;
+    font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; color: #fff;
+    transition: background 0.12s;
+  }
+  .btn-rcred-save:hover { background: #2563b0; border-color: #2563b0; }
+  .btn-rcred-save:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  /* ── Reset modal ────────────────────────────────────────────────────────── */
+  .resolve-reset-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    z-index: 9100; align-items: center; justify-content: center;
+  }
+  .resolve-reset-overlay.visible { display: flex; }
+  .resolve-reset-modal {
+    background: #fff; border-radius: 10px; padding: 28px 28px 24px;
+    width: 100%; max-width: 400px; box-shadow: 0 8px 32px rgba(0,0,0,.2);
+  }
+  .resolve-reset-title {
+    font-size: 15px; font-weight: 700; color: #b91c1c; margin: 0 0 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .resolve-reset-body  { font-size: 13px; color: #374151; margin: 0 0 8px; line-height: 1.6; }
+  .resolve-reset-note  { font-size: 12px; color: #57606a; margin: 0 0 22px; line-height: 1.55; }
+  .resolve-reset-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .btn-rreset-cancel {
+    padding: 9px 18px; background: #fff; border: 1px solid #d0d7de; border-radius: 6px;
+    font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; color: #374151;
+  }
+  .btn-rreset-cancel:hover { background: #f3f4f6; }
+  .btn-rreset-confirm {
+    padding: 9px 20px; background: #dc2626; border: 1px solid #b91c1c; border-radius: 6px;
+    font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; color: #fff;
+    transition: background 0.12s;
+  }
+  .btn-rreset-confirm:hover { background: #b91c1c; border-color: #991b1b; }
+  .btn-rreset-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  /* ── Tab bar ────────────────────────────────────────────────────────────── */
+  .resolve-tab-bar {
+    display: flex; gap: 0; border-top: 1px solid #e5e7eb; flex-shrink: 0;
+    background: #f7f8fa;
+  }
+  .resolve-tab {
+    padding: 10px 20px; font-size: 12px; font-weight: 600; color: #57606a;
+    cursor: pointer; border: none; background: transparent; font-family: inherit;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+    transition: color 0.12s, border-color 0.12s;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .resolve-tab:hover { color: #1f2328; }
+  .resolve-tab.active { color: #3b82d4; border-bottom-color: #3b82d4; background: #fff; }
+  .resolve-tab-body { display: flex; flex-direction: column; }
+  .resolve-tab-pane { display: none; flex-direction: column; }
+  .resolve-tab-pane.active { display: flex; }
+  /* Files pane: shrinks to content */
+  #resolve-pane-files { overflow-y: auto; }
+  /* Log pane: always fills at least the visible viewport below the card header */
+  #resolve-pane-log {
+    flex: 1;
+    min-height: calc(100vh - 280px);
+  }
+
+  /* ── Files section ──────────────────────────────────────────────────────── */
+  .resolve-files-section { flex-shrink: 0; }
+  .resolve-files-head {
+    padding: 10px 16px; border-bottom: 1px solid #e5e7eb;
+    display: flex; align-items: center; gap: 10px;
+    background: #f7f8fa;
+  }
+  .resolve-files-head-label { font-size: 12px; font-weight: 700; color: #374151; flex: 1; }
+  .resolve-files-head-count {
+    font-size: 11px; font-weight: 700; color: #57606a;
+    background: #e5e7eb; border-radius: 999px; padding: 1px 7px;
+  }
+  /* Each block is its own bordered card with spacing between them */
+  .resolve-files-block {
+    flex-shrink: 0;
+    margin: 12px 16px 0;
+    border: 1.5px solid #c5d3e0;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .resolve-files-block.block-awb {
+    border-color: #c5d3e0;
+  }
+  /* Bottom padding so the last block doesn't press against the pane edge */
+  #resolve-pane-files { padding-bottom: 12px; }
+  .resolve-files-scroll { overflow: visible; }
+  .resolve-file-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .resolve-file-table thead { background: #f7f8fa; }
+  .resolve-file-table th {
+    padding: 8px 16px; text-align: left; font-size: 11px; font-weight: 700; color: #57606a;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    border-bottom: 1px solid #e5e7eb; white-space: nowrap;
+    vertical-align: middle;
+  }
+  .resolve-file-table td { padding: 9px 16px; border-bottom: 1px solid #f0f2f5; vertical-align: middle; }
+  .resolve-file-table tbody tr:hover td { background: #f9fafb; }
+  .resolve-file-table tr:last-child td { border-bottom: none; }
+  .resolve-file-name {
+    font-weight: 600; color: #1f2328; font-size: 12px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 380px;
+  }
+  .resolve-muted { color: #57606a; font-size: 12px; white-space: nowrap; }
+  .resolve-empty { padding: 24px 18px; text-align: center; font-size: 13px; color: #57606a; }
+
+  /* ── Upsert stat badges ─────────────────────────────────────────────────── */
+  .resolve-stat-badge {
+    display: inline-block; padding: 2px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 700; white-space: nowrap;
+  }
+  .resolve-stat-dc   { background: #dbeafe; color: #1d4ed8; }
+  .resolve-stat-awb  { background: #dcfce7; color: #15803d; }
+  .resolve-stat-ok   { background: #dcfce7; color: #15803d; }
+  .resolve-stat-fail { background: #fee2e2; color: #dc2626; }
+
+  /* ── Scheduler countdown pill ──────────────────────────────────────────── */
+  .resolve-sched-pill {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px;
+    border-radius: 999px; font-size: 12px; font-weight: 600;
+    background: #f0f6ff; color: #1d4ed8; border: 1px solid #bfdbfe;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .resolve-sched-pill svg { flex-shrink: 0; }
+  .resolve-sched-pill.sched-soon {
+    background: #fefce8; color: #a16207; border-color: #fde68a;
+  }
+
+  /* ── Top action bar ─────────────────────────────────────────────────────── */
+  .resolve-panel-body { padding: 20px; flex-shrink: 0; }
+
+  /* ── Console ────────────────────────────────────────────────────────────── */
+  .resolve-console-wrap {
+    display: flex; flex-direction: column; flex: 1;
+  }
+  .resolve-console-head {
+    padding: 10px 16px; border-bottom: 1px solid #e5e7eb; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .resolve-console-head span { font-size: 12px; color: #57606a; font-weight: 600; }
+  .resolve-console {
+    background: #0d1117; color: #c9d1d9; overflow-y: auto; flex: 1;
+    min-height: 0;
+    padding: 14px 16px; font-family: ui-monospace, SFMono-Regular, "Courier New", monospace;
+    font-size: 12.5px; line-height: 1.55;
+  }
+  .resolve-log-line    { white-space: pre-wrap; word-break: break-word; margin: 0 0 2px; }
+  .resolve-log-info    { color: #c9d1d9; }
+  .resolve-log-warning { color: #e3b341; }
+  .resolve-log-error   { color: #f85149; }
+  .resolve-log-system  { color: #58a6ff; }
+
+  .resolve-panel { display: flex; flex-direction: column; }
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom:20px">
+  <div class="breadcrumb" style="font-size:12px;color:#57606a;margin-bottom:6px">
+    Admin <span style="margin:0 5px">›</span> Data Import / Export <span style="margin:0 5px">›</span> RESOLV DC Updates
+  </div>
+  <h1 style="font-size:20px;font-weight:700;margin:0 0 4px">RESOLV DC Updates</h1>
+  <p style="font-size:13px;color:#57606a;margin:0">
+    Run the Lenovo Resolve auto-download workflow — exports GTAP RPL Work Orders (AWB) and the GTAP RPL Report (DC).
+  </p>
+</div>
+
+<div class="resolve-card">
+  <div class="resolve-panel">
+
+    <!-- ── Action bar ──────────────────────────────────────────────────────── -->
+    <div class="resolve-panel-body">
+      <div class="resolve-actions">
+        <button type="button" class="btn-resolve primary" id="btn-run-resolve" onclick="triggerResolveRun()"
+          {% if is_running %}disabled{% endif %}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span id="btn-run-resolve-label">Run Update</span>
+        </button>
+        <button type="button" class="btn-resolve" id="btn-change-resolve-creds" onclick="openResolveCredModal()" title="Update Lenovo Resolve IBM ID credentials">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Change Credentials
+        </button>
+
+        <!-- spacer pushes progress + reset + badge to the right -->
+        <span style="flex:1"></span>
+
+        <!-- ring progress: right-aligned, shown while running -->
+        <div class="resolve-progress-wrap" id="resolve-progress-wrap">
+          <span class="resolve-progress-step" id="resolve-progress-step"></span>
+          <!-- r=15.5 → circumference = 2π×15.5 ≈ 97.4 -->
+          <svg class="resolve-ring" viewBox="0 0 36 36" aria-hidden="true">
+            <circle class="resolve-ring-bg"  cx="18" cy="18" r="15.5"/>
+            <circle class="resolve-ring-arc" cx="18" cy="18" r="15.5" id="resolve-ring-arc"
+                    stroke-dasharray="97.4 97.4" stroke-dashoffset="97.4"/>
+          </svg>
+          <span class="resolve-progress-label" id="resolve-progress-label">0%</span>
+        </div>
+
+        <!-- Reset button -->
+        <button type="button" class="btn-resolve danger" id="btn-reset-resolve" onclick="openResolveResetModal()"
+                style="flex-shrink:0"
+                title="Force-close Chrome and restart the download script">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+          Reset
+        </button>
+
+        <!-- RUNNING badge -->
+        <span class="resolve-running-badge" id="resolve-running-badge" {% if not is_running %}style="display:none"{% endif %}>
+          <span class="resolve-running-dot"></span>RUNNING
+        </span>
+
+        <!-- Scheduler countdown pill -->
+        <span class="resolve-sched-pill" id="resolve-sched-pill" style="display:none"
+              title="Auto-runs every 2 hours on weekdays, 08:00–20:00 WIB">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span id="resolve-sched-label">Next auto-run: —</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- ── Tab bar ────────────────────────────────────────────────────────── -->
+    <div class="resolve-tab-bar">
+      <button type="button" class="resolve-tab active" id="resolve-tab-files" onclick="switchResolveTab('files')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Downloaded Files
+      </button>
+      <button type="button" class="resolve-tab" id="resolve-tab-log" onclick="switchResolveTab('log')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Live Execution Log
+      </button>
+    </div>
+
+    <!-- ── Tab body ───────────────────────────────────────────────────────── -->
+    <div class="resolve-tab-body">
+
+      <!-- ── Files pane ──────────────────────────────────────────────────── -->
+      <div class="resolve-tab-pane active" id="resolve-pane-files">
+
+        <!-- Extract-DC (top) -->
+        <div class="resolve-files-block block-dc">
+          <div class="resolve-files-head">
+            <span class="resolve-files-head-label">Extract-DC Files</span>
+            <span class="resolve-files-head-count" id="resolve-dc-count">{{ dc_files|length }}</span>
+            <button type="button" class="btn-resolve-sm" id="btn-refresh-resolve-files" onclick="refreshResolveFiles()" title="Refresh both file lists">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              Refresh
+            </button>
+          </div>
+          <div class="resolve-files-scroll">
+            <table class="resolve-file-table">
+              <thead>
+                <tr>
+                  <th>File Name Resolv DC Files</th>
+                  <th style="width:80px;text-align:center;white-space:nowrap">Size</th>
+                  <th style="width:130px;text-align:center;white-space:nowrap">Modified</th>
+                  <th style="width:80px;text-align:center;white-space:nowrap">New DC#</th>
+                  <th style="width:110px;text-align:center;white-space:nowrap">Status Changes</th>
+                  <th style="width:120px;text-align:center;white-space:nowrap">Upsert Status</th>
+                </tr>
+              </thead>
+              <tbody id="resolve-dc-tbody">
+                {% if dc_files %}
+                  {% for file in dc_files %}
+                  <tr>
+                    <td style="vertical-align:middle"><div class="resolve-file-name">{{ file.name }}</div></td>
+                    <td style="width:80px;text-align:center;vertical-align:middle"><span class="resolve-muted">{{ file.size_kb }} KB</span></td>
+                    <td style="width:130px;text-align:center;vertical-align:middle"><span class="resolve-muted">{{ file.modified_fmt }}</span></td>
+                    <td style="width:80px;text-align:center;vertical-align:middle">
+                      {% if file.new_dc is not none %}<span class="resolve-stat-badge resolve-stat-dc">{{ file.new_dc }}</span>{% else %}<span class="resolve-muted">—</span>{% endif %}
+                    </td>
+                    <td style="width:110px;text-align:center;vertical-align:middle">
+                      {% if file.new_status is not none %}<span class="resolve-stat-badge resolve-stat-awb">{{ file.new_status }}</span>{% else %}<span class="resolve-muted">—</span>{% endif %}
+                    </td>
+                    <td style="width:120px;text-align:center;vertical-align:middle">
+                      {% if file.upsert_status == 'success' %}<span class="resolve-stat-badge resolve-stat-ok">✅ Success</span>
+                      {% elif file.upsert_status == 'failed' %}<span class="resolve-stat-badge resolve-stat-fail">❌ Failed</span>
+                      {% else %}<span class="resolve-muted">—</span>{% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                {% else %}
+                  <tr><td colspan="6" class="resolve-empty">No DC files yet.</td></tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Extract-AWB (below) -->
+        <div class="resolve-files-block block-awb">
+          <div class="resolve-files-head">
+            <span class="resolve-files-head-label">Extract-AWB Files</span>
+            <span class="resolve-files-head-count" id="resolve-awb-count">{{ awb_files|length }}</span>
+            <button type="button" class="btn-resolve-sm" id="btn-refresh-resolve-awb-files" onclick="refreshResolveFiles()" title="Refresh both file lists">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              Refresh
+            </button>
+          </div>
+          <div class="resolve-files-scroll">
+            <table class="resolve-file-table">
+              <thead>
+                <tr>
+                  <th>File Name Resolv AWB Files</th>
+                  <th style="width:80px;text-align:center;white-space:nowrap">Size</th>
+                  <th style="width:130px;text-align:center;white-space:nowrap">Modified</th>
+                  <th style="width:90px;text-align:center;white-space:nowrap">Match DC</th>
+                  <th style="width:110px;text-align:center;white-space:nowrap">New AWB/Dates</th>
+                  <th style="width:120px;text-align:center;white-space:nowrap">Upsert Status</th>
+                </tr>
+              </thead>
+              <tbody id="resolve-awb-tbody">
+                {% if awb_files %}
+                  {% for file in awb_files %}
+                  <tr>
+                    <td style="vertical-align:middle"><div class="resolve-file-name">{{ file.name }}</div></td>
+                    <td style="width:80px;text-align:center;vertical-align:middle"><span class="resolve-muted">{{ file.size_kb }} KB</span></td>
+                    <td style="width:130px;text-align:center;vertical-align:middle"><span class="resolve-muted">{{ file.modified_fmt }}</span></td>
+                    <td style="width:80px;text-align:center;vertical-align:middle">
+                      {% if file.new_dc is not none %}<span class="resolve-stat-badge resolve-stat-dc">{{ file.new_dc }}</span>{% else %}<span class="resolve-muted">—</span>{% endif %}
+                    </td>
+                    <td style="width:110px;text-align:center;vertical-align:middle">
+                      {% if file.new_awb is not none %}<span class="resolve-stat-badge resolve-stat-awb">{{ file.new_awb }}</span>{% else %}<span class="resolve-muted">—</span>{% endif %}
+                    </td>
+                    <td style="width:120px;text-align:center;vertical-align:middle">
+                      {% if file.upsert_status == 'success' %}<span class="resolve-stat-badge resolve-stat-ok">✅ Success</span>
+                      {% elif file.upsert_status == 'failed' %}<span class="resolve-stat-badge resolve-stat-fail">❌ Failed</span>
+                      {% else %}<span class="resolve-muted">—</span>{% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                {% else %}
+                  <tr><td colspan="6" class="resolve-empty">No AWB files yet.</td></tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div><!-- /resolve-pane-files -->
+
+      <!-- ── Log pane ────────────────────────────────────────────────────── -->
+      <div class="resolve-tab-pane" id="resolve-pane-log">
+        <div class="resolve-console-wrap">
+          <div class="resolve-console-head">
+            <span>Live Execution Log</span>
+            <button type="button" class="btn-resolve" onclick="clearResolveLog()">Clear Log</button>
+          </div>
+          <div class="resolve-console" id="resolve-console"></div>
+        </div>
+      </div><!-- /resolve-pane-log -->
+
+    </div><!-- /resolve-tab-body -->
+
+  </div>
+</div>
+
+<!-- ── Reset confirmation modal ──────────────────────────────────────────── -->
+<div class="resolve-reset-overlay" id="resolve-reset-overlay" onclick="if(event.target===this)closeResolveResetModal()">
+  <div class="resolve-reset-modal">
+    <p class="resolve-reset-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+      Reset Resolve Download?
+    </p>
+    <p class="resolve-reset-body">
+      This will <strong>force-close the Chrome window</strong> and clear the stuck task state,
+      then automatically start a fresh download.
+    </p>
+    <p class="resolve-reset-note">
+      ✅ Your saved Chrome session (cookies &amp; Resolve login) will be <strong>preserved</strong> —
+      the next run will not need to log in again.
+    </p>
+    <div class="resolve-reset-actions">
+      <button type="button" class="btn-rreset-cancel" id="btn-rreset-modal-cancel" onclick="closeResolveResetModal()">Cancel</button>
+      <button type="button" class="btn-rreset-confirm" id="btn-rreset-modal-confirm" onclick="confirmResetResolve()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+        Yes, Reset &amp; Restart
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Change Credentials modal ──────────────────────────────────────────── -->
+<div class="resolve-cred-overlay" id="resolve-cred-overlay" onclick="if(event.target===this)closeResolveCredModal()">
+  <div class="resolve-cred-modal">
+    <p class="resolve-cred-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Change Resolve Credentials
+    </p>
+    <p class="resolve-cred-sub">
+      Update the IBM ID username and password used to log in to Lenovo Resolve.
+      Changes are saved immediately and will be used on the next run.
+    </p>
+    <div class="resolve-cred-error" id="resolve-cred-error"></div>
+    <div class="resolve-cred-field">
+      <label class="resolve-cred-label" for="resolve-cred-username">IBM ID Username</label>
+      <input type="text" id="resolve-cred-username" class="resolve-cred-input"
+             placeholder="your-ibm-id" autocomplete="username" />
+      <span class="resolve-cred-current" id="resolve-cred-current-username"></span>
+    </div>
+    <div class="resolve-cred-field">
+      <label class="resolve-cred-label" for="resolve-cred-password">Password</label>
+      <input type="password" id="resolve-cred-password" class="resolve-cred-input"
+             placeholder="Enter password" autocomplete="new-password" />
+    </div>
+    <div class="resolve-cred-actions">
+      <button type="button" class="btn-rcred-cancel" onclick="closeResolveCredModal()">Cancel</button>
+      <button type="button" class="btn-rcred-save" id="btn-rcred-save" onclick="saveResolveCredentials()">Save Credentials</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let _resolveEs          = null;
+let _resolveRunning     = {{ 'true' if is_running else 'false' }};
+let _resolveStatusTimer = null;
+
+const _RESOLVE_LOG_KEY = 'resolve_exec_log';
+const _resolveStore    = window.localStorage;
+
+/* ── Progress bar ──────────────────────────────────────────────────────── */
+const _RESOLVE_STEPS = [
+  [/Clicking 'GTAP RPL Work Orders'/,                    10, 'Navigating…'],
+  [/Navigating to GTAP RPL page/,                        18, 'Loading page…'],
+  [/Clicking 'Generated DC/,                             25, 'Opening DC tab…'],
+  [/Setting 100 rows per page/,                          32, 'Setting rows…'],
+  [/Starting full table scrape/,                         40, 'Scraping…'],
+  [/Scraped \d+ total rows/,                             60, 'Scraped'],
+  [/Exporting to Excel/,                                 68, 'Exporting AWB…'],
+  [/Saved to:/,                                          74, 'AWB saved…'],
+  [/Clicking 'Report' menu/,                             80, 'Navigating Report…'],
+  [/Clicking 'GTAP RPL Report'/,                         85, 'Opening Report…'],
+  [/Clicking Excel download button/,                     88, 'Downloading DC…'],
+  [/Download triggered/,                                 92, 'Waiting for DC…'],
+  [/File saved to:/,                                     96, 'DC saved…'],
+  [/Closing Chrome/,                                     98, 'Closing…'],
+  [/Done\./,                                             99, 'Done — upserting…'],
+  [/Upserting dc_number\/return_status/,                 99, 'Upserting DC…'],
+  [/dc upsert complete/,                                 99, 'DC upserted ✓'],
+  [/Upserting awb_resolv/,                               99, 'Upserting AWB/Dates…'],
+  [/awb_resolv upsert complete/,                        100, 'All done ✓'],
+];
+
+let _resolveCurrentPct = 0;
+const _RESOLVE_RING_CIRC = 97.4;
+
+function _resolveSetProgress(pct, stepLabel) {
+  if (pct < _resolveCurrentPct) return;
+  _resolveCurrentPct = pct;
+  const wrap  = document.getElementById('resolve-progress-wrap');
+  const arc   = document.getElementById('resolve-ring-arc');
+  const label = document.getElementById('resolve-progress-label');
+  const step  = document.getElementById('resolve-progress-step');
+  wrap.classList.add('visible');
+  arc.style.strokeDashoffset = (_RESOLVE_RING_CIRC * (1 - pct / 100)).toFixed(2);
+  label.textContent = pct + '%';
+  if (stepLabel !== undefined) step.textContent = stepLabel;
+}
+
+function _resolveHideProgress() {
+  _resolveCurrentPct = 0;
+  const arc = document.getElementById('resolve-ring-arc');
+  if (arc) arc.style.strokeDashoffset = _RESOLVE_RING_CIRC;
+  document.getElementById('resolve-progress-wrap').classList.remove('visible');
+  document.getElementById('resolve-progress-label').textContent = '0%';
+  document.getElementById('resolve-progress-step').textContent  = '';
+}
+
+function _resolveScanStepProgress(text) {
+  for (const [re, pct, label] of _RESOLVE_STEPS) {
+    if (re.test(text)) { _resolveSetProgress(pct, label); return; }
+  }
+}
+
+/* ── Log helpers ───────────────────────────────────────────────────────── */
+function appendResolveLog(level, text) {
+  const el = document.getElementById('resolve-console');
+  const p  = document.createElement('p');
+  p.className = 'resolve-log-line ' + level;
+  p.textContent = text;
+  el.appendChild(p);
+  while (el.children.length > 1000) el.removeChild(el.firstChild);
+  el.scrollTop = el.scrollHeight;
+  _resolveStore.setItem(_RESOLVE_LOG_KEY, el.innerHTML);
+}
+
+function clearResolveLog() {
+  document.getElementById('resolve-console').innerHTML =
+    '<p class="resolve-log-line resolve-log-system">— log cleared —</p>';
+  _resolveStore.removeItem(_RESOLVE_LOG_KEY);
+}
+
+function _resc(str) {
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/* ── Running state ─────────────────────────────────────────────────────── */
+function setResolveRunning(running) {
+  const wasRunning = _resolveRunning;
+  _resolveRunning  = running;
+  document.getElementById('btn-run-resolve').disabled = running;
+  document.getElementById('resolve-running-badge').style.display = running ? 'inline-flex' : 'none';
+
+  if (!running && wasRunning) {
+    _resolveHideProgress();
+  }
+  if (running && !wasRunning) {
+    _resolveHideProgress();
+    _resolveSetProgress(2, 'Starting…');
+  }
+}
+
+/* ── Credentials modal ─────────────────────────────────────────────────── */
+function openResolveCredModal() {
+  const overlay  = document.getElementById('resolve-cred-overlay');
+  const userEl   = document.getElementById('resolve-cred-username');
+  const pwEl     = document.getElementById('resolve-cred-password');
+  const errEl    = document.getElementById('resolve-cred-error');
+  const curEl    = document.getElementById('resolve-cred-current-username');
+  pwEl.value = '';
+  errEl.textContent = '';
+  errEl.classList.remove('visible');
+  overlay.classList.add('visible');
+  fetch('/admin/resolve-dc-updates/credentials')
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.ok) {
+        userEl.value = data.username || '';
+        curEl.textContent = data.username ? 'Current: ' + data.username : '';
+      }
+    })
+    .catch(function () {});
+  setTimeout(function () { userEl.focus(); }, 80);
+}
+
+function closeResolveCredModal() {
+  document.getElementById('resolve-cred-overlay').classList.remove('visible');
+}
+
+function saveResolveCredentials() {
+  const userEl  = document.getElementById('resolve-cred-username');
+  const pwEl    = document.getElementById('resolve-cred-password');
+  const saveBtn = document.getElementById('btn-rcred-save');
+  const errEl   = document.getElementById('resolve-cred-error');
+  const username = userEl.value.trim();
+  const password = pwEl.value.trim();
+  errEl.classList.remove('visible');
+  if (!username) {
+    errEl.textContent = 'Username is required.';
+    errEl.classList.add('visible');
+    userEl.focus();
+    return;
+  }
+  if (!password) {
+    errEl.textContent = 'Password is required.';
+    errEl.classList.add('visible');
+    pwEl.focus();
+    return;
+  }
+  saveBtn.disabled = true;
+  fetch('/admin/resolve-dc-updates/credentials', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: username, password: password }),
+  })
+    .then(async function (r) {
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.error || 'Failed to save credentials.');
+      closeResolveCredModal();
+      appendResolveLog('resolve-log-system',
+        '— Resolve credentials updated (' + username + '). Will be used on the next run. —');
+    })
+    .catch(function (err) {
+      errEl.textContent = err.message || String(err);
+      errEl.classList.add('visible');
+    })
+    .finally(function () { saveBtn.disabled = false; });
+}
+
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') { closeResolveCredModal(); closeResolveResetModal(); }
+});
+
+/* ── Reset modal ────────────────────────────────────────────────────────── */
+function openResolveResetModal() {
+  document.getElementById('resolve-reset-overlay').classList.add('visible');
+  document.getElementById('btn-rreset-modal-confirm').disabled = false;
+  document.getElementById('btn-rreset-modal-cancel').disabled  = false;
+}
+
+function closeResolveResetModal() {
+  document.getElementById('resolve-reset-overlay').classList.remove('visible');
+}
+
+function confirmResetResolve() {
+  const confirmBtn = document.getElementById('btn-rreset-modal-confirm');
+  const cancelBtn  = document.getElementById('btn-rreset-modal-cancel');
+  confirmBtn.disabled = true;
+  cancelBtn.disabled  = true;
+  closeResolveResetModal();
+
+  appendResolveLog('resolve-log-system', '— Resetting Resolve download: closing Chrome and clearing task state… —');
+  fetch('/admin/resolve-dc-updates/reset', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  })
+    .then(async function (r) {
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.error || 'Reset failed.');
+      appendResolveLog('resolve-log-system', '— Reset complete. ' + (data.msg || '') + ' Starting fresh run… —');
+      _resolveHideProgress();
+      setResolveRunning(false);
+      // Start a fresh run automatically
+      fetch('/admin/resolve-dc-updates/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+        .then(async function (r2) {
+          const d2 = await r2.json();
+          if (d2.ok) {
+            appendResolveLog('resolve-log-system', '— Fresh Resolve run started. —');
+            setResolveRunning(true);
+            connectResolveStream();
+          } else {
+            appendResolveLog('resolve-log-error', 'Could not start fresh run: ' + (d2.error || 'Unknown error'));
+          }
+        })
+        .catch(function (err2) {
+          appendResolveLog('resolve-log-error', 'Trigger after reset failed: ' + (err2.message || String(err2)));
+        });
+    })
+    .catch(function (err) {
+      appendResolveLog('resolve-log-error', 'Reset failed: ' + (err.message || String(err)));
+    });
+}
+
+/* ── Tab switching ──────────────────────────────────────────────────────── */
+function switchResolveTab(name) {
+  ['files', 'log'].forEach(function (n) {
+    document.getElementById('resolve-tab-' + n).classList.toggle('active', n === name);
+    document.getElementById('resolve-pane-' + n).classList.toggle('active', n === name);
+  });
+}
+
+/* ── Files refresh ─────────────────────────────────────────────────────── */
+function _resolveStatCell(val, cls) {
+  return (val !== null && val !== undefined)
+    ? '<span class="resolve-stat-badge ' + cls + '">' + _resc(String(val)) + '</span>'
+    : '<span class="resolve-muted">—</span>';
+}
+function _resolveStatusCell(s) {
+  if (s === 'success') return '<span class="resolve-stat-badge resolve-stat-ok">✅ Success</span>';
+  if (s === 'failed')  return '<span class="resolve-stat-badge resolve-stat-fail">❌ Failed</span>';
+  return '<span class="resolve-muted">—</span>';
+}
+
+function refreshResolveFiles() {
+  // Spin & disable both Refresh buttons while the fetch is in flight
+  var _refreshBtns = [
+    document.getElementById('btn-refresh-resolve-files'),
+    document.getElementById('btn-refresh-resolve-awb-files'),
+  ].filter(Boolean);
+  _refreshBtns.forEach(function (b) { b.disabled = true; b.classList.add('spinning'); });
+
+  fetch('/admin/resolve-dc-updates/files')
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (!data.ok) return;
+
+      // AWB table
+      var awbTbody = document.getElementById('resolve-awb-tbody');
+      var awbCount = document.getElementById('resolve-awb-count');
+      if (!data.awb_files || data.awb_files.length === 0) {
+        awbTbody.innerHTML = '<tr><td colspan="6" class="resolve-empty">No AWB files yet.</td></tr>';
+        awbCount.textContent = '0';
+      } else {
+        awbCount.textContent = String(data.awb_files.length);
+        awbTbody.innerHTML = data.awb_files.map(function (f) {
+          return '<tr>'
+            + '<td style="vertical-align:middle"><div class="resolve-file-name" title="' + _resc(f.name) + '">' + _resc(f.name) + '</div></td>'
+            + '<td style="width:80px;text-align:center;vertical-align:middle"><span class="resolve-muted">' + _resc(String(f.size_kb)) + ' KB</span></td>'
+            + '<td style="width:130px;text-align:center;vertical-align:middle"><span class="resolve-muted">' + _resc(f.modified_fmt) + '</span></td>'
+            + '<td style="width:90px;text-align:center;vertical-align:middle">' + _resolveStatCell(f.new_dc,  'resolve-stat-dc')  + '</td>'
+            + '<td style="width:110px;text-align:center;vertical-align:middle">' + _resolveStatCell(f.new_awb, 'resolve-stat-awb') + '</td>'
+            + '<td style="width:120px;text-align:center;vertical-align:middle">' + _resolveStatusCell(f.upsert_status) + '</td>'
+            + '</tr>';
+        }).join('');
+      }
+
+      // DC table
+      var dcTbody = document.getElementById('resolve-dc-tbody');
+      var dcCount = document.getElementById('resolve-dc-count');
+      if (!data.dc_files || data.dc_files.length === 0) {
+        dcTbody.innerHTML = '<tr><td colspan="6" class="resolve-empty">No DC files yet.</td></tr>';
+        dcCount.textContent = '0';
+      } else {
+        dcCount.textContent = String(data.dc_files.length);
+        dcTbody.innerHTML = data.dc_files.map(function (f) {
+          return '<tr>'
+            + '<td style="vertical-align:middle"><div class="resolve-file-name" title="' + _resc(f.name) + '">' + _resc(f.name) + '</div></td>'
+            + '<td style="width:80px;text-align:center;vertical-align:middle"><span class="resolve-muted">' + _resc(String(f.size_kb)) + ' KB</span></td>'
+            + '<td style="width:130px;text-align:center;vertical-align:middle"><span class="resolve-muted">' + _resc(f.modified_fmt) + '</span></td>'
+            + '<td style="width:80px;text-align:center;vertical-align:middle">' + _resolveStatCell(f.new_dc,     'resolve-stat-dc')  + '</td>'
+            + '<td style="width:110px;text-align:center;vertical-align:middle">' + _resolveStatCell(f.new_status, 'resolve-stat-awb') + '</td>'
+            + '<td style="width:120px;text-align:center;vertical-align:middle">' + _resolveStatusCell(f.upsert_status) + '</td>'
+            + '</tr>';
+        }).join('');
+      }
+    })
+    .catch(function () {})
+    .finally(function () {
+      _refreshBtns.forEach(function (b) { b.disabled = false; b.classList.remove('spinning'); });
+    });
+}
+
+/* ── SSE stream ────────────────────────────────────────────────────────── */
+function connectResolveStream() {
+  if (_resolveEs && _resolveEs.readyState !== EventSource.CLOSED) return; // already connected
+  if (_resolveEs) _resolveEs.close();
+  _resolveEs = new EventSource('/admin/resolve-dc-updates/stream');
+  _resolveEs.onmessage = function (e) {
+    const data = JSON.parse(e.data);
+    if (data.keepalive) return;
+    if (data.history_first) {
+      document.getElementById('resolve-console').innerHTML = '';
+      _resolveStore.removeItem(_RESOLVE_LOG_KEY);
+    }
+
+    const rawMsg = data.msg || '';
+    _resolveScanStepProgress(rawMsg);
+
+    // Refresh files when script finishes downloading or upsert completes
+    if (/File saved to:/i.test(rawMsg) || /Done\./i.test(rawMsg)) {
+      setTimeout(refreshResolveFiles, 600);
+    }
+    if (/awb_resolv upsert complete/i.test(rawMsg)) {
+      setTimeout(refreshResolveFiles, 800);
+    }
+
+    const ts  = data.ts ? '[' + data.ts + '] ' : '';
+    const msg = ts + rawMsg;
+    const lvl = (data.level || 'INFO').toUpperCase();
+    if      (lvl === 'ERROR')   appendResolveLog('resolve-log-error',   msg);
+    else if (lvl === 'WARNING') appendResolveLog('resolve-log-warning', msg);
+    else if (lvl === 'INFO')    appendResolveLog('resolve-log-info',    msg);
+    else                        appendResolveLog('resolve-log-system',  msg);
+  };
+  _resolveEs.onerror = function () {
+    if (_resolveRunning) appendResolveLog('resolve-log-system', '— log stream disconnected —');
+  };
+}
+
+/* ── Trigger ───────────────────────────────────────────────────────────── */
+function triggerResolveRun() {
+  // Disable button immediately to prevent double-click double-trigger
+  const btn = document.getElementById('btn-run-resolve');
+  btn.disabled = true;
+  fetch('/admin/resolve-dc-updates/trigger', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  })
+    .then(async function (r) {
+      const data = await r.json();
+      if (!r.ok || !data.ok) throw new Error(data.error || 'Failed to start RESOLV DC download.');
+      clearResolveLog();
+      appendResolveLog('resolve-log-system', '— RESOLV DC auto-download triggered —');
+      switchResolveTab('log');  // switch to log tab automatically when run starts
+      setResolveRunning(true);  // sets _resolveRunning=true before poll fires
+      connectResolveStream();   // opens SSE — guarded above against double-open
+    })
+    .catch(function (err) {
+      btn.disabled = false;
+      appendResolveLog('resolve-log-error', err.message || String(err));
+      alert(err.message || 'Failed to start RESOLV DC download.');
+    });
+}
+
+/* ── Status poll ───────────────────────────────────────────────────────── */
+function pollResolveStatus() {
+  fetch('/admin/resolve-dc-updates/status')
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (!data.ok) return;
+      const wasRunning = _resolveRunning;
+      setResolveRunning(!!data.is_running);
+      // Connect stream only on page-load discovery of a running task (no active stream yet)
+      // connectResolveStream() is self-guarding — won't open a second connection
+      if (data.is_running && !_resolveEs) {
+        connectResolveStream();
+      }
+      // Auto-refresh files when a run just finished
+      if (wasRunning && !data.is_running) refreshResolveFiles();
+    })
+    .catch(function () {});
+}
+
+/* ── Scheduler countdown ───────────────────────────────────────────────── */
+let _schedSecondsLeft = 0;
+let _schedCountTimer  = null;
+
+function _schedFmt(sec) {
+  sec = Math.max(0, Math.round(sec));
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  if (h > 0) return h + 'h ' + String(m).padStart(2,'0') + 'm';
+  if (m > 0) return m + 'm ' + String(s).padStart(2,'0') + 's';
+  return s + 's';
+}
+
+function _schedTick() {
+  _schedSecondsLeft = Math.max(0, _schedSecondsLeft - 1);
+  const pill  = document.getElementById('resolve-sched-pill');
+  const label = document.getElementById('resolve-sched-label');
+  if (!pill || !label) return;
+  if (_schedSecondsLeft <= 0) {
+    label.textContent = 'Auto-run starting…';
+    pill.classList.add('sched-soon');
+    // Re-fetch after 90s so the pill updates to the next slot
+    setTimeout(initResolveCountdown, 90000);
+    if (_schedCountTimer) { clearInterval(_schedCountTimer); _schedCountTimer = null; }
+    return;
+  }
+  const soon = _schedSecondsLeft < 3600;  // < 1 h → amber
+  pill.classList.toggle('sched-soon', soon);
+  label.textContent = 'Next auto-run: ' + _schedFmt(_schedSecondsLeft);
+}
+
+function initResolveCountdown() {
+  fetch('/admin/resolve-dc-updates/next-run')
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (!d.ok) return;
+      _schedSecondsLeft = Math.round(d.seconds_until);
+      const pill = document.getElementById('resolve-sched-pill');
+      if (pill) pill.style.display = '';
+      _schedTick();
+      if (_schedCountTimer) clearInterval(_schedCountTimer);
+      _schedCountTimer = setInterval(_schedTick, 1000);
+    })
+    .catch(function(){});
+}
+
+/* ── Init ──────────────────────────────────────────────────────────────── */
+(function () {
+  const bootId       = '{{ boot_id }}';
+  const storedBootId = sessionStorage.getItem('resolve_boot_id');
+  if (storedBootId !== bootId) {
+    _resolveStore.removeItem(_RESOLVE_LOG_KEY);
+    sessionStorage.setItem('resolve_boot_id', bootId);
+  }
+
+  const el    = document.getElementById('resolve-console');
+  const saved = _resolveStore.getItem(_RESOLVE_LOG_KEY);
+  if (saved) {
+    el.innerHTML = saved;
+    el.scrollTop = el.scrollHeight;
+  } else {
+    el.innerHTML = '<p class="resolve-log-line resolve-log-system">— ready — click "Run Update" to start streaming logs —</p>';
+  }
+})();
+
+pollResolveStatus();
+refreshResolveFiles();
+initResolveCountdown();
+_resolveStatusTimer = setInterval(pollResolveStatus, 10000);
+window.addEventListener('beforeunload', function () {
+  if (_resolveEs)          _resolveEs.close();
+  if (_resolveStatusTimer) clearInterval(_resolveStatusTimer);
+});
+</script>
+{% endblock %}

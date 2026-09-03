@@ -1666,6 +1666,11 @@ def data_import_upsert_preview(category_key: str):
                     ).fetchall()
                 }
                 db_dc = {soid: v["dc_number"] for soid, v in db_gtaap.items()}
+                # SOIDs fully blocked from any write (return_status already DC GENERATED)
+                _blocked_soids_preview: set = {
+                    soid for soid, v in db_gtaap.items()
+                    if str(v["return_status"] or "").strip() == "DC GENERATED"
+                }
 
                 soid_col          = "SOID"
                 dc_col            = "DC#"
@@ -1718,7 +1723,9 @@ def data_import_upsert_preview(category_key: str):
                 def _dc_will_write(row):
                     """True when a real DC# will be written to this row."""
                     soid = _safe_int(row.get(soid_col))
-                    if soid is None or not _dc_eligible(db_dc.get(soid)):
+                    if soid is None or soid in _blocked_soids_preview:
+                        return False
+                    if not _dc_eligible(db_dc.get(soid)):
                         return False
                     return _has_dc_val(row.get(dc_col))
 
@@ -1749,6 +1756,8 @@ def data_import_upsert_preview(category_key: str):
                 def _is_impacted(row):
                     soid = _safe_int(row.get(soid_col))
                     if soid is None or soid not in db_gtaap:
+                        return False
+                    if soid in _blocked_soids_preview:   # fully blocked — no write at all
                         return False
                     if _dc_will_write(row):
                         return True
@@ -1828,7 +1837,7 @@ def data_import_upsert_preview(category_key: str):
                             "SOID":              str(_soid),
                             "Work Order ID":     str(_wo_id) if _wo_id else "—",
                             "Current Status":    _db_rs,
-                            "Will be set to":    "DC GENERATED",
+                            "Will be set to":    "UNKNOWN",
                         })
                 else:
                     new_df     = pd.DataFrame()
@@ -1837,33 +1846,45 @@ def data_import_upsert_preview(category_key: str):
 
             elif category_key == "UNRETURN":
                 # Impacted rows = Excel rows whose SOID is in wo_product_detail.
-                # Preview shows exactly what dc_lenovo and return_status will be written
-                # and the reason for each change.
+                # Preview shows exactly what will be written to each column and
+                # the reason for each change (including date-gate decisions).
                 import math as _math_ur
+                from datetime import datetime as _dt_ur
 
-                db_unreturn = {
-                    r[0]: {"dc_lenovo": r[1], "return_status": r[2]}
-                    for r in db_conn.execute(
-                        "SELECT soid, dc_lenovo, return_status FROM wo_product_detail"
-                    ).fetchall()
-                }
-
-                soid_col        = "SOID"
-                dc_col          = "DC/Collection Form"
-                rs_col          = "Return Status"
-                date_col        = "SO Completion Date"
-                dc_write_col    = "dc_lenovo (will write)"
-                rs_write_col    = "return_status (will write)"
-                reason_col      = "Reason"
-                no_match_col    = "No Match Reason"
-                preview_cols    = [
+                # ── Column name constants ────────────────────────────────────────
+                soid_col             = "SOID"
+                dc_col               = "DC/Collection Form"
+                rs_col               = "Return Status"
+                subdate_col          = "DC/Collection Form-Submitted Date"
+                awb_col              = "AWB Number"
+                note_col             = "Note"
+                date_col             = "SO Completion Date"
+                dc_write_col         = "dc_lenovo (will write)"
+                awb_write_col        = "awb_return (will write)"
+                lrs_write_col        = "lenovo_return_status (will write)"
+                notes_write_col      = "awb_notes (will write)"
+                subdate_gate_col     = "modify_date_dc_lenovo (gate)"
+                is_exist_write_col   = "is_exist_excel (will write)"
+                reason_col           = "Reason"
+                no_match_col         = "No Match Reason"
+                # rs_write_col is used internally for the reason string but NOT shown
+                rs_write_col         = "return_status (will write)"
+                preview_cols     = [
+                    reason_col,
                     soid_col, dc_col, dc_write_col,
-                    rs_col, rs_write_col, "Vendor Name", date_col,
+                    rs_col, lrs_write_col,
+                    awb_col, awb_write_col,
+                    note_col, notes_write_col,
+                    "Vendor Name", date_col,
+                    subdate_col, subdate_gate_col,
                 ]
-                skipped_cols    = [
-                    soid_col, dc_col, rs_col, "Vendor Name", no_match_col,
+                skipped_cols     = [
+                    no_match_col,
+                    soid_col, dc_col, rs_col, awb_col, note_col,
+                    "Vendor Name",
                 ]
 
+                # ── Helper functions ─────────────────────────────────────────────
                 def _ur_has_val(v) -> bool:
                     if v is None:
                         return False
@@ -1880,99 +1901,345 @@ def data_import_upsert_preview(category_key: str):
                     s = str(v).strip()
                     return None if s in ("", "nan", "nat", "none", "null", "NaT") else s
 
-                # Stage dc_lenovo in-memory first (needed for Condition B)
+                def _ur_parse_date(v):
+                    """Convert 'DD-MM-YYYY' → 'YYYY-MM-DD', or None if unparseable."""
+                    raw = _ur_to_str_or_none(v)
+                    if not raw:
+                        return None
+                    try:
+                        return _dt_ur.strptime(raw, "%d-%m-%Y").strftime("%Y-%m-%d")
+                    except ValueError:
+                        return None
+
+                # ── DB snapshot ──────────────────────────────────────────────────
+                db_unreturn = {
+                    r[0]: {
+                        "dc_lenovo":             r[1],
+                        "return_status":         r[2],
+                        "awb_return":            r[3],
+                        "lenovo_return_status":  r[4],
+                        "awb_notes":             r[5],
+                        "modify_date_dc_lenovo": r[6],
+                        "is_exist_excel":        r[7],
+                    }
+                    for r in db_conn.execute(
+                        """SELECT soid, dc_lenovo, return_status,
+                                  awb_return, lenovo_return_status, awb_notes,
+                                  modify_date_dc_lenovo, is_exist_excel
+                           FROM wo_product_detail"""
+                    ).fetchall()
+                }
+
+                # ── File-level version stamp (mirrors upsert logic) ──────────────
+                # Compute max(DC/Collection Form-Submitted Date) across all Excel rows.
+                _ur_max_submitted: str | None = None
+                for _, _ur_r in df.iterrows():
+                    _d = _ur_parse_date(_ur_r.get(subdate_col))
+                    if _d and (_ur_max_submitted is None or _d > _ur_max_submitted):
+                        _ur_max_submitted = _d
+
+                # Single stored stamp = MAX(modify_date_dc_lenovo) already in DB
+                _ur_stamp_row = db_conn.execute(
+                    "SELECT MAX(modify_date_dc_lenovo) FROM wo_product_detail"
+                    " WHERE modify_date_dc_lenovo IS NOT NULL"
+                ).fetchone()
+                _ur_stored_stamp: str | None = _ur_stamp_row[0] if _ur_stamp_row else None
+
+                # file_gate_pass mirrors upsert_from_unreturn():
+                #   True  → file is newer; write all new-col rows
+                #   False → file not newer; all new-col writes blocked
+                #   None  → no parseable dates; first-time fill only
+                if _ur_max_submitted:
+                    _ur_file_gate_pass = (_ur_stored_stamp is None) or (_ur_max_submitted > _ur_stored_stamp)
+                else:
+                    _ur_file_gate_pass = None
+
+                # Stage dc_lenovo in-memory first (needed for return_status decision)
                 staged_dc: dict[int, str | None] = {
                     soid: v["dc_lenovo"] for soid, v in db_unreturn.items()
                 }
                 for _, _r in df.iterrows():
                     _s = _safe_int(_r.get(soid_col))
                     if _s is not None and _s in db_unreturn:
-                        staged_dc[_s] = _ur_to_str_or_none(_r.get(dc_col))
+                        _incoming_dc = _ur_to_str_or_none(_r.get(dc_col))
+                        _current_dc  = _ur_to_str_or_none(db_unreturn[_s]["dc_lenovo"])
+                        # Only stage if real AND different from current DB value
+                        if _ur_has_val(_incoming_dc) and _incoming_dc != _current_dc:
+                            staged_dc[_s] = _incoming_dc
 
-                # Track which SOIDs we've already decided on for return_status
-                _staged_rs: dict[int, str | None] = {
-                    soid: v["return_status"] for soid, v in db_unreturn.items()
-                }
+                # ── Pre-compute Excel SOID set (for is_exist_excel preview) ─────
+                _ur_excel_soids: set[int] = set()
+                for _, _xe_r in df.iterrows():
+                    _xe_s = _safe_int(_xe_r.get(soid_col))
+                    if _xe_s is not None:
+                        _ur_excel_soids.add(_xe_s)
 
                 impacted_rows: list[dict] = []
                 skipped_rows:  list[dict] = []
 
+                # ── Gate guard: file not newer → null-fill for eligible rows ──────────
+                # Mirrors upsert_from_unreturn(): when file_gate_pass is False,
+                # awb_return/lenovo_return_status/awb_notes are written when:
+                #   • awb_return and awb_notes are NULL in the DB, AND
+                #   • lenovo_return_status is NULL or "Unreturned" (unlocked)
+                if _ur_file_gate_pass is False:
+                    _gate_null_reason = (
+                        f"file max date ({_ur_max_submitted}) \u2264 stored ({_ur_stored_stamp})"
+                        " — null/Unreturned-fill"
+                    )
+                    _gate_skip_reason = (
+                        f"file max date ({_ur_max_submitted}) \u2264 stored ({_ur_stored_stamp})"
+                        " — date-gated columns skipped (cols already set)"
+                    )
+                    for _, _gs_row in df.iterrows():
+                        _gs_soid   = _safe_int(_gs_row.get(soid_col))
+                        _gs_vendor = str(_gs_row.get("Vendor Name") or "").strip()
+                        _gs_dc     = _ur_to_str_or_none(_gs_row.get(dc_col))
+                        _gs_rs     = str(_gs_row.get(rs_col) or "").strip()
+                        _gs_awb    = _ur_to_str_or_none(_gs_row.get(awb_col))
+                        _gs_note   = _ur_to_str_or_none(_gs_row.get(note_col))
+                        _gs_rs_clean = _ur_to_str_or_none(_gs_row.get(rs_col))
+
+                        if _gs_soid is None or _gs_soid not in db_unreturn:
+                            skipped_rows.append({
+                                soid_col:      str(_gs_soid) if _gs_soid is not None else "—",
+                                "Vendor Name": _gs_vendor,
+                                dc_col:        str(_gs_dc or "—"),
+                                rs_col:        _gs_rs,
+                                awb_col:       str(_gs_awb or "—"),
+                                note_col:      str(_gs_note or "—"),
+                                no_match_col:  "SOID not found in wo_product_detail",
+                            })
+                            continue
+
+                        _gs_db     = db_unreturn[_gs_soid]
+                        _gs_db_lrs = _ur_to_str_or_none(_gs_db["lenovo_return_status"])
+                        _lrs_unlocked = (
+                            _gs_db_lrs is None
+                            or _gs_db_lrs.strip().lower() == "unreturned"
+                        )
+                        _eligible = (
+                            _ur_to_str_or_none(_gs_db["awb_return"]) is None
+                            and _lrs_unlocked
+                            and _ur_to_str_or_none(_gs_db["awb_notes"]) is None
+                        )
+                        _has_any = (_gs_awb is not None or _gs_rs_clean is not None or _gs_note is not None)
+
+                        if _eligible and _has_any:
+                            _null_parts = []
+                            if _gs_awb is not None:
+                                _null_parts.append(f"awb_return ← '{_gs_awb}'")
+                            if _gs_rs_clean is not None:
+                                # Skip if incoming LRS is identical to what's already in DB
+                                _lrs_same = (
+                                    _gs_db_lrs is not None
+                                    and _gs_db_lrs.strip().lower() == _gs_rs_clean.strip().lower()
+                                )
+                                if not _lrs_same:
+                                    _lrs_label = (
+                                        f"lenovo_return_status: Unreturned → '{_gs_rs_clean}'"
+                                        if _gs_db_lrs is not None
+                                        else f"lenovo_return_status ← '{_gs_rs_clean}'"
+                                    )
+                                    _null_parts.append(_lrs_label)
+                            if _gs_note is not None:
+                                _null_parts.append(f"awb_notes ← '{_gs_note}'")
+                            # Nothing actually changes — route to skipped
+                            if not _null_parts:
+                                skipped_rows.append({
+                                    soid_col:      str(_gs_soid),
+                                    "Vendor Name": _gs_vendor,
+                                    dc_col:        str(_gs_dc or "—"),
+                                    rs_col:        _gs_rs,
+                                    awb_col:       str(_gs_awb or "—"),
+                                    note_col:      str(_gs_note or "—"),
+                                    no_match_col:  "no change — all values match DB",
+                                })
+                                continue
+                            impacted_rows.append({
+                                reason_col:       "; ".join(_null_parts),
+                                soid_col:         str(_gs_soid),
+                                dc_col:           str(_gs_dc or "—"),
+                                dc_write_col:     "",
+                                rs_col:           _gs_rs,
+                                awb_col:          str(_gs_awb or "—"),
+                                awb_write_col:    str(_gs_awb or ""),
+                                lrs_write_col:    str(_gs_rs_clean or ""),
+                                note_col:         str(_gs_note or "—"),
+                                notes_write_col:  str(_gs_note or ""),
+                                "Vendor Name":    _gs_vendor,
+                                date_col:         "",
+                                subdate_col:      "",
+                                subdate_gate_col: _gate_null_reason,
+                            })
+                        else:
+                            _skip_why = _gate_skip_reason
+                            if not _lrs_unlocked:
+                                _skip_why = f"lenovo_return_status locked (current: '{_gs_db_lrs}') — skipped"
+                            skipped_rows.append({
+                                soid_col:      str(_gs_soid),
+                                "Vendor Name": _gs_vendor,
+                                dc_col:        str(_gs_dc or "—"),
+                                rs_col:        _gs_rs,
+                                awb_col:       str(_gs_awb or "—"),
+                                note_col:      str(_gs_note or "—"),
+                                no_match_col:  _skip_why,
+                            })
                 for _, row in df.iterrows():
-                    soid = _safe_int(row.get(soid_col))
-                    vendor = str(row.get("Vendor Name") or "").strip()
+                    if _ur_file_gate_pass is False:
+                        break  # already handled above
+                    soid    = _safe_int(row.get(soid_col))
+                    vendor  = str(row.get("Vendor Name") or "").strip()
                     dc_val  = _ur_to_str_or_none(row.get(dc_col))
                     rs_val  = str(row.get(rs_col) or "").strip()
                     so_comp = str(row.get(date_col) or "").strip()
+                    awb_val = _ur_to_str_or_none(row.get(awb_col))
+                    note_val = _ur_to_str_or_none(row.get(note_col))
+                    raw_subdate = str(row.get(subdate_col) or "").strip()
+                    submitted_iso = _ur_parse_date(row.get(subdate_col))
 
                     if soid is None or soid not in db_unreturn:
                         skipped_rows.append({
-                            soid_col:     str(soid) if soid is not None else "—",
+                            soid_col:      str(soid) if soid is not None else "—",
                             "Vendor Name": vendor,
                             dc_col:        str(dc_val or "—"),
                             rs_col:        rs_val,
+                            awb_col:       str(awb_val or "—"),
+                            note_col:      str(note_val or "—"),
                             no_match_col:  "SOID not found in wo_product_detail",
                         })
                         continue
 
-                    current_status = str(_staged_rs.get(soid) or "").strip()
+                    # dc_is_real: incoming DC value is real AND differs from current DB value
+                    current_dc = _ur_to_str_or_none(db_unreturn[soid]["dc_lenovo"])
+                    dc_is_real = _ur_has_val(dc_val) and dc_val != current_dc
 
-                    # Only rows with a real dc_lenovo value qualify for the impacted view
-                    # (dc_val "0", "—", or None → skip to skipped panel)
-                    dc_is_real = _ur_has_val(staged_dc.get(soid))
+                    # ── dc_lenovo decision ───────────────────────────────────
+                    # return_status is not modified by the Unreturn upsert.
+                    dc_write = dc_val if dc_is_real else ""
 
-                    if not dc_is_real:
-                        skipped_rows.append({
-                            soid_col:      str(soid),
-                            dc_col:        str(dc_val or "—"),
-                            rs_col:        rs_val,
-                            "Vendor Name": vendor,
-                            no_match_col:  "DC/Collection Form is empty, 0, or —",
-                        })
-                        continue
+                    # ── new-column date-gate decision (FILE-LEVEL) ───────────────
+                    # Mirrors the new upsert_from_unreturn() gate:
+                    #   _ur_file_gate_pass = True  → file max date > stored stamp → write
+                    #   _ur_file_gate_pass = False → file not newer → block all new-col writes
+                    #   _ur_file_gate_pass = None  → no dates in file → first-time fill only
+                    db_awb_cur   = _ur_to_str_or_none(db_unreturn[soid]["awb_return"])
+                    db_lrs_cur   = _ur_to_str_or_none(db_unreturn[soid]["lenovo_return_status"])
+                    db_notes_cur = _ur_to_str_or_none(db_unreturn[soid]["awb_notes"])
+                    cols_are_null = (db_awb_cur is None and db_lrs_cur is None and db_notes_cur is None)
 
-                    # What will be written to return_status?
-                    # Only DC GENERATED is written; Unreturned is never written.
-                    rs_write = ""
-                    if not current_status:
-                        rs_write = "DC GENERATED"
+                    new_cols_write = False
+                    gate_reason    = ""
+                    skip_reason    = ""
+                    if _ur_file_gate_pass is True:
+                        new_cols_write = True
+                        if _ur_stored_stamp:
+                            gate_reason = f"file max {_ur_max_submitted} > stored {_ur_stored_stamp} — write"
+                        else:
+                            gate_reason = f"file max {_ur_max_submitted} (first write)"
+                    elif _ur_file_gate_pass is False:
+                        gate_reason = f"file max {_ur_max_submitted} ≤ stored {_ur_stored_stamp} — skip"
+                        skip_reason = f"file max date ({_ur_max_submitted}) ≤ stored ({_ur_stored_stamp}) — skip"
+                    else:
+                        # No parseable dates in file
+                        if cols_are_null:
+                            new_cols_write = True
+                            gate_reason = "no dates in file — first-time fill"
+                        else:
+                            gate_reason = "no dates in file, cols already set — skip"
+                            skip_reason = "no dates in file, cols already set — skip"
 
-                    # Build reason string
+                    # ── build reasons list ───────────────────────────────────
                     reasons = []
-                    if dc_val is not None:
+                    if dc_is_real:
                         reasons.append(f"dc_lenovo ← '{dc_val}'")
-                    if rs_write:
-                        reasons.append(f"return_status: NULL → '{rs_write}'")
-                    elif current_status:
-                        reasons.append(f"return_status unchanged ('{current_status}')")
+                    if new_cols_write:
+                        # ── Same rules as upsert Pass 3 ──────────────────────
 
-                    if not reasons:
+                        db_awb_val   = _ur_to_str_or_none(db_unreturn[soid]["awb_return"])
+                        db_lrs_val   = _ur_to_str_or_none(db_unreturn[soid]["lenovo_return_status"])
+                        db_notes_val = _ur_to_str_or_none(db_unreturn[soid]["awb_notes"])
+
+                        # lenovo_return_status lock rule (mirrors upsert Pass 3):
+                        #   NULL or "Unreturned" → unlocked, Excel value wins
+                        #   Any other value      → locked, keep DB value
+                        _lrs_locked_prev = (
+                            db_lrs_val is not None
+                            and db_lrs_val.strip().lower() != "unreturned"
+                        )
+                        eff_lrs_val = db_lrs_val if _lrs_locked_prev else (rs_val if rs_val is not None else db_lrs_val)
+
+                        eff_awb_val   = awb_val  if awb_val   is not None else db_awb_val
+                        eff_notes_val = note_val if note_val  is not None else db_notes_val
+
+                        # Skip if all effective values match what is already in the DB
+                        if eff_awb_val == db_awb_val and eff_lrs_val == db_lrs_val and eff_notes_val == db_notes_val:
+                            new_cols_write = False
+                            gate_reason = gate_reason + " [no change — all values match DB]"
+                            skip_reason  = "no change — all values match DB"
+                        # Nothing to write at all
+                        elif eff_awb_val is None and eff_lrs_val is None and eff_notes_val is None:
+                            new_cols_write = False
+                            gate_reason = gate_reason + " [nothing to write after filters]"
+                            skip_reason  = "nothing to write after filters"
+                        else:
+                            col_notes = []
+                            if eff_awb_val is not None and eff_awb_val != db_awb_val:
+                                col_notes.append(f"awb_return ← '{eff_awb_val}'")
+                            if eff_lrs_val is not None and eff_lrs_val != db_lrs_val:
+                                _lrs_prefix = f"Unreturned → " if db_lrs_val and db_lrs_val.strip().lower() == "unreturned" else ""
+                                col_notes.append(f"lenovo_return_status: {_lrs_prefix}'{eff_lrs_val}'")
+                            if eff_notes_val is not None and eff_notes_val != db_notes_val:
+                                col_notes.append(f"awb_notes ← '{eff_notes_val}'")
+                            if col_notes:
+                                reasons.append("; ".join(col_notes))
+                            else:
+                                # All effective values match DB — nothing real to write
+                                new_cols_write = False
+                                gate_reason = gate_reason + " [no change — all values match DB]"
+                                skip_reason  = "no change — all values match DB"
+                    else:
+                        # Still read DB values so the preview can show "existing [skipped]"
+                        db_awb_val   = _ur_to_str_or_none(db_unreturn[soid]["awb_return"])
+                        db_lrs_val   = _ur_to_str_or_none(db_unreturn[soid]["lenovo_return_status"])
+                        db_notes_val = _ur_to_str_or_none(db_unreturn[soid]["awb_notes"])
+                        eff_awb_val = eff_lrs_val = eff_notes_val = None
+                        eff_rs_val  = rs_val
+
+                    # Skip rows with nothing at all to write
+                    if not dc_is_real and not new_cols_write:
                         skipped_rows.append({
                             soid_col:      str(soid),
                             dc_col:        str(dc_val or "—"),
                             rs_col:        rs_val,
+                            awb_col:       str(awb_val or "—"),
+                            note_col:      str(note_val or "—"),
                             "Vendor Name": vendor,
-                            no_match_col:  "No changes to write",
+                            no_match_col:  skip_reason or "DC/Collection Form is empty, 0, or — and no new-column write",
                         })
                         continue
-
-                    # Update staged return_status so subsequent rows see it
-                    if rs_write:
-                        _staged_rs[soid] = rs_write
 
                     impacted_rows.append({
-                        reason_col:    "; ".join(reasons),
-                        soid_col:      str(soid),
-                        dc_col:        str(dc_val or "—"),
-                        dc_write_col:  dc_val or "",
-                        rs_col:        rs_val,
-                        rs_write_col:  rs_write,
-                        "Vendor Name": vendor,
-                        date_col:      so_comp,
+                        reason_col:       "; ".join(reasons),
+                        soid_col:         str(soid),
+                        dc_col:           str(dc_val or "—"),
+                        dc_write_col:     dc_write,
+                        rs_col:           rs_val,
+                        # rs_write_col not included — hidden from preview
+                        awb_col:          str(awb_val or "—"),
+                        awb_write_col:    str(eff_awb_val or "") if new_cols_write else (f"{db_awb_val} [skipped]"   if db_awb_val   else "[skipped]"),
+                        lrs_write_col:    str(eff_lrs_val or "") if new_cols_write else (f"{db_lrs_val} [skipped]"   if db_lrs_val   else "[skipped]"),
+                        note_col:         str(note_val or "—"),
+                        notes_write_col:  str(eff_notes_val or "") if new_cols_write else (f"{db_notes_val} [skipped]" if db_notes_val else "[skipped]"),
+                        "Vendor Name":    vendor,
+                        date_col:         so_comp,
+                        subdate_col:      raw_subdate,
+                        subdate_gate_col: gate_reason,
                     })
 
                 import pandas as _pd_ur
-                new_df      = _pd_ur.DataFrame(impacted_rows) if impacted_rows else _pd_ur.DataFrame()
-                skipped_df  = _pd_ur.DataFrame(skipped_rows)  if skipped_rows  else _pd_ur.DataFrame()
+                new_df     = _pd_ur.DataFrame(impacted_rows) if impacted_rows else _pd_ur.DataFrame()
+                skipped_df = _pd_ur.DataFrame(skipped_rows)  if skipped_rows  else _pd_ur.DataFrame()
 
             else:
                 return jsonify({"ok": False, "error": "Category has no DB preview support."})
@@ -1990,7 +2257,7 @@ def data_import_upsert_preview(category_key: str):
             if frame.empty or date_col not in frame.columns:
                 return []
             tmp = frame.copy()
-            tmp["_sort_date"] = pd.to_datetime(tmp[date_col], errors="coerce")
+            tmp["_sort_date"] = pd.to_datetime(tmp[date_col], format="mixed", errors="coerce")
             tmp = tmp.sort_values("_sort_date", ascending=_sort_asc, na_position="last")
             tmp = tmp.drop(columns=["_sort_date"])
             cols = [c for c in col_list if c in tmp.columns]
@@ -2131,6 +2398,12 @@ def data_import_upsert(category_key: str):
         if category_key == "WOID":
             n_new_wo, n_updated, n_new_users = _upsert_result
             n_rows = n_new_wo + n_updated
+        elif category_key == "GTAAP":
+            n_new_dc_ui, n_new_status_ui = _upsert_result
+            n_rows = n_new_dc_ui + n_new_status_ui
+            n_new_wo    = 0
+            n_updated   = 0
+            n_new_users = 0
         else:
             n_rows = _upsert_result
             n_new_wo    = 0
@@ -2297,6 +2570,12 @@ def data_import_upsert(category_key: str):
                 f'"{target_file}" upserted successfully — ' + ", ".join(_parts) + ".",
                 "success",
             )
+        elif category_key == "GTAAP":
+            flash(
+                f'"{target_file}" upserted successfully — '
+                f'{n_new_dc_ui} new DC#, {n_new_status_ui} status change{"s" if n_new_status_ui != 1 else ""}.',
+                "success",
+            )
         else:
             flash(
                 f'"{target_file}" upserted successfully — {n_rows} row{"s" if n_rows != 1 else ""} processed.',
@@ -2349,12 +2628,331 @@ def data_import_reset():
     return redirect(url_for("admin.data_import"))
 
 
+# ── DB Maintenance helpers ───────────────────────────────────────────────────
+
+@admin_bp.route("/admin/api/backfill-return-status", methods=["GET", "POST"])
+def backfill_return_status():
+    """Backfill return_status = 'DC GENERATED' for every wo_product_detail row
+    where dc_number is not empty/null but return_status is still empty/null.
+
+    Only dc_number drives DC GENERATED — dc_lenovo alone is never sufficient.
+
+    GET  → dry-run: returns {"count": N} (how many rows would be updated).
+    POST → applies the UPDATE and returns {"updated": N}.
+    """
+    from app.services.database.db import get_db
+    conn = get_db()
+    try:
+        if request.method == "GET":
+            row = conn.execute(
+                """SELECT COUNT(*) FROM wo_product_detail
+                    WHERE dc_number IS NOT NULL
+                      AND TRIM(dc_number) NOT IN ('', '0')
+                      AND (return_status IS NULL OR TRIM(return_status) = '')"""
+            ).fetchone()
+            return jsonify({"count": row[0] if row else 0})
+        else:
+            cur = conn.execute(
+                """UPDATE wo_product_detail
+                      SET return_status = 'DC GENERATED'
+                    WHERE dc_number IS NOT NULL
+                      AND TRIM(dc_number) NOT IN ('', '0')
+                      AND (return_status IS NULL OR TRIM(return_status) = '')"""
+            )
+            conn.commit()
+            return jsonify({"updated": cur.rowcount})
+    except Exception as exc:
+        import traceback as _tb
+        current_app.logger.error("backfill_return_status failed:\n%s", _tb.format_exc())
+        return jsonify({"error": str(exc)}), 500
+
+
 # ── Validation Center ────────────────────────────────────────────────────────
 
 @admin_bp.route("/admin/validation", methods=["GET"])
 def validation():
     return render_template("admin/validation_center.html",
-                           portal="admin", active_page="validation")
+                           portal="admin", active_page="validation",
+                           active_group="validation_center")
+
+
+@admin_bp.route("/admin/validation/pou-unreturn", methods=["GET"])
+def pou_unreturn_report():
+    from app.services.database.queries import get_pou_unreturn_report
+
+    upload_folder = current_app.config["EXCEL_UPLOAD_FOLDER"]
+    meta_folder   = current_app.config["UPLOAD_META_FOLDER"]
+    _POU_CATEGORY = "ID-IBM ID POU Unreturn"
+
+    # Find the most recently uploaded POU Unreturn file
+    pou_file_path = None
+    pou_filename  = None
+    for fname in sorted(os.listdir(upload_folder), reverse=True):
+        if not allowed_excel(fname):
+            continue
+        meta = read_meta(meta_folder, fname)
+        if meta and meta.get("file_category") == _POU_CATEGORY:
+            pou_file_path = os.path.join(upload_folder, fname)
+            pou_filename  = fname
+            break
+
+    if pou_file_path is None:
+        return render_template(
+            "admin/verification_center/pou_unreturn_report.html",
+            rows=[], no_file=True,
+            portal="admin", active_page="pou_unreturn",
+            active_group="validation_center",
+        )
+
+    # Query DB rows with is_exist_excel = 'yes'.
+    rows = get_pou_unreturn_report()
+
+    # Build unique filter option lists server-side (avoids Jinja list-append quirks)
+    rs_options  = sorted({r["return_status"]         for r in rows if r["return_status"]})
+    lrs_options = sorted({r["lenovo_return_status"]  for r in rows if r["lenovo_return_status"]})
+
+    # ── Summary counts ────────────────────────────────────────────────────────
+    # Total SOID — all rows in the report
+    summary_total = len(rows)
+
+    # DC + AWB Filled — at least one of dc_number/dc_lenovo AND at least one of awb_resolv/awb_return
+    def _has_val(r, key):
+        v = r.get(key)
+        return bool(v and str(v).strip() not in ("", "—"))
+
+    summary_dc_awb = sum(
+        1 for r in rows
+        if (_has_val(r, "dc_number") or _has_val(r, "dc_lenovo"))
+        and (_has_val(r, "awb_resolv") or _has_val(r, "awb_return"))
+    )
+
+    # Pending Partner / DC Generate — return_status is PENDING WITH PARTNER, PENDING FOR DC GENERATION,
+    # UNKNOWN, or empty AND dc_lenovo is empty AND awb_return (AWB Lenovo) is empty
+    _PENDING_STATUSES = {"PENDING WITH PARTNER", "PENDING FOR DC GENERATION", "UNKNOWN", ""}
+    summary_pending = sum(
+        1 for r in rows
+        if (r.get("return_status") or "").strip().upper() in _PENDING_STATUSES
+        and not _has_val(r, "dc_lenovo")
+        and not _has_val(r, "awb_return")
+    )
+
+    # Missing AWB — both awb_resolv and awb_return are NULL or empty
+    summary_no_awb = sum(
+        1 for r in rows
+        if not _has_val(r, "awb_resolv") and not _has_val(r, "awb_return")
+    )
+
+    return render_template(
+        "admin/verification_center/pou_unreturn_report.html",
+        rows=rows, no_file=False,
+        pou_filename=pou_filename,
+        rs_options=rs_options,
+        lrs_options=lrs_options,
+        summary_total=summary_total,
+        summary_dc_awb=summary_dc_awb,
+        summary_pending=summary_pending,
+        summary_no_awb=summary_no_awb,
+        portal="admin", active_page="pou_unreturn",
+        active_group="validation_center",
+    )
+
+
+
+@admin_bp.route("/admin/validation/pou-unreturn/awb-notes", methods=["PATCH"])
+def pou_unreturn_update_awb_notes():
+    """Update awb_notes for a single SOID in wo_product_detail."""
+    from app.services.database.connection import get_db
+    data  = request.get_json(silent=True) or {}
+    soid  = (data.get("soid") or "").strip()
+    notes = (data.get("awb_notes") or "").strip() or None
+    if not soid:
+        return jsonify({"ok": False, "error": "soid is required."}), 400
+    conn = get_db()
+    cur  = conn.execute(
+        "UPDATE wo_product_detail SET awb_notes = ? WHERE soid = ?",
+        (notes, soid),
+    )
+    conn.commit()
+    if cur.rowcount == 0:
+        return jsonify({"ok": False, "error": "SOID not found."}), 404
+    return jsonify({"ok": True, "soid": soid, "awb_notes": notes})
+
+
+
+@admin_bp.route("/admin/validation/pou-unreturn/export", methods=["GET"])
+def pou_unreturn_export():
+    """Generate a styled .xlsx export of the PoU Unreturn Report."""
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import (
+        PatternFill, Font, Alignment, Border, Side, numbers
+    )
+    from openpyxl.utils import get_column_letter
+    from app.services.database.queries import get_pou_unreturn_report
+
+    rows = get_pou_unreturn_report()
+
+    # ── Palette ───────────────────────────────────────────────────────────────
+    CLR_HEADER_BG  = "1F2328"   # dark header row
+    CLR_HEADER_FG  = "FFFFFF"
+    CLR_GREEN_CELL = "DCFCE7"
+    CLR_RED_CELL   = "FEE2E2"
+    CLR_AMBER_CELL = "FEF9C3"
+    CLR_BLUE_CELL  = "DBEAFE"
+    CLR_GREY_CELL  = "E5E7EB"
+    CLR_MUTED_CELL = "F7F8FA"
+    CLR_SUMM_BG    = "F7F8FA"
+
+    def _fill(hex_col):
+        return PatternFill("solid", fgColor=hex_col)
+
+    def _border():
+        thin = Side(style="thin", color="E5E7EB")
+        return Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    wb = Workbook()
+
+    # ══ Sheet 1 — Report data ═════════════════════════════════════════════════
+    ws = wb.active
+    ws.title = "POU Unreturn Report"
+
+    col_headers = [
+        "#", "SOID", "Completion / Closing Date", "Return Status",
+        "DC Resolve (GTAAP)", "DC Lenovo", "AWB Return",
+        "AWB Notes", "Lenovo Return Status", "Exist on Excel?"
+    ]
+    col_widths = [6, 18, 24, 22, 20, 16, 20, 20, 24, 16]
+
+    # Header row
+    ws.row_dimensions[1].height = 28
+    for ci, (hdr, w) in enumerate(zip(col_headers, col_widths), 1):
+        cell = ws.cell(row=1, column=ci, value=hdr)
+        cell.fill      = _fill(CLR_HEADER_BG)
+        cell.font      = Font(bold=True, color=CLR_HEADER_FG, size=10)
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.border    = _border()
+        ws.column_dimensions[get_column_letter(ci)].width = w
+
+    # Data rows
+    for ri, r in enumerate(rows, 2):
+        ws.row_dimensions[ri].height = 18
+        date_val    = r.get("completion_date") or r.get("closing_date") or ""
+        rs          = r.get("return_status") or ""
+        dc_number   = r.get("dc_number") or ""
+        dc_lenovo   = r.get("dc_lenovo") or ""
+        awb_return  = r.get("awb_return") or ""
+        awb_notes   = r.get("awb_notes") or ""
+        lrs         = r.get("lenovo_return_status") or ""
+        is_exist    = r.get("is_exist_excel") or ""
+        rs_up       = rs.upper()
+
+        row_data = [
+            ri - 1,
+            r.get("soid") or "",
+            date_val[:10] if date_val else "",
+            rs, dc_number, dc_lenovo,
+            awb_return, awb_notes, lrs, is_exist,
+        ]
+
+        for ci, val in enumerate(row_data, 1):
+            cell = ws.cell(row=ri, column=ci, value=val)
+            cell.border    = _border()
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+            cell.font      = Font(size=10)
+
+            # Column-specific colour rules
+            if ci == 4:   # Return Status
+                if "PENDING" in rs_up or rs_up == "UNKNOWN":
+                    cell.fill = _fill(CLR_AMBER_CELL)
+                elif rs:
+                    cell.fill = _fill(CLR_BLUE_CELL)
+                else:
+                    cell.fill = _fill(CLR_MUTED_CELL)
+            elif ci == 5: # DC Resolve
+                cell.fill = _fill(CLR_GREEN_CELL) if dc_number else _fill(CLR_RED_CELL)
+            elif ci == 6: # DC Lenovo
+                if dc_number:
+                    cell.fill = _fill(CLR_GREY_CELL)
+                elif dc_lenovo:
+                    cell.fill = _fill(CLR_GREEN_CELL)
+                else:
+                    cell.fill = _fill(CLR_MUTED_CELL)
+            elif ci == 7: # AWB Return
+                cell.fill = _fill(CLR_GREEN_CELL) if awb_return else _fill(CLR_RED_CELL)
+            elif ci == 8: # AWB Notes
+                cell.fill = _fill(CLR_GREEN_CELL) if awb_notes else _fill(CLR_MUTED_CELL)
+
+        # Alternate row background for readability (very light)
+        if ri % 2 == 0:
+            for ci in range(1, len(row_data) + 1):
+                c = ws.cell(row=ri, column=ci)
+                if c.fill.fgColor.rgb in ("00000000", "FFFFFFFF", "00FFFFFF"):
+                    c.fill = _fill("F9FAFB")
+
+    # Freeze header row
+    ws.freeze_panes = "A2"
+
+    # ══ Sheet 2 — Summary ═════════════════════════════════════════════════════
+    ws2 = wb.create_sheet("Summary")
+    ws2.column_dimensions["A"].width = 30
+    ws2.column_dimensions["B"].width = 14
+
+    def _summ_hdr(row, label):
+        c = ws2.cell(row=row, column=1, value=label)
+        c.font      = Font(bold=True, size=11, color="1F2328")
+        c.fill      = _fill(CLR_SUMM_BG)
+        c.alignment = Alignment(vertical="center")
+        c.border    = _border()
+        ws2.row_dimensions[row].height = 22
+
+    def _summ_val(row, val, fill_hex=CLR_SUMM_BG):
+        c = ws2.cell(row=row, column=2, value=val)
+        c.font      = Font(bold=True, size=11, color="1F2328")
+        c.fill      = _fill(fill_hex)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        c.border    = _border()
+
+    total_soid    = len(rows)
+    total_dc_awb  = sum(
+        1 for r in rows
+        if (r.get("awb_return") or "").strip() not in ("", "—")
+        and (r.get("dc_number") or r.get("dc_lenovo"))
+    )
+    total_pending = sum(
+        1 for r in rows
+        if (r.get("return_status") or "").strip().upper() != "DC GENERATED"
+    )
+    total_no_awb  = sum(
+        1 for r in rows
+        if not (r.get("awb_return") or "").strip()
+        or (r.get("awb_return") or "").strip() == "—"
+    )
+
+    # Title
+    ws2.merge_cells("A1:B1")
+    title_cell = ws2["A1"]
+    title_cell.value     = "PoU Unreturn Report — Summary"
+    title_cell.font      = Font(bold=True, size=13, color=CLR_HEADER_FG)
+    title_cell.fill      = _fill(CLR_HEADER_BG)
+    title_cell.alignment = Alignment(horizontal="center", vertical="center")
+    title_cell.border    = _border()
+    ws2.row_dimensions[1].height = 30
+
+    _summ_hdr(2, "Total SOID");        _summ_val(2, total_soid)
+    _summ_hdr(3, "DC + AWB Filled");   _summ_val(3, total_dc_awb,  "DCFCE7")
+    _summ_hdr(4, "Pending Partner / DC Generate"); _summ_val(4, total_pending, "FEF9C3")
+    _summ_hdr(5, "Missing AWB");       _summ_val(5, total_no_awb,  "FEE2E2")
+
+    # ── Stream to response ────────────────────────────────────────────────────
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return send_file(
+        buf,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name="POU_Unreturn_Report.xlsx",
+    )
 
 
 # ── User & ASP Management ────────────────────────────────────────────────────
@@ -3276,6 +3874,723 @@ def _run_msd_download_task(app, run_once: bool = False) -> None:
             os.sys.argv = original_argv
             logger.removeHandler(_msd_queue_handler)
             # Keep propagate=False permanently — this logger must never reach root
+
+        # Trim files/msd-auto-download to the 5 most recent xlsx files
+        _keep_latest_files(
+            os.path.join(project_root, "files", "msd-auto-download"),
+            keep=5,
+            logger=logger,
+        )
+
+
+# ── Shared file-cleanup helper ────────────────────────────────────────────────
+
+def _keep_latest_files(directory: str, keep: int = 5,
+                       logger: logging.Logger | None = None) -> None:
+    """Permanently delete the oldest .xlsx files in *directory*, keeping only
+    the *keep* most recent ones.  Uses os.remove() — bypasses Recycle Bin."""
+    if not os.path.isdir(directory):
+        return
+    files = sorted(
+        [
+            f for f in (
+                os.path.join(directory, n) for n in os.listdir(directory)
+            )
+            if os.path.isfile(f) and f.lower().endswith(".xlsx")
+        ],
+        key=os.path.getmtime,
+        reverse=True,   # newest first
+    )
+    for old_file in files[keep:]:
+        try:
+            os.remove(old_file)
+            msg = f"[cleanup] Permanently deleted: {os.path.basename(old_file)}"
+            if logger:
+                logger.info(msg)
+            else:
+                print(msg)
+        except OSError as exc:
+            msg = f"[cleanup] Could not delete {os.path.basename(old_file)}: {exc}"
+            if logger:
+                logger.warning(msg)
+            else:
+                print(msg)
+
+
+# ── RESOLV DC Updates ─────────────────────────────────────────────────────────
+
+import collections as _col_resolve
+_resolve_log_queue:   _queue.Queue       = _queue.Queue(maxsize=2000)
+_resolve_log_history: _col_resolve.deque = _col_resolve.deque(maxlen=500)
+_resolve_thread: threading.Thread | None = None
+_resolve_lock    = threading.Lock()
+_RESOLVE_BOOT_ID: str = _uuid.uuid4().hex
+
+# Per-run upsert stats — keyed by AWB filename.
+# { filename: {"new_dc": int, "new_awb": int, "status": "success"|"failed",
+#              "upsert_date": "YYYY-MM-DD"} }
+_resolve_upsert_stats: dict = {}
+
+_RESOLVE_STATS_FILE = os.path.join(
+    os.path.normpath(os.path.join(os.path.dirname(__file__), "..")),
+    "templates", "admin", "upload_meta", "_resolve_upsert_stats.json",
+)
+
+
+def _resolve_stats_load() -> None:
+    """Read persisted resolve stats from disk into the in-memory dict."""
+    global _resolve_upsert_stats
+    import json as _json
+    try:
+        if os.path.isfile(_RESOLVE_STATS_FILE):
+            with open(_RESOLVE_STATS_FILE, "r", encoding="utf-8") as _f:
+                _resolve_upsert_stats = _json.load(_f)
+    except Exception:
+        pass  # corrupt / missing — start fresh
+
+
+def _resolve_stats_save() -> None:
+    """Write the in-memory stats dict to disk atomically."""
+    import json as _json, tempfile as _tmp
+    try:
+        os.makedirs(os.path.dirname(_RESOLVE_STATS_FILE), exist_ok=True)
+        _payload = _json.dumps(_resolve_upsert_stats, indent=2)
+        _dir = os.path.dirname(_RESOLVE_STATS_FILE)
+        with _tmp.NamedTemporaryFile("w", dir=_dir, delete=False,
+                                     suffix=".tmp", encoding="utf-8") as _tf:
+            _tf.write(_payload)
+            _tmp_path = _tf.name
+        os.replace(_tmp_path, _RESOLVE_STATS_FILE)
+    except Exception:
+        pass  # non-fatal — next write will retry
+
+
+_resolve_stats_load()
+
+
+class _ResolveQueueHandler(logging.Handler):
+    def emit(self, record: logging.LogRecord) -> None:  # type: ignore[override]
+        if not record.name.startswith("resolve_auto_download"):
+            return
+        msg = record.getMessage()
+        if _WERKZEUG_LINE_RE.search(msg):
+            return
+        rec = {
+            "ts":    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "level": record.levelname,
+            "msg":   msg,
+        }
+        _resolve_log_history.append(rec)
+        try:
+            _resolve_log_queue.put_nowait(rec)
+        except _queue.Full:
+            try:
+                _resolve_log_queue.get_nowait()
+                _resolve_log_queue.put_nowait(rec)
+            except (_queue.Full, _queue.Empty):
+                pass
+
+
+_resolve_queue_handler = _ResolveQueueHandler()
+_resolve_queue_handler.setLevel(logging.INFO)
+
+
+def _resolve_env_path() -> str:
+    """Absolute path to the shared .env file (same file used by MSD)."""
+    return _msd_env_path()
+
+
+def _run_resolve_download_task(app) -> None:
+    import runpy
+    import traceback
+    from contextlib import redirect_stderr, redirect_stdout
+
+    class _QueueWriter:
+        def __init__(self, logger: logging.Logger, level: int) -> None:
+            self._logger = logger
+            self._level  = level
+            self._buffer = ""
+
+        def write(self, value: str) -> int:
+            self._buffer += value
+            while "\n" in self._buffer:
+                line, self._buffer = self._buffer.split("\n", 1)
+                if line.strip():
+                    self._logger.log(self._level, line)
+            return len(value)
+
+        def flush(self) -> None:
+            if self._buffer.strip():
+                self._logger.log(self._level, self._buffer.strip())
+            self._buffer = ""
+
+    project_root = os.path.normpath(
+        os.path.join(os.path.dirname(__file__), "..", "..")
+    )
+    script_path = os.path.join(
+        project_root, "app", "scripts", "resolve-auto-download",
+        "lenovo_resolve_login.py",
+    )
+    awb_dir = os.path.join(project_root, "files", "resolve-auto-download", "Extract-AWB")
+    dc_dir  = os.path.join(project_root, "files", "resolve-auto-download", "Extract-DC")
+    os.makedirs(awb_dir, exist_ok=True)
+    os.makedirs(dc_dir,  exist_ok=True)
+
+    # Read credentials from the shared .env file
+    env_vals  = _read_env_file(_resolve_env_path())
+    username  = env_vals.get("RESOLVE_USERNAME", "")
+    password  = env_vals.get("RESOLVE_PASSWORD", "")
+
+    logger = logging.getLogger("resolve_auto_download")
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+    logger.addHandler(_resolve_queue_handler)
+
+    stdout_writer = _QueueWriter(logger, logging.INFO)
+    stderr_writer = _QueueWriter(logger, logging.ERROR)
+
+    _resolve_log_history.clear()
+
+    # Add the script's own directory to sys.path so that
+    # `from RecaptchaSolver import RecaptchaSolver` resolves correctly.
+    script_dir = os.path.dirname(script_path)
+    _resolve_path_inserted = script_dir not in os.sys.path
+    if _resolve_path_inserted:
+        os.sys.path.insert(0, script_dir)
+
+    with app.app_context():
+        try:
+            logger.info("Starting RESOLV DC auto-download script...")
+            original_argv = list(os.sys.argv)
+            os.sys.argv = [script_path]
+            with redirect_stdout(stdout_writer), redirect_stderr(stderr_writer):
+                runpy.run_path(
+                    script_path,
+                    init_globals={
+                        "USERNAME":         username,
+                        "PASSWORD":         password,
+                        "EXTRACT_AWB_DIR":  awb_dir,
+                        "EXTRACT_DC_DIR":   dc_dir,
+                    },
+                    run_name="__main__",
+                )
+            stdout_writer.flush()
+            stderr_writer.flush()
+        except SystemExit as exc:
+            code = exc.code if isinstance(exc.code, int) else 0
+            if code == 0:
+                logger.info("RESOLV DC auto-download finished.")
+            else:
+                logger.error("RESOLV DC auto-download exited with code %s.", code)
+        except Exception:
+            logger.error("RESOLV DC auto-download failed.")
+            logger.error(traceback.format_exc())
+        finally:
+            os.sys.argv = original_argv
+            # NOTE: handler removal is deferred to after post-run work so all
+            # log lines (file copy, upsert stats) remain visible in the UI stream.
+
+        # ── Post-run sync ────────────────────────────────────────────────────
+        # The script always writes to its own Extract-AWB / Extract-DC dirs
+        # (module-level assignments overwrite init_globals before they are used).
+        # Copy any new files from the script dirs into the project-level
+        # files/resolve-auto-download/ dirs so the web UI shows them correctly.
+        import shutil as _shutil
+        script_awb = os.path.join(script_dir, "Extract-AWB")
+        script_dc  = os.path.join(script_dir, "Extract-DC")
+        for src_folder, dst_folder in ((script_awb, awb_dir), (script_dc, dc_dir)):
+            if not os.path.isdir(src_folder):
+                continue
+            os.makedirs(dst_folder, exist_ok=True)
+            for fname in os.listdir(src_folder):
+                if fname.startswith("."):          # skip .gitkeep etc.
+                    continue
+                src_file = os.path.join(src_folder, fname)
+                dst_file = os.path.join(dst_folder, fname)
+                if not os.path.isfile(src_file):
+                    continue
+                if not os.path.exists(dst_file):
+                    try:
+                        _shutil.copy2(src_file, dst_file)
+                        logger.info("Copied %s → %s", fname, dst_folder)
+                        # Remove from script-local dir after successful copy
+                        os.remove(src_file)
+                        logger.info("Removed source file: %s", fname)
+                    except Exception as _cp_err:
+                        logger.warning("Could not copy/remove %s: %s", fname, _cp_err)
+
+        # Trim both project-level dirs to 5 most recent xlsx files
+        for _dst in (awb_dir, dc_dir):
+            _keep_latest_files(_dst, keep=5, logger=logger)
+
+        # ── Upsert dc_number / return_status from the latest DC (GTAAP) excel ─
+        # Applies the same hierarchy-enforced pass logic as the GTAAP Report
+        # upsert button on data_import.html:
+        #   Pass 1  — write real DC# to rows where db dc_number IS NULL
+        #   Pass 1b — immediately promote return_status → DC GENERATED for those rows
+        #   Pass 3  — forward-only status hierarchy write (PENDING WITH PARTNER →
+        #             PENDING FOR DC GENERATION → DC GENERATED, locked)
+        #   Pass 4  — absent open-status rows → UNKNOWN
+        #   Pass 5a — whole-table promote: real dc_number but not DC GENERATED → promote
+        #   Pass 5b — whole-table cleanup: DC GENERATED but no real dc_number → clear
+        import glob as _g_dc
+        _dc_pattern = os.path.join(dc_dir, "GTAAP_Report_export_*.xlsx")
+        _dc_latest  = sorted(_g_dc.glob(_dc_pattern))
+        _dc_fname   = os.path.basename(_dc_latest[-1]) if _dc_latest else None
+        logger.info("[*] Upserting dc_number/return_status from latest DC excel...")
+        if not _dc_fname:
+            logger.warning("[!] No GTAAP_Report_export_*.xlsx found in %s — skipping DC upsert.", dc_dir)
+        else:
+            try:
+                import pandas as _pd_dc
+                from app.services.database.upsert import (
+                    upsert_dc_from_gtaap as _upsert_dc_from_gtaap,
+                )
+                _dc_filepath = os.path.join(dc_dir, _dc_fname)
+                _dc_df       = _pd_dc.read_excel(_dc_filepath, sheet_name="data")
+                _db_path     = app.config["DATABASE_PATH"]
+                _dc_conn     = open_db(_db_path)
+                try:
+                    _n_dc_new, _n_dc_status = _upsert_dc_from_gtaap(_dc_df, _dc_conn)
+                finally:
+                    _dc_conn.close()
+                logger.info(
+                    "[+] dc upsert complete: %d new DC#, %d status change(s).",
+                    _n_dc_new, _n_dc_status,
+                )
+                from datetime import date as _date_dc
+                _resolve_upsert_stats[_dc_fname] = {
+                    "new_dc":        _n_dc_new,
+                    "new_status":    _n_dc_status,
+                    "status":        "success",
+                    "upsert_date":   str(_date_dc.today()),
+                }
+                _resolve_stats_save()
+            except Exception as _dc_exc:
+                logger.error("[!] dc upsert failed: %s", _dc_exc)
+                _resolve_upsert_stats[_dc_fname] = {
+                    "new_dc": None, "new_status": None, "status": "failed",
+                }
+                _resolve_stats_save()
+
+        # ── Upsert awb_resolv from the latest AWB excel ──────────────────────
+        import glob as _g_awb
+        _awb_pattern = os.path.join(awb_dir, "Generated_DCs_*.xlsx")
+        _awb_latest  = sorted(_g_awb.glob(_awb_pattern))
+        _awb_fname   = os.path.basename(_awb_latest[-1]) if _awb_latest else None
+        logger.info("[*] Upserting awb_resolv from latest AWB excel...")
+        try:
+            from app.services.database.upsert import upsert_awb_resolv_from_awb_excel
+            _db_path  = app.config["DATABASE_PATH"]
+            _awb_conn = open_db(_db_path)
+            try:
+                _n_dc, _n_awb = upsert_awb_resolv_from_awb_excel(awb_dir, _awb_conn)
+            finally:
+                _awb_conn.close()
+            logger.info(
+                "[+] awb_resolv upsert complete: %d DC with new AWB / Date, %d row(s) updated.",
+                _n_dc, _n_awb,
+            )
+            if _awb_fname:
+                from datetime import date as _date_cls
+                _resolve_upsert_stats[_awb_fname] = {
+                    "new_dc":     _n_dc,
+                    "new_awb":    _n_awb,
+                    "status":     "success",
+                    "upsert_date": str(_date_cls.today()),
+                }
+                _resolve_stats_save()
+        except Exception as _awb_exc:
+            logger.error("[!] awb_resolv upsert failed: %s", _awb_exc)
+            if _awb_fname:
+                _resolve_upsert_stats[_awb_fname] = {
+                    "new_dc": None, "new_awb": None, "status": "failed",
+                }
+                _resolve_stats_save()
+
+        # Remove queue handler now that all post-run logging is complete
+        logger.removeHandler(_resolve_queue_handler)
+        if _resolve_path_inserted and script_dir in os.sys.path:
+            os.sys.path.remove(script_dir)
+
+
+def _resolve_list_files(directory: str, limit: int = 5) -> list:
+    """Return the *limit* most-recent file dicts for a directory."""
+    result = []
+    if not os.path.isdir(directory):
+        return result
+    for name in sorted(
+        os.listdir(directory),
+        key=lambda n: os.path.getmtime(os.path.join(directory, n)),
+        reverse=True,
+    ):
+        if len(result) >= limit:
+            break
+        file_path = os.path.join(directory, name)
+        if not os.path.isfile(file_path):
+            continue
+        if name.startswith("."):            # hide .gitkeep and other dot-files
+            continue
+        result.append({
+            "name":         name,
+            "size_kb":      round(os.path.getsize(file_path) / 1024, 1),
+            "modified_fmt": datetime.fromtimestamp(
+                os.path.getmtime(file_path)
+            ).strftime("%Y-%m-%d %H:%M"),
+        })
+    return result
+
+
+@admin_bp.route("/admin/resolve-dc-updates", methods=["GET"])
+def resolve_dc_updates():
+    project_root = os.path.normpath(
+        os.path.join(os.path.dirname(__file__), "..", "..")
+    )
+    awb_dir = os.path.join(project_root, "files", "resolve-auto-download", "Extract-AWB")
+    dc_dir  = os.path.join(project_root, "files", "resolve-auto-download", "Extract-DC")
+
+    with _resolve_lock:
+        is_running = _resolve_thread is not None and _resolve_thread.is_alive()
+
+    # Enrich AWB file list with per-run upsert stats for initial page render
+    awb_files_raw = _resolve_list_files(awb_dir)
+    awb_files = []
+    for f in awb_files_raw:
+        stats = _resolve_upsert_stats.get(f["name"], {})
+        awb_files.append({
+            **f,
+            "new_dc":        stats.get("new_dc",      None),
+            "new_awb":       stats.get("new_awb",     None),
+            "upsert_status": stats.get("status",      None),
+            "upsert_date":   stats.get("upsert_date", None),
+        })
+
+    # Enrich DC file list with per-run upsert stats for initial page render
+    dc_files_raw = _resolve_list_files(dc_dir)
+    dc_files = []
+    for f in dc_files_raw:
+        stats = _resolve_upsert_stats.get(f["name"], {})
+        dc_files.append({
+            **f,
+            "new_dc":        stats.get("new_dc",      None),
+            "new_status":    stats.get("new_status",  None),
+            "upsert_status": stats.get("status",      None),
+            "upsert_date":   stats.get("upsert_date", None),
+        })
+
+    return render_template(
+        "admin/export-import/resolve_dc_updates.html",
+        portal="admin",
+        active_page="resolve_dc_updates",
+        active_group="data_import_export",
+        awb_files=awb_files,
+        dc_files=dc_files,
+        is_running=is_running,
+        boot_id=_RESOLVE_BOOT_ID,
+    )
+
+
+@admin_bp.route("/admin/resolve-dc-updates/trigger", methods=["POST"])
+def resolve_dc_updates_trigger():
+    global _resolve_thread
+    with _resolve_lock:
+        if _resolve_thread is not None and _resolve_thread.is_alive():
+            return jsonify({"ok": False, "error": "RESOLV DC download is already running."}), 409
+        app = current_app._get_current_object()
+        _resolve_thread = threading.Thread(
+            target=_run_resolve_download_task,
+            args=(app,),
+            daemon=True,
+            name="resolve-auto-download",
+        )
+        _resolve_thread.start()
+    return jsonify({"ok": True})
+
+
+@admin_bp.route("/admin/resolve-dc-updates/stream", methods=["GET"])
+def resolve_dc_updates_stream():
+    def generate():
+        import json as _json
+        history = list(_resolve_log_history)
+        for i, rec in enumerate(history):
+            payload = dict(rec, history=True, history_first=(i == 0))
+            yield f"data: {_json.dumps(payload)}\n\n"
+        while True:
+            try:
+                rec = _resolve_log_queue.get(timeout=15)
+                yield f"data: {_json.dumps(rec)}\n\n"
+            except _queue.Empty:
+                yield "data: {\"keepalive\": true}\n\n"
+
+    return current_app.response_class(
+        generate(),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@admin_bp.route("/admin/resolve-dc-updates/status", methods=["GET"])
+def resolve_dc_updates_status():
+    with _resolve_lock:
+        is_running = _resolve_thread is not None and _resolve_thread.is_alive()
+    return jsonify({"ok": True, "is_running": is_running})
+
+
+@admin_bp.route("/admin/resolve-dc-updates/next-run", methods=["GET"])
+def resolve_dc_updates_next_run():
+    """Return seconds until next scheduled weekday slot (every 2h, 08:00–20:00 WIB)."""
+    from datetime import datetime as _dt, timedelta as _td
+    _next  = _next_resolve_slot()
+    _now   = _dt.utcnow() + _td(hours=_SCHED_WIB_OFFSET)
+    _secs  = max(0.0, (_next - _now).total_seconds())
+    return jsonify({
+        "ok":            True,
+        "seconds_until": round(_secs),
+        "next_run_wib":  _next.strftime("%Y-%m-%d %H:%M WIB"),
+    })
+
+
+@admin_bp.route("/admin/resolve-dc-updates/reset", methods=["POST"])
+def resolve_dc_updates_reset():
+    """Force-close Chrome on the resolve session profile and clear thread state."""
+    global _resolve_thread
+
+    import pathlib as _pl
+    try:
+        import psutil as _psutil
+        session_dir = os.path.normpath(
+            os.path.join(os.path.dirname(__file__), "..", "scripts",
+                         "resolve-auto-download", "session")
+        )
+        target  = os.path.normcase(os.path.normpath(session_dir))
+        killed  = 0
+        for proc in _psutil.process_iter(["pid", "name", "cmdline"]):
+            try:
+                name = (proc.info["name"] or "").lower()
+                if "chrome" not in name:
+                    continue
+                for arg in (proc.info["cmdline"] or []):
+                    if "--user-data-dir=" in arg:
+                        arg_path = os.path.normcase(
+                            os.path.normpath(arg.split("=", 1)[1])
+                        )
+                        if arg_path == target:
+                            proc.terminate()
+                            killed += 1
+                            break
+            except (_psutil.NoSuchProcess, _psutil.AccessDenied):
+                pass
+
+        import time as _t
+        if killed:
+            _t.sleep(1.5)
+
+        _profile_path = _pl.Path(session_dir)
+        for _lk in ("SingletonLock", "SingletonCookie", "SingletonSocket"):
+            _lf = _profile_path / _lk
+            if _lf.exists() or _lf.is_symlink():
+                try:
+                    _lf.unlink()
+                except Exception:
+                    pass
+
+        killed_msg = (
+            f"Chrome closed ({killed} process(es) terminated)."
+            if killed else "No Chrome process found on this profile."
+        )
+    except ImportError:
+        killed_msg = "psutil not installed — Chrome process not killed."
+    except Exception as _exc:
+        killed_msg = f"Chrome kill warning: {_exc}"
+
+    with _resolve_lock:
+        _resolve_thread = None
+
+    return jsonify({"ok": True, "msg": killed_msg})
+
+
+@admin_bp.route("/admin/resolve-dc-updates/credentials", methods=["GET"])
+def resolve_dc_updates_credentials_get():
+    env_path = _resolve_env_path()
+    env      = _read_env_file(env_path)
+    username = env.get("RESOLVE_USERNAME", "")
+    has_pw   = bool(env.get("RESOLVE_PASSWORD", ""))
+    return jsonify({"ok": True, "username": username, "has_password": has_pw})
+
+
+@admin_bp.route("/admin/resolve-dc-updates/credentials", methods=["POST"])
+def resolve_dc_updates_credentials_post():
+    data     = request.get_json(silent=True) or {}
+    username = str(data.get("username", "")).strip()
+    password = str(data.get("password", "")).strip()
+
+    if not username:
+        return jsonify({"ok": False, "error": "Username is required."}), 400
+    if not password:
+        return jsonify({"ok": False, "error": "Password is required."}), 400
+
+    env_path = _resolve_env_path()
+    try:
+        _write_env_value(env_path, "RESOLVE_USERNAME", username)
+        _write_env_value(env_path, "RESOLVE_PASSWORD", password)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": f"Failed to write .env: {exc}"}), 500
+
+    return jsonify({"ok": True})
+
+
+@admin_bp.route("/admin/resolve-dc-updates/files", methods=["GET"])
+def resolve_dc_updates_files():
+    project_root = os.path.normpath(
+        os.path.join(os.path.dirname(__file__), "..", "..")
+    )
+    awb_dir = os.path.join(project_root, "files", "resolve-auto-download", "Extract-AWB")
+    dc_dir  = os.path.join(project_root, "files", "resolve-auto-download", "Extract-DC")
+
+    # Enrich AWB file list with per-run upsert stats
+    awb_files_raw = _resolve_list_files(awb_dir)
+    awb_files = []
+    for f in awb_files_raw:
+        stats = _resolve_upsert_stats.get(f["name"], {})
+        awb_files.append({
+            **f,
+            "new_dc":        stats.get("new_dc",      None),
+            "new_awb":       stats.get("new_awb",     None),
+            "upsert_status": stats.get("status",      None),
+            "upsert_date":   stats.get("upsert_date", None),
+        })
+
+    # Enrich DC file list with per-run upsert stats
+    dc_files_raw = _resolve_list_files(dc_dir)
+    dc_files = []
+    for f in dc_files_raw:
+        stats = _resolve_upsert_stats.get(f["name"], {})
+        dc_files.append({
+            **f,
+            "new_dc":        stats.get("new_dc",      None),
+            "new_status":    stats.get("new_status",  None),
+            "upsert_status": stats.get("status",      None),
+            "upsert_date":   stats.get("upsert_date", None),
+        })
+
+    return jsonify({
+        "ok":        True,
+        "awb_files": awb_files,
+        "dc_files":  dc_files,
+    })
+
+
+
+
+# ── Resolve scheduler — weekdays 08:00–20:00 WIB, every 2 hours ─────────────
+# Slots: 08:00 10:00 12:00 14:00 16:00 18:00 20:00
+
+_resolve_scheduler_thread: threading.Thread | None = None
+_resolve_scheduler_stop   = threading.Event()
+
+# Scheduler constants (all in WIB = UTC+7)
+_SCHED_WIB_OFFSET   = 7        # UTC+7
+_SCHED_INTERVAL_H   = 2        # every 2 hours
+_SCHED_WINDOW_START = 8        # 08:00 WIB (inclusive)
+_SCHED_WINDOW_END   = 20       # 20:00 WIB (inclusive last slot)
+
+
+def _next_resolve_slot() -> "datetime":
+    """Return the next scheduled run datetime (in WIB, naive)."""
+    from datetime import datetime as _dt, timedelta as _td
+    now = _dt.utcnow() + _td(hours=_SCHED_WIB_OFFSET)
+    # Build all slots for today and tomorrow, pick the first future weekday slot
+    candidate = now.replace(minute=0, second=0, microsecond=0)
+    # Step forward in 1-hour increments until we land on a valid slot
+    for _ in range(7 * 24):  # safety ceiling: max 7 days ahead
+        candidate += _td(hours=1)
+        # Must be a weekday (Mon=0 … Fri=4)
+        if candidate.weekday() >= 5:
+            continue
+        # Must be on an even slot within the window
+        h = candidate.hour
+        if h < _SCHED_WINDOW_START or h > _SCHED_WINDOW_END:
+            continue
+        if (h - _SCHED_WINDOW_START) % _SCHED_INTERVAL_H != 0:
+            continue
+        return candidate
+    # Fallback — should never be reached
+    return now + _td(hours=24)
+
+
+def _resolve_scheduler_loop(app) -> None:
+    """Loop: fire _run_resolve_download_task at every valid weekday slot."""
+    global _resolve_thread  # declared here so the assignment below is valid
+    from datetime import datetime as _dt, timedelta as _td
+    _sched_logger = logging.getLogger("resolve_auto_download")
+    _sched_logger.info(
+        "[scheduler] Resolve scheduler started — weekdays %02d:00–%02d:00 WIB every %dh.",
+        _SCHED_WINDOW_START, _SCHED_WINDOW_END, _SCHED_INTERVAL_H,
+    )
+
+    while not _resolve_scheduler_stop.is_set():
+        next_run = _next_resolve_slot()
+        now_wib  = _dt.utcnow() + _td(hours=_SCHED_WIB_OFFSET)
+        wait_sec = max(0.0, (next_run - now_wib).total_seconds())
+        _sched_logger.info(
+            "[scheduler] Next Resolve auto-run at %s WIB (in %.0fs / %.1fh).",
+            next_run.strftime("%Y-%m-%d %H:%M"),
+            wait_sec,
+            wait_sec / 3600,
+        )
+
+        # Sleep in 60-second ticks so the stop-event is checked regularly
+        slept = 0.0
+        while slept < wait_sec:
+            if _resolve_scheduler_stop.is_set():
+                return
+            tick = min(60.0, wait_sec - slept)
+            _resolve_scheduler_stop.wait(tick)
+            slept += tick
+
+        if _resolve_scheduler_stop.is_set():
+            return
+
+        # Skip if a manual run is already in flight
+        with _resolve_lock:
+            already = _resolve_thread is not None and _resolve_thread.is_alive()
+        if already:
+            _sched_logger.info("[scheduler] Skipping scheduled run — manual run already in progress.")
+            continue
+
+        _sched_logger.info(
+            "[scheduler] Starting scheduled Resolve auto-run (%s WIB).",
+            next_run.strftime("%H:%M"),
+        )
+        with _resolve_lock:
+            if _resolve_thread is not None and _resolve_thread.is_alive():
+                continue  # double-check inside the lock
+            _resolve_thread = threading.Thread(
+                target=_run_resolve_download_task,
+                args=(app,),
+                daemon=True,
+                name="resolve-auto-download-scheduled",
+            )
+            _resolve_thread.start()
+
+        # Wait for this run to finish before sleeping to the next slot
+        _resolve_thread.join()
+        _sched_logger.info("[scheduler] Scheduled Resolve run finished.")
+
+
+def start_resolve_scheduler(app) -> None:
+    """Start the background daily-scheduler thread (idempotent — safe to call twice)."""
+    global _resolve_scheduler_thread
+    if _resolve_scheduler_thread is not None and _resolve_scheduler_thread.is_alive():
+        return
+    _resolve_scheduler_stop.clear()
+    _resolve_scheduler_thread = threading.Thread(
+        target=_resolve_scheduler_loop,
+        args=(app,),
+        daemon=True,
+        name="resolve-scheduler",
+    )
+    _resolve_scheduler_thread.start()
 
 
 # ── Escalation Center page ────────────────────────────────────────────────────

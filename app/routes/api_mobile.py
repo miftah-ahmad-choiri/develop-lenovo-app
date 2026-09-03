@@ -18,7 +18,7 @@ Endpoints
 """
 
 from flask import Blueprint, request, jsonify, g
-from app.services.jwt_service import generate_token, jwt_required, mobile_vendor_filter
+from app.services.jwt_service import generate_token, jwt_required, mobile_vendor_filter, mobile_tech_id_filter
 
 mobile_bp = Blueprint("mobile", __name__)
 
@@ -84,6 +84,7 @@ def mobile_login():
             role         = "asp_user",
             labor_vendor = asp_user_row["labor_vendor_related"],
             display_name = asp_user_row["full_name"] or asp_user_row["email"],
+            tech_id      = asp_user_row["tech_id"],
         )
         return jsonify({
             "token":        token,
@@ -159,8 +160,10 @@ def mobile_login():
 def mobile_stats():
     """Return WO summary stat counts for the current ASP vendor."""
     from app.services.database.queries import get_wo_summary_stats
-    vf    = mobile_vendor_filter()
-    stats = get_wo_summary_stats(vendor_filter=vf)
+    stats = get_wo_summary_stats(
+        vendor_filter  = mobile_vendor_filter(),
+        tech_id_filter = mobile_tech_id_filter(),
+    )
     return jsonify(stats)
 
 
@@ -177,6 +180,7 @@ def mobile_in_prepare():
         page           = _int_arg("page", 1),
         page_size      = per_page,
         vendor_filter  = mobile_vendor_filter(),
+        tech_id_filter = mobile_tech_id_filter(),
         prepare_filter = _str_arg("prepare_filter"),
     ))
 
@@ -195,6 +199,7 @@ def mobile_cci_followup():
         page           = _int_arg("page", 1),
         page_size      = per_page,
         vendor_filter  = mobile_vendor_filter(),
+        tech_id_filter = mobile_tech_id_filter(),
     ))
 
 
@@ -212,6 +217,7 @@ def mobile_onsite_followup():
         page           = _int_arg("page", 1),
         page_size      = per_page,
         vendor_filter  = mobile_vendor_filter(),
+        tech_id_filter = mobile_tech_id_filter(),
     ))
 
 
@@ -229,6 +235,7 @@ def mobile_return_part():
         page           = _int_arg("page", 1),
         page_size      = per_page,
         vendor_filter  = mobile_vendor_filter(),
+        tech_id_filter = mobile_tech_id_filter(),
     ))
 
 
@@ -246,9 +253,10 @@ def mobile_history():
     from app.services.database.queries import get_asp_completed_history
     days = min(max(_int_arg("days", 7), 1), 30)
     return jsonify(get_asp_completed_history(
-        days          = days,
-        search        = _str_arg("q"),
-        vendor_filter = mobile_vendor_filter(),
+        days           = days,
+        search         = _str_arg("q"),
+        vendor_filter  = mobile_vendor_filter(),
+        tech_id_filter = mobile_tech_id_filter(),
     ))
 
 
@@ -261,12 +269,16 @@ def mobile_wo_detail(work_order_id: int):
     Return full WO detail (wo_summary + wo_details joined) plus all
     part-order lines from wo_product_detail.
 
-    Vendor-gated: an asp/asp_user can only fetch WOs belonging to their
-    own labor_vendor_related value.
+    asp_user: only their own assigned WOs (tech_id match).
+    asp: vendor-scoped (labor_vendor_related match).
     """
     from app.services.database.queries import get_wo_detail, get_parts_for_wo
     row = get_wo_detail(work_order_id)
     if not row:
+        return jsonify({"error": "Work order not found"}), 404
+
+    tf = mobile_tech_id_filter()
+    if tf and row.get("tech_id") != tf:
         return jsonify({"error": "Work order not found"}), 404
 
     vf = mobile_vendor_filter()
@@ -290,11 +302,15 @@ def mobile_input_dc(work_order_id: int):
     from app.services.database.db import get_db
     from app.services.database.queries import get_wo_detail
 
-    # Vendor gate on the primary WO
+    tf = mobile_tech_id_filter()
+    vf = mobile_vendor_filter()
+
+    # Gate on the primary WO
     row = get_wo_detail(work_order_id)
     if not row:
         return jsonify({"error": "Work order not found"}), 404
-    vf = mobile_vendor_filter()
+    if tf and row.get("tech_id") != tf:
+        return jsonify({"error": "Work order not found"}), 404
     if vf and row.get("labor_vendor_related") != vf:
         return jsonify({"error": "Work order not found"}), 404
 
@@ -312,11 +328,11 @@ def mobile_input_dc(work_order_id: int):
     conn = get_db()
     updated = 0
     for wid in wo_ids:
-        # If vendor-filtered, only allow WOs belonging to the same vendor
-        if vf:
-            r = get_wo_detail(wid)
-            if not r or r.get("labor_vendor_related") != vf:
-                continue
+        r = get_wo_detail(wid)
+        if tf and (not r or r.get("tech_id") != tf):
+            continue
+        if vf and (not r or r.get("labor_vendor_related") != vf):
+            continue
         conn.execute(
             "UPDATE wo_product_detail SET dc_number = ? WHERE work_order_id = ?",
             (dc, wid)
@@ -338,6 +354,9 @@ def mobile_return_same_asp(work_order_id: int):
 
     row = get_wo_detail(work_order_id)
     if not row:
+        return jsonify([])
+    tf = mobile_tech_id_filter()
+    if tf and row.get("tech_id") != tf:
         return jsonify([])
     vf = mobile_vendor_filter()
     if vf and row.get("labor_vendor_related") != vf:

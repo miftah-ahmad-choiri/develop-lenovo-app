@@ -1,0 +1,703 @@
+{% extends "base.html" %}
+{% block title %}PoU Unreturn Report — Admin Portal{% endblock %}
+
+{% block extra_styles %}
+  /* ── summary cards ───────────────────────────────────────── */
+  .summary-cards {
+    display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;
+  }
+  .summary-card {
+    flex: 1; min-width: 130px;
+    background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 8px;
+    padding: 12px 16px; text-align: center;
+  }
+  .summary-card--green { background: #f0fdf4; border-color: #bbf7d0; }
+  .summary-card--amber { background: #fffbeb; border-color: #fde68a; }
+  .summary-card--red   { background: #fff0f0; border-color: #fecaca; }
+  .summary-card { cursor: pointer; transition: box-shadow 0.12s, transform 0.1s; }
+  .summary-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.10); transform: translateY(-1px); }
+  .summary-card.active {
+    outline: 2px solid #3b82d4; outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgba(59,130,212,0.15);
+  }
+  .summary-card--green.active { outline-color: #15803d; box-shadow: 0 0 0 4px rgba(21,128,61,0.15); }
+  .summary-card--amber.active { outline-color: #b45309; box-shadow: 0 0 0 4px rgba(180,83,9,0.15); }
+  .summary-card--red.active   { outline-color: #b91c1c; box-shadow: 0 0 0 4px rgba(185,28,28,0.15); }
+  .summary-value {
+    font-size: 22px; font-weight: 700; color: #1f2328; line-height: 1.2;
+  }
+  .summary-card--green .summary-value { color: #15803d; }
+  .summary-card--amber .summary-value { color: #b45309; }
+  .summary-card--red   .summary-value { color: #b91c1c; }
+  .summary-label {
+    font-size: 11px; font-weight: 600; color: #57606a;
+    text-transform: uppercase; letter-spacing: 0.04em; margin-top: 4px;
+  }
+
+  /* ── toolbar ──────────────────────────────────────────────── */
+  .report-toolbar {
+    display: flex; align-items: center; gap: 10px;
+    flex-wrap: wrap; margin-bottom: 16px;
+  }
+  .search-wrap {
+    position: relative; flex: 1; min-width: 200px; max-width: 360px;
+  }
+  .search-wrap svg {
+    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    color: #8b949e; pointer-events: none;
+  }
+  .search-input {
+    width: 100%; padding: 7px 10px 7px 34px;
+    border: 1px solid #d0d7de; border-radius: 6px;
+    font-size: 13px; color: #1f2328; background: #fff;
+    outline: none;
+  }
+  .search-input:focus { border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,0.12); }
+
+  .filter-select {
+    padding: 7px 10px; border: 1px solid #d0d7de; border-radius: 6px;
+    font-size: 13px; color: #1f2328; background: #fff; cursor: pointer;
+    outline: none; min-width: 160px;
+  }
+  .filter-select:focus { border-color: #3b82d4; }
+
+  .btn-export {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-radius: 6px; border: 1px solid #86efac;
+    background: #f0fdf4; font-size: 13px; font-weight: 600; color: #15803d;
+    cursor: pointer; white-space: nowrap; transition: background 0.12s, box-shadow 0.12s;
+    text-decoration: none;
+  }
+  .btn-export:hover { background: #dcfce7; border-color: #4ade80; box-shadow: 0 1px 4px rgba(21,128,61,0.15); }
+  .btn-export svg { flex-shrink: 0; }
+
+  .row-count { font-size: 12px; color: #57606a; margin-left: auto; white-space: nowrap; }
+
+  /* ── meta ─────────────────────────────────────────────────── */
+  .report-meta { font-size: 12px; color: #57606a; margin-bottom: 14px; }
+  .report-meta strong { color: #1f2328; }
+
+  /* ── table fills remaining viewport height ───────────────── */
+  .table-wrap {
+    overflow-x: auto;
+    overflow-y: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    /* height set dynamically by JS */
+  }
+  table.report-table {
+    width: 100%; border-collapse: collapse; font-size: 13px; min-width: 860px;
+  }
+  table.report-table thead tr {
+    background: #f7f8fa; border-bottom: 2px solid #e5e7eb;
+  }
+  table.report-table th {
+    padding: 9px 12px; text-align: left;
+    font-size: 11.5px; font-weight: 700; color: #57606a;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    white-space: nowrap; user-select: none;
+    cursor: pointer; position: relative;
+    position: sticky; top: 0; z-index: 2;
+    background: #f7f8fa;
+  }
+  table.report-table th:hover { background: #eef0f3; color: #1f2328; }
+  table.report-table th .sort-icon { margin-left: 4px; opacity: 0.35; font-style: normal; }
+  table.report-table th.sort-asc  .sort-icon,
+  table.report-table th.sort-desc .sort-icon { opacity: 1; color: #3b82d4; }
+
+  table.report-table td {
+    padding: 9px 12px; border-bottom: 1px solid #e5e7eb;
+    color: #1f2328; vertical-align: middle; text-align: center;
+  }
+  table.report-table tbody tr:last-child td { border-bottom: none; }
+  table.report-table tbody tr:hover td { background: #f7f8fa; }
+
+  .soid-cell { font-family: monospace; font-size: 12.5px; font-weight: 600; }
+  .date-cell  { white-space: nowrap; }
+  .null-cell  { color: #d0d7de; font-style: italic; }
+  .cell-green { background: #dcfce7; }
+  table.report-table tbody tr:hover td.cell-green { background: #bbf7d0; }
+  .cell-amber { background: #fef9c3; }
+  table.report-table tbody tr:hover td.cell-amber { background: #fef08a; }
+  .cell-red   { background: #fee2e2; }
+  table.report-table tbody tr:hover td.cell-red   { background: #fecaca; }
+  .cell-blue  { background: #dbeafe; }
+  table.report-table tbody tr:hover td.cell-blue  { background: #bfdbfe; }
+  .cell-grey  { background: #e5e7eb; color: #9ca3af; }
+  table.report-table tbody tr:hover td.cell-grey  { background: #d1d5db; color: #9ca3af; }
+  .cell-muted { background: #f7f8fa; }
+  table.report-table tbody tr:hover td.cell-muted { background: #eef0f3; }
+
+
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 11px; font-weight: 600; white-space: nowrap;
+  }
+  .badge-green { background: #f0fdf4; color: #15803d; }
+  .badge-amber { background: #fffbeb; color: #b45309; }
+  .badge-blue  { background: #eff6ff; color: #1e40af; }
+  .badge-red   { background: #fff0f0; color: #b91c1c; }
+
+  /* ── empty / no-file states ───────────────────────────────── */
+  .no-file-box, .empty-box {
+    background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 8px;
+    padding: 40px 24px; text-align: center; margin-top: 8px;
+  }
+  .no-file-box svg, .empty-box svg { color: #d0d7de; margin-bottom: 14px; }
+  .no-file-box h3, .empty-box h3 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+  .no-file-box p,  .empty-box p  { font-size: 13px; color: #57606a; line-height: 1.7; }
+  .no-file-box a { color: #3b82d4; text-decoration: none; }
+  .no-file-box a:hover { text-decoration: underline; }
+
+  /* hidden rows */
+  .report-table tbody tr.hidden-row { display: none; }
+
+  /* suppress base page bottom padding so table reaches viewport edge */
+  .main-content { padding-bottom: 0 !important; }
+
+  /* ── AWB Notes inline edit ───────────────────────────────── */
+  .notes-cell { position: relative; min-width: 160px; text-align: left !important; }
+  .notes-cell .notes-display { display: flex; align-items: center; gap: 6px; justify-content: center; }
+  .notes-cell .notes-text { flex: 1; word-break: break-word; }
+  .btn-edit-note {
+    flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 4px; border: 1px solid #d0d7de;
+    background: #fff; color: #57606a; cursor: pointer; opacity: 1;
+    transition: background 0.1s;
+  }
+  .btn-edit-note:hover { background: #f0f6ff; border-color: #3b82d4; color: #3b82d4; }
+  .notes-edit-wrap { display: none; flex-direction: column; gap: 5px; }
+  .notes-edit-wrap.active { display: flex; }
+  .notes-textarea {
+    width: 100%; min-width: 180px; padding: 5px 7px; font-size: 12px;
+    border: 1px solid #3b82d4; border-radius: 5px; resize: vertical;
+    outline: none; font-family: inherit; min-height: 56px;
+    box-shadow: 0 0 0 3px rgba(59,130,212,0.12);
+  }
+  .notes-actions { display: flex; gap: 5px; }
+  .btn-note-save, .btn-note-cancel {
+    flex: 1; padding: 4px 8px; font-size: 11.5px; font-weight: 600;
+    border-radius: 4px; border: none; cursor: pointer;
+  }
+  .btn-note-save   { background: #3b82d4; color: #fff; }
+  .btn-note-save:hover   { background: #2563eb; }
+  .btn-note-cancel { background: #e5e7eb; color: #374151; }
+  .btn-note-cancel:hover { background: #d1d5db; }
+  .btn-note-save.saving { opacity: 0.6; pointer-events: none; }
+{% endblock %}
+
+{% block content %}
+<div id="report-above">
+<div class="page-header">
+  <h1>PoU Unreturn Report</h1>
+  <p>SOIDs confirmed present in the latest uploaded ID-IBM ID POU Unreturn file with their return details.</p>
+</div>
+
+{% if no_file %}
+  <div class="no-file-box">
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="12" y1="11" x2="12" y2="17"/>
+      <line x1="9" y1="14" x2="15" y2="14"/>
+    </svg>
+    <h3>No POU Unreturn File Uploaded</h3>
+    <p>
+      No <strong>ID-IBM ID POU Unreturn</strong> file has been uploaded yet.<br>
+      Please upload the file via <a href="/admin/data-import">Data Import / Export</a> first.
+    </p>
+  </div>
+
+{% elif rows|length == 0 %}
+  {% if pou_filename %}
+    <div class="report-meta">Source file: <strong>{{ pou_filename }}</strong></div>
+  {% endif %}
+  <div class="empty-box">
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+    <h3>No Data</h3>
+    <p>No SOIDs found that are both marked <em>is_exist_excel = yes</em> in the database<br>and present in the uploaded POU Unreturn file.</p>
+  </div>
+
+{% else %}
+  {% if pou_filename %}
+    <div class="report-meta">Source file: <strong>{{ pou_filename }}</strong></div>
+  {% endif %}
+
+  <!-- Summary cards -->
+  <div class="summary-cards">
+    <div class="summary-card" data-card="all">
+      <div class="summary-value">{{ summary_total }}</div>
+      <div class="summary-label">Total SOID</div>
+    </div>
+    <div class="summary-card summary-card--green" data-card="dc_awb">
+      <div class="summary-value">{{ summary_dc_awb }}</div>
+      <div class="summary-label">DC + AWB Filled</div>
+    </div>
+    <div class="summary-card summary-card--amber" data-card="pending">
+      <div class="summary-value">{{ summary_pending }}</div>
+      <div class="summary-label">Pending Partner / DC Generate</div>
+    </div>
+    <div class="summary-card summary-card--red" data-card="no_awb">
+      <div class="summary-value">{{ summary_no_awb }}</div>
+      <div class="summary-label">Missing AWB</div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="report-toolbar">
+    <div class="search-wrap">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" class="search-input" id="tbl-search" placeholder="Search SOID, DC, AWB, status…">
+    </div>
+
+    <select class="filter-select" id="filter-return-status">
+      <option value="">All Return Status</option>
+      {% for v in rs_options %}
+        <option value="{{ v }}">{{ v }}</option>
+      {% endfor %}
+    </select>
+
+    <select class="filter-select" id="filter-lenovo-status">
+      <option value="">All Lenovo Return Status</option>
+      {% for v in lrs_options %}
+        <option value="{{ v }}">{{ v }}</option>
+      {% endfor %}
+    </select>
+
+    <a class="btn-export" href="/admin/validation/pou-unreturn/export" id="btn-export">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export Excel (.xlsx)
+    </a>
+
+    <span class="row-count" id="row-count"></span>
+  </div>
+
+</div><!-- /#report-above -->
+
+  <!-- Table -->
+  <div class="table-wrap" id="table-wrap">
+    <table class="report-table" id="report-table">
+      <thead>
+        <tr>
+          <th data-col="-1" style="width:42px;text-align:center;">#</th>
+          <th data-col="0">SOID <i class="sort-icon">⇅</i></th>
+          <th data-col="1">WO Complete Date <i class="sort-icon">⇅</i></th>
+          <th data-col="2">Return Status <i class="sort-icon">⇅</i></th>
+          <th data-col="3">DC Resolve <i class="sort-icon">⇅</i></th>
+          <th data-col="4">DC Lenovo <i class="sort-icon">⇅</i></th>
+          <th data-col="5">AWB Resolve <i class="sort-icon">⇅</i></th>
+          <th data-col="6">AWB Lenovo <i class="sort-icon">⇅</i></th>
+          <th data-col="7">AWB Notes <i class="sort-icon">⇅</i></th>
+          <th data-col="8">Lenovo Return Status <i class="sort-icon">⇅</i></th>
+          <th data-col="9">DC Generate Date <i class="sort-icon">⇅</i></th>
+          <th data-col="10">Exist on Excel? <i class="sort-icon">⇅</i></th>
+        </tr>
+      </thead>
+      <tbody id="report-tbody">
+        {% for r in rows %}
+        {% set date_val = r.completion_date or r.closing_date %}
+        {% set rs_upper = (r.return_status or '')|upper %}
+        <tr>
+          <td style="color:#8b949e;font-size:12px;width:42px;">{{ loop.index }}</td>
+          <td class="soid-cell" data-v="{{ r.soid }}">{{ r.soid }}</td>
+          <td class="date-cell"  data-v="{{ date_val[:10] if date_val else '' }}">
+            {% if date_val %}{{ date_val[:10] }}{% else %}<span class="null-cell">—</span>{% endif %}
+          </td>
+          <td data-v="{{ r.return_status or '' }}" class="{% if 'PENDING' in rs_upper or rs_upper == 'UNKNOWN' %}cell-amber{% elif r.return_status %}cell-blue{% else %}cell-muted{% endif %}">
+            {% if r.return_status %}
+              {% set rs = r.return_status|lower %}
+              <span class="badge {% if 'picked up by logistics' in rs %}badge-green{% elif 'pending' in rs %}badge-amber{% elif 'unreturned' == rs %}badge-red{% else %}badge-blue{% endif %}">{{ r.return_status }}</span>
+            {% else %}<span class="null-cell">—</span>{% endif %}
+          </td>
+          <td data-v="{{ r.dc_number or '' }}" class="{% if r.dc_number %}cell-green{% else %}cell-red{% endif %}">
+            {{ r.dc_number or '<span class="null-cell">—</span>'|safe }}
+          </td>
+          <td data-v="{{ r.dc_lenovo or '' }}" class="{% if r.dc_number %}cell-grey{% elif r.dc_lenovo %}cell-green{% else %}cell-red{% endif %}">
+            {{ r.dc_lenovo or '<span class="null-cell">—</span>'|safe }}
+          </td>
+          <td data-v="{{ r.awb_resolv or '' }}" class="{% if r.awb_resolv %}cell-green{% else %}cell-red{% endif %}">
+            {{ r.awb_resolv or '<span class="null-cell">—</span>'|safe }}
+          </td>
+          <td data-v="{{ r.awb_return or '' }}" class="{% if r.awb_resolv %}cell-grey{% elif r.awb_return %}cell-green{% else %}cell-red{% endif %}">
+            {{ r.awb_return or '<span class="null-cell">—</span>'|safe }}
+          </td>
+          <td data-v="{{ r.awb_notes or '' }}" data-soid="{{ r.soid }}" class="notes-cell {% if r.awb_notes %}cell-green{% else %}cell-muted{% endif %}">
+            <div class="notes-display">
+              <span class="notes-text">{{ r.awb_notes or '<span class="null-cell">—</span>'|safe }}</span>
+              <button class="btn-edit-note" title="Edit note" aria-label="Edit AWB note">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+            </div>
+            <div class="notes-edit-wrap">
+              <textarea class="notes-textarea" rows="3" placeholder="Enter AWB note…">{{ r.awb_notes or '' }}</textarea>
+              <div class="notes-actions">
+                <button class="btn-note-save">Save</button>
+                <button class="btn-note-cancel">Cancel</button>
+              </div>
+            </div>
+          </td>
+          <td data-v="{{ r.lenovo_return_status or '' }}">
+            {% if r.lenovo_return_status %}
+              {% set lrs = r.lenovo_return_status|lower %}
+              <span class="badge {% if 'picked up by logistics' in lrs %}badge-green{% elif 'pending' in lrs %}badge-amber{% elif 'unreturned' == lrs %}badge-red{% else %}badge-blue{% endif %}">{{ r.lenovo_return_status }}</span>
+            {% else %}<span class="null-cell">—</span>{% endif %}
+          </td>
+          <td class="date-cell" data-v="{{ r.dc_generate_date[:10] if r.dc_generate_date else '' }}">
+            {% if r.dc_generate_date %}{{ r.dc_generate_date[:10] }}{% else %}<span class="null-cell">—</span>{% endif %}
+          </td>
+          <td data-v="{{ r.is_exist_excel or '' }}">
+            {% if r.is_exist_excel %}
+              <span class="badge {% if r.is_exist_excel|lower == 'yes' %}badge-green{% else %}badge-red{% endif %}">{{ r.is_exist_excel }}</span>
+            {% else %}<span class="null-cell">—</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+{% endif %}
+
+<script>
+(function () {
+  const tbody     = document.getElementById('report-tbody');
+  if (!tbody) return;
+
+  const searchEl  = document.getElementById('tbl-search');
+  const filterRS  = document.getElementById('filter-return-status');
+  const filterLRS = document.getElementById('filter-lenovo-status');
+  const countEl   = document.getElementById('row-count');
+
+  let sortCol = 9, sortAsc = false;   // default: DC Generate Date descending (latest first)
+  let activeCard = null;   // 'all' | 'dc_awb' | 'pending' | 'no_awb' | null
+
+  // ── collect all rows ─────────────────────────────────────
+  const allRows = Array.from(tbody.querySelectorAll('tr'));
+
+  // ── sort ─────────────────────────────────────────────────
+  document.querySelectorAll('#report-table thead th').forEach(th => {
+    const col = parseInt(th.dataset.col);
+    if (col < 0) return;
+    th.addEventListener('click', () => {
+      if (sortCol === col) { sortAsc = !sortAsc; }
+      else { sortCol = col; sortAsc = true; }
+      document.querySelectorAll('#report-table thead th').forEach(h => {
+        h.classList.remove('sort-asc', 'sort-desc');
+        if (h.querySelector('.sort-icon')) h.querySelector('.sort-icon').textContent = '⇅';
+      });
+      th.classList.add(sortAsc ? 'sort-asc' : 'sort-desc');
+      th.querySelector('.sort-icon').textContent = sortAsc ? '↑' : '↓';
+      applyAll();
+    });
+  });
+
+  // col is data-col value (0-based for data columns); tds[0] is the index cell so offset by +1
+  function cellVal(row, col) {
+    const td = row.querySelectorAll('td')[col + 1];
+    return td ? (td.dataset.v || '').toLowerCase() : '';
+  }
+
+  // Date pattern: YYYY-MM-DD (sorts correctly as plain string)
+  const _DATE_RE = /^\d{4}-\d{2}-\d{2}/;
+
+  function sortedRows(rows) {
+    if (sortCol < 0) return rows.slice();
+    return rows.slice().sort((a, b) => {
+      const av = cellVal(a, sortCol), bv = cellVal(b, sortCol);
+      if (av === '' && bv === '') return 0;
+      if (av === '') return 1;
+      if (bv === '') return -1;
+      // If both values look like dates, compare as strings (YYYY-MM-DD is lexicographically correct)
+      if (_DATE_RE.test(av) && _DATE_RE.test(bv)) {
+        const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+        return sortAsc ? cmp : -cmp;
+      }
+      const n = (s) => { const f = parseFloat(s); return isNaN(f) ? null : f; };
+      const an = n(av), bn = n(bv);
+      let cmp = (an !== null && bn !== null) ? an - bn : av.localeCompare(bv);
+      return sortAsc ? cmp : -cmp;
+    });
+  }
+
+  // ── card filter helpers ───────────────────────────────────
+  // tds[0]=# tds[1]=SOID tds[2]=date tds[3]=return_status tds[4]=dc_number
+  // tds[5]=dc_lenovo tds[6]=awb_resolv tds[7]=awb_return(AWB Lenovo) tds[8]=awb_notes
+  // tds[9]=lenovo_return_status tds[10]=dc_generate_date tds[11]=is_exist_excel
+  const _PENDING_RS = new Set(['PENDING WITH PARTNER', 'PENDING FOR DC GENERATION', 'UNKNOWN', '']);
+  function hasVal(td) { const v = (td ? td.dataset.v || '' : '').trim(); return v !== '' && v !== '—'; }
+  function matchCard(row) {
+    if (!activeCard || activeCard === 'all') return true;
+    const tds     = row.querySelectorAll('td');
+    const dcN     = hasVal(tds[4]);
+    const dcL     = hasVal(tds[5]);
+    const awbR    = hasVal(tds[6]);   // AWB Resolve
+    const awbL    = hasVal(tds[7]);   // AWB Lenovo
+    const rs      = (tds[3] ? tds[3].dataset.v || '' : '').trim().toUpperCase();
+    if (activeCard === 'dc_awb')  return (dcN || dcL) && (awbR || awbL);
+    if (activeCard === 'pending') return _PENDING_RS.has(rs) && !dcL && !awbL;
+    if (activeCard === 'no_awb')  return !awbR && !awbL;
+    return true;
+  }
+
+  // ── filter + search ──────────────────────────────────────
+  function matchRow(row) {
+    const q   = searchEl.value.trim().toLowerCase();
+    const rs  = filterRS.value;
+    const lrs = filterLRS.value;
+    const tds = row.querySelectorAll('td');
+
+    if (!matchCard(row)) return false;
+    if (rs  && (tds[3] ? (tds[3].dataset.v || '') : '') !== rs)  return false;
+    if (lrs && (tds[9] ? (tds[9].dataset.v || '') : '') !== lrs) return false;  // tds[9] = lenovo_return_status
+    if (q) {
+      let found = false;
+      tds.forEach(td => { if ((td.dataset.v || '').toLowerCase().includes(q)) found = true; });
+      if (!found) return false;
+    }
+    return true;
+  }
+
+  // ── render all visible rows ───────────────────────────────
+  function applyAll() {
+    const sorted      = sortedRows(allRows);
+    const visibleRows = sorted.filter(matchRow);
+    const hiddenRows  = sorted.filter(r => !visibleRows.includes(r));
+
+    // Re-order DOM: visible first, hidden after
+    visibleRows.concat(hiddenRows).forEach(r => tbody.appendChild(r));
+
+    // Show/hide and re-number
+    allRows.forEach(r => { r.style.display = 'none'; });
+    visibleRows.forEach((r, i) => {
+      r.style.display = '';
+      r.querySelectorAll('td')[0].textContent = i + 1;
+    });
+
+    countEl.textContent = visibleRows.length + ' record' + (visibleRows.length !== 1 ? 's' : '');
+  }
+
+  // ── wire controls ────────────────────────────────────────
+  searchEl.addEventListener('input', applyAll);
+  filterRS.addEventListener('change', applyAll);
+  filterLRS.addEventListener('change', applyAll);
+
+  // ── summary card clicks ───────────────────────────────────
+  document.querySelectorAll('.summary-card[data-card]').forEach(card => {
+    card.addEventListener('click', () => {
+      const key = card.dataset.card;
+      // Toggle off if already active; otherwise switch to this card
+      activeCard = (activeCard === key) ? null : key;
+      document.querySelectorAll('.summary-card[data-card]').forEach(c => {
+        c.classList.toggle('active', c.dataset.card === activeCard);
+      });
+      applyAll();
+    });
+  });
+
+  // ── Lenovo Return Status display override (client-side only) ─────────────
+  // Priority order:
+  //  1. dc_lenovo OR awb_return contains "hardclose"
+  //       → "Required Hard Close"  (red)
+  //  2. (dc_number OR dc_lenovo non-empty/non-hardclose)
+  //     AND (awb_resolv OR awb_return non-empty/non-hardclose)
+  //     AND WO Complete Date > 1 month ago
+  //       → "Picked Up by Logistics"  (green)
+  //  3. dc_generate_date present AND < 7 days ago
+  //       → "Pending Pickup"  (amber)
+  //  4. dc_generate_date present AND >= 7 days ago
+  //       → "Picked Up by Logistics"  (green)
+  //  5. dc_generate_date empty  → keep DB value unchanged
+  (function overrideLRS() {
+    const today    = new Date();
+    today.setHours(0, 0, 0, 0);
+    const msPerDay = 86400000;
+
+    // Returns true if a cell value is non-empty (not blank / "—")
+    function hasVal(v) { return v !== '' && v !== '—'; }
+    // Returns true if value is non-empty AND contains "hardclose" (case-insensitive)
+    function isHardclose(v) { return hasVal(v) && v.toLowerCase().includes('hardclose'); }
+    // Returns true if value is non-empty AND is NOT a hardclose value
+    function isRealVal(v)   { return hasVal(v) && !isHardclose(v); }
+
+    allRows.forEach(row => {
+      const tds       = row.querySelectorAll('td');
+      const lrsTd     = tds[9];    // Lenovo Return Status
+      const dcGenTd   = tds[10];   // DC Generate Date
+      if (!lrsTd || !dcGenTd) return;
+
+      const dcNumVal  = (tds[4] ? tds[4].dataset.v || '' : '').trim();   // DC Resolve
+      const dcLenVal  = (tds[5] ? tds[5].dataset.v || '' : '').trim();   // DC Lenovo
+      const awbResVal = (tds[6] ? tds[6].dataset.v || '' : '').trim();   // AWB Resolve
+      const awbLenVal = (tds[7] ? tds[7].dataset.v || '' : '').trim();   // AWB Lenovo
+      const woDateStr = (tds[2] ? tds[2].dataset.v || '' : '').trim();   // WO Complete Date
+      const dcDateStr = (dcGenTd.dataset.v || '').trim();                 // DC Generate Date
+
+      // ── helper: apply the chosen override ──────────────────
+      function applyOverride(val, cls) {
+        lrsTd.dataset.v = val;
+        lrsTd.innerHTML = `<span class="badge ${cls}">${val}</span>`;
+      }
+
+      // ── Rule 1: Hardclose special case ─────────────────────
+      if (isHardclose(dcLenVal) || isHardclose(awbLenVal)) {
+        applyOverride('Required Hard Close', 'badge-red');
+        return;
+      }
+
+      // ── Rule 2: DC + AWB filled, WO Complete > 1 month ────
+      const dcFilled  = isRealVal(dcNumVal)  || isRealVal(dcLenVal);
+      const awbFilled = isRealVal(awbResVal) || isRealVal(awbLenVal);
+      if (dcFilled && awbFilled && woDateStr) {
+        const woDate = new Date(woDateStr);
+        if (!isNaN(woDate.getTime())) {
+          woDate.setHours(0, 0, 0, 0);
+          // "more than 1 month ago": same calendar day one month later is still <= today
+          const oneMonthAfterWO = new Date(woDate);
+          oneMonthAfterWO.setMonth(oneMonthAfterWO.getMonth() + 1);
+          if (today > oneMonthAfterWO) {
+            applyOverride('Picked Up by Logistics', 'badge-green');
+            return;
+          }
+        }
+      }
+
+      // ── Rules 3 & 4: DC Generate Date present ──────────────
+      if (!dcDateStr) return;   // empty → keep DB value as-is
+
+      const dcDate = new Date(dcDateStr);
+      if (isNaN(dcDate.getTime())) return;   // unparseable → keep as-is
+      dcDate.setHours(0, 0, 0, 0);
+
+      const daysDiff = Math.floor((today - dcDate) / msPerDay);
+      if (daysDiff < 7) {
+        applyOverride('Pending Pickup',      'badge-amber');
+      } else {
+        applyOverride('Picked Up by Logistics', 'badge-green');
+      }
+    });
+  })();
+
+  // ── init ─────────────────────────────────────────────────
+  // Apply default sort indicator to DC Generate Date header
+  document.querySelectorAll('#report-table thead th').forEach(h => {
+    if (parseInt(h.dataset.col) === sortCol) {
+      h.classList.add('sort-desc');
+      if (h.querySelector('.sort-icon')) h.querySelector('.sort-icon').textContent = '↓';
+    }
+  });
+  applyAll();
+
+  // ── fit table to remaining viewport height ───────────────
+  const tableWrap = document.getElementById('table-wrap');
+  const above     = document.getElementById('report-above');
+  function fitTable() {
+    if (!tableWrap || !above) return;
+    // Distance from top of table-wrap to top of viewport
+    const top     = tableWrap.getBoundingClientRect().top;
+    const padding = 16; // small bottom gap
+    tableWrap.style.height = (window.innerHeight - top - padding) + 'px';
+  }
+  fitTable();
+  window.addEventListener('resize', fitTable);
+})();
+
+// ── AWB Notes inline edit ─────────────────────────────────
+(function () {
+  const tbody = document.getElementById('report-tbody');
+  if (!tbody) return;
+
+  function openEdit(cell) {
+    // Close any other open editor first
+    tbody.querySelectorAll('.notes-edit-wrap.active').forEach(w => {
+      if (w.closest('td') !== cell) closeEdit(w.closest('td'));
+    });
+    cell.querySelector('.notes-display').style.display = 'none';
+    const wrap = cell.querySelector('.notes-edit-wrap');
+    wrap.classList.add('active');
+    const ta = wrap.querySelector('.notes-textarea');
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+  }
+
+  function closeEdit(cell) {
+    cell.querySelector('.notes-display').style.display = '';
+    cell.querySelector('.notes-edit-wrap').classList.remove('active');
+  }
+
+  function applyResult(cell, newVal) {
+    const display  = cell.querySelector('.notes-display');
+    const span     = display.querySelector('.notes-text');
+    // Update display text
+    if (newVal) {
+      span.textContent = newVal;
+    } else {
+      span.innerHTML = '<span class="null-cell">—</span>';
+    }
+    // Update data-v for search/sort
+    cell.dataset.v = newVal || '';
+    // Update cell background class
+    cell.classList.remove('cell-green', 'cell-muted');
+    cell.classList.add(newVal ? 'cell-green' : 'cell-muted');
+    // Sync textarea value
+    cell.querySelector('.notes-textarea').value = newVal || '';
+    closeEdit(cell);
+  }
+
+  tbody.addEventListener('click', function (e) {
+    // ── open edit ──────────────────────────────────────────
+    const editBtn = e.target.closest('.btn-edit-note');
+    if (editBtn) {
+      openEdit(editBtn.closest('.notes-cell'));
+      return;
+    }
+
+    // ── cancel ─────────────────────────────────────────────
+    const cancelBtn = e.target.closest('.btn-note-cancel');
+    if (cancelBtn) {
+      closeEdit(cancelBtn.closest('.notes-cell'));
+      return;
+    }
+
+    // ── save ───────────────────────────────────────────────
+    const saveBtn = e.target.closest('.btn-note-save');
+    if (saveBtn) {
+      const cell    = saveBtn.closest('.notes-cell');
+      const soid    = cell.dataset.soid;
+      const newVal  = cell.querySelector('.notes-textarea').value.trim();
+      saveBtn.classList.add('saving');
+      saveBtn.textContent = 'Saving…';
+      fetch('/admin/validation/pou-unreturn/awb-notes', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ soid: soid, awb_notes: newVal }),
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.ok) {
+          applyResult(cell, data.awb_notes || '');
+        } else {
+          alert('Save failed: ' + (data.error || 'Unknown error'));
+          saveBtn.classList.remove('saving');
+          saveBtn.textContent = 'Save';
+        }
+      })
+      .catch(() => {
+        alert('Network error. Please try again.');
+        saveBtn.classList.remove('saving');
+        saveBtn.textContent = 'Save';
+      });
+      return;
+    }
+  });
+
+  // Close editor on Escape key
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      tbody.querySelectorAll('.notes-edit-wrap.active').forEach(w => closeEdit(w.closest('td')));
+    }
+  });
+})();
+</script>
+{% endblock %}

@@ -10,18 +10,55 @@ asp_bp = Blueprint("asp", __name__)
 # ── Session helper ────────────────────────────────────────────────────────────
 
 def _vendor_filter() -> str | None:
-    """Return the labor_vendor_related value for the current ASP session, or None."""
-    if session.get("role") in ("asp", "asp_user"):
+    """Return the labor_vendor_related value for the current ASP session, or None.
+
+    asp_master: labor_vendor is None at login (they span the whole group), but
+    may be scoped to a specific branch after switch_branch — so we still read
+    the session value; it will be None (= unfiltered view) until a branch is chosen.
+    asp_user: vendor filter is intentionally ignored — use _tech_id_filter() instead.
+    """
+    if session.get("role") in ("asp", "asp_master"):
         return session.get("labor_vendor") or None
+    return None
+
+
+# Sentinel used when an asp_user has no tech_id assigned.
+# Any query that filters by this value will match zero rows because no real
+# tech_id can equal this string — giving the user an empty result set rather
+# than an unfiltered (all-vendor) view.
+_NO_TECH_ID_SENTINEL = "__no_tech_id__"
+
+
+def _tech_id_filter() -> str | None:
+    """Return the tech_id for asp_user sessions only, or None for all other roles.
+
+    When set, every WO query is narrowed to WOs assigned to this specific
+    technician (wo_details.tech_id), so technicians cannot see each other's WOs.
+
+    If the session role is asp_user but no tech_id is assigned, returns
+    _NO_TECH_ID_SENTINEL so that ALL WO queries return zero rows — the user
+    must have a tech_id to see any Work Orders.
+    """
+    if session.get("role") == "asp_user":
+        tech_id = session.get("tech_id")
+        return tech_id if tech_id else _NO_TECH_ID_SENTINEL
     return None
 
 
 # ── Shared stat context ───────────────────────────────────────────────────────
 
+def _has_tech_id() -> bool:
+    """True for every role except asp_user-without-tech_id."""
+    if session.get("role") == "asp_user":
+        return bool(session.get("tech_id"))
+    return True
+
+
 def _stat_ctx() -> dict:
     """Stat counts only — no row data loaded on page request."""
     vf = _vendor_filter()
-    s = get_wo_summary_stats(vendor_filter=vf)
+    tf = _tech_id_filter()
+    s = get_wo_summary_stats(vendor_filter=vf, tech_id_filter=tf)
     return dict(
         total              = s["total"],
         total_closed       = s["closed"],
@@ -29,6 +66,7 @@ def _stat_ctx() -> dict:
         total_part_hold    = s["part_hold"],
         total_part_transit = s["part_transit"],
         portal             = "asp",
+        has_tech_id        = _has_tech_id(),
     )
 
 
@@ -83,25 +121,26 @@ def escalation():
 @asp_bp.route("/asp/switch-branch/<string:username>", methods=["GET"])
 @login_required
 def switch_branch(username: str):
-    """Switch the current ASP session context to a sibling branch office.
+    """Switch the current asp_master session context to a specific branch ASP.
 
-    Only the ASP HQ of the same parent_group (or superadmin) may switch.
-    Updates the session's labor_vendor and display_name so all pages filter
-    correctly for the chosen branch.
+    Only asp_master (or superadmin) may use this route.  Updates the session's
+    labor_vendor and display_name so all pages filter correctly for the chosen
+    branch.  Switching back to the master username (stored in original_username)
+    clears the branch scope and returns to the unfiltered group view.
     """
     from app.services.database.db import get_db
-    role        = session.get("role", "")
+    role         = session.get("role", "")
     own_username = session.get("username", "")
 
-    if role not in ("superadmin", "asp"):
+    if role not in ("superadmin", "asp_master"):
         flash("You do not have permission to switch offices.", "danger")
         return redirect(url_for("asp.dashboard"))
 
     db = get_db()
 
-    # Fetch the target branch
+    # Fetch the target ASP
     target = db.execute(
-        "SELECT username, service_provider, labor_vendor_related, parent_group, office_type "
+        "SELECT username, service_provider, labor_vendor_related, parent_group, kota "
         "FROM asp_details WHERE username = ?",
         (username,),
     ).fetchone()
@@ -110,34 +149,31 @@ def switch_branch(username: str):
         flash("Branch office not found.", "danger")
         return redirect(url_for("asp.dashboard"))
 
-    if role == "asp":
-        # Always verify against the original HQ username (handles mid-branch switches)
-        hq_username = session.get("original_username") or own_username
-        own = db.execute(
-            "SELECT parent_group FROM asp_details WHERE username = ?",
-            (hq_username,),
-        ).fetchone()
-        if not own or own["parent_group"] != target["parent_group"]:
+    if role == "asp_master":
+        # Verify the target belongs to this master's parent_group
+        if target["parent_group"] != session.get("parent_group"):
             flash("You can only switch to offices in your own group.", "danger")
             return redirect(url_for("asp.dashboard"))
 
-    # Preserve the original HQ identity on first switch so the user can always go back
+    # Preserve the original master identity on first switch
     if "original_username" not in session:
-        session["original_username"]     = session.get("username")
+        session["original_username"]     = own_username
         session["original_display_name"] = session.get("display_name")
         session["original_labor_vendor"] = session.get("labor_vendor")
+        session["original_office_kota"]  = session.get("office_kota", "")
 
-    # If switching back to the original HQ, restore the saved identity
+    # Switching back to the master account: restore unscoped identity
     if username == session.get("original_username"):
-        session["username"]             = session.pop("original_username")
-        session["display_name"]         = session.pop("original_display_name")
-        session["labor_vendor"]         = session.pop("original_labor_vendor")
-        # is_hq_with_branches stays True — was set at login and never changed
+        session["username"]     = session.pop("original_username")
+        session["display_name"] = session.pop("original_display_name")
+        session["labor_vendor"] = session.pop("original_labor_vendor")
+        session["office_kota"]  = session.pop("original_office_kota", "")
     else:
-        session["username"]    = target["username"]
+        session["username"]     = target["username"]
         session["display_name"] = target["service_provider"] or target["username"]
         session["labor_vendor"] = target["labor_vendor_related"]
-        # is_hq_with_branches intentionally kept True so the switcher stays visible
+        session["office_kota"]  = target["kota"] or ""
+        # is_hq_with_branches stays True — switcher must remain visible
 
     return redirect(url_for("asp.dashboard"))
 
@@ -145,14 +181,14 @@ def switch_branch(username: str):
 @asp_bp.route("/asp/branch-office", methods=["GET"])
 @login_required
 def branch_office():
-    """List all ASPs that share the same parent_group as the current ASP HQ user.
+    """List all ASPs that share the same parent_group as the current asp_master user.
     Superadmin may pass ?parent_group=<name> to view any group."""
     from app.services.database.db import get_db
     role     = session.get("role", "")
     username = session.get("username", "")
 
-    # Access control: only superadmin or an ASP HQ with branches
-    if role not in ("superadmin", "asp"):
+    # Access control: only superadmin or asp_master
+    if role not in ("superadmin", "asp_master"):
         flash("You do not have permission to access that page.", "danger")
         return redirect(url_for("asp.dashboard"))
 
@@ -163,16 +199,9 @@ def branch_office():
         parent_group = request.args.get("parent_group", "").strip() or None
         current_asp  = None
     else:
-        # asp role: look up own parent_group and verify HQ + branches exist
-        row = db.execute(
-            "SELECT parent_group, office_type FROM asp_details WHERE username = ?",
-            (username,),
-        ).fetchone()
-        if not row or row["office_type"] != "ASP HQ":
-            flash("This page is only available for ASP HQ accounts.", "danger")
-            return redirect(url_for("asp.dashboard"))
-        parent_group = row["parent_group"]
-        current_asp  = username
+        # asp_master: parent_group is stored directly in the session
+        parent_group = session.get("parent_group")
+        current_asp  = None
 
     if not parent_group:
         flash("No parent group configured for your account.", "warning")
@@ -233,6 +262,7 @@ def api_all_wo():
         page                = _int_arg("page", 1),
         page_size           = per_page,
         vendor_filter       = _vendor_filter(),
+        tech_id_filter      = _tech_id_filter(),
     ))
 
 
@@ -243,10 +273,11 @@ def api_part_received():
     from app.services.database.queries import get_asp_part_received_page
     per_page = min(_int_arg("per_page", 25), 100)
     return jsonify(get_asp_part_received_page(
-        search        = request.args.get("q", "").strip(),
-        page          = _int_arg("page", 1),
-        page_size     = per_page,
-        vendor_filter = _vendor_filter(),
+        search         = request.args.get("q", "").strip(),
+        page           = _int_arg("page", 1),
+        page_size      = per_page,
+        vendor_filter  = _vendor_filter(),
+        tech_id_filter = _tech_id_filter(),
     ))
 
 
@@ -262,6 +293,7 @@ def api_cci_followup():
         page           = _int_arg("page", 1),
         page_size      = per_page,
         vendor_filter  = _vendor_filter(),
+        tech_id_filter = _tech_id_filter(),
     ))
 
 
@@ -272,10 +304,11 @@ def api_part_return():
     from app.services.database.queries import get_asp_part_return_page
     per_page = min(_int_arg("per_page", 25), 100)
     return jsonify(get_asp_part_return_page(
-        search        = request.args.get("q", "").strip(),
-        page          = _int_arg("page", 1),
-        page_size     = per_page,
-        vendor_filter = _vendor_filter(),
+        search         = request.args.get("q", "").strip(),
+        page           = _int_arg("page", 1),
+        page_size      = per_page,
+        vendor_filter  = _vendor_filter(),
+        tech_id_filter = _tech_id_filter(),
     ))
 
 
@@ -286,10 +319,11 @@ def api_reschedule():
     from app.services.database.queries import get_asp_reschedule_page
     per_page = min(_int_arg("per_page", 25), 100)
     return jsonify(get_asp_reschedule_page(
-        search        = request.args.get("q", "").strip(),
-        page          = _int_arg("page", 1),
-        page_size     = per_page,
-        vendor_filter = _vendor_filter(),
+        search         = request.args.get("q", "").strip(),
+        page           = _int_arg("page", 1),
+        page_size      = per_page,
+        vendor_filter  = _vendor_filter(),
+        tech_id_filter = _tech_id_filter(),
     ))
 
 
@@ -305,6 +339,7 @@ def api_onsite_followup():
         page           = _int_arg("page", 1),
         page_size      = per_page,
         vendor_filter  = _vendor_filter(),
+        tech_id_filter = _tech_id_filter(),
     ))
 
 
@@ -355,7 +390,11 @@ def api_wo_detail(work_order_id: int):
     row = get_wo_detail(work_order_id)
     if not row:
         return jsonify({"error": "Not found"}), 404
-    # ASP users: deny access to WOs outside their vendor scope
+    # asp_user: only their own assigned WOs
+    tf = _tech_id_filter()
+    if tf and row.get("tech_id") != tf:
+        return jsonify({"error": "Not found"}), 404
+    # asp / asp_master: vendor scope check
     vf = _vendor_filter()
     if vf and row.get("labor_vendor_related") != vf:
         return jsonify({"error": "Not found"}), 404
@@ -367,10 +406,13 @@ def api_wo_detail(work_order_id: int):
 def api_wo_parts(work_order_id: int):
     """All part-order lines for one WO from wo_product_detail."""
     from app.services.database.queries import get_parts_for_wo, get_wo_detail
+    tf = _tech_id_filter()
     vf = _vendor_filter()
-    if vf:
+    if tf or vf:
         row = get_wo_detail(work_order_id)
-        if not row or row.get("labor_vendor_related") != vf:
+        if tf and (not row or row.get("tech_id") != tf):
+            return jsonify([])
+        if vf and (not row or row.get("labor_vendor_related") != vf):
             return jsonify([])
     rows = get_parts_for_wo(work_order_id)
     return jsonify(rows)
@@ -382,8 +424,11 @@ def api_wo_related_serial(work_order_id: int):
     """Return all WOs (including the current one) that share the same serial_number."""
     from app.services.database.queries import get_wo_detail, get_wo_by_serial
     detail = get_wo_detail(work_order_id)
+    tf = _tech_id_filter()
     vf = _vendor_filter()
     # Only gate access to the current WO; history rows are unfiltered context.
+    if tf and (not detail or detail.get("tech_id") != tf):
+        return jsonify({"serial_number": None, "current_wo_id": work_order_id, "rows": []})
     if vf and (not detail or detail.get("labor_vendor_related") != vf):
         return jsonify({"serial_number": None, "current_wo_id": work_order_id, "rows": []})
     if not detail or not detail.get("serial_number"):
@@ -398,8 +443,11 @@ def api_wo_ticket_history(work_order_id: int):
     """Return all WOs (including the current one) that share the same case_number (ticket)."""
     from app.services.database.queries import get_wo_detail, get_wo_by_case_number
     detail = get_wo_detail(work_order_id)
+    tf = _tech_id_filter()
     vf = _vendor_filter()
     # Only gate access to the current WO; history rows are unfiltered context.
+    if tf and (not detail or detail.get("tech_id") != tf):
+        return jsonify({"case_number": None, "current_wo_id": work_order_id, "rows": []})
     if vf and (not detail or detail.get("labor_vendor_related") != vf):
         return jsonify({"case_number": None, "current_wo_id": work_order_id, "rows": []})
     if not detail or not detail.get("case_number"):
@@ -716,12 +764,13 @@ def api_completed_last_30days():
     from app.services.database.queries import get_asp_completed_last_30_days
     per_page = min(_int_arg("per_page", 25), 100)
     return jsonify(get_asp_completed_last_30_days(
-        search        = request.args.get("q", "").strip(),
-        type_filter   = request.args.get("wo_type", "").strip(),
-        no_awb        = _bool_arg("no_awb", False),
-        page          = _int_arg("page", 1),
-        page_size     = per_page,
-        vendor_filter = _vendor_filter(),
+        search         = request.args.get("q", "").strip(),
+        type_filter    = request.args.get("wo_type", "").strip(),
+        no_awb         = _bool_arg("no_awb", False),
+        page           = _int_arg("page", 1),
+        page_size      = per_page,
+        vendor_filter  = _vendor_filter(),
+        tech_id_filter = _tech_id_filter(),
     ))
 
 
@@ -736,6 +785,7 @@ def api_in_prepare():
         page            = _int_arg("page", 1),
         page_size       = per_page,
         vendor_filter   = _vendor_filter(),
+        tech_id_filter  = _tech_id_filter(),
         prepare_filter  = request.args.get("prepare_filter", "").strip(),
     ))
 
@@ -744,7 +794,7 @@ def api_in_prepare():
 @asp_bp.route("/asp/api/return-part", methods=["GET"])
 @login_required
 def api_return_part():
-    """Return Part Follow-Up — closed/completed WOs with return_status set; computed need_to_return / dc_generated state."""
+    """Return Part Follow-Up — WOs with is_exist_excel='yes' SOIDs; computed need_to_return / weekly_dc_report state."""
     from app.services.database.queries import get_asp_part_return_page
     per_page = min(_int_arg("per_page", 25), 100)
     return jsonify(get_asp_part_return_page(
@@ -753,6 +803,7 @@ def api_return_part():
         page           = _int_arg("page", 1),
         page_size      = per_page,
         vendor_filter  = _vendor_filter(),
+        tech_id_filter = _tech_id_filter(),
     ))
 
 
@@ -774,6 +825,7 @@ def api_return_part_export():
         page           = 1,
         page_size      = 9999,
         vendor_filter  = _vendor_filter(),
+        tech_id_filter = _tech_id_filter(),
     )
     wo_rows = result.get("rows", [])
 
@@ -938,6 +990,7 @@ def api_in_prepare_export():
         page            = 1,
         page_size       = 9999,
         vendor_filter   = _vendor_filter(),
+        tech_id_filter  = _tech_id_filter(),
     )
     wo_rows = result.get("rows", [])
 
@@ -1036,6 +1089,7 @@ def api_cci_followup_export():
         page           = 1,
         page_size      = 9999,
         vendor_filter  = _vendor_filter(),
+        tech_id_filter = _tech_id_filter(),
     )
     wo_rows = result.get("rows", [])
 
@@ -1138,6 +1192,7 @@ def api_onsite_followup_export():
         page           = 1,
         page_size      = 9999,
         vendor_filter  = _vendor_filter(),
+        tech_id_filter = _tech_id_filter(),
     )
     wo_rows = result.get("rows", [])
 

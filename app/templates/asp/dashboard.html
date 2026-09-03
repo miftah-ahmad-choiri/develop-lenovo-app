@@ -583,6 +583,25 @@
   <p>Overview of all Work Orders — ASP Portal</p>
 </div>
 
+{% if not has_tech_id %}
+<!-- ── No Tech ID: access blocked ───────────────────────────────────────── -->
+<div style="margin:40px auto;max-width:540px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:36px 32px;text-align:center;">
+  <div style="width:56px;height:56px;border-radius:50%;background:#fff7ed;border:2px solid #fed7aa;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#c2410c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  </div>
+  <div style="font-size:17px;font-weight:800;color:#1f2328;margin-bottom:8px;">No Tech ID Assigned</div>
+  <div style="font-size:13px;color:#57606a;line-height:1.7;margin-bottom:20px;">
+    Your account does not have a <strong style="color:#1f2328;">Tech ID</strong> linked yet.<br>
+    Work Orders can only be viewed by technicians with an assigned Tech ID.<br>
+    Please contact your ASP administrator to get a Tech ID assigned to your account.
+  </div>
+  <a href="/profile" style="display:inline-flex;align-items:center;gap:6px;padding:9px 18px;background:#3b82d4;color:#fff;border-radius:7px;font-size:13px;font-weight:600;text-decoration:none;">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    View My Profile
+  </a>
+</div>
+{% else %}
+
 <!-- Stat cards -->
 <div class="stat-row">
 <div class="stat-card blue"  data-goto="tab-all" data-filter-status="" style="cursor:pointer">
@@ -808,7 +827,7 @@
       <div class="subtab-bar-left">
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;" id="return-part-filter-pills">
           <button class="subtab-pill active sactive-input-dc" data-rpfilter="need_to_return">🔢 Need to Return</button>
-          <button class="subtab-pill" data-rpfilter="dc_generated">✅ DC Number Found</button>
+          <button class="subtab-pill" data-rpfilter="weekly_dc_report">✅ Weekly DC Report</button>
         </div>
       </div>
       <div class="subtab-bar-right">
@@ -826,8 +845,8 @@
           <th style="width:40px;text-align:center">#</th>
           <th>Created On</th><th>WO Number</th>
           <th style="min-width:160px">Follow-Up State</th>
-          <th>WO Type</th><th>Case</th><th>WO Status</th>
-          <th>Return Status</th><th>DC Number</th>
+          <th>WO Type</th><th>DC Number</th><th>AWB Return</th>
+          <th>Return Status</th><th>WO Status</th>
         </tr></thead>
         <tbody id="tbody-return-part"><tr><td colspan="9" class="loading-state">Loading…</td></tr></tbody>
       </table>
@@ -918,33 +937,43 @@
         </div>
       </div>
 
-      <!-- SECTION 1 — Instruction -->
-      <div class="mf-section" style="background:#fffbeb;border-left:3px solid #f59e0b;">
-        <div style="display:flex;align-items:flex-start;gap:10px;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          <div>
-            <div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:4px">How to get the DC Number</div>
-            <ol style="font-size:12px;color:#78350f;margin:0;padding-left:18px;line-height:1.8">
-              <li>Open the <strong>Resolv App</strong> on your device.</li>
-              <li>Go to <strong>Part Return</strong> → find this WO number.</li>
-              <li>Tap <strong>Request Pickup</strong> to generate the DC number.</li>
-              <li>Once the DC number is generated, enter it below.</li>
-            </ol>
-          </div>
+      <!-- SECTION 1 — Instruction (collapsible) -->
+      <div class="mf-section" style="background:#fffbeb;border-left:3px solid #f59e0b;padding:0;overflow:hidden;">
+        <button type="button" id="idc-howto-toggle"
+                onclick="(function(){var b=document.getElementById('idc-howto-body');var a=document.getElementById('idc-howto-arrow');var open=b.style.display!=='none';b.style.display=open?'none':'block';a.style.transform=open?'rotate(0deg)':'rotate(180deg)';})()"
+                style="width:100%;display:flex;align-items:center;gap:10px;background:none;border:none;cursor:pointer;padding:10px 14px;text-align:left;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span style="font-size:12px;font-weight:700;color:#92400e;flex:1">How to get the DC Number &amp; AWB?</span>
+          <svg id="idc-howto-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;transition:transform .2s"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div id="idc-howto-body" style="display:none;padding:0 14px 12px 14px;">
+          <ol style="font-size:12px;color:#78350f;margin:0;padding-left:18px;line-height:1.8">
+            <li>Open the <strong>Resolv App</strong> on your device.</li>
+            <li>Go to <strong>Part Return</strong> → find this WO number.</li>
+            <li>Tap <strong>Request Pickup</strong> to generate the DC number.</li>
+            <li>Once the DC number is generated, enter it below.</li>
+            <li>The <strong>AWB</strong> (Air Waybill) number will also appear in Resolv after pickup is requested.</li>
+          </ol>
         </div>
       </div>
 
-      <!-- SECTION 2 — DC Number input -->
+      <!-- SECTION 2 — DC Number + AWB input -->
       <div class="mf-section">
         <div class="mf-section-label">
           <span class="sec-num" style="background:#7c5cd8">1</span>
           DC Number
         </div>
-        <div class="mf-group" style="margin-bottom:0">
+        <div class="mf-group">
           <span class="mf-label">DC Number <span class="req">*</span></span>
           <input type="text" id="idc-number" placeholder="e.g. 19127" autocomplete="off"
                  style="font-family:ui-monospace,monospace;letter-spacing:.04em;font-size:14px" />
           <div style="font-size:11px;color:#8c959f;margin-top:5px">Enter the DC number exactly as shown in Resolv.</div>
+        </div>
+        <div class="mf-group" style="margin-bottom:0">
+          <span class="mf-label">AWB Return</span>
+          <input type="text" id="idc-awb-return" placeholder="e.g. 1Z999AA10123456784" autocomplete="off"
+                 style="font-family:ui-monospace,monospace;letter-spacing:.04em;font-size:14px" />
+          <div style="font-size:11px;color:#8c959f;margin-top:5px">Air Waybill number for the return shipment (optional).</div>
         </div>
       </div>
 
@@ -1821,9 +1850,11 @@
 </div>
 
 <div class="toast-wrap" id="toast-wrap"></div>
+{% endif %}{# end has_tech_id #}
 {% endblock %}
 
 {% block extra_scripts %}
+{% if has_tech_id %}
 <script>
 /* ═══════════════════════════════════════════════════════════════
    UTILITIES
@@ -3418,8 +3449,20 @@ const returnPartTable = makeTabTable({
     { key: 'work_order_id',               render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
     { key: 'followup_state',              render: r => r.has_pending_return ? `<button class="fu-badge fu-input-dc fu-badge-btn" data-action="return-dc" data-wo="${esc(r.work_order_id)}" data-wo-type="${esc(r.work_order_type||'')}" data-asp="${esc(r.customer||'')}">🔢 Input DC Number</button>` : '' },
     { key: 'work_order_type',             render: r => esc(r.work_order_type||'—') },
-    { key: 'case_desc',                   render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
-    { key: 'work_order_status',           render: r => statusBadge(r.work_order_status) },
+    { key: 'dc_number', render: r => {
+        const dc = (r.dc_number != null ? String(r.dc_number).trim() : '');
+        const dcLenovo = (r.dc_lenovo != null ? String(r.dc_lenovo).trim() : '');
+        const display = (dc && dc !== '0') ? dc : ((dcLenovo && dcLenovo !== '0') ? dcLenovo : '');
+        if (!display) return '<span style="color:#8c959f">—</span>';
+        return `<span style="font-family:ui-monospace,monospace;font-size:12px;font-weight:700;color:#1f2328">${esc(display)}</span>`;
+      }
+    },
+    { key: 'awb_return', render: r => {
+        const v = (r.awb_return != null ? String(r.awb_return).trim() : '');
+        if (!v) return '<span style="color:#8c959f">—</span>';
+        return `<span style="font-family:ui-monospace,monospace;font-size:12px;font-weight:700;color:#0f766e">${esc(v)}</span>`;
+      }
+    },
     { key: 'return_status', render: r => {
         const s = r.return_status || '';
         if (!s) return '<span style="color:#8c959f">—</span>';
@@ -3431,12 +3474,7 @@ const returnPartTable = makeTabTable({
         return `<span style="font-size:12px;color:#57606a">${esc(s)}</span>`;
       }
     },
-    { key: 'dc_number', render: r => {
-        const dc = r.dc_number || '';
-        if (!dc || dc === '0') return '<span style="color:#8c959f">—</span>';
-        return `<span style="font-family:ui-monospace,monospace;font-size:12px;font-weight:700;color:#1f2328">${esc(dc)}</span>`;
-      }
-    },
+    { key: 'work_order_status',           render: r => statusBadge(r.work_order_status) },
   ],
   onBind: rows => {
     const badge = document.getElementById('tab-return-part-badge');
@@ -3451,7 +3489,7 @@ const returnPartTable = makeTabTable({
   },
 });
 
-let returnPartFilter = 'need_to_return';
+let returnPartFilter = 'need_to_return';  /* 'need_to_return' | 'weekly_dc_report' */
 
 function _returnPartLoad() {
   const q = document.getElementById('search-return-part').value.trim();
@@ -3468,7 +3506,7 @@ document.querySelectorAll('#return-part-filter-pills [data-rpfilter]').forEach(b
     });
     btn.classList.add('active');
     if (btn.dataset.rpfilter === 'need_to_return') btn.classList.add('sactive-input-dc');
-    else if (btn.dataset.rpfilter === 'dc_generated') btn.classList.add('sactive-return-part');
+    else if (btn.dataset.rpfilter === 'weekly_dc_report') btn.classList.add('sactive-return-part');
     returnPartFilter = btn.dataset.rpfilter;
     _returnPartLoad();
   });
@@ -3940,6 +3978,11 @@ function openInputDc(woId, woType, woStatus, aspName) {
   document.getElementById('idc-asp').textContent           = aspName || '—';
   document.getElementById('idc-wo-status-badge').innerHTML = woStatus ? statusBadge(woStatus) : '';
   document.getElementById('idc-number').value              = '';
+  document.getElementById('idc-awb-return').value          = '';
+
+  /* Reset how-to toggle back to collapsed */
+  document.getElementById('idc-howto-body').style.display  = 'none';
+  document.getElementById('idc-howto-arrow').style.transform = 'rotate(0deg)';
 
   /* Reset parts list */
   const idcPartsList = document.getElementById('idc-parts-list');
@@ -3961,10 +4004,7 @@ function openInputDc(woId, woType, woStatus, aspName) {
     .then(data => {
       if (!data || !data.length) return;
       const parts = data.filter(p =>
-        !(p.wo_product_status || '').toLowerCase().includes('cancel') &&
-        ['PENDING WITH PARTNER', 'PENDING FOR DC GENERATION'].includes(
-          (p.return_status || '').toUpperCase().trim()
-        )
+        (p.is_exist_excel || '').toLowerCase().trim() === 'yes'
       );
       if (!parts.length) return;
       idcPartsList.style.display = 'block';
@@ -3996,15 +4036,21 @@ function _renderIdcWoList(rows, currentWoId) {
   const pill    = document.getElementById('idc-wo-count');
   const allBtn  = document.getElementById('idc-wo-select-all');
 
-  /* Group rows by work_order_id, preserving each part line */
+  /* Group rows by work_order_id.
+     Only include part lines where is_exist_excel = 'yes'; skip WOs with none. */
   const byWo = {};
   rows.forEach(r => {
+    if ((r.is_exist_excel || '').toLowerCase().trim() !== 'yes') return;
     const id = String(r.work_order_id);
     if (!byWo[id]) byWo[id] = { ...r, partLines: [] };
-    byWo[id].partLines.push({ soid: r.soid != null ? String(r.soid) : '', desc: r.description || '', returnStatus: (r.return_status || '').trim() });
+    byWo[id].partLines.push({
+      soid:         r.soid != null ? String(r.soid) : '',
+      desc:         r.description   || '',
+      returnStatus: (r.return_status || '').trim(),
+    });
   });
 
-  /* Sort: current WO first, then others by completion_date descending (latest first) */
+  /* Sort: current WO first, then others by completion_date descending */
   const woList = Object.values(byWo).sort((a, b) => {
     const aIs = String(a.work_order_id) === String(currentWoId);
     const bIs = String(b.work_order_id) === String(currentWoId);
@@ -4021,9 +4067,10 @@ function _renderIdcWoList(rows, currentWoId) {
   body.innerHTML = woList.map(w => {
     const id        = String(w.work_order_id);
     const isCurrent = id === String(currentWoId);
+    /* Current WO checkboxes are pre-checked; others start unchecked */
     const partsHtml = w.partLines.map(p => `
       <label class="idc-wo-part-row">
-        <input type="checkbox" class="idc-wo-cb" data-wo="${esc(id)}"${isCurrent ? ' checked' : ''} />
+        <input type="checkbox" class="idc-wo-cb" data-wo="${esc(id)}" ${isCurrent ? 'checked' : ''} />
         <span class="idc-wo-part-soid">${esc(p.soid || '—')}</span>
         <span class="idc-wo-part-desc">${esc(p.desc || '—')}</span>
         ${p.returnStatus ? `<span class="badge" style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa">${esc(p.returnStatus)}</span>` : '<span style="color:#8c959f">—</span>'}
@@ -4059,7 +4106,8 @@ function _renderIdcWoList(rows, currentWoId) {
 }
 
 document.getElementById('btn-confirm-input-dc').addEventListener('click', () => {
-  const dc = document.getElementById('idc-number').value.trim();
+  const dc  = document.getElementById('idc-number').value.trim();
+  const awb = document.getElementById('idc-awb-return').value.trim();
   if (!dc) { toast('Please enter the DC Number.', 'err'); return; }
 
   /* Collect all checked WOs from the same-ASP list; fall back to current WO only */
@@ -5295,4 +5343,5 @@ document.getElementById('btn-confirm-reschedule').addEventListener('click', () =
   closeModal('modal-reschedule');
 });
 </script>
+{% endif %}{# end has_tech_id scripts #}
 {% endblock %}

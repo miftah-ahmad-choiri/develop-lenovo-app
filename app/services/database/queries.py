@@ -238,7 +238,10 @@ def get_wo_by_serial(serial_number: str) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def get_wo_summary_stats(vendor_filter: str | None = None) -> dict:
+def get_wo_summary_stats(
+    vendor_filter: str | None = None,
+    tech_id_filter: str | None = None,
+) -> dict:
     """
     Return aggregate counts used by stat cards and mobile home badges.
 
@@ -249,39 +252,53 @@ def get_wo_summary_stats(vendor_filter: str | None = None) -> dict:
         return_part_total     — Return Part WOs awaiting action
         in_return_total       — alias for return_part_total (mobile home card)
 
-    When vendor_filter is given, only that ASP's WOs are counted.
+    When tech_id_filter is given, only WOs assigned to that technician are counted.
+    When vendor_filter is given (asp/asp_master), only that ASP's WOs are counted.
     """
     # Reuse the existing page queries — they already contain all the state
     # computation logic. Fetching page 1 with size 1 is cheap; we only need
     # the `total` field they return.
     in_prepare_total      = get_asp_in_prepare_page(
-        page_size=1, vendor_filter=vendor_filter
+        page_size=1, vendor_filter=vendor_filter, tech_id_filter=tech_id_filter
     )["total"]
     cci_followup_total    = get_asp_cci_followup_page(
-        page_size=1, vendor_filter=vendor_filter
+        page_size=1, vendor_filter=vendor_filter, tech_id_filter=tech_id_filter
     )["total"]
     cci_in_transit_total  = get_asp_cci_followup_page(
-        page_size=1, vendor_filter=vendor_filter, followup_state="in_transit"
+        page_size=1, vendor_filter=vendor_filter, tech_id_filter=tech_id_filter, followup_state="in_transit"
     )["total"]
     cci_in_repair_total   = get_asp_cci_followup_page(
-        page_size=1, vendor_filter=vendor_filter, followup_state="in_repair"
+        page_size=1, vendor_filter=vendor_filter, tech_id_filter=tech_id_filter, followup_state="in_repair"
     )["total"]
     onsite_followup_total = get_asp_onsite_followup_page(
-        page_size=1, vendor_filter=vendor_filter
+        page_size=1, vendor_filter=vendor_filter, tech_id_filter=tech_id_filter
     )["total"]
     ons_in_transit_total  = get_asp_onsite_followup_page(
-        page_size=1, vendor_filter=vendor_filter, followup_state="wo_reschedule"
+        page_size=1, vendor_filter=vendor_filter, tech_id_filter=tech_id_filter, followup_state="wo_reschedule"
     )["total"]
     ons_in_repair_total   = get_asp_onsite_followup_page(
-        page_size=1, vendor_filter=vendor_filter, followup_state="wo_sla"
+        page_size=1, vendor_filter=vendor_filter, tech_id_filter=tech_id_filter, followup_state="wo_sla"
     )["total"]
     return_part_total     = get_asp_part_return_page(
-        page_size=1, vendor_filter=vendor_filter, followup_state="need_to_return"
+        page_size=1, vendor_filter=vendor_filter, tech_id_filter=tech_id_filter, followup_state="need_to_return"
     )["total"]
 
     conn = get_db()
 
-    if vendor_filter:
+    if tech_id_filter:
+        tf_safe = tech_id_filter.replace("'", "''")
+        def _count(extra_where: str = "") -> int:
+            clauses = [f"d.tech_id = '{tf_safe}'"]
+            if extra_where:
+                clauses.append(extra_where.replace("work_order_status", "s.work_order_status"))
+            where = " AND ".join(clauses)
+            sql = (
+                "SELECT COUNT(*) FROM wo_summary s "
+                "LEFT JOIN wo_details d USING (work_order_id) "
+                f"WHERE {where}"
+            )
+            return conn.execute(sql).fetchone()[0]
+    elif vendor_filter:
         vf_safe = vendor_filter.replace("'", "''")
         def _count(extra_where: str = "") -> int:
             clauses = [f"d.labor_vendor_related = '{vf_safe}'"]
@@ -346,11 +363,14 @@ def _paged_query(
     page: int = 1,
     page_size: int = 25,
     vendor_filter: str | None = None,
+    tech_id_filter: str | None = None,
 ) -> dict:
     """
     Internal helper: execute a paginated SELECT over wo_summary with an
     optional pre-applied tab_where clause, optional free-text search, and
-    an optional vendor filter (wo_details.labor_vendor_related).
+    an optional vendor/tech_id filter.
+    tech_id_filter takes priority: when set, only WOs assigned to that
+    technician (wo_details.tech_id) are returned.
     """
     conn   = get_db()
     params: list = []
@@ -370,7 +390,14 @@ def _paged_query(
         )""")
         params.extend([term, term, term, term, term])
 
-    if vendor_filter:
+    if tech_id_filter:
+        wheres.append(
+            "work_order_id IN ("
+            "SELECT work_order_id FROM wo_details "
+            "WHERE tech_id = ?)"
+        )
+        params.append(tech_id_filter)
+    elif vendor_filter:
         wheres.append(
             "work_order_id IN ("
             "SELECT work_order_id FROM wo_details "
@@ -401,6 +428,7 @@ def get_asp_all_wo_page(
     case_status_filter: str = "",
     page: int = 1, page_size: int = 25,
     vendor_filter: str | None = None,
+    tech_id_filter: str | None = None,
 ) -> dict:
     conn   = get_db()
     params: list = []
@@ -441,7 +469,14 @@ def get_asp_all_wo_page(
         wheres.append("LOWER(case_status) = ?")
         params.append(case_status_filter.lower())
 
-    if vendor_filter:
+    if tech_id_filter:
+        wheres.append(
+            "work_order_id IN ("
+            "SELECT work_order_id FROM wo_details "
+            "WHERE tech_id = ?)"
+        )
+        params.append(tech_id_filter)
+    elif vendor_filter:
         wheres.append(
             "work_order_id IN ("
             "SELECT work_order_id FROM wo_details "
@@ -464,12 +499,13 @@ def get_asp_all_wo_page(
 def get_asp_part_received_page(
     search: str = "", page: int = 1, page_size: int = 25,
     vendor_filter: str | None = None,
+    tech_id_filter: str | None = None,
 ) -> dict:
     tab_where = (
         "LOWER(work_order_status) LIKE '%part%hold%' "
         "OR LOWER(work_order_status) LIKE '%transit%'"
     )
-    return _paged_query(tab_where, search, page, page_size, vendor_filter)
+    return _paged_query(tab_where, search, page, page_size, vendor_filter, tech_id_filter)
 
 
 # CCI Follow-Up — all CCI (Carry-In) WOs with a computed follow-up state
@@ -550,6 +586,7 @@ def get_asp_cci_followup_page(
     page: int = 1,
     page_size: int = 25,
     vendor_filter: str | None = None,
+    tech_id_filter: str | None = None,
 ) -> dict:
     """
     CCI Follow-Up tab — all CCI / Carry-In WOs, excluding cancelled.
@@ -585,7 +622,10 @@ def get_asp_cci_followup_page(
         )""")
         params.extend([term, term, term, term, term])
 
-    if vendor_filter:
+    if tech_id_filter:
+        wheres.append("d.tech_id = ?")
+        params.append(tech_id_filter)
+    elif vendor_filter:
         wheres.append("d.labor_vendor_related = ?")
         params.append(vendor_filter)
 
@@ -744,14 +784,18 @@ def get_asp_part_return_page(
     page: int = 1,
     page_size: int = 25,
     vendor_filter: str | None = None,
+    tech_id_filter: str | None = None,
 ) -> dict:
     """
-    Return Part Follow-Up — closed/completed WOs that have at least one non-cancelled
-    part line with a known return_status value.  Computed followup_state per row:
-        need_to_return — any active part line has return_status =
-                         'PENDING WITH PARTNER' or 'PENDING FOR DC GENERATION'
-        dc_generated   — no pending lines; relevant lines have return_status = 'DC GENERATED'
-    WOs with no return_status on any part line are excluded entirely.
+    Return Part Follow-Up — closed/completed WOs that have at least one SOID
+    with is_exist_excel = 'yes' (regardless of return_status value).
+    Computed followup_state per row:
+        need_to_return   — has an is_exist_excel='yes' SOID with return_status
+                           'PENDING WITH PARTNER', 'PENDING FOR DC GENERATION',
+                           'UNKNOWN', or empty/NULL
+        weekly_dc_report — all is_exist_excel='yes' SOIDs have return_status
+                           'DC GENERATED' (no pending/unknown/empty lines)
+    WOs with no is_exist_excel='yes' SOID are excluded entirely.
     """
     conn = get_db()
     params: list = []
@@ -766,41 +810,38 @@ def get_asp_part_return_page(
         (SELECT 1
          FROM wo_product_detail p
          WHERE p.work_order_id = s.work_order_id
-           AND UPPER(TRIM(COALESCE(p.return_status,''))) IN (
-               'PENDING WITH PARTNER','PENDING FOR DC GENERATION','DC GENERATED'
-           )
-         LIMIT 1) AS has_return_status,
-        (SELECT 1
-         FROM wo_product_detail p
-         WHERE p.work_order_id = s.work_order_id
-           AND UPPER(TRIM(COALESCE(p.return_status,''))) IN (
-               'PENDING WITH PARTNER','PENDING FOR DC GENERATION'
-           )
+           AND LOWER(TRIM(COALESCE(p.is_exist_excel,''))) = 'yes'
+           AND UPPER(TRIM(COALESCE(p.return_status,''))) NOT IN ('DC GENERATED')
          LIMIT 1) AS has_pending_return,
         (SELECT p.return_status
          FROM wo_product_detail p
          WHERE p.work_order_id = s.work_order_id
-           AND UPPER(TRIM(COALESCE(p.return_status,''))) IN (
-               'PENDING WITH PARTNER','PENDING FOR DC GENERATION','DC GENERATED'
-           )
+           AND LOWER(TRIM(COALESCE(p.is_exist_excel,''))) = 'yes'
          ORDER BY p.soid DESC LIMIT 1) AS return_status,
         (SELECT p.dc_number
          FROM wo_product_detail p
          WHERE p.work_order_id = s.work_order_id
-           AND UPPER(TRIM(COALESCE(p.return_status,''))) IN (
-               'PENDING WITH PARTNER','PENDING FOR DC GENERATION','DC GENERATED'
-           )
-         ORDER BY p.soid DESC LIMIT 1) AS dc_number
+           AND LOWER(TRIM(COALESCE(p.is_exist_excel,''))) = 'yes'
+         ORDER BY p.soid DESC LIMIT 1) AS dc_number,
+        (SELECT p.dc_lenovo
+         FROM wo_product_detail p
+         WHERE p.work_order_id = s.work_order_id
+           AND LOWER(TRIM(COALESCE(p.is_exist_excel,''))) = 'yes'
+         ORDER BY p.soid DESC LIMIT 1) AS dc_lenovo,
+        (SELECT p.awb_return
+         FROM wo_product_detail p
+         WHERE p.work_order_id = s.work_order_id
+           AND LOWER(TRIM(COALESCE(p.is_exist_excel,''))) = 'yes'
+         ORDER BY p.soid DESC LIMIT 1) AS awb_return
     """
 
-    # Include any WO (open or closed) that has at least one part line with a known return_status
+    # Only closed/completed WOs that have at least one is_exist_excel='yes' SOID
     wheres = [
+        _CLOSED_WHERE.replace("work_order_status", "s.work_order_status"),
         """EXISTS (
             SELECT 1 FROM wo_product_detail p
             WHERE p.work_order_id = s.work_order_id
-              AND UPPER(TRIM(COALESCE(p.return_status,''))) IN (
-                  'PENDING WITH PARTNER','PENDING FOR DC GENERATION','DC GENERATED'
-              )
+              AND LOWER(TRIM(COALESCE(p.is_exist_excel,''))) = 'yes'
         )""",
     ]
 
@@ -815,7 +856,10 @@ def get_asp_part_return_page(
         )""")
         params.extend([term, term, term, term, term])
 
-    if vendor_filter:
+    if tech_id_filter:
+        wheres.append("d.tech_id = ?")
+        params.append(tech_id_filter)
+    elif vendor_filter:
         wheres.append("d.labor_vendor_related = ?")
         params.append(vendor_filter)
 
@@ -824,7 +868,7 @@ def get_asp_part_return_page(
     def _state(r: dict) -> str:
         if r.get("has_pending_return"):
             return "need_to_return"
-        return "dc_generated"
+        return "weekly_dc_report"   # DC GENERATED lines only
 
     all_rows = conn.execute(
         f"SELECT {cols} FROM wo_summary s LEFT JOIN wo_details d USING (work_order_id) LEFT JOIN asp_users u ON u.tech_id = d.tech_id {where_sql} ORDER BY s.created_on DESC",
@@ -953,7 +997,8 @@ def get_wo_no_awb_by_asp(customer: str, current_wo_id: int | None = None) -> lis
 def get_return_part_wos_by_asp(customer: str) -> list[dict]:
     """Return closed WOs belonging to the given ASP that have at least one
     non-cancelled part line with return_status PENDING WITH PARTNER or
-    PENDING FOR DC GENERATION."""
+    PENDING FOR DC GENERATION. Returns is_exist_excel so the frontend
+    can filter which SOIDs to display."""
     conn = get_db()
     rows = conn.execute("""
         SELECT DISTINCT
@@ -961,7 +1006,8 @@ def get_return_part_wos_by_asp(customer: str) -> list[dict]:
             s.work_order_status, s.work_order_type,
             s.committed_delivery_date, s.created_on,
             d.completion_date,
-            p.soid, p.product, p.description, p.wo_product_status, p.return_status
+            p.soid, p.product, p.description, p.wo_product_status,
+            p.return_status, p.is_exist_excel
         FROM wo_summary s
         LEFT JOIN wo_details d USING (work_order_id)
         JOIN wo_product_detail p USING (work_order_id)
@@ -969,7 +1015,11 @@ def get_return_part_wos_by_asp(customer: str) -> list[dict]:
           AND UPPER(TRIM(COALESCE(p.return_status,''))) IN (
               'PENDING WITH PARTNER','PENDING FOR DC GENERATION'
           )
-          AND LOWER(COALESCE(s.work_order_status,'')) NOT LIKE '%cancel%'
+          AND LOWER(s.work_order_status) IN (
+              'closed','completed','rma in progress',
+              'unit returned to customer /awaiting for parts rma',
+              'repair completed','ready for pickup'
+          )
         ORDER BY s.work_order_id ASC
     """, (customer.strip(),)).fetchall()
     return [dict(r) for r in rows]
@@ -979,9 +1029,10 @@ def get_return_part_wos_by_asp(customer: str) -> list[dict]:
 def get_asp_reschedule_page(
     search: str = "", page: int = 1, page_size: int = 25,
     vendor_filter: str | None = None,
+    tech_id_filter: str | None = None,
 ) -> dict:
     tab_where = _OPEN_WHERE
-    return _paged_query(tab_where, search, page, page_size, vendor_filter)
+    return _paged_query(tab_where, search, page, page_size, vendor_filter, tech_id_filter)
 
 
 # Onsite Follow-Up — all Onsite WOs (excluding cancelled) with a computed follow-up state
@@ -991,6 +1042,7 @@ def get_asp_onsite_followup_page(
     page: int = 1,
     page_size: int = 25,
     vendor_filter: str | None = None,
+    tech_id_filter: str | None = None,
 ) -> dict:
     """
     Onsite Follow-Up tab — all Onsite WOs, excluding cancelled.
@@ -1021,7 +1073,10 @@ def get_asp_onsite_followup_page(
         )""")
         params.extend([term, term, term, term, term])
 
-    if vendor_filter:
+    if tech_id_filter:
+        wheres.append("d.tech_id = ?")
+        params.append(tech_id_filter)
+    elif vendor_filter:
         wheres.append("d.labor_vendor_related = ?")
         params.append(vendor_filter)
 
@@ -1242,6 +1297,7 @@ def get_asp_in_prepare_page(
     page: int = 1,
     page_size: int = 25,
     vendor_filter: str | None = None,
+    tech_id_filter: str | None = None,
     prepare_filter: str = "",
 ) -> dict:
     """
@@ -1330,6 +1386,9 @@ def get_asp_in_prepare_page(
         """
 
     def _build_vendor(params: list) -> str:
+        if tech_id_filter:
+            params.append(tech_id_filter)
+            return " AND d.tech_id = ?"
         if not vendor_filter:
             return ""
         params.append(vendor_filter)
@@ -1414,6 +1473,7 @@ def get_asp_completed_history(
     days: int = 7,
     search: str = "",
     vendor_filter: str | None = None,
+    tech_id_filter: str | None = None,
 ) -> dict:
     """
     Return completed/closed WOs whose closing_date or completion_date falls
@@ -1448,7 +1508,10 @@ def get_asp_completed_history(
         )""")
         params.extend([term, term, term, term, term])
 
-    if vendor_filter:
+    if tech_id_filter:
+        wheres.append("d.tech_id = ?")
+        params.append(tech_id_filter)
+    elif vendor_filter:
         wheres.append("d.labor_vendor_related = ?")
         params.append(vendor_filter)
 
@@ -1495,6 +1558,7 @@ def get_asp_completed_last_30_days(
     page: int = 1,
     page_size: int = 25,
     vendor_filter: str | None = None,
+    tech_id_filter: str | None = None,
 ) -> dict:
     """
     Return WOs where wo_details.completion_date falls within the last 30 calendar days
@@ -1539,7 +1603,10 @@ def get_asp_completed_last_30_days(
               AND TRIM(COALESCE(p.awb,'')) = ''
         )""")
 
-    if vendor_filter:
+    if tech_id_filter:
+        wheres.append("d.tech_id = ?")
+        params.append(tech_id_filter)
+    elif vendor_filter:
         wheres.append("d.labor_vendor_related = ?")
         params.append(vendor_filter)
 
@@ -1584,3 +1651,42 @@ def get_asp_completed_last_30_days(
     """, params + [page_size, offset]).fetchall()
 
     return {"rows": [dict(r) for r in rows], "total": total, "page": page, "pages": pages}
+
+
+def get_pou_unreturn_report() -> list[dict]:
+    """Return all wo_product_detail rows where is_exist_excel = 'yes',
+    joined with wo_details for completion_date / closing_date.
+
+    Columns returned:
+      soid, completion_date, closing_date,
+      return_status    — from wo_product_detail.return_status (GTAAP)
+      dc_number        — from wo_product_detail.dc_number (GTAAP)
+      dc_lenovo        — fallback DC from POU Unreturn upload
+      lenovo_return_status
+      awb_resolv       — AWB NO from Resolve Generated DCs
+      dc_generate_date — DC GENERATION DATE from Resolve Generated DCs
+      awb_return       — AWB Number from POU Unreturn
+      awb_notes        — Note from POU Unreturn
+      is_exist_excel   — whether SOID is present in the uploaded Excel
+    """
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT
+            p.soid,
+            d.completion_date,
+            d.closing_date,
+            p.return_status,
+            p.dc_number,
+            p.dc_lenovo,
+            p.awb_resolv,
+            p.dc_generate_date,
+            p.lenovo_return_status,
+            p.awb_return,
+            p.awb_notes,
+            p.is_exist_excel
+        FROM wo_product_detail p
+        LEFT JOIN wo_details d USING (work_order_id)
+        WHERE p.is_exist_excel = 'yes'
+        ORDER BY p.soid DESC
+    """).fetchall()
+    return [dict(r) for r in rows]
