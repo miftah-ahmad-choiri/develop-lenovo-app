@@ -14,6 +14,7 @@ A Flask web application for managing Lenovo After-Sales Partner (ASP) work order
 - [Local Development](#local-development)
 - [Deploy to Render.com](#deploy-to-rendercom)
 - [Deploy via Cloudflare Tunnel](#deploy-via-cloudflare-tunnel)
+- [Auto-start on Windows Startup / Reboot](#auto-start-on-windows-startup--reboot)
 - [Environment Variables](#environment-variables)
 - [Database](#database)
 - [File Persistence Note](#file-persistence-note)
@@ -709,3 +710,77 @@ The app is now publicly accessible at **https://app.ticket-asp.my.id**. The mobi
   ```powershell
   .\cloudflared\cloudflared.exe service stop
   ```
+
+---
+
+## Auto-start on Windows Startup / Reboot
+
+You can automatically run both the Python app and Cloudflare Tunnel whenever the computer starts up or restarts.
+
+### Option 1: Visible Windows (Two Command Prompt Windows)
+
+If you want to see the logs and console outputs:
+
+1. Create a batch script named `start_services.bat` in `C:\Users\MiftahAhmadChoiri\Deploy-App\develop-lenovo-app\`:
+
+```bat
+@echo off
+set PYTHONIOENCODING=utf-8
+
+:: Change to app directory
+cd /d "C:\Users\MiftahAhmadChoiri\Deploy-App\develop-lenovo-app"
+
+:: 1. Start Python App in a new window
+start "Lenovo App" cmd /k "cd /d C:\Users\MiftahAhmadChoiri\Deploy-App\develop-lenovo-app && .venv\Scripts\python.exe run.py"
+
+:: 2. Start Cloudflare Tunnel in a separate window
+start "Cloudflare Tunnel" cmd /k "cd /d C:\Users\MiftahAhmadChoiri\Deploy-App\develop-lenovo-app && .\cloudflared\cloudflared.exe tunnel --config cloudflared\config.yml run"
+```
+
+2. Place a shortcut in your **Windows Startup folder**:
+   - Press <kbd>Win</kbd> + <kbd>R</kbd>, type `shell:startup`, and press **Enter**.
+   - Right-click inside the folder > **New** > **Shortcut**.
+   - Target the path: `C:\Users\MiftahAhmadChoiri\Deploy-App\develop-lenovo-app\start_services.bat`.
+
+---
+
+### Option 2: Run Silently in Background (No Pop-up Windows)
+
+If you prefer the processes to run invisibly upon logging in:
+
+1. Create a script named `start_services_silent.vbs` in `C:\Users\MiftahAhmadChoiri\Deploy-App\develop-lenovo-app\`:
+
+```vbs
+Set WshShell = CreateObject("WScript.Shell")
+
+' Set working directory path
+appDir = "C:\Users\MiftahAhmadChoiri\Deploy-App\develop-lenovo-app"
+
+' Run Python App silently (0 = hide window)
+WshShell.Run "cmd /c set PYTHONIOENCODING=utf-8 && cd /d " & Chr(34) & appDir & Chr(34) & " && .venv\Scripts\python.exe run.py", 0, False
+
+' Run Cloudflare Tunnel silently
+WshShell.Run "cmd /c cd /d " & Chr(34) & appDir & Chr(34) & " && .\cloudflared\cloudflared.exe tunnel --config cloudflared\config.yml run", 0, False
+```
+
+2. Add a shortcut to `start_services_silent.vbs` into `shell:startup`.
+
+---
+
+### Option 3: Run on System Boot (Before User Login) via Windows Task Scheduler
+
+If you want the services to start even if no user logs into Windows:
+
+1. Press <kbd>Win</kbd> + <kbd>R</kbd>, type `taskschd.msc`, and press **Enter**.
+2. Click **Create Task...** on the right panel.
+3. In the **General** tab:
+   - Name: `Start Lenovo App & Tunnel`
+   - Select **Run whether user is logged on or not**.
+   - Check **Run with highest privileges**.
+4. In the **Triggers** tab:
+   - Click **New...** > select **At startup** (or **At log on**).
+5. In the **Actions** tab:
+   - Action: **Start a program**
+   - Program/script: `C:\Users\MiftahAhmadChoiri\Deploy-App\develop-lenovo-app\start_services.bat`
+   - Start in: `C:\Users\MiftahAhmadChoiri\Deploy-App\develop-lenovo-app`
+6. Click **OK** and save the task.
