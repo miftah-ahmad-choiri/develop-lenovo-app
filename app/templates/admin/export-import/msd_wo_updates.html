@@ -1001,6 +1001,7 @@ function confirmResetMsd() {
           if (d2.ok) {
             appendMsdLog('msd-log-system', '— Fresh MSD run started. —');
             setMsdRunning(true);
+            connectMsdStream();
           } else {
             appendMsdLog('msd-log-error', 'Could not start fresh run: ' + (d2.error || 'Unknown error'));
           }

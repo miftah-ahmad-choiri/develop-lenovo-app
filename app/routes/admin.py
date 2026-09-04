@@ -7,7 +7,8 @@ import threading
 import queue as _queue
 import time as _time
 import uuid as _uuid
-from datetime import datetime
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from flask import (
     Blueprint, render_template, request, redirect,
     url_for, flash, current_app, send_file, jsonify,
@@ -455,6 +456,66 @@ def _msd_in_active_window() -> bool:
     return now.weekday() < 5 and 6 <= now.hour < 20
 
 
+_MSD_JAKARTA_TZ = ZoneInfo("Asia/Jakarta")
+
+
+def _msd_has_file_today() -> bool:
+    """Return whether the MSD output folder contains a file from today in Jakarta."""
+    project_root = os.path.normpath(
+        os.path.join(os.path.dirname(__file__), "..", "..")
+    )
+    downloads_dir = os.path.join(project_root, "files", "msd-auto-download")
+    today = datetime.now(_MSD_JAKARTA_TZ).date()
+    if not os.path.isdir(downloads_dir):
+        return False
+    return any(
+        os.path.isfile(os.path.join(downloads_dir, name))
+        and datetime.fromtimestamp(
+            os.path.getmtime(os.path.join(downloads_dir, name)), _MSD_JAKARTA_TZ
+        ).date() == today
+        for name in os.listdir(downloads_dir)
+    )
+
+
+def _msd_930_watchdog(app) -> None:
+    """At 09:30 Jakarta on weekdays, restart MSD only when today's file is absent."""
+    global _msd_thread
+    while True:
+        now = datetime.now(_MSD_JAKARTA_TZ)
+        run_at = now.replace(hour=9, minute=30, second=0, microsecond=0)
+        if now >= run_at:
+            run_at += timedelta(days=1)
+        while run_at.weekday() >= 5:
+            run_at += timedelta(days=1)
+        _time.sleep((run_at - now).total_seconds())
+
+        with app.app_context():
+            if _msd_has_file_today():
+                _msd_log("INFO", "09:30 Jakarta watchdog: today's MSD file exists; reset skipped.")
+                continue
+            _msd_log("WARNING", "09:30 Jakarta watchdog: no MSD file found for today; resetting and restarting.")
+            _msd_reset_task_state()
+            with _msd_lock:
+                if _msd_thread is not None and _msd_thread.is_alive():
+                    continue
+                _msd_thread = threading.Thread(
+                    target=_run_msd_download_task,
+                    args=(app, False),
+                    daemon=True,
+                    name="msd-auto-download-0930-watchdog",
+                )
+                _msd_thread.start()
+
+
+def _msd_start_930_watchdog(app) -> None:
+    threading.Thread(
+        target=_msd_930_watchdog,
+        args=(app,),
+        daemon=True,
+        name="msd-0930-watchdog",
+    ).start()
+
+
 # Matches Werkzeug/Flask HTTP access log lines that leak via captured stderr.
 # Pattern: '127.0.0.1 - - [DD/Mon/YYYY ...' or the formatted variant with timestamp prefix.
 _WERKZEUG_LINE_RE = _re.compile(
@@ -490,6 +551,24 @@ class _MsdQueueHandler(logging.Handler):
 
 _msd_queue_handler = _MsdQueueHandler()
 _msd_queue_handler.setLevel(logging.INFO)
+
+
+def _msd_log(level: str, message: str) -> None:
+    """Publish a backend MSD message to the live SSE log."""
+    rec = {
+        "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "level": level,
+        "msg": message,
+    }
+    _msd_log_history.append(rec)
+    try:
+        _msd_log_queue.put_nowait(rec)
+    except _queue.Full:
+        try:
+            _msd_log_queue.get_nowait()
+            _msd_log_queue.put_nowait(rec)
+        except (_queue.Full, _queue.Empty):
+            pass
 
 
 @admin_bp.route("/admin/msd-wo-updates/trigger", methods=["POST"])
@@ -617,9 +696,8 @@ def msd_wo_updates_status():
     })
 
 
-@admin_bp.route("/admin/msd-wo-updates/reset", methods=["POST"])
-def msd_wo_updates_reset():
-    """Hard-reset the MSD download task.
+def _msd_reset_task_state() -> str:
+    """Hard-reset the MSD download task and return the Chrome cleanup result.
 
     Steps:
       1. Unblock any pending OTP / re-login queue so the script thread can
@@ -704,7 +782,12 @@ def msd_wo_updates_reset():
     with _msd_lock:
         _msd_thread = None
 
-    return jsonify({"ok": True, "msg": killed_msg})
+    return killed_msg
+
+
+@admin_bp.route("/admin/msd-wo-updates/reset", methods=["POST"])
+def msd_wo_updates_reset():
+    return jsonify({"ok": True, "msg": _msd_reset_task_state()})
 
 
 @admin_bp.route("/admin/msd-wo-updates/otp", methods=["POST"])
@@ -3715,7 +3798,9 @@ def _run_msd_download_task(app, run_once: bool = False) -> None:
     logger = logging.getLogger("msd_auto_download")
     logger.setLevel(logging.INFO)
     logger.propagate = False  # prevent root-logger → stderr → _QueueWriter → logger loop
-    logger.addHandler(_msd_queue_handler)
+    queue_handler = _MsdQueueHandler()
+    queue_handler.setLevel(logging.INFO)
+    logger.addHandler(queue_handler)
 
     stdout_writer = _QueueWriter(logger, logging.INFO)
     stderr_writer = _QueueWriter(logger, logging.ERROR)
@@ -3872,7 +3957,7 @@ def _run_msd_download_task(app, run_once: bool = False) -> None:
             _msd_otp_pending = False
             _msd_relogin_pending = False
             os.sys.argv = original_argv
-            logger.removeHandler(_msd_queue_handler)
+            logger.removeHandler(queue_handler)
             # Keep propagate=False permanently — this logger must never reach root
 
         # Trim files/msd-auto-download to the 5 most recent xlsx files
