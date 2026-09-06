@@ -62,3 +62,4 @@ files/resolve-auto-download/Extract-DC/*.xlsx
 
 # MSD downloaded files — runtime output
 files/msd-auto-download/*.xlsx
+files/lenovo_asp_broken.db

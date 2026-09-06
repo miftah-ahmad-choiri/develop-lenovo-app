@@ -14,6 +14,7 @@ A Flask web application for managing Lenovo After-Sales Partner (ASP) work order
 - [Local Development](#local-development)
 - [Deploy to Render.com](#deploy-to-rendercom)
 - [Deploy via Cloudflare Tunnel](#deploy-via-cloudflare-tunnel)
+- [Auto-start on Windows Startup / Reboot](#auto-start-on-windows-startup--reboot)
 - [Environment Variables](#environment-variables)
 - [Database](#database)
 - [File Persistence Note](#file-persistence-note)
@@ -709,3 +710,123 @@ The app is now publicly accessible at **https://app.ticket-asp.my.id**. The mobi
   ```powershell
   .\cloudflared\cloudflared.exe service stop
   ```
+
+---
+
+## Auto-start on Windows Startup / Reboot
+
+You can automatically run both the Python app and Cloudflare Tunnel whenever the computer starts up or restarts.
+
+### Option 1: Visible Windows (Two Command Prompt Windows)
+
+If you want to see the logs and console outputs:
+
+1. Create a batch script named `start_services.bat` in `C:\Users\MiftahAhmadChoiri\Deploy-App\develop-lenovo-app\`:
+
+```bat
+@echo off
+set PYTHONIOENCODING=utf-8
+
+:: Change to app directory
+cd /d "C:\Users\MiftahAhmadChoiri\Deploy-App\develop-lenovo-app"
+
+:: 1. Start Python App in a new window
+start "Lenovo App" cmd /k "cd /d C:\Users\MiftahAhmadChoiri\Deploy-App\develop-lenovo-app && .venv\Scripts\python.exe run.py"
+
+:: 2. Start Cloudflare Tunnel in a separate window
+start "Cloudflare Tunnel" cmd /k "cd /d C:\Users\MiftahAhmadChoiri\Deploy-App\develop-lenovo-app && .\cloudflared\cloudflared.exe tunnel --config cloudflared\config.yml run"
+```
+
+2. Place a shortcut in your **Windows Startup folder**:
+   - Press <kbd>Win</kbd> + <kbd>R</kbd>, type `shell:startup`, and press **Enter**.
+   - Right-click inside the folder > **New** > **Shortcut**.
+   - Target the path: `C:\Users\MiftahAhmadChoiri\Deploy-App\develop-lenovo-app\start_services.bat`.
+
+---
+
+### Option 2: Run Silently in Background (No Pop-up Windows)
+
+If you prefer the processes to run invisibly upon logging in:
+
+1. Create a script named `start_services_silent.vbs` in `C:\Users\MiftahAhmadChoiri\Deploy-App\develop-lenovo-app\`:
+
+```vbs
+Set WshShell = CreateObject("WScript.Shell")
+
+' Set working directory path
+appDir = "C:\Users\MiftahAhmadChoiri\Deploy-App\develop-lenovo-app"
+
+' Run Python App silently (0 = hide window)
+WshShell.Run "cmd /c set PYTHONIOENCODING=utf-8 && cd /d " & Chr(34) & appDir & Chr(34) & " && .venv\Scripts\python.exe run.py", 0, False
+
+' Run Cloudflare Tunnel silently
+WshShell.Run "cmd /c cd /d " & Chr(34) & appDir & Chr(34) & " && .\cloudflared\cloudflared.exe tunnel --config cloudflared\config.yml run", 0, False
+```
+
+2. Add a shortcut to `start_services_silent.vbs` into `shell:startup`.
+
+---
+
+### Option 3: All Users Startup Folder (Runs When ANY User Logs In)
+
+Use this option if multiple administrator or standard user accounts (e.g., `Ahmad Zaky`, `MiftahAhmadChoiri`) log into this machine and you want the application to start on login regardless of who signs in:
+
+1. Press <kbd>Win</kbd> + <kbd>R</kbd>, type `shell:common startup`, and press **Enter**.
+   - This opens the shared system-wide startup folder: `C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup`
+2. Right-click inside the folder > **New** > **Shortcut**.
+3. Set the target location to your preferred startup script:
+   - Visible windows: `C:\Users\MiftahAhmadChoiri\Deploy-App\develop-lenovo-app\start_services.bat`
+   - Hidden background: `C:\Users\MiftahAhmadChoiri\Deploy-App\develop-lenovo-app\start_services_silent.vbs`
+4. Click **Next**, name the shortcut (e.g. `Lenovo App & Tunnel`), and click **Finish**.
+
+---
+
+### Option 4: Run on System Boot Before User Login (Windows Task Scheduler — Best for Server Mode)
+
+Use this option if you want the app and tunnel to run immediately after the machine powers on or reboots, **even before any user logs in**.
+
+#### Step-by-Step Configuration:
+
+1. **Open Task Scheduler with Administrator Privileges**:
+   - Press <kbd>Win</kbd> + <kbd>R</kbd>, type `taskschd.msc`, and press **Enter** (or search **Task Scheduler** in the Windows Start menu and select *Run as Administrator*).
+
+2. **Create a New Task**:
+   - In the right-hand **Actions** pane, click **Create Task...** (do not choose *Create Basic Task*).
+
+3. **General Tab**:
+   - **Name**: `Lenovo App and Cloudflare Tunnel AutoStart`
+   - **Description**: `Starts Flask backend and Cloudflare Tunnel automatically on machine reboot.`
+   - Under **Security options**:
+     - Click **Change User or Group...** > type `SYSTEM` (or select an Administrator account such as `Ahmad Zaky`) and click **OK**.
+     - Select **Run whether user is logged on or not**.
+     - Check **Run with highest privileges**.
+     - **Configure for**: select `Windows 10` or `Windows 11`.
+
+4. **Triggers Tab**:
+   - Click **New...**
+   - **Begin the task**: Select **At startup** (or select **At log on** if configured for a specific user).
+   - *(Optional)* Under Advanced settings, check **Delay task for:** and set to `30 seconds` (ensures networking and DNS services are fully initialized).
+   - Click **OK**.
+
+5. **Actions Tab**:
+   - Click **New...**
+   - **Action**: `Start a program`
+   - **Program/script**: `C:\Users\MiftahAhmadChoiri\Deploy-App\develop-lenovo-app\start_services.bat`
+   - **Start in (optional but required)**: `C:\Users\MiftahAhmadChoiri\Deploy-App\develop-lenovo-app`
+   - Click **OK**.
+
+6. **Conditions Tab**:
+   - Uncheck **Start the task only if the computer is on AC power** (ensures it runs even on battery or UPS power).
+   - *(Optional)* Check **Start only if the following network connection is available** > select **Any connection**.
+
+7. **Settings Tab**:
+   - Check **Allow task to be run on demand**.
+   - Check **If the task fails, restart every:** `1 minute`, set retry count to `3 times`.
+   - Uncheck **Stop the task if it runs longer than:** (ensures long-running web services and tunnels do not get terminated).
+   - If the task is already running: select **Do not start a new instance**.
+   - Click **OK** to save the task. (Enter credentials if prompted).
+
+8. **Test the Task**:
+   - Find your newly created task in the **Task Scheduler Library**.
+   - Right-click it and select **Run**.
+   - Verify that your app is accessible via `http://localhost:5000` or `https://app.ticket-asp.my.id`.

@@ -73,6 +73,15 @@
 
   .row-count { font-size: 12px; color: #57606a; margin-left: auto; white-space: nowrap; }
 
+  .btn-generate-report {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 12px; border-radius: 6px; border: 1px solid #6366f1;
+    background: #eff0fe; font-size: 12px; font-weight: 600; color: #4338ca;
+    cursor: pointer; white-space: nowrap; text-decoration: none;
+    transition: background 0.12s, box-shadow 0.12s;
+  }
+  .btn-generate-report:hover { background: #e0e7ff; box-shadow: 0 1px 4px rgba(99,102,241,0.2); }
+
   /* ── meta ─────────────────────────────────────────────────── */
   .report-meta { font-size: 12px; color: #57606a; margin-bottom: 14px; }
   .report-meta strong { color: #1f2328; }
@@ -210,7 +219,13 @@
 
 {% elif rows|length == 0 %}
   {% if pou_filename %}
-    <div class="report-meta">Source file: <strong>{{ pou_filename }}</strong></div>
+    <div class="report-meta" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <span>Source file: <strong>{{ pou_filename }}</strong></span>
+      <a class="btn-generate-report" href="/admin/validation/pou-unreturn/generate-report">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Generate Report
+      </a>
+    </div>
   {% endif %}
   <div class="empty-box">
     <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -222,7 +237,13 @@
 
 {% else %}
   {% if pou_filename %}
-    <div class="report-meta">Source file: <strong>{{ pou_filename }}</strong></div>
+    <div class="report-meta" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <span>Source file: <strong>{{ pou_filename }}</strong></span>
+      <a class="btn-generate-report" href="/admin/validation/pou-unreturn/generate-report">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Generate Report
+      </a>
+    </div>
   {% endif %}
 
   <!-- Summary cards -->
@@ -436,7 +457,7 @@
     const awbL    = hasVal(tds[7]);   // AWB Lenovo
     const rs      = (tds[3] ? tds[3].dataset.v || '' : '').trim().toUpperCase();
     if (activeCard === 'dc_awb')  return (dcN || dcL) && (awbR || awbL);
-    if (activeCard === 'pending') return _PENDING_RS.has(rs) && !dcL && !awbL;
+    if (activeCard === 'pending') return _PENDING_RS.has(rs) && !dcN && !dcL;
     if (activeCard === 'no_awb')  return !awbR && !awbL;
     return true;
   }

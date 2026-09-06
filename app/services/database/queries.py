@@ -6,7 +6,12 @@ Results are returned as plain dicts (not sqlite3.Row objects) so they
 are JSON-serialisable directly.
 """
 
+import time
 from app.services.database.db import get_db
+
+# ── Simple in-process TTL cache for get_wo_summary_stats ─────────────────────
+_stats_cache: dict = {}          # key → (timestamp, result)
+_STATS_TTL   = 60                # seconds
 
 
 def isSentinel_py(s) -> bool:
@@ -254,7 +259,15 @@ def get_wo_summary_stats(
 
     When tech_id_filter is given, only WOs assigned to that technician are counted.
     When vendor_filter is given (asp/asp_master), only that ASP's WOs are counted.
+
+    Results are cached for _STATS_TTL seconds per (vendor_filter, tech_id_filter)
+    key to avoid firing 8+ full-table COUNT queries on every page load.
     """
+    cache_key = (vendor_filter, tech_id_filter)
+    now = time.monotonic()
+    cached = _stats_cache.get(cache_key)
+    if cached and (now - cached[0]) < _STATS_TTL:
+        return cached[1]
     # Reuse the existing page queries — they already contain all the state
     # computation logic. Fetching page 1 with size 1 is cheap; we only need
     # the `total` field they return.
@@ -324,7 +337,7 @@ def get_wo_summary_stats(
     part_hold    = _count("LOWER(work_order_status) LIKE '%part%hold%'")
     part_transit = _count("LOWER(work_order_status) LIKE '%transit%'")
 
-    return {
+    result = {
         # legacy web portal keys
         "total":               total,
         "closed":              closed,
@@ -344,6 +357,8 @@ def get_wo_summary_stats(
         "ons_in_transit_total":  ons_in_transit_total,
         "ons_in_repair_total":   ons_in_repair_total,
     }
+    _stats_cache[cache_key] = (now, result)
+    return result
 
 
 # ── ASP tab-specific page queries ─────────────────────────────────────────────
@@ -832,7 +847,12 @@ def get_asp_part_return_page(
          FROM wo_product_detail p
          WHERE p.work_order_id = s.work_order_id
            AND LOWER(TRIM(COALESCE(p.is_exist_excel,''))) = 'yes'
-         ORDER BY p.soid DESC LIMIT 1) AS awb_return
+         ORDER BY p.soid DESC LIMIT 1) AS awb_return,
+        (SELECT p.soid
+         FROM wo_product_detail p
+         WHERE p.work_order_id = s.work_order_id
+           AND LOWER(TRIM(COALESCE(p.is_exist_excel,''))) = 'yes'
+         ORDER BY p.soid DESC LIMIT 1) AS soid
     """
 
     # Only closed/completed WOs that have at least one is_exist_excel='yes' SOID
@@ -991,6 +1011,97 @@ def get_wo_no_awb_by_asp(customer: str, current_wo_id: int | None = None) -> lis
                 rows = [dict(r) for r in current_rows] + rows
 
     return rows
+
+
+# Return Reminder — one row per SOID where return_status is pending, WO closed only
+def get_return_reminder_page(
+    search: str = "",
+    return_status: str = "",
+    page: int = 1,
+    page_size: int = 25,
+    vendor_filter: str | None = None,
+    tech_id_filter: str | None = None,
+) -> dict:
+    """
+    Return Reminder tab — one row per wo_product_detail SOID where:
+      - return_status IN ('PENDING WITH PARTNER', 'PENDING FOR DC GENERATION')
+      - WO status is closed/completed (uses _CLOSED_WHERE)
+    Optional return_status param filters to a single status value.
+    No is_exist_excel dependency.  Ordered by soid DESC.
+    """
+    conn = get_db()
+    params: list = []
+
+    _ALLOWED = {'PENDING WITH PARTNER', 'PENDING FOR DC GENERATION'}
+    rs_upper = return_status.upper().strip()
+
+    if rs_upper in _ALLOWED:
+        wheres = [
+            "UPPER(TRIM(COALESCE(p.return_status,''))) = ?",
+        ]
+        params.append(rs_upper)
+    else:
+        wheres = [
+            "UPPER(TRIM(COALESCE(p.return_status,''))) IN ('PENDING WITH PARTNER','PENDING FOR DC GENERATION')",
+        ]
+
+    # Only show SOIDs whose WO is closed/completed
+    wheres.append(
+        _CLOSED_WHERE.replace("work_order_status", "s.work_order_status")
+    )
+
+    if search:
+        term = f"%{search.lower()}%"
+        wheres.append("""(
+            CAST(p.soid AS TEXT) LIKE ?
+            OR CAST(s.work_order_id AS TEXT) LIKE ?
+            OR LOWER(s.serial_number)        LIKE ?
+            OR LOWER(s.contact_name)         LIKE ?
+            OR LOWER(s.customer)             LIKE ?
+        )""")
+        params.extend([term, term, term, term, term])
+
+    if tech_id_filter:
+        wheres.append("d.tech_id = ?")
+        params.append(tech_id_filter)
+    elif vendor_filter:
+        wheres.append("d.labor_vendor_related = ?")
+        params.append(vendor_filter)
+
+    where_sql = "WHERE " + " AND ".join(wheres)
+
+    all_rows = conn.execute(
+        f"""
+        SELECT
+            p.soid,
+            p.work_order_id,
+            p.return_status,
+            p.dc_number,
+            p.dc_lenovo,
+            p.awb_return,
+            p.product,
+            p.description,
+            p.wo_product_status,
+            s.created_on,
+            s.work_order_type,
+            s.work_order_status,
+            s.contact_name,
+            s.customer,
+            s.serial_number
+        FROM wo_product_detail p
+        JOIN wo_summary s USING (work_order_id)
+        LEFT JOIN wo_details d USING (work_order_id)
+        {where_sql}
+        ORDER BY p.soid DESC
+        """,
+        params,
+    ).fetchall()
+
+    result_rows = [dict(r) for r in all_rows]
+    total  = len(result_rows)
+    pages  = max(1, -(-total // page_size))
+    offset = (max(1, page) - 1) * page_size
+    return {"rows": result_rows[offset: offset + page_size], "total": total, "page": page, "pages": pages}
 
 
 # Return-Part same-ASP — closed WOs for a given ASP with pending return_status lines

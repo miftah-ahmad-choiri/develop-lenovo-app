@@ -143,13 +143,18 @@ def move_latest_download(src_dir: str, dst_dir: str, after_time: float) -> str |
     """Move the most recently downloaded file from src_dir to dst_dir.
 
     Only considers files whose mtime >= after_time (seconds since epoch).
+    Skips partial Chrome downloads (.crdownload, .tmp) and waits for the
+    file to stop growing before moving it.
     Falls back to searching ~/Downloads if nothing found in src_dir.
     Returns the destination path or None.
     """
+    # Extensions Chrome uses for in-progress downloads — never move these
+    _PARTIAL_SUFFIXES = (".crdownload", ".tmp", ".part")
+
     def _find(directory: str) -> str | None:
         candidates = [
             f for f in glob.glob(os.path.join(directory, "*"))
-            if not f.endswith(".crdownload")
+            if not any(f.endswith(s) for s in _PARTIAL_SUFFIXES)
             and os.path.isfile(f)
             and os.path.getmtime(f) >= after_time - 2
         ]
@@ -166,6 +171,29 @@ def move_latest_download(src_dir: str, dst_dir: str, after_time: float) -> str |
 
     if not found:
         return None
+
+    # ── Wait for file to stabilise before moving ─────────────────────────
+    # Chrome finishes writing the .xlsx and then renames the temp file.
+    # Poll size every second; once it stays identical for 3 consecutive
+    # checks (and size > 0) the file is fully flushed to disk.
+    stable_count = 0
+    prev_size    = -1
+    stability_deadline = time.time() + 30
+    while time.time() < stability_deadline:
+        try:
+            cur_size = os.path.getsize(found)
+        except OSError:
+            time.sleep(1)
+            continue
+        if cur_size > 0 and cur_size == prev_size:
+            stable_count += 1
+            if stable_count >= 3:
+                break
+        else:
+            stable_count = 0
+        prev_size = cur_size
+        time.sleep(1)
+    print(f"[+] File stable at {prev_size:,} bytes — proceeding to move.")
 
     filename = os.path.basename(found)
     dst_path = os.path.join(dst_dir, filename)
@@ -239,16 +267,21 @@ def clear_session(driver: ChromiumPage) -> None:
         print(f"[!] Could not clear session (non-fatal): {e}")
 
 
+# XPath selectors that do NOT rely on the PrimeNG dynamic table id (pr_id_N).
+# The id changes on every re-render / session, so we match by structural
+# position inside the paginator's nearest ancestor table instead.
+_XPATH_ROWS     = 'xpath://p-paginator/ancestor::div[1]//table//tbody/tr'
+_XPATH_FIRST_DC = 'xpath://p-paginator/ancestor::div[1]//table//tbody/tr[1]/td[2]'
+
+
 def scrape_all_pages(driver: ChromiumPage) -> list[dict]:
     """Scrape all rows from the Generated DC's table across all pages."""
     all_rows = []
     page_num  = 1
 
     while True:
-        # Wait for table rows to be present
-        driver.wait.ele_displayed(
-            'xpath://table[@id="pr_id_17-table"]//tbody/tr', timeout=15
-        )
+        # Wait for table rows to be present (id-independent selector)
+        driver.wait.ele_displayed(_XPATH_ROWS, timeout=15)
 
         # Read paginator text
         paginator = driver.ele(
@@ -258,7 +291,7 @@ def scrape_all_pages(driver: ChromiumPage) -> list[dict]:
         print(f"[scrape] Page {page_num}: {pag_text}")
 
         # Collect all <tr> rows in tbody
-        rows = driver.eles('xpath://table[@id="pr_id_17-table"]//tbody/tr', timeout=10)
+        rows = driver.eles(_XPATH_ROWS, timeout=10)
         for row in rows:
             cells = row.eles('tag:td')
             if len(cells) >= 5:
@@ -279,23 +312,20 @@ def scrape_all_pages(driver: ChromiumPage) -> list[dict]:
             print(f"[scrape] Last page reached. Total rows: {len(all_rows)}")
             break
 
-        # Read the first cell value on the current page so we can detect the change
+        # Read the first DC cell on the current page so we can detect the change
         first_cell_before = str(
-            driver.ele('xpath://table[@id="pr_id_17-table"]//tbody/tr[1]/td[2]', timeout=5).text
+            driver.ele(_XPATH_FIRST_DC, timeout=5).text
         )
 
         # Click Next via JS (avoids zoom/hit-test issues)
         driver.run_js("arguments[0].click();", next_btn)
 
-        # Wait only until the first row actually changes — much faster than fixed sleep
+        # Wait until the first row actually changes — much faster than a fixed sleep
         deadline = time.time() + 15
         while time.time() < deadline:
             try:
                 first_cell_now = str(
-                    driver.ele(
-                        'xpath://table[@id="pr_id_17-table"]//tbody/tr[1]/td[2]',
-                        timeout=2,
-                    ).text
+                    driver.ele(_XPATH_FIRST_DC, timeout=2).text
                 )
                 if first_cell_now != first_cell_before:
                     break

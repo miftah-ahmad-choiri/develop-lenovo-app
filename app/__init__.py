@@ -113,9 +113,17 @@ def create_app():
     # Start exactly once — the WERKZEUG_RUN_MAIN guard prevents a double-start
     # when Flask's dev-mode reloader forks a child process.
     if os.environ.get("WERKZEUG_RUN_MAIN") != "false":
-        from app.routes.admin import start_sync_scheduler, _msd_start_startup_scheduler, start_resolve_scheduler
+        from app.routes.admin import (
+            start_sync_scheduler,
+            _msd_start_startup_scheduler,
+            _msd_start_930_watchdog,
+            start_resolve_scheduler,
+            _start_has_wo_backfill,
+        )
         start_sync_scheduler(app)
         _msd_start_startup_scheduler(app)
+        _msd_start_930_watchdog(app)
         start_resolve_scheduler(app)
+        _start_has_wo_backfill(app)
 
     return app

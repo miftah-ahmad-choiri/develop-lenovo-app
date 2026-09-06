@@ -456,6 +456,86 @@ def api_wo_ticket_history(work_order_id: int):
     return jsonify({"case_number": detail["case_number"], "current_wo_id": work_order_id, "rows": rows})
 
 
+@asp_bp.route("/asp/api/wo-monday-escalation/<int:work_order_id>", methods=["GET"])
+@login_required
+def api_wo_monday_escalation(work_order_id: int):
+    """Return all Monday technical_escalation rows that share the same serial_number as the WO."""
+    import os as _os
+    from app.services.database.queries import get_wo_detail
+    from app.services.database.db import open_db
+
+    detail = get_wo_detail(work_order_id)
+    tf = _tech_id_filter()
+    vf = _vendor_filter()
+    if tf and (not detail or detail.get("tech_id") != tf):
+        return jsonify({"serial_number": None, "rows": []})
+    if vf and (not detail or detail.get("labor_vendor_related") != vf):
+        return jsonify({"serial_number": None, "rows": []})
+    if not detail or not detail.get("serial_number"):
+        return jsonify({"serial_number": None, "rows": []})
+
+    sn = detail["serial_number"].strip()
+
+    project_root = _os.path.normpath(_os.path.join(_os.path.dirname(__file__), "..", ".."))
+    db_path = _os.path.join(project_root, "files", "lenovo_asp.db")
+    if not _os.path.isfile(db_path):
+        return jsonify({"serial_number": sn, "rows": []})
+
+    edb = open_db(db_path)
+    rows = []
+    try:
+        raw = edb.execute(
+            """
+            SELECT
+                te.monday_item_id,
+                te.board_id,
+                te.asp_board,
+                te.item_name,
+                te.item_created_at,
+                te.item_updated_at,
+                te.status,
+                te.work_order_type,
+                te.wo_case_id,
+                te.serial_number,
+                te.ppsn_category,
+                te.rrr_category,
+                te.diag_datetime,
+                te.diag_agent_ce,
+                te.diag_model,
+                te.diag_warranty,
+                te.diag_problem,
+                te.diag_esc_approval,
+                te.diag_parts_request,
+                te.diagnose_note,
+                te.repair_note,
+                (
+                    SELECT COUNT(DISTINCT u2.update_id) + COUNT(DISTINCT r2.reply_id)
+                    FROM item_updates u2
+                    LEFT JOIN item_update_replies r2 ON u2.update_id = r2.update_id
+                    WHERE u2.monday_item_id = te.monday_item_id
+                ) AS disc_count,
+                (
+                    SELECT wd.case_number
+                    FROM wo_details wd
+                    WHERE CAST(wd.work_order_id AS TEXT) = TRIM(te.wo_case_id)
+                    LIMIT 1
+                ) AS case_number
+            FROM technical_escalation te
+            WHERE LOWER(TRIM(te.serial_number)) = LOWER(?)
+            ORDER BY te.item_created_at ASC
+            """,
+            (sn,),
+        ).fetchall()
+        rows = [dict(r) for r in raw]
+    except Exception as _e:
+        current_app.logger.error("api_wo_monday_escalation query failed: %s", _e)
+    finally:
+        edb.close()
+
+    return jsonify({"serial_number": sn, "rows": rows})
+
+
+
 @asp_bp.route("/asp/api/working-hours", methods=["POST"])
 @login_required
 def api_save_working_hours():
@@ -805,6 +885,82 @@ def api_return_part():
         vendor_filter  = _vendor_filter(),
         tech_id_filter = _tech_id_filter(),
     ))
+
+
+@asp_bp.route("/asp/api/return-reminder", methods=["GET"])
+@login_required
+def api_return_reminder():
+    """Return Reminder — closed-WO SOIDs with PENDING WITH PARTNER or PENDING FOR DC GENERATION return_status."""
+    from app.services.database.queries import get_return_reminder_page
+    per_page = min(_int_arg("per_page", 25), 100)
+    return jsonify(get_return_reminder_page(
+        search         = request.args.get("q", "").strip(),
+        return_status  = request.args.get("return_status", "").strip(),
+        page           = _int_arg("page", 1),
+        page_size      = per_page,
+        vendor_filter  = _vendor_filter(),
+        tech_id_filter = _tech_id_filter(),
+    ))
+
+
+@asp_bp.route("/asp/api/return-reminder/export", methods=["GET"])
+@login_required
+def api_return_reminder_export():
+    """Export Return Reminder rows (one row per SOID) for the active sub-tab filter."""
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from app.services.database.queries import get_return_reminder_page
+
+    rs = request.args.get("return_status", "").strip()
+    q  = request.args.get("q", "").strip()
+
+    result = get_return_reminder_page(
+        search         = q,
+        return_status  = rs,
+        page           = 1,
+        page_size      = 9999,
+        vendor_filter  = _vendor_filter(),
+        tech_id_filter = _tech_id_filter(),
+    )
+    rows = result.get("rows", [])
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Return Reminder"
+
+    headers = ["No.", "SOID", "WO Number", "Created On", "WO Type",
+               "Return Status", "DC Number", "AWB Return", "WO Status", "Contact Name", "ASP"]
+    col_keys = [None, "soid", "work_order_id", "created_on", "work_order_type",
+                "return_status", "dc_number", "awb_return", "work_order_status", "contact_name", "customer"]
+    col_widths = [6, 18, 16, 18, 14, 26, 16, 20, 24, 24, 28]
+
+    hdr_fill = PatternFill("solid", fgColor="1F2328")
+    hdr_font = Font(bold=True, color="FFFFFF", size=11)
+    for ci, (h, w) in enumerate(zip(headers, col_widths), 1):
+        cell = ws.cell(row=1, column=ci, value=h)
+        cell.font = hdr_font
+        cell.fill = hdr_fill
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        ws.column_dimensions[cell.column_letter].width = w
+
+    for ri, r in enumerate(rows, 2):
+        ws.cell(row=ri, column=1, value=ri - 1)
+        for ci, key in enumerate(col_keys[1:], 2):
+            val = r.get(key, "")
+            if val is None:
+                val = ""
+            ws.cell(row=ri, column=ci, value=str(val) if val != "" else "")
+
+    import io
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    safe_rs = (rs or "all").replace(" ", "_").lower()
+    from flask import send_file
+    return send_file(buf, as_attachment=True,
+                     download_name=f"return_reminder_{safe_rs}.xlsx",
+                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
 @asp_bp.route("/asp/api/return-part/export", methods=["GET"])

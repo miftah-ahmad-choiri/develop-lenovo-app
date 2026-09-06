@@ -43,12 +43,11 @@ PASSWORD = os.getenv("DYNAMICS_PASSWORD", "")
 # CHROME SETUP
 # =====================================
 
-# Download destination — resolve to the current user's Downloads folder so it
-# works on any machine regardless of the Windows username.
-DOWNLOADS_DIR = os.getenv(
-    "DOWNLOADS_DIR",
-    str(pathlib.Path.home() / "Downloads")
-)
+# Download destination — always resolved from the current OS user's home
+# directory so it works on any machine regardless of the Windows username.
+# NOT read from .env — hardcoding a username path in .env was the source of
+# the "C:\Users\mifta\Downloads" bug when running on a different account.
+DOWNLOADS_DIR = str(pathlib.Path.home() / "Downloads")
 
 # Use a dedicated Chrome profile directory for Selenium to persist cookies/login session.
 # We store it in the user's home directory (e.g., C:\Users\username\.selenium_chrome_profile)
@@ -167,6 +166,12 @@ def _kill_chrome_on_profile(profile_dir: str) -> None:
 # real Chrome setting) which causes the "Save As" dialog to appear.
 # Fix: write the correct download prefs directly into the Preferences JSON file
 # before Chrome starts, so it picks them up on launch.
+#
+# IMPORTANT: Chrome requires forward slashes in Preferences JSON on Windows.
+# Backslashes cause Chrome to silently ignore the path and fall back to the
+# system Downloads folder with prompt_for_download=true.
+_DOWNLOADS_DIR_FWD = DOWNLOADS_DIR.replace("\\", "/")
+
 _prefs_file = pathlib.Path(SELENIUM_PROFILE_DIR) / "Default" / "Preferences"
 try:
     import json as _json
@@ -177,9 +182,10 @@ try:
             _existing = _json.loads(_prefs_file.read_text(encoding="utf-8"))
         except Exception:
             _existing = {}
-    # Patch only the download sub-keys — leave all other prefs intact
+    # Patch only the download sub-keys — leave all other prefs intact.
+    # Use forward slashes: Chrome misreads backslash paths in Preferences JSON.
     _existing.setdefault("download", {})
-    _existing["download"]["default_directory"]    = DOWNLOADS_DIR
+    _existing["download"]["default_directory"]    = _DOWNLOADS_DIR_FWD
     _existing["download"]["prompt_for_download"]  = False
     _existing["download"]["directory_upgrade"]    = True
     _existing.setdefault("safebrowsing", {})
@@ -187,7 +193,7 @@ try:
     _prefs_file.write_text(
         _json.dumps(_existing, indent=2), encoding="utf-8"
     )
-    print(f"Chrome Preferences patched: download dir → {DOWNLOADS_DIR}")
+    print(f"Chrome Preferences patched: download dir → {_DOWNLOADS_DIR_FWD}")
 except Exception as _pe:
     print(f"Warning: could not patch Chrome Preferences: {_pe}")
 
@@ -195,15 +201,22 @@ options = Options()
 options.add_argument("--start-maximized")
 options.add_argument("--force-device-scale-factor=0.6")
 options.add_argument(f"--user-data-dir={SELENIUM_PROFILE_DIR}")
+# Suppress Chrome 128+ download bubble/shelf UI that blocks silent downloads
+options.add_argument("--disable-features=DownloadBubble,DownloadBubbleV2")
+# Disable safebrowsing download checks that can trigger "Failed - Network error"
+options.add_argument("--safebrowsing-disable-download-protection")
 
 # No "detach" — on normal exit the browser closes; on Ctrl+C only the window
 # is closed so the Chrome profile (cookies/session) is preserved on disk.
 # These prefs are also written into Preferences above for the persistent profile.
+# Forward slashes used here too for the same reason.
 options.add_experimental_option("prefs", {
-    "download.default_directory":         DOWNLOADS_DIR,
+    "download.default_directory":         _DOWNLOADS_DIR_FWD,
     "download.prompt_for_download":       False,
     "download.directory_upgrade":         True,
     "safebrowsing.enabled":               True,
+    # Suppress the download shelf / bubble introduced in Chrome 108+
+    "download.show_download_bubble_v2":   False,
 })
 
 def _make_driver():
@@ -215,7 +228,27 @@ def _make_driver():
     """
     _kill_chrome_on_profile(SELENIUM_PROFILE_DIR)
     _drv = webdriver.Chrome(options=options)
-    _wt  = WebDriverWait(_drv, 30)
+
+    # ── CDP override: set download behaviour at runtime ───────────────────
+    # Page.setDownloadBehavior was removed in Chrome 128+.
+    # Browser.setDownloadBehavior is the correct modern API.  On Chrome 128+
+    # it works with --user-data-dir when downloadPath uses backslashes
+    # (Windows native separators, NOT forward slashes which the CDP layer
+    # rejects on Windows).
+    try:
+        _drv.execute_cdp_cmd(
+            "Browser.setDownloadBehavior",
+            {
+                "behavior":      "allow",
+                "downloadPath":  DOWNLOADS_DIR,   # backslashes — required by CDP on Windows
+                "eventsEnabled": True,
+            },
+        )
+        print(f"CDP download behaviour set: allow → {DOWNLOADS_DIR}")
+    except Exception as _cdp_err:
+        print(f"Warning: CDP setDownloadBehavior failed (non-fatal): {_cdp_err}")
+
+    _wt = WebDriverWait(_drv, 30)
     return _drv, _wt
 
 driver, wait = _make_driver()
@@ -383,12 +416,29 @@ def open_work_orders():
         export_btn
     )
     time.sleep(1)
+    # ── Re-apply Browser.setDownloadBehavior right before clicking export ─
+    # Browser.setDownloadBehavior is session-level but can be reset by Chrome
+    # internals after navigations.  Re-applying it here guarantees it is
+    # active at the exact moment Dynamics triggers the file save.
+    try:
+        driver.execute_cdp_cmd(
+            "Browser.setDownloadBehavior",
+            {
+                "behavior":      "allow",
+                "downloadPath":  DOWNLOADS_DIR,   # backslashes — required by CDP on Windows
+                "eventsEnabled": True,
+            },
+        )
+    except Exception:
+        pass
+
     driver.execute_script("arguments[0].click();", export_btn)
 
     print("Export to Excel clicked. Waiting for download to complete...")
 
     # ── Snapshot what already exists so we only detect NEW files
     _before = set(glob.glob(f"{DOWNLOADS_DIR}/*"))
+    _before |= set(glob.glob(f"{str(pathlib.Path.home() / 'Downloads')}/*"))
 
     download_timeout = 120   # seconds — large exports can take a while
     poll_secs        = 3
@@ -437,13 +487,36 @@ def open_work_orders():
 
     if downloaded_file:
         fname = pathlib.Path(downloaded_file).name
-        print(f"Export complete. File saved: {downloaded_file}")
-        
+        print(f"Download detected: {fname}")
+
+        # ── Wait for file to stabilise (Chrome may still be flushing) ─────
+        # Poll file size every second; once it stays the same for 3
+        # consecutive checks (and is > 0), the file is fully written.
+        print("Waiting for file to finish writing...")
+        _stable_count = 0
+        _prev_size    = -1
+        _stability_deadline = time.time() + 30
+        while time.time() < _stability_deadline:
+            try:
+                _cur_size = pathlib.Path(downloaded_file).stat().st_size
+            except OSError:
+                time.sleep(1)
+                continue
+            if _cur_size > 0 and _cur_size == _prev_size:
+                _stable_count += 1
+                if _stable_count >= 3:
+                    break
+            else:
+                _stable_count = 0
+            _prev_size = _cur_size
+            time.sleep(1)
+        print(f"File stable at {_prev_size:,} bytes. Proceeding to move.")
+
         # Move the file to the project MSD output directory
         SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
         TARGET_DIR = SCRIPT_DIR.parent.parent.parent / "files" / "msd-auto-download"
         TARGET_DIR.mkdir(parents=True, exist_ok=True)
-        
+
         dest_file = TARGET_DIR / fname
         _moved_ok = False
         try:
