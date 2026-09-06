@@ -2,7 +2,7 @@
 {% block title %}Monday Data — Admin Portal{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/monday_data.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/monday_data.css') }}?v={{ range(10000, 99999) | random }}">
 {% endblock %}
 
 {% block content %}
@@ -149,23 +149,29 @@
 </div>
 
 <!-- ── Discussion drawer ─────────────────────────────────────────── -->
-<div class="disc-overlay" id="disc-overlay" onclick="closeDrawer()"></div>
-<div class="disc-drawer" id="disc-drawer">
-  <div class="disc-drawer-head">
-    <div class="disc-drawer-title">
+<div class="md-disc-overlay" id="disc-overlay"></div>
+<div class="md-disc-drawer" id="disc-drawer">
+  <div class="md-disc-head">
+    <div class="md-disc-title">
       <h3 id="drawer-title">Discussion</h3>
       <p id="drawer-subtitle"></p>
     </div>
-    <button class="disc-close" onclick="closeDrawer()" title="Close">
+    <button class="md-disc-close" id="disc-close-btn" title="Close">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
   </div>
-  <div class="disc-body" id="drawer-body">
-    <div class="disc-empty">No discussions yet.</div>
+  <div class="md-disc-body" id="drawer-body">
+    <div class="md-disc-empty">No discussions yet.</div>
+  </div>
+  <div class="md-disc-footer" id="disc-footer" style="display:none">
+    <a id="disc-monday-link" href="#" target="_blank" rel="noopener noreferrer">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      Go to Monday.com
+    </a>
   </div>
 </div>
 
 {% block extra_scripts %}
-<script src="{{ url_for('static', filename='js/monday_data.js') }}"></script>
+<script src="{{ url_for('static', filename='js/monday_data.js') }}?v={{ range(10000, 99999) | random }}"></script>
 {% endblock %}
 {% endblock %}

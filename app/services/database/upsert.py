@@ -1008,6 +1008,24 @@ def upsert_from_unreturn(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
     # Tracks every SOID that receives any write this upsert (used to stamp modify_date_dc_lenovo)
     touched_soids:  set[int]     = set()
 
+    # ── Pass 1: stage dc_lenovo values (real values only, changed only) ──────
+    # Runs unconditionally — not gated on the file date stamp.
+    # dc_lenovo is always written when the Excel DC/Collection Form has a real
+    # value that differs from what is already stored, regardless of whether the
+    # file is newer or older than the last upload.
+    for _, row in df.iterrows():
+        soid = _safe_int(row.get("SOID"))
+        if soid is None or soid not in db_rows:
+            continue
+        dc_val = _to_str_or_none(row.get("DC/Collection Form"))
+        if not _has_val(dc_val):
+            continue  # skip rows where DC/Collection Form is empty, 0, or —
+        current_dc = _to_str_or_none(db_rows[soid]["dc_lenovo"])
+        if dc_val == current_dc:
+            continue  # value unchanged — no write needed
+        dc_updates.append((dc_val, soid))
+        touched_soids.add(soid)
+
     # ── Pass 5: is_exist_excel ────────────────────────────────────────────────
     # Runs unconditionally — not gated on the file date stamp.
     # Build the set of SOIDs that appear in the uploaded Excel file.
@@ -1045,6 +1063,7 @@ def upsert_from_unreturn(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
     #   • "Unreturned" → can be overwritten with any new value from Excel
     #   • Any other value → locked; never overwritten
     if file_gate_pass is False:
+        # dc_lenovo was already staged and will be written after this block.
         null_fill_updates: list[tuple] = []  # (awb_return, lenovo_return_status, awb_notes, soid)
         for _, _gf_row in df.iterrows():
             _gf_soid = _safe_int(_gf_row.get("SOID"))
@@ -1079,6 +1098,10 @@ def upsert_from_unreturn(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
             is_exist_updates,
         )
         conn.executemany(
+            "UPDATE wo_product_detail SET dc_lenovo = ? WHERE soid = ?",
+            dc_updates,
+        )
+        conn.executemany(
             "UPDATE wo_product_detail SET return_status = ? WHERE soid = ?",
             status_updates,
         )
@@ -1097,21 +1120,7 @@ def upsert_from_unreturn(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
                 [(max_submitted_iso, s) for s in touched_soids],
             )
         conn.commit()
-        return len(status_updates) + len(is_exist_updates) + len(null_fill_updates)
-
-    # ── Pass 1: stage dc_lenovo values (real values only, changed only) ──
-    for _, row in df.iterrows():
-        soid = _safe_int(row.get("SOID"))
-        if soid is None or soid not in db_rows:
-            continue
-        dc_val = _to_str_or_none(row.get("DC/Collection Form"))
-        if not _has_val(dc_val):
-            continue  # skip rows where DC/Collection Form is empty, 0, or —
-        current_dc = _to_str_or_none(db_rows[soid]["dc_lenovo"])
-        if dc_val == current_dc:
-            continue  # value unchanged — no write needed
-        dc_updates.append((dc_val, soid))
-        touched_soids.add(soid)
+        return len(dc_updates) + len(status_updates) + len(is_exist_updates) + len(null_fill_updates)
 
     # ── Pass 3: awb_return / lenovo_return_status / awb_notes (date-gated) ─
     #

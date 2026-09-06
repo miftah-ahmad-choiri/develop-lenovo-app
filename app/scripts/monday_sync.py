@@ -389,7 +389,8 @@ CREATE TABLE IF NOT EXISTS technical_escalation (
     diag_warranty       TEXT,
     diag_problem        TEXT,
     diag_esc_approval   TEXT,
-    diag_parts_request  TEXT
+    diag_parts_request  TEXT,
+    has_wo              INTEGER DEFAULT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_item_updated_at ON technical_escalation(item_updated_at DESC);
@@ -517,6 +518,13 @@ def get_db(path: str = DB_FILE) -> sqlite3.Connection:
                 except Exception:
                     pass
     conn.executescript(_POST_MIGRATE_INDEXES)
+    # ── add has_wo column if missing (existing DBs) ──────────────
+    te_cols = {r[1] for r in conn.execute("PRAGMA table_info(technical_escalation)")}
+    if "has_wo" not in te_cols:
+        try:
+            conn.execute("ALTER TABLE technical_escalation ADD COLUMN has_wo INTEGER DEFAULT NULL")
+        except Exception:
+            pass
     conn.commit()
     return conn
 
@@ -772,6 +780,34 @@ def _apply_wo_type_from_asp(conn: sqlite3.Connection) -> int:
         return 0
 
 
+def _stamp_has_wo(conn: sqlite3.Connection) -> int:
+    """Stamp has_wo = 1 or 0 for every row where it is still NULL.
+
+    Rows with no serial_number get 0 immediately.
+    Rows with a serial are checked against wo_summary (same DB file).
+    Safe to call repeatedly — only touches NULL rows, never overwrites 1/0.
+    Returns the number of rows updated.
+    """
+    try:
+        cur = conn.execute("""
+            UPDATE technical_escalation
+            SET has_wo = CASE
+                WHEN serial_number IS NULL OR serial_number = '' THEN 0
+                WHEN EXISTS (
+                    SELECT 1 FROM wo_summary ws
+                    WHERE LOWER(ws.serial_number) = LOWER(technical_escalation.serial_number)
+                ) THEN 1
+                ELSE 0
+            END
+            WHERE has_wo IS NULL
+        """)
+        conn.commit()
+        return cur.rowcount
+    except Exception as exc:
+        log.warning("_stamp_has_wo: %s", exc)
+        return 0
+
+
 def upsert_items(conn: sqlite3.Connection, items: list[dict],
                  board_id: str, asp_board: str,
                  col_map: dict[str, str] | None = None) -> int:
@@ -947,6 +983,9 @@ def run_sync_all(conn: sqlite3.Connection, state: dict, boards: list[dict],
         except Exception as exc:
             log.error("Board '%s' failed: %s — skipping.", board["asp_board"], exc)
     log.info("All boards completed")
+    stamped = _stamp_has_wo(conn)
+    if stamped:
+        log.info("has_wo stamped on %d new row(s)", stamped)
 
 
 def _backfill_updates(conn: sqlite3.Connection, stop_event=None) -> None:

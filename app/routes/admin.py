@@ -87,6 +87,56 @@ def api_wo_summary():
     return jsonify(result)
 
 
+# ── API: Dashboard overview stats ────────────────────────────────────────────
+
+@admin_bp.route("/admin/api/dashboard-stats", methods=["GET"])
+def api_dashboard_stats():
+    """
+    JSON endpoint returning lightweight stats for the admin dashboard overview:
+      - open_esc_by_date : [{ day, count }] open escalations grouped by created date (all time),
+                           where status is NOT Reject / Approved to Order / Complete
+      - esc_open_total   : total open escalation count (same filter)
+    """
+    from app.services.database.db import get_db
+    conn = get_db()
+
+    _OPEN_FILTER = """
+        LOWER(COALESCE(status, '')) NOT IN (
+            'reject', 'approved to order', 'complete'
+        )
+    """
+
+    # Total count per day (for bar height)
+    open_by_date = conn.execute(f"""
+        SELECT DATE(item_created_at) AS day, COUNT(*) AS count
+        FROM technical_escalation
+        WHERE {_OPEN_FILTER}
+        GROUP BY day
+        ORDER BY day ASC
+    """).fetchall()
+
+    # Per-status count per day (for colour segments and hover detail)
+    open_by_date_status = conn.execute(f"""
+        SELECT DATE(item_created_at) AS day,
+               COALESCE(status, '—') AS status,
+               COUNT(*) AS count
+        FROM technical_escalation
+        WHERE {_OPEN_FILTER}
+        GROUP BY day, status
+        ORDER BY day ASC, count DESC
+    """).fetchall()
+
+    esc_open_total = conn.execute(
+        f"SELECT COUNT(*) FROM technical_escalation WHERE {_OPEN_FILTER}"
+    ).fetchone()[0]
+
+    return jsonify({
+        "open_esc_by_date":        [dict(r) for r in open_by_date],
+        "open_esc_by_date_status": [dict(r) for r in open_by_date_status],
+        "esc_open_total":          esc_open_total,
+    })
+
+
 # ── API: WO Detail (single WO, on-demand) ────────────────────────────────────
 
 @admin_bp.route("/admin/api/wo-detail/<int:work_order_id>", methods=["GET"])
@@ -146,6 +196,79 @@ def api_wo_ticket_history(work_order_id: int):
         return jsonify({"case_number": None, "current_wo_id": work_order_id, "rows": []})
     rows = get_wo_by_case_number(detail["case_number"])
     return jsonify({"case_number": detail["case_number"], "current_wo_id": work_order_id, "rows": rows})
+
+
+# ── API: Monday escalation records by serial number ──────────────────────────
+
+@admin_bp.route("/admin/api/wo-monday-escalation/<int:work_order_id>", methods=["GET"])
+def api_wo_monday_escalation(work_order_id: int):
+    """Return all Monday technical_escalation rows that share the same serial_number as the WO."""
+    import os as _os
+    from app.services.database.queries import get_wo_detail
+
+    detail = get_wo_detail(work_order_id)
+    if not detail or not detail.get("serial_number"):
+        return jsonify({"serial_number": None, "rows": []})
+
+    sn = detail["serial_number"].strip()
+
+    project_root = _os.path.normpath(_os.path.join(_os.path.dirname(__file__), "..", ".."))
+    db_path = _os.path.join(project_root, "files", "lenovo_asp.db")
+    if not _os.path.isfile(db_path):
+        return jsonify({"serial_number": sn, "rows": []})
+
+    edb = open_db(db_path)
+    rows = []
+    try:
+        raw = edb.execute(
+            """
+            SELECT
+                te.monday_item_id,
+                te.board_id,
+                te.asp_board,
+                te.item_name,
+                te.item_created_at,
+                te.item_updated_at,
+                te.status,
+                te.work_order_type,
+                te.wo_case_id,
+                te.serial_number,
+                te.ppsn_category,
+                te.rrr_category,
+                te.diag_datetime,
+                te.diag_agent_ce,
+                te.diag_model,
+                te.diag_warranty,
+                te.diag_problem,
+                te.diag_esc_approval,
+                te.diag_parts_request,
+                te.diagnose_note,
+                te.repair_note,
+                (
+                    SELECT COUNT(DISTINCT u2.update_id) + COUNT(DISTINCT r2.reply_id)
+                    FROM item_updates u2
+                    LEFT JOIN item_update_replies r2 ON u2.update_id = r2.update_id
+                    WHERE u2.monday_item_id = te.monday_item_id
+                ) AS disc_count,
+                (
+                    SELECT wd.case_number
+                    FROM wo_details wd
+                    WHERE CAST(wd.work_order_id AS TEXT) = TRIM(te.wo_case_id)
+                    LIMIT 1
+                ) AS case_number
+            FROM technical_escalation te
+            WHERE LOWER(TRIM(te.serial_number)) = LOWER(?)
+            ORDER BY te.item_created_at ASC
+            """,
+            (sn,),
+        ).fetchall()
+        rows = [dict(r) for r in raw]
+    except Exception as _e:
+        current_app.logger.error("admin api_wo_monday_escalation query failed: %s", _e)
+    finally:
+        edb.close()
+
+    return jsonify({"serial_number": sn, "rows": rows})
 
 
 # ── Ticket Management ────────────────────────────────────────────────────────
@@ -2108,8 +2231,14 @@ def data_import_upsert_preview(category_key: str):
                         )
                         _has_any = (_gs_awb is not None or _gs_rs_clean is not None or _gs_note is not None)
 
+                        # dc_lenovo is written unconditionally (not gated) — check if it would change
+                        _gs_current_dc = _ur_to_str_or_none(_gs_db["dc_lenovo"])
+                        _gs_dc_write   = _gs_dc if (_ur_has_val(_gs_dc) and _gs_dc != _gs_current_dc) else None
+
                         if _eligible and _has_any:
                             _null_parts = []
+                            if _gs_dc_write is not None:
+                                _null_parts.append(f"dc_lenovo ← '{_gs_dc_write}'")
                             if _gs_awb is not None:
                                 _null_parts.append(f"awb_return ← '{_gs_awb}'")
                             if _gs_rs_clean is not None:
@@ -2143,13 +2272,31 @@ def data_import_upsert_preview(category_key: str):
                                 reason_col:       "; ".join(_null_parts),
                                 soid_col:         str(_gs_soid),
                                 dc_col:           str(_gs_dc or "—"),
-                                dc_write_col:     "",
+                                dc_write_col:     str(_gs_dc_write or ""),
                                 rs_col:           _gs_rs,
                                 awb_col:          str(_gs_awb or "—"),
                                 awb_write_col:    str(_gs_awb or ""),
                                 lrs_write_col:    str(_gs_rs_clean or ""),
                                 note_col:         str(_gs_note or "—"),
                                 notes_write_col:  str(_gs_note or ""),
+                                "Vendor Name":    _gs_vendor,
+                                date_col:         "",
+                                subdate_col:      "",
+                                subdate_gate_col: _gate_null_reason,
+                            })
+                        elif _gs_dc_write is not None:
+                            # Only dc_lenovo changes (no new-col write) — still an impacted row
+                            impacted_rows.append({
+                                reason_col:       f"dc_lenovo ← '{_gs_dc_write}'",
+                                soid_col:         str(_gs_soid),
+                                dc_col:           str(_gs_dc or "—"),
+                                dc_write_col:     str(_gs_dc_write),
+                                rs_col:           _gs_rs,
+                                awb_col:          str(_gs_awb or "—"),
+                                awb_write_col:    "",
+                                lrs_write_col:    "",
+                                note_col:         str(_gs_note or "—"),
+                                notes_write_col:  "",
                                 "Vendor Name":    _gs_vendor,
                                 date_col:         "",
                                 subdate_col:      "",
@@ -2810,13 +2957,13 @@ def pou_unreturn_report():
     )
 
     # Pending Partner / DC Generate — return_status is PENDING WITH PARTNER, PENDING FOR DC GENERATION,
-    # UNKNOWN, or empty AND dc_lenovo is empty AND awb_return (AWB Lenovo) is empty
+    # UNKNOWN, or empty AND both dc_number (DC Resolve) and dc_lenovo (DC Lenovo) are empty
     _PENDING_STATUSES = {"PENDING WITH PARTNER", "PENDING FOR DC GENERATION", "UNKNOWN", ""}
     summary_pending = sum(
         1 for r in rows
         if (r.get("return_status") or "").strip().upper() in _PENDING_STATUSES
+        and not _has_val(r, "dc_number")
         and not _has_val(r, "dc_lenovo")
-        and not _has_val(r, "awb_return")
     )
 
     # Missing AWB — both awb_resolv and awb_return are NULL or empty
@@ -2860,6 +3007,186 @@ def pou_unreturn_update_awb_notes():
         return jsonify({"ok": False, "error": "SOID not found."}), 404
     return jsonify({"ok": True, "soid": soid, "awb_notes": notes})
 
+
+
+@admin_bp.route("/admin/validation/pou-unreturn/generate-report", methods=["GET"])
+def pou_unreturn_generate_report():
+    """Clone the source POU Unreturn Excel file and fill columns Q/R/S/T
+    (DC/Collection Form, AWB Number, Return Status, Note) from the database,
+    mirroring exactly what the report page displays.
+
+    DC/Collection Form  → dc_number  (green = has value) else dc_lenovo (green)
+    AWB Number          → awb_resolv (green = has value) else awb_return (green)
+    Return Status       → Computed Lenovo Return Status (same logic as page JS)
+    Note                → awb_notes
+    """
+    import io
+    import math as _math
+    from datetime import date as _date, datetime as _datetime
+    from openpyxl import load_workbook
+    from app.services.database.queries import get_pou_unreturn_report
+
+    upload_folder = current_app.config["EXCEL_UPLOAD_FOLDER"]
+    meta_folder   = current_app.config["UPLOAD_META_FOLDER"]
+    _POU_CATEGORY = "ID-IBM ID POU Unreturn"
+
+    # ── Find the source file ──────────────────────────────────────────────────
+    pou_file_path = None
+    pou_filename  = None
+    for fname in sorted(os.listdir(upload_folder), reverse=True):
+        if not allowed_excel(fname):
+            continue
+        meta = read_meta(meta_folder, fname)
+        if meta and meta.get("file_category") == _POU_CATEGORY:
+            pou_file_path = os.path.join(upload_folder, fname)
+            pou_filename  = fname
+            break
+
+    if pou_file_path is None:
+        return jsonify({"error": "No POU Unreturn file uploaded yet."}), 404
+
+    # ── DB rows ───────────────────────────────────────────────────────────────
+    rows = get_pou_unreturn_report()
+
+    def _has(v) -> bool:
+        if v is None:
+            return False
+        if isinstance(v, float) and _math.isnan(v):
+            return False
+        return str(v).strip() not in ("", "—", "0")
+
+    # ── Replicate the JS overrideLRS() logic in Python ────────────────────────
+    def _compute_display_lrs(r: dict) -> str:
+        """Mirror the client-side Lenovo Return Status override logic exactly."""
+        today = _date.today()
+        dc_num_val  = str(r.get("dc_number")  or "").strip()
+        dc_len_val  = str(r.get("dc_lenovo")  or "").strip()
+        awb_res_val = str(r.get("awb_resolv") or "").strip()
+        awb_ret_val = str(r.get("awb_return") or "").strip()
+        lrs_db      = str(r.get("lenovo_return_status") or "").strip()
+        wo_date_str = str(r.get("completion_date") or r.get("closing_date") or "").strip()
+        dc_date_str = str(r.get("dc_generate_date") or "").strip()
+
+        def _is_hardclose(v: str) -> bool:
+            return bool(v) and "hardclose" in v.lower()
+
+        def _is_real(v: str) -> bool:
+            return bool(v) and not _is_hardclose(v)
+
+        # Rule 1 — hardclose
+        if _is_hardclose(dc_len_val) or _is_hardclose(awb_ret_val):
+            return "Required Hard Close"
+
+        # Rule 2 — DC + AWB both filled, WO Complete > 1 month ago
+        dc_filled  = _is_real(dc_num_val)  or _is_real(dc_len_val)
+        awb_filled = _is_real(awb_res_val) or _is_real(awb_ret_val)
+        if dc_filled and awb_filled and wo_date_str:
+            try:
+                wo_date = _datetime.strptime(wo_date_str[:10], "%Y-%m-%d").date()
+                m = wo_date.month + 1
+                y = wo_date.year + (1 if m > 12 else 0)
+                m = m if m <= 12 else 1
+                one_month_after = wo_date.replace(year=y, month=m)
+                if today > one_month_after:
+                    return "Picked Up by Logistics"
+            except (ValueError, OverflowError):
+                pass
+
+        # Rules 3 & 4 — DC Generate Date present
+        if dc_date_str:
+            try:
+                dc_date = _datetime.strptime(dc_date_str[:10], "%Y-%m-%d").date()
+                return "Pending Pickup" if (today - dc_date).days < 7 else "Picked Up by Logistics"
+            except (ValueError, OverflowError):
+                pass
+
+        # No override — return DB value
+        return lrs_db
+
+    # ── Build SOID → display-values lookup ───────────────────────────────────
+    db_lookup: dict = {}
+    for r in rows:
+        soid = r.get("soid")
+        # DC: prefer dc_number (green when filled), fallback to dc_lenovo
+        dc_val    = str(r.get("dc_number") or "").strip() \
+                    if _has(r.get("dc_number")) \
+                    else (str(r.get("dc_lenovo") or "").strip() or None)
+        # AWB: prefer awb_resolv (green when filled), fallback to awb_return
+        awb_val   = str(r.get("awb_resolv") or "").strip() \
+                    if _has(r.get("awb_resolv")) \
+                    else (str(r.get("awb_return") or "").strip() or None)
+        lrs_val   = _compute_display_lrs(r) or None
+        notes_val = str(r.get("awb_notes") or "").strip() or None
+        db_lookup[str(soid)] = {
+            "dc":    dc_val or None,
+            "awb":   awb_val,
+            "lrs":   lrs_val,
+            "notes": notes_val,
+        }
+
+    # ── Clone the workbook in-memory and fill Q/R/S/T ─────────────────────────
+    wb = load_workbook(pou_file_path)
+    ws = wb["Data"] if "Data" in wb.sheetnames else wb.active
+
+    # Discover SOID column index dynamically
+    soid_col_idx = None
+    for col_idx in range(1, ws.max_column + 1):
+        if str(ws.cell(row=1, column=col_idx).value or "").strip().upper() == "SOID":
+            soid_col_idx = col_idx
+            break
+    if soid_col_idx is None:
+        return jsonify({"error": "SOID column not found in source Excel."}), 500
+
+    # Discover target columns dynamically by header name
+    target_cols = {
+        "DC/Collection Form": None,
+        "AWB Number":         None,
+        "Return Status":      None,
+        "Note":               None,
+    }
+    for col_idx in range(1, ws.max_column + 1):
+        hdr = str(ws.cell(row=1, column=col_idx).value or "").strip()
+        if hdr in target_cols:
+            target_cols[hdr] = col_idx
+
+    col_dc    = target_cols["DC/Collection Form"]
+    col_awb   = target_cols["AWB Number"]
+    col_rs    = target_cols["Return Status"]
+    col_notes = target_cols["Note"]
+
+    if not all([col_dc, col_awb, col_rs, col_notes]):
+        missing = [k for k, v in target_cols.items() if v is None]
+        return jsonify({"error": f"Missing columns in source Excel: {missing}"}), 500
+
+    # Write values row-by-row matching on SOID
+    for row_idx in range(2, ws.max_row + 1):
+        raw_soid = ws.cell(row=row_idx, column=soid_col_idx).value
+        if raw_soid is None:
+            continue
+        soid_str = str(int(raw_soid)) if isinstance(raw_soid, (int, float)) else str(raw_soid).strip()
+        entry = db_lookup.get(soid_str)
+        if entry is None:
+            continue
+        if entry["dc"]    is not None:
+            ws.cell(row=row_idx, column=col_dc).value    = entry["dc"]
+        if entry["awb"]   is not None:
+            ws.cell(row=row_idx, column=col_awb).value   = entry["awb"]
+        if entry["lrs"]   is not None:
+            ws.cell(row=row_idx, column=col_rs).value    = entry["lrs"]
+        if entry["notes"] is not None:
+            ws.cell(row=row_idx, column=col_notes).value = entry["notes"]
+
+    # ── Stream to response ────────────────────────────────────────────────────
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    stem = os.path.splitext(pou_filename)[0]
+    return send_file(
+        buf,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name=f"{stem}_Generated.xlsx",
+    )
 
 
 @admin_bp.route("/admin/validation/pou-unreturn/export", methods=["GET"])
@@ -3548,8 +3875,13 @@ _queue_handler.setLevel(logging.DEBUG)
 
 
 def _get_monday_sync_db():
-    """Open a fresh SQLite connection to files/lenovo_asp.db."""
-    import os as _os, sqlite3 as _sqlite3
+    """Open a fresh SQLite connection to files/lenovo_asp.db.
+
+    Also ensures the has_wo column exists on technical_escalation so the
+    column can be queried immediately even before monday_sync.get_db() has
+    run its own migration on this file.
+    """
+    import os as _os
     project_root = _os.path.normpath(
         _os.path.join(_os.path.dirname(__file__), "..", "..")
     )
@@ -3557,7 +3889,48 @@ def _get_monday_sync_db():
     if not _os.path.isfile(db_path):
         return None
     conn = open_db(db_path)
+    # Ensure has_wo column exists (added in a later schema version)
+    try:
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(technical_escalation)")}
+        if "has_wo" not in cols:
+            conn.execute("ALTER TABLE technical_escalation ADD COLUMN has_wo INTEGER DEFAULT NULL")
+            conn.commit()
+    except Exception:
+        pass
     return conn
+
+
+def _start_has_wo_backfill(app) -> None:
+    """Spawn a one-shot daemon thread that stamps has_wo on all NULL rows.
+
+    Runs once at startup — after that every row is already stamped, so the
+    UPDATE touches zero rows and returns immediately.  Never called on every
+    request; the sync scheduler also calls _stamp_has_wo after each sync.
+    """
+    import threading as _threading
+
+    def _worker():
+        import time as _time
+        _time.sleep(5)          # let the app finish booting first
+        try:
+            from app.scripts.monday_sync import _stamp_has_wo
+            conn = _get_monday_sync_db()
+            if conn:
+                try:
+                    n = _stamp_has_wo(conn)
+                    if n:
+                        logging.getLogger("monday_sync").info(
+                            "has_wo backfill: stamped %d row(s) at startup", n
+                        )
+                finally:
+                    conn.close()
+        except Exception as exc:
+            logging.getLogger("monday_sync").warning("has_wo backfill failed: %s", exc)
+
+    t = _threading.Thread(target=_worker, daemon=True, name="has_wo_backfill")
+    t.start()
+
+
 
 
 
@@ -4784,10 +5157,10 @@ def escalation_center():
         is_running = _sync_thread is not None and _sync_thread.is_alive()
 
     return render_template(
-        "admin/escalation_center/monday_collector.html",
+        "admin/export-import/monday_case_update.html",
         portal="admin",
-        active_page="monday_collector",
-        active_group="escalation_center",
+        active_page="monday_case_update",
+        active_group="data_import_export",
         boards=boards,
         board_count=board_count,
         synced_count=synced_count,
@@ -5345,7 +5718,16 @@ def monday_data_api():
                         FROM item_updates u2
                         LEFT JOIN item_update_replies r2 ON u2.update_id = r2.update_id
                         WHERE u2.monday_item_id = te.monday_item_id
-                    ) AS disc_count
+                    ) AS disc_count,
+                    te.has_wo,
+                    CASE WHEN (te.wo_case_id IS NULL OR te.wo_case_id = '') AND te.has_wo = 1
+                        THEN (
+                            SELECT ws.work_order_id FROM wo_summary ws
+                            WHERE LOWER(ws.serial_number) = LOWER(te.serial_number)
+                            ORDER BY ws.created_on DESC LIMIT 1
+                        )
+                        ELSE NULL
+                    END AS latest_wo_id
                 FROM technical_escalation te
                 LEFT JOIN creators c ON te.creator_id = c.creator_id
                 {where_sql}
@@ -5354,8 +5736,8 @@ def monday_data_api():
             """
             raw = edb.execute(data_sql, params + [per_page, offset]).fetchall()
             rows_list = [dict(r) for r in raw]
-        except Exception:
-            pass
+        except Exception as _e:
+            current_app.logger.error("monday_data_api query failed: %s", _e)
         finally:
             edb.close()
 

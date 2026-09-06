@@ -118,10 +118,12 @@ def create_app():
             _msd_start_startup_scheduler,
             _msd_start_930_watchdog,
             start_resolve_scheduler,
+            _start_has_wo_backfill,
         )
         start_sync_scheduler(app)
         _msd_start_startup_scheduler(app)
         _msd_start_930_watchdog(app)
         start_resolve_scheduler(app)
+        _start_has_wo_backfill(app)
 
     return app

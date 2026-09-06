@@ -511,6 +511,7 @@ const ICONS = {
   contact : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
   related : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
   ticket  : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v2z"/></svg>`,
+  monday  : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>`,
 };
 
 function heroChipClass(s) {
@@ -545,8 +546,9 @@ function openDetail(woId) {
     fetch(`/admin/api/wo-parts/${woId}`).then(r => r.json()),
     fetch(`/admin/api/wo-related-serial/${woId}`).then(r => r.json()),
     fetch(`/admin/api/wo-ticket-history/${woId}`).then(r => r.json()),
+    fetch(`/admin/api/wo-monday-escalation/${woId}`).then(r => r.json()),
   ])
-    .then(([d, parts, relatedSerial, ticketHistory]) => {
+    .then(([d, parts, relatedSerial, ticketHistory, mondayEsc]) => {
       if (d.error) { body.innerHTML = `<div style="padding:24px;color:#dc2626">${esc(d.error)}</div>`; return; }
       body.innerHTML =
         renderHero(d) +
@@ -555,6 +557,7 @@ function openDetail(woId) {
           renderParts(parts, d.work_order_id) +
           renderTicketHistory(ticketHistory.case_number, ticketHistory.current_wo_id, ticketHistory.rows) +
           renderRelatedBySerial(relatedSerial.serial_number, relatedSerial.current_wo_id, relatedSerial.rows) +
+          renderMondayEscalation(mondayEsc.serial_number, mondayEsc.rows, d.work_order_id) +
           renderDetailBody(d) +
         `</div>`;
       initCollapsibles();
@@ -1058,6 +1061,100 @@ function renderRelatedBySerial(serialNumber, currentWoId, rows) {
   </div>`;
 }
 
+/* ─── All Escalation Monday ─────────────────────────────────────────────── */
+function renderMondayEscalation(serialNumber, rows, currentWoId) {
+  const sn  = serialNumber || '—';
+  const uid = 'monday-esc-body-' + Date.now();
+  const title = `<div class="detail-section-title collapsible-hdr" data-target="${uid}">
+    ${ICONS.monday}<span>All Escalation Monday (SN: ${esc(sn)})</span>
+    <svg class="caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+  </div>`;
+  const snLabel = `<div style="font-size:12px;color:#57606a;margin-bottom:10px">
+    Laptop Device SN: <strong style="font-family:ui-monospace,monospace;color:#1f2328">${esc(sn)}</strong>
+  </div>`;
+  if (!rows || !rows.length) return '';
+  function _extractWO(raw) {
+    if (!raw) return '';
+    const str = raw.toString().trim();
+    const parts = str.split(/[\/,;\|\s]+/).map(p => p.trim()).filter(Boolean);
+    const wo = parts.find(p => /^40\d{8,}/.test(p));
+    if (wo) return wo;
+    if (/^40\d/.test(str.slice(0, 10))) return str.slice(0, 10);
+    if (/^40\d/.test(str.slice(-10)))   return str.slice(-10);
+    return str;
+  }
+  function _escBadge(status) {
+    const v = (status || '').toLowerCase();
+    let bg = '#f3f4f6', color = '#374151', border = '#d1d5db';
+    if (v === 'complete' || v === 'completed')         { bg = '#f0fdf4'; color = '#15803d'; border = '#bbf7d0'; }
+    else if (v.includes('approved'))                   { bg = '#eff6ff'; color = '#1d4ed8'; border = '#bfdbfe'; }
+    else if (v === 'reject' || v === 'rejected')       { bg = '#fef2f2'; color = '#dc2626'; border = '#fecaca'; }
+    else if (v === 'technical escalation')             { bg = '#fef3c7'; color = '#92400e'; border = '#fde68a'; }
+    else if (v.includes('progress') || v.includes('running') || v.includes('pending') || v === 'qa result') {
+      bg = '#eff6ff'; color = '#1d4ed8'; border = '#bfdbfe';
+    }
+    return `<span style="display:inline-block;font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;background:${bg};color:${color};border:1px solid ${border};white-space:nowrap">${esc(status || '—')}</span>`;
+  }
+  function _fmtDate(iso) {
+    if (!iso) return '—';
+    try {
+      const d = new Date(String(iso).replace(' ', 'T'));
+      if (isNaN(d)) return String(iso).slice(0, 10) || '—';
+      return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch(e) { return String(iso).slice(0, 10) || '—'; }
+  }
+  const thStyle = 'padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:#57606a;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e5e7eb;white-space:nowrap';
+  const tableRows = rows.map((r, i) => {
+    const woNum     = _extractWO(r.wo_case_id);
+    const isCurrent = woNum && String(woNum) === String(currentWoId);
+    const ticketCell = r.case_number
+      ? `<span style="font-family:ui-monospace,monospace;font-size:12px;font-weight:600;color:#3b82d4">${esc(r.case_number)}</span>`
+      : `<span style="color:#c9d0d8">—</span>`;
+    const currentTag = `<span style="margin-left:6px;font-size:10px;font-weight:700;color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:1px 7px;vertical-align:middle">current</span>`;
+    const woCell = woNum
+      ? (isCurrent
+          ? `<span style="font-family:ui-monospace,monospace;font-size:13px;font-weight:700;color:#1f2328">${esc(woNum)}</span>${currentTag}`
+          : `<button class="related-wo-id" data-wo="${esc(woNum)}" onclick="openDetail(this.dataset.wo)">${esc(woNum)}</button>`)
+      : `<span style="color:#c9d0d8">—</span>`;
+    const discSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+    const discBtn = r.disc_count > 0
+      ? `<button class="btn-md-disc has-disc" onclick="openMondayDisc('${esc(r.monday_item_id)}','${esc(r.item_name)}','${esc(r.board_id)}')">${discSvg}<span class="md-disc-cnt">${r.disc_count}</span></button>`
+      : `<button class="btn-md-disc" disabled style="opacity:.4;cursor:default">${discSvg}</button>`;
+    return `
+    <tr style="${i > 0 ? 'border-top:1px solid #f0f2f5' : ''}">
+      <td style="text-align:center;color:#8c959f;font-size:12px;width:36px;vertical-align:top;padding-top:10px">${i + 1}</td>
+      <td style="vertical-align:top;padding-top:10px;white-space:nowrap;border-right:2px solid #bfdbfe;background:#eff6ff;padding-right:12px">${ticketCell}</td>
+      <td style="vertical-align:top;padding-top:8px;white-space:nowrap">${woCell}</td>
+      <td style="vertical-align:top;padding-top:8px;max-width:180px">
+        <div style="font-size:13px;font-weight:600;color:#1f2328;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.item_name)}">${esc(r.item_name || '—')}</div>
+      </td>
+      <td style="vertical-align:top;padding-top:8px">${_escBadge(r.status)}</td>
+      <td style="font-size:12px;color:#57606a;white-space:nowrap;vertical-align:top;padding-top:10px">${_fmtDate(r.item_created_at)}</td>
+      <td style="text-align:center;vertical-align:top;padding-top:7px">${discBtn}</td>
+    </tr>`;
+  }).join('');
+  const table = `<div style="overflow-x:auto"><table class="ticket-table" style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead><tr style="background:#f7f8fa">
+      <th style="${thStyle};text-align:center;width:36px">#</th>
+      <th style="${thStyle};width:130px;background:#eff6ff;border-right:2px solid #bfdbfe">Ticket (Case#)</th>
+      <th style="${thStyle};width:115px">WO Number</th>
+      <th style="${thStyle}">Task / Item Name</th>
+      <th style="${thStyle};width:160px">Status</th>
+      <th style="${thStyle};width:115px">Escalation Date</th>
+      <th style="${thStyle};width:88px;text-align:center">Discussion</th>
+    </tr></thead>
+    <tbody>${tableRows}</tbody>
+  </table></div>`;
+  return `<div class="detail-section">
+    ${title}
+    <div id="${uid}" class="collapsible-body" style="max-height:4000px">
+      ${snLabel}
+      <div style="font-size:11px;color:#8c959f;margin-bottom:8px">${rows.length} escalation record${rows.length !== 1 ? 's' : ''} found for this serial number</div>
+      ${table}
+    </div>
+  </div>`;
+}
+
 function initCollapsibles() {
   document.querySelectorAll('#detail-body .collapsible-hdr').forEach(hdr => {
     hdr.addEventListener('click', () => {
@@ -1107,5 +1204,153 @@ document.getElementById('modal-wip').addEventListener('click', e => {
 
 /* ── Initial load ────────────────────────────────────────────────────────── */
 tkLoad(1);
+
+/* ─── Monday Escalation Discussion Drawer ───────────────────────────────── */
+(function () {
+  function _initials(name) {
+    if (!name) return '?';
+    const p = name.trim().split(/\s+/);
+    return p.length >= 2 ? (p[0][0] + p[p.length-1][0]).toUpperCase() : name.slice(0,2).toUpperCase();
+  }
+  function _avatarColor(name) {
+    const colors = ['#2563eb','#16a34a','#d97706','#7c3aed','#dc2626','#0891b2','#65a30d','#db2777','#ea580c','#0d9488','#7c5cd8','#b45309','#15803d','#1d4ed8','#9333ea','#c2410c','#0369a1','#4f46e5','#be185d','#047857'];
+    let h = 5381; const s = (name || '').toLowerCase();
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h) ^ s.charCodeAt(i);
+    return colors[(h >>> 0) % colors.length];
+  }
+  function _fmtTs(iso) {
+    if (!iso) return '';
+    try {
+      const d = new Date(iso);
+      if (isNaN(d)) return iso.slice(0,16).replace('T',' ');
+      return d.toLocaleString('en-GB', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    } catch(e) { return iso.slice(0,16).replace('T',' '); }
+  }
+  function _cleanBody(txt) { return (txt || '').replace(/[\uFEFF\u200B\u200C\u200D\u00A0]/g, '').trim(); }
+  function _linkify(txt) {
+    return esc(txt).replace(/(https?:\/\/[^\s<>"']+)/g,
+      '<a href="$1" target="_blank" rel="noopener noreferrer" class="md-disc-link">$1</a>');
+  }
+  function _renderDiscDrawer(data) {
+    const body = document.getElementById('md-disc-drawer-body');
+    if (!data || !data.updates || !data.updates.length) {
+      body.innerHTML = '<div class="md-disc-empty">No discussion threads found for this item.</div>'; return;
+    }
+    let html = '';
+    for (const upd of data.updates) {
+      const bodyText = _cleanBody(upd.body_text);
+      const authorName = upd.creator_name || upd.creator_id || 'Unknown';
+      html += `<div class="md-disc-update">
+        <div class="md-disc-update-head">
+          <div class="md-disc-avatar" style="background:${_avatarColor(authorName)}">${_initials(authorName)}</div>
+          <div><div class="md-disc-author">${esc(authorName)}</div><div class="md-disc-time">${_fmtTs(upd.created_at)}</div></div>
+        </div>
+        <div class="md-disc-update-body">${bodyText ? _linkify(bodyText) : '<em style="color:#9ca3af">— empty —</em>'}</div>`;
+      if (upd.replies && upd.replies.length) {
+        html += '<div class="md-disc-replies">';
+        for (const rpl of upd.replies) {
+          const rBody = _cleanBody(rpl.body_text); const rName = rpl.creator_name || rpl.creator_id || 'Unknown';
+          html += `<div class="md-disc-reply">
+            <div class="md-disc-reply-avatar" style="background:${_avatarColor(rName)}">${_initials(rName)}</div>
+            <div class="md-disc-reply-content">
+              <span class="md-disc-reply-author">${esc(rName)}</span>
+              <span class="md-disc-reply-time">${_fmtTs(rpl.created_at)}</span>
+              <div class="md-disc-reply-body">${rBody ? _linkify(rBody) : '<em style="color:#9ca3af">— empty —</em>'}</div>
+            </div></div>`;
+        }
+        html += '</div>';
+      }
+      html += '</div>';
+    }
+    body.innerHTML = html;
+  }
+  window.openMondayDisc = function(itemId, itemName, boardId) {
+    document.getElementById('md-disc-drawer-title').textContent    = 'Discussion';
+    document.getElementById('md-disc-drawer-subtitle').textContent = itemName || '';
+    document.getElementById('md-disc-drawer-body').innerHTML = '<div class="md-disc-loading">Loading discussions…</div>';
+    const footer = document.getElementById('md-disc-footer');
+    const link   = document.getElementById('md-disc-monday-link');
+    if (boardId) { link.href = 'https://ibm.monday.com/boards/' + encodeURIComponent(boardId); footer.style.display = ''; }
+    else         { footer.style.display = 'none'; }
+    document.getElementById('md-disc-drawer').classList.add('open');
+    document.getElementById('md-disc-overlay').classList.add('open');
+    fetch('/admin/monday-data/discussion/' + encodeURIComponent(itemId))
+      .then(r => r.json()).then(data => _renderDiscDrawer(data))
+      .catch(() => { document.getElementById('md-disc-drawer-body').innerHTML = '<div class="md-disc-empty">Failed to load discussions.</div>'; });
+  };
+  function _close(e) {
+    if (e) e.stopPropagation();
+    document.getElementById('md-disc-drawer').classList.remove('open');
+    document.getElementById('md-disc-overlay').classList.remove('open');
+  }
+  document.getElementById('md-disc-close').addEventListener('click', _close);
+  document.getElementById('md-disc-overlay').addEventListener('click', _close);
+  document.getElementById('md-disc-drawer').addEventListener('click', e => e.stopPropagation());
+})();
 </script>
+
+<!-- Monday Escalation Discussion Drawer -->
+<style>
+.md-disc-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:2100}
+.md-disc-overlay.open{display:block}
+.md-disc-drawer{position:fixed;top:0;right:-560px;width:520px;max-width:96vw;height:100vh;background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,.14);z-index:2101;display:flex;flex-direction:column;overflow:hidden;transition:right .25s cubic-bezier(.4,0,.2,1)}
+.md-disc-drawer.open{right:0}
+.md-disc-head{padding:16px 18px;border-bottom:1px solid #e5e7eb;display:flex;align-items:flex-start;gap:10px;flex-shrink:0}
+.md-disc-title{flex:1;min-width:0}
+.md-disc-title h3{font-size:14px;font-weight:700;margin:0 0 2px;line-height:1.4}
+.md-disc-title p{font-size:12px;color:#57606a;margin:0;white-space:normal;word-break:break-word}
+.md-disc-close{border:none;background:none;cursor:pointer;color:#57606a;padding:4px;border-radius:4px;flex-shrink:0;margin-top:-2px;line-height:1}
+.md-disc-close:hover{background:#f3f4f6;color:#1f2328}
+.md-disc-body{flex:1 1 0;min-height:0;overflow-y:scroll;padding:16px 18px;background:#e8edf2;display:flex;flex-direction:column;gap:14px}
+.md-disc-body::-webkit-scrollbar{width:8px}
+.md-disc-body::-webkit-scrollbar-track{background:#d1d7de}
+.md-disc-body::-webkit-scrollbar-thumb{background:#8b95a1;border-radius:4px}
+.md-disc-body::-webkit-scrollbar-thumb:hover{background:#57606a}
+.md-disc-empty{text-align:center;padding:40px 20px;color:#9ca3af;font-size:13px}
+.md-disc-loading{text-align:center;padding:40px 20px;color:#9ca3af;font-size:13px}
+.md-disc-update{background:#fff;border:1px solid #c8d0da;border-radius:10px;overflow:clip;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.md-disc-update-head{padding:10px 14px;background:#f0f4f8;border-bottom:1px solid #dde3ea;display:flex;align-items:center;gap:8px}
+.md-disc-avatar{width:28px;height:28px;border-radius:50%;background:#3b82d4;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.md-disc-author{font-size:12px;font-weight:700;color:#1f2328}
+.md-disc-time{font-size:11px;color:#8b95a1;margin-top:1px}
+.md-disc-update-body{padding:12px 14px;font-size:12.5px;color:#2d3748;line-height:1.65;white-space:pre-wrap;word-break:break-word;background:#fff}
+.md-disc-link{color:#3b82d4;text-decoration:underline;word-break:break-all}
+.md-disc-replies{background:#f7f9fb;border-top:1px solid #dde3ea}
+.md-disc-reply{display:flex;gap:8px;padding:9px 14px;border-top:1px solid #dde3ea}
+.md-disc-reply:first-child{border-top:none}
+.md-disc-reply-avatar{width:22px;height:22px;border-radius:50%;background:#7c5cd8;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.md-disc-reply-content{flex:1;min-width:0}
+.md-disc-reply-author{font-size:11.5px;font-weight:700;color:#1f2328}
+.md-disc-reply-time{font-size:10.5px;color:#8b95a1;margin-left:6px}
+.md-disc-reply-body{font-size:12px;color:#374151;line-height:1.55;white-space:pre-wrap;word-break:break-word;margin-top:3px}
+.md-disc-footer{flex-shrink:0;padding:12px 18px;border-top:1px solid #e5e7eb;background:#fff}
+.md-disc-footer a{display:flex;align-items:center;justify-content:center;gap:7px;font-size:13px;font-weight:600;color:#3b82d4;text-decoration:none;padding:10px 0;border:none;background:transparent;transition:color .15s,background .15s}
+.md-disc-footer a:hover{color:#1d4ed8;background:#f0f6ff}
+.btn-md-disc{display:inline-flex;align-items:center;gap:5px;border:1px solid #d1d5db;border-radius:8px;background:#fff;padding:3px 9px 3px 7px;cursor:pointer;color:#57606a;font-size:12px;transition:border-color .15s,background .15s}
+.btn-md-disc:hover{border-color:#3b82d4;background:#eff6ff;color:#3b82d4}
+.btn-md-disc.has-disc{border-color:#bfdbfe;color:#1d4ed8}
+.btn-md-disc.has-disc:hover{background:#dbeafe}
+.btn-md-disc .md-disc-cnt{display:inline-block;min-width:16px;padding:0 4px;text-align:center;font-size:10px;font-weight:700;background:#3b82d4;color:#fff;border-radius:8px;line-height:17px}
+</style>
+<div class="md-disc-overlay" id="md-disc-overlay"></div>
+<div class="md-disc-drawer" id="md-disc-drawer">
+  <div class="md-disc-head">
+    <div class="md-disc-title">
+      <h3 id="md-disc-drawer-title">Discussion</h3>
+      <p id="md-disc-drawer-subtitle"></p>
+    </div>
+    <button class="md-disc-close" id="md-disc-close" title="Close">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="md-disc-body" id="md-disc-drawer-body">
+    <div class="md-disc-loading">Loading discussions…</div>
+  </div>
+  <div class="md-disc-footer" id="md-disc-footer" style="display:none">
+    <a id="md-disc-monday-link" href="#" target="_blank" rel="noopener noreferrer">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      Go to Monday.com
+    </a>
+  </div>
+</div>
 {% endblock %}

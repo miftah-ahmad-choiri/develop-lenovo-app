@@ -11,241 +11,52 @@
   .stat-card.amber  .sc-value { color: #d97706; }
   .stat-card.red    .sc-value { color: #dc2626; }
 
-  .quick-links { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 28px; }
-  .ql-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 20px 22px; text-decoration: none; color: #1f2328; transition: box-shadow 0.15s, border-color 0.15s; display: flex; flex-direction: column; gap: 8px; }
-  .ql-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.08); border-color: #c3d4f0; }
-  .ql-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .quick-links { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 28px; }
+  .ql-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 14px; text-decoration: none; color: #1f2328; transition: box-shadow 0.15s, border-color 0.15s; display: flex; flex-direction: row; align-items: center; gap: 10px; }
+  .ql-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.07); border-color: #c3d4f0; }
+  .ql-icon { width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .ql-blue   { background: #dbeafe; color: #1d4ed8; }
   .ql-green  { background: #dcfce7; color: #15803d; }
   .ql-amber  { background: #fef3c7; color: #92400e; }
   .ql-purple { background: #ede9fe; color: #6d28d9; }
   .ql-gray   { background: #f0f2f5; color: #57606a; }
-  .ql-title  { font-size: 13px; font-weight: 700; }
-  .ql-desc   { font-size: 12px; color: #57606a; }
-  .ql-arrow  { margin-top: auto; font-size: 18px; color: #d0d7de; align-self: flex-end; }
+  .ql-text   { flex: 1; min-width: 0; }
+  .ql-title  { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ql-desc   { font-size: 11px; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ql-arrow  { font-size: 14px; color: #d0d7de; flex-shrink: 0; }
 
   .section-header { font-size: 14px; font-weight: 700; margin-bottom: 14px; color: #1f2328; }
 
-  /* Table card */
-  .table-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; margin-bottom: 28px; }
-  .table-toolbar { padding: 12px 16px; display: flex; align-items: center; justify-content: flex-end; gap: 10px; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap; }
-  .table-toolbar input[type="search"] { padding: 7px 11px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 13px; width: 240px; font-family: inherit; }
-  .table-toolbar input[type="search"]:focus { outline: none; border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,.1); }
-  .filter-select { padding: 7px 28px 7px 10px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 13px; font-family: inherit; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2357606a' d='M1 1l5 5 5-5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; background-color: #fff; color: #1f2328; }
-  .filter-select:focus { outline: none; border-color: #3b82d4; }
-  .toolbar-count { font-size: 12px; color: #57606a; white-space: nowrap; }
-  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .data-table thead { background: #f7f8fa; }
-  .data-table th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 700; color: #57606a; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
-  .data-table td { padding: 9px 12px; border-bottom: 1px solid #f0f2f5; vertical-align: middle; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .data-table tr:last-child td { border-bottom: none; }
-  .data-table tbody tr:hover { background: #f7f8fa; }
-  .wo-link { color: #3b82d4; font-weight: 600; cursor: pointer; background: none; border: none; font-family: inherit; font-size: inherit; padding: 0; text-decoration: underline; text-underline-offset: 2px; }
-  .wo-link:hover { color: #1d4ed8; }
-  .empty-state { padding: 44px; text-align: center; color: #57606a; font-size: 13px; }
-  .loading-state { padding: 32px; text-align: center; color: #57606a; font-size: 13px; }
+  /* ── Overview grid ────────────────────────────────────────────── */
+  .ov-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 28px; align-items: start; }
+  .ov-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px 16px; }
+  .ov-card-hdr { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 2px; }
+  .ov-card-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #57606a; display: flex; align-items: center; gap: 5px; flex: 1; min-width: 0; }
+  .ov-card-title svg { flex-shrink: 0; }
+  .ov-card-sub { font-size: 11px; color: #8c959f; margin-bottom: 12px; }
+  .ov-card-sub strong { color: #1f2328; font-weight: 700; }
+  .ov-goto-btn { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: #3b82d4; text-decoration: none; border: 1px solid #bfdbfe; border-radius: 5px; padding: 3px 8px; white-space: nowrap; flex-shrink: 0; transition: background .12s, color .12s; }
+  .ov-goto-btn:hover { background: #eff6ff; color: #1d4ed8; border-color: #93c5fd; }
+  .ov-goto-btn svg { flex-shrink: 0; }
 
-  .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 13px; font-weight: 600; white-space: nowrap; }
-  /* ── closed / resolved family — all green ── */
-  .badge-s-closed        { background: #bbf7d0; color: #166534; }
-  .badge-s-completed     { background: #bbf7d0; color: #166534; }
-  .badge-s-repair-done   { background: #bbf7d0; color: #166534; }
-  .badge-s-pickup        { background: #bbf7d0; color: #166534; }
-  .badge-s-rma           { background: #bbf7d0; color: #166534; }
-  .badge-s-returned      { background: #bbf7d0; color: #166534; }
-  /* ── in-progress / active family ── */
-  .badge-s-transit       { background: #ede9fe; color: #6d28d9; }
-  .badge-s-part-hold     { background: #fce7f3; color: #9d174d; }
-  .badge-s-part-req      { background: #fef3c7; color: #92400e; }
-  .badge-s-part-delivered{ background: #dcfce7; color: #15803d; }
-  .badge-s-cust-hold     { background: #ffe4e6; color: #be123c; }
-  .badge-s-in-repair     { background: #dbeafe; color: #1d4ed8; }
-  .badge-s-tech-assigned { background: #fef3c7; color: #b45309; }
-  .badge-s-accepted      { background: #ecfccb; color: #4d7c0f; }
-  .badge-s-pick-pack     { background: #ffedd5; color: #c2410c; }
-  .badge-s-cancelled     { background: #f3f4f6; color: #6b7280; }
-  .badge-s-default       { background: #f0f2f5; color: #57606a; }
-  /* ── new statuses ── */
-  .badge-s-tech-onsite   { background: #dbeafe; color: #1e40af; }
-  .badge-s-tech-enroute  { background: #fef3c7; color: #c2410c; }
-  .badge-s-in-testing    { background: #f3e8ff; color: #6b21a8; }
-  .badge-s-req-review    { background: #fff7ed; color: #c2410c; }
-  .badge-s-unit-received { background: #fef3c7; color: #92400e; }
-  .badge-s-order-changed { background: #ffedd5; color: #9a3412; }
-  .badge-s-await-release { background: #ffedd5; color: #9a3412; }
-  .badge-closed    { background: #dcfce7; color: #15803d; }
-  .badge-cancelled { background: #f3f4f6; color: #6b7280; }
-  .badge-part-hold { background: #ffedd5; color: #c2410c; }
-  .badge-default   { background: #f0f2f5; color: #57606a; }
+  /* stacked bar chart */
+  .ov-chart-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .ov-chart { display: flex; align-items: flex-end; gap: 2px; height: 110px; min-width: 0; }
+  .ov-bar-col { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 10px; height: 100%; justify-content: flex-end; cursor: default; }
+  .ov-bar-stack { width: 100%; display: flex; flex-direction: column-reverse; border-radius: 3px 3px 0 0; overflow: hidden; }
+  .ov-seg { width: 100%; flex-shrink: 0; }
+  .ov-bar-lbl { font-size: 7.5px; color: #8c959f; margin-top: 3px; writing-mode: vertical-rl; transform: rotate(180deg); line-height: 1; white-space: nowrap; }
+  /* floating tooltip — fixed to viewport, moved by JS, never clipped */
+  #ov-float-tip { display: none; position: fixed; background: #1f2328; color: #fff; font-size: 10px; font-weight: 500; padding: 7px 10px; border-radius: 6px; white-space: nowrap; pointer-events: none; z-index: 9999; line-height: 1.7; }
+  #ov-float-tip::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 4px solid transparent; border-top-color: #1f2328; }
+  .ov-tip-date { font-size: 10px; font-weight: 700; color: #e2e8f0; margin-bottom: 2px; }
+  .ov-tip-row  { display: flex; align-items: center; gap: 5px; }
+  .ov-tip-dot  { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 
-  .pagination { display: flex; gap: 4px; align-items: center; padding: 12px 16px; border-top: 1px solid #e5e7eb; flex-wrap: wrap; }
-  .page-btn { padding: 4px 10px; border: 1px solid #d0d7de; border-radius: 5px; background: #fff; font-size: 12px; cursor: pointer; font-family: inherit; color: #1f2328; }
-  .page-btn.active { background: #3b82d4; color: #fff; border-color: #3b82d4; }
-  .page-btn:hover:not(.active):not(:disabled) { background: #f7f8fa; }
-  .page-btn:disabled { opacity: 0.4; cursor: default; }
-  .page-info { font-size: 12px; color: #57606a; margin-right: auto; }
-  .page-jump { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #57606a; margin-left: 8px; }
-  .page-jump input { width: 52px; padding: 3px 6px; border: 1px solid #d0d7de; border-radius: 5px; font-size: 12px; font-family: inherit; text-align: center; }
+  .ov-loading { color: #8c959f; font-size: 12px; font-style: italic; text-align: center; padding: 20px 0; }
 
-  /* ── WO Detail modal ─────────────────────────────────────────── */
-  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; align-items: flex-start; justify-content: center; padding: 20px 8px 40px; overflow-y: auto; }
-  .modal-overlay.open { display: flex; }
-  .modal { background: #fff; border-radius: 12px; width: 100%; max-width: 1100px; box-shadow: 0 12px 40px rgba(0,0,0,0.2); }
-  .modal-header { padding: 8px 14px 8px; border-bottom: none; display: flex; align-items: center; justify-content: flex-end; }
-  .wo-hero-status { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; flex-shrink: 0; }
-  .wo-hero-status-row { display: flex; align-items: center; gap: 12px; white-space: nowrap; justify-content: flex-end; min-width: 280px; }
-  .wo-hero-status-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #8c959f; flex-shrink: 0; }
-  .wo-hero-status-val { font-size: 12px; color: #1f2328; font-weight: 700; }
-  .wo-hero-status-val.muted { color: #8c959f; font-weight: 400; font-style: italic; }
-  .wo-info-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 0; margin-top: 10px; }
-  .wo-info-item { display: flex; align-items: center; gap: 5px; padding: 0 16px 0 0; white-space: nowrap; }
-  .wo-info-item:last-child { padding-right: 0; }
-  .wo-info-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #8c959f; }
-  .wo-info-val { display: inline-block; font-size: 11px; font-weight: 700; border-radius: 12px; padding: 2px 9px; border: 1px solid transparent; }
-  .wo-info-val.gray   { color: #374151; background: #f3f4f6; border-color: #e5e7eb; }
-  .wo-info-val.blue   { color: #1e40af; background: #dbeafe; border-color: #bfdbfe; }
-  .wo-info-val.green  { color: #15803d; background: #dcfce7; border-color: #bbf7d0; }
-  .wo-info-val.red    { color: #b91c1c; background: #fee2e2; border-color: #fecaca; }
-  .wo-info-val.amber  { color: #92400e; background: #fef3c7; border-color: #fde68a; }
-  .wo-info-val.purple { color: #6d28d9; background: #ede9fe; border-color: #ddd6fe; }
-  .wo-customer-wrap { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
-  .wo-customer-box  { background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 14px; display: flex; flex-direction: column; gap: 2px; }
-  .wo-customer-box.asp { }
-  .wo-customer-col  { display: flex; flex-direction: column; gap: 2px; flex: 1; }
-  @media (min-width: 600px) {
-    .wo-customer-wrap { flex-direction: row; }
-    .wo-customer-box  { flex: 2; flex-direction: row; gap: 0; align-items: flex-start; }
-    .wo-customer-box.asp { flex: 1; }
-    .wo-customer-col  { padding: 0 16px 0 0; }
-    .wo-customer-col:last-child { padding-right: 0; }
-  }
-  .wo-customer-name { font-size: 13px; font-weight: 800; color: #1f2328; text-transform: uppercase; letter-spacing: .01em; margin-bottom: 4px; }
-  .wo-customer-asp  { font-size: 13px; font-weight: 800; color: #1f2328; letter-spacing: .01em; margin-bottom: 4px; }
-  .wo-customer-row  { display: flex; align-items: baseline; gap: 6px; min-height: 20px; font-size: 12px; }
-  .wo-customer-lbl  { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #8c959f; white-space: nowrap; }
-  .wo-customer-val  { color: #1f2328; word-break: break-all; }
-  .modal-close { background: none; border: none; cursor: pointer; color: #8c959f; font-size: 20px; line-height: 1; padding: 2px 6px; flex-shrink: 0; }
-  .modal-close:hover { color: #1f2328; }
-  .modal-body { padding: 0; }
-  .modal-loading { padding: 48px; text-align: center; color: #57606a; font-size: 13px; }
-
-  /* ── WO Detail — hero banner ─────────────────────────────────── */
-  .wo-hero { padding: 20px 22px 16px; background: #f7f8fa; border-bottom: 1px solid #e5e7eb; }
-  .wo-hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-  .wo-hero-id { font-size: 22px; font-weight: 700; color: #1f2328; font-family: "IBM Plex Serif", serif; letter-spacing: -0.02em; }
-  .wo-hero-sn { font-size: 12px; color: #57606a; margin-top: 2px; }
-  .wo-hero-sn strong { color: #1f2328; font-family: ui-monospace, monospace; }
-  .wo-hero-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
-  .wo-chip { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; border: 1px solid transparent; white-space: nowrap; }
-  .wo-chip-label { color: #8c959f; font-size: 10px; font-weight: 600; text-transform: uppercase; margin-right: 2px; }
-  .wo-chip.blue  { background: #dbeafe; border-color: #bfdbfe; color: #1e40af; }
-  .wo-chip.green { background: #dcfce7; border-color: #bbf7d0; color: #15803d; }
-  .wo-chip.amber { background: #fef3c7; border-color: #fde68a; color: #92400e; }
-  .wo-chip.red   { background: #fee2e2; border-color: #fecaca; color: #b91c1c; }
-  .wo-chip.gray  { background: #f3f4f6; border-color: #e5e7eb; color: #374151; }
-  .wo-chip.purple{ background: #ede9fe; border-color: #ddd6fe; color: #6d28d9; }
-
-  /* ── WO Detail — info cards grid ────────────────────────────── */
-  .detail-body-inner { padding: 20px 22px; }
-  .detail-section { margin-bottom: 22px; }
-  .detail-section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #8c959f; border-bottom: 1px solid #e5e7eb; padding-bottom: 7px; margin-bottom: 14px; display: flex; align-items: center; justify-content: flex-start; text-align: left; gap: 7px; }
-  .detail-section-title svg { flex-shrink: 0; }
-  .detail-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: #e5e7eb; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
-  .detail-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
-  .detail-field { background: #fff; padding: 10px 14px; min-width: 0; }
-  .detail-field.span-2 { grid-column: span 2; }
-  .detail-field.span-3 { grid-column: span 3; }
-  .detail-field .df-label { font-size: 10px; color: #8c959f; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 3px; }
-  .detail-field .df-value { font-size: 13px; color: #1f2328; word-break: break-word; white-space: normal; line-height: 1.4; }
-  .detail-field .df-value.mono { font-family: ui-monospace, monospace; font-size: 12px; }
-  .detail-field .df-value.muted { color: #8c959f; font-style: italic; }
-
-  /* ── WO Detail — timeline ────────────────────────────────────── */
-  .tl-wrap { position: relative; padding: 4px 0; }
-  .tl-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
-  .tl-track { display: flex; align-items: flex-start; gap: 0; padding: 0 2px; }
-  .tl-connector { flex: 1; min-width: 8px; height: 2px; margin-top: 18px; background: #e5e7eb; }
-  .tl-connector.done { background: #86efac; }
-  .tl-node { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 72px; max-width: 100px; }
-  .tl-dot-wrap { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .tl-dot-wrap.done    { background: #dcfce7; border: 2px solid #86efac; }
-  .tl-dot-wrap.active  { background: #dbeafe; border: 2px solid #93c5fd; }
-  .tl-dot-wrap.future  { background: #f3f4f6; border: 2px dashed #d1d5db; }
-  .tl-dot-wrap.skipped { background: #fef9c3; border: 2px dashed #fde68a; }
-  .tl-dot-wrap.overdue { background: #fee2e2; border: 2px solid #fca5a5; }
-  .tl-dot-inner { width: 10px; height: 10px; border-radius: 50%; }
-  .tl-dot-wrap.done    .tl-dot-inner { background: #22c55e; }
-  .tl-dot-wrap.active  .tl-dot-inner { background: #3b82f6; }
-  .tl-dot-wrap.future  .tl-dot-inner { background: #d1d5db; }
-  .tl-dot-wrap.skipped .tl-dot-inner { background: #ca8a04; }
-  .tl-dot-wrap.overdue .tl-dot-inner { background: #ef4444; }
-  .tl-label { font-size: 10px; font-weight: 600; color: #57606a; text-align: center; margin-top: 6px; line-height: 1.3; max-width: 80px; }
-  .tl-date  { font-size: 10px; color: #8c959f; text-align: center; margin-top: 2px; line-height: 1.2; max-width: 80px; }
-  .tl-date.done-text   { color: #16a34a; font-weight: 600; }
-  .tl-date.active-text { color: #2563eb; font-weight: 600; }
-  .tl-date.future-text { color: #9ca3af; }
-
-  /* ── WO Detail — collapsible ─────────────────────────────────── */
-  .collapsible-hdr { cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; }
-  .collapsible-hdr .caret { transition: transform 0.2s; flex-shrink: 0; }
-  .collapsible-hdr.collapsed .caret { transform: rotate(-90deg); }
-  .collapsible-body { overflow: hidden; transition: max-height 0.25s ease; }
-  .collapsible-body.collapsed { max-height: 0 !important; }
-
-  /* ── WO Detail — part cards ──────────────────────────────────── */
-  .part-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
-  .part-card.cancelled { background: #fafafa; border-color: #e5e7eb; opacity: 0.7; }
-  .part-card.cancelled .part-card-hdr { background: #f3f4f6; }
-  .part-card.cancelled .part-card-pn  { text-decoration: line-through; color: #8c959f; }
-  .part-card.cancelled .part-card-desc { color: #adb5bd; }
-  .part-card.cancelled .part-card-field { background: #fafafa; }
-  .part-card.cancelled .pcf-value { color: #8c959f; }
-  .parts-cancelled-divider { display: flex; align-items: center; gap: 8px; margin: 14px 0 10px; }
-  .parts-cancelled-divider span { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #8c959f; white-space: nowrap; }
-  .parts-cancelled-divider::before, .parts-cancelled-divider::after { content: ''; flex: 1; height: 1px; background: #e5e7eb; }
-  .part-card-hdr { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #f7f8fa; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap; }
-  .part-card-num  { font-size: 11px; font-weight: 700; color: #8c959f; flex-shrink: 0; }
-  .part-card-pn   { font-size: 12px; font-weight: 700; font-family: ui-monospace, monospace; color: #1f2328; }
-  .part-card-desc { font-size: 12px; color: #57606a; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .part-card-body { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: #e5e7eb; }
-  .part-card-field { background: #fff; padding: 8px 12px; }
-  .part-card-field .pcf-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #8c959f; margin-bottom: 2px; }
-  .part-card-field .pcf-value { font-size: 12px; color: #1f2328; }
-  .part-card-field .pcf-value.mono { font-family: ui-monospace, monospace; font-size: 11px; }
-  .part-card-field.eta-pending { background: #fffbeb; border-left: 3px solid #f59e0b; }
-  .part-card-field.eta-pending .pcf-label { color: #b45309; }
-  .part-card-field.eta-pending .pcf-value { color: #92400e; font-weight: 700; }
-  .part-card-field.eta-overdue { background: #fff1f2; border-left: 3px solid #f43f5e; }
-  .part-card-field.eta-overdue .pcf-label { color: #be123c; }
-  .part-card-field.eta-overdue .pcf-value { color: #9f1239; font-weight: 700; }
-  .eta-pill { display: inline-block; font-size: 10px; font-weight: 700; border-radius: 10px; padding: 1px 7px; margin-top: 4px; letter-spacing: 0.03em; }
-  .eta-pill.pending { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
-  .eta-pill.overdue { background: #ffe4e6; color: #9f1239; border: 1px solid #fecdd3; }
-
-  /* ── Related WO / Ticket table ──────────────────────────────── */
-  .related-wo-id { font-size: 13px; font-weight: 700; color: #3b82d4; cursor: pointer; background: none; border: none; font-family: inherit; padding: 0; text-decoration: underline; text-underline-offset: 2px; flex-shrink: 0; }
-  .related-wo-id:hover { color: #1d4ed8; }
-  .ticket-table td { padding: 8px 10px; border-bottom: 1px solid #f0f2f5; vertical-align: middle; }
-  .ticket-table tr:last-child td { border-bottom: none; }
-  .ticket-table tbody tr:hover { background: #f7f8fa; }
-  .ticket-group-row td:first-child { border-right: 2px solid #bfdbfe; background: #eff6ff; }
-
-  @media (max-width: 1024px) { .stat-row { grid-template-columns: repeat(3,1fr); } .quick-links { grid-template-columns: repeat(2,1fr); } }
-  @media (max-width: 700px) {
-    .stat-row { grid-template-columns: repeat(2,1fr); } .quick-links { grid-template-columns: 1fr; }
-    .detail-grid { grid-template-columns: repeat(2, 1fr); }
-    .detail-field.span-2 { grid-column: span 1; } .detail-field.span-3 { grid-column: span 2; }
-    .part-card-body { grid-template-columns: repeat(2, 1fr); }
-    .modal-overlay { padding: 0 !important; }
-    .modal { border-radius: 0; min-height: 100dvh; max-width: 100% !important; }
-    .wo-hero-id { font-size: 18px; }
-  }
-  @media (max-width: 480px) {
-    .detail-grid { grid-template-columns: 1fr; } .detail-grid.cols-2 { grid-template-columns: 1fr; }
-    .detail-field.span-2, .detail-field.span-3 { grid-column: span 1; }
-    .part-card-body { grid-template-columns: repeat(2, 1fr); }
-  }
+  @media (max-width: 1024px) { .stat-row { grid-template-columns: repeat(3,1fr); } .quick-links { grid-template-columns: repeat(2,1fr); } .ov-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 700px)  { .stat-row { grid-template-columns: repeat(2,1fr); } .quick-links { grid-template-columns: 1fr; } }
 {% endblock %}
 
 {% block content %}
@@ -282,908 +93,199 @@
 <div class="quick-links">
   <a href="/admin/tickets" class="ql-card">
     <div class="ql-icon ql-blue">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
     </div>
-    <div class="ql-title">Ticket Management</div>
-    <div class="ql-desc">Review and manage tickets submitted by ASPs</div>
+    <div class="ql-text">
+      <div class="ql-title">Ticket Management</div>
+      <div class="ql-desc">Review and manage tickets submitted by ASPs</div>
+    </div>
     <div class="ql-arrow">→</div>
   </a>
   <a href="/admin/data-import" class="ql-card">
     <div class="ql-icon ql-green">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
     </div>
-    <div class="ql-title">Data Import / Export</div>
-    <div class="ql-desc">Upload WO Excel files and compile masterfile reports</div>
+    <div class="ql-text">
+      <div class="ql-title">Data Import / Export</div>
+      <div class="ql-desc">Upload WO Excel files and compile masterfile reports</div>
+    </div>
     <div class="ql-arrow">→</div>
   </a>
   <a href="/admin/validation" class="ql-card">
     <div class="ql-icon ql-amber">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
     </div>
-    <div class="ql-title">Validation Center</div>
-    <div class="ql-desc">Validate AWB documents and reschedule requests</div>
+    <div class="ql-text">
+      <div class="ql-title">Validation Center</div>
+      <div class="ql-desc">Validate AWB documents and reschedule requests</div>
+    </div>
     <div class="ql-arrow">→</div>
   </a>
   <a href="/admin/users" class="ql-card">
     <div class="ql-icon ql-purple">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
     </div>
-    <div class="ql-title">User &amp; ASP Management</div>
-    <div class="ql-desc">Manage user accounts, roles, and ASP assignments</div>
+    <div class="ql-text">
+      <div class="ql-title">User &amp; ASP Management</div>
+      <div class="ql-desc">Manage user accounts, roles, and ASP assignments</div>
+    </div>
     <div class="ql-arrow">→</div>
   </a>
   <a href="/admin/archive" class="ql-card">
     <div class="ql-icon ql-gray">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
     </div>
-    <div class="ql-title">System Archive</div>
-    <div class="ql-desc">Access masterfile archives and uploaded file history</div>
+    <div class="ql-text">
+      <div class="ql-title">System Archive</div>
+      <div class="ql-desc">Access masterfile archives and uploaded file history</div>
+    </div>
     <div class="ql-arrow">→</div>
   </a>
 </div>
 
-<!-- WO Summary Table (server-side pagination via fetch) -->
-<div class="section-header">WO Summary</div>
-<div class="table-card">
-  <div class="table-toolbar">
-    <input type="search" id="wo-search" placeholder="Search WO, serial, contact, customer, case…" autocomplete="off" />
-    <select class="filter-select" id="wo-filter-status">
-      <option value="">All WO Status</option>
-      <option value="active">Current Active WO</option>
-      <option value="open">All WO Open</option>
-      <option value="closed">Closed / Completed / RMA</option>
-      <option value="part_hold">Part On Hold</option>
-      <option value="transit">Parts in Transit</option>
-      <option value="cancelled">Cancelled</option>
-    </select>
-    <select class="filter-select" id="wo-filter-type">
-      <option value="">All Types</option>
-      <option value="Onsite">Onsite</option>
-      <option value="Carry-In">Carry-In</option>
-    </select>
-    <select class="filter-select" id="wo-filter-case-status">
-      <option value="">All Case Statuses</option>
-      <option value="Closed">Closed</option>
-      <option value="WO Created">WO Created</option>
-      <option value="Solution Provided">Solution Provided</option>
-      <option value="WO Follow Up">WO Follow Up</option>
-      <option value="WO On Hold">WO On Hold</option>
-      <option value="Escalated">Escalated</option>
-      <option value="Customer Action">Customer Action</option>
-      <option value="In Progress">In Progress</option>
-      <option value="Cancelled">Cancelled</option>
-    </select>
-    <span class="toolbar-count" id="wo-count"></span>
-  </div>
+<!-- Shared floating tooltip (lives outside scroll containers) -->
+<div id="ov-float-tip"></div>
 
-  <div class="table-scroll">
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th style="width:40px;text-align:center">#</th>
-          <th>Created On</th>
-          <th>WO Number</th>
-          <th>WO Type</th>
-          <th>Case</th>
-          <th>WO Status</th>
-          <th>Case Status</th>
-          <th>Committed Delivery</th>
-          <th>Actual Committed</th>
-          <th>Contact Name</th>
-          <th>ASP</th>
-        </tr>
-      </thead>
-      <tbody id="wo-tbody">
-        <tr><td colspan="11" class="loading-state">Loading…</td></tr>
-      </tbody>
-    </table>
-  </div>
-  <div id="wo-empty" class="empty-state" style="display:none">No records match your filter.</div>
-  <div class="pagination" id="wo-pagination"></div>
-</div>
+<!-- Overview Statistics -->
+<div class="section-header">Overview</div>
+<div class="ov-grid">
 
-<!-- WO Detail Modal -->
-<div class="modal-overlay" id="modal-detail">
-  <div class="modal">
-    <div class="modal-header">
-      <button class="modal-close" id="detail-close">×</button>
+  <!-- Escalation widget (1 of 3 cols) -->
+  <div class="ov-card">
+    <div class="ov-card-hdr">
+      <div class="ov-card-title">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Open Escalation Monday
+      </div>
+      <a href="/admin/monday-data" class="ov-goto-btn">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        Go to Details
+      </a>
     </div>
-    <div class="modal-body" id="detail-body">
-      <div class="modal-loading">Loading detail…</div>
+    <div class="ov-card-sub" id="ov-esc-sub">Loading…</div>
+    <div class="ov-chart-wrap">
+      <div id="ov-chart"><div class="ov-loading">Loading…</div></div>
     </div>
   </div>
+
 </div>
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
-/* ═══════════════════════════════════════════════════════
-   Shared helpers
-═══════════════════════════════════════════════════════ */
 function esc(s) {
   return String(s == null ? '' : s)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-function isSentinel(s) { return s && String(s).slice(0, 4) === '2099'; }
-function fmt(s) {
-  if (!s || isSentinel(s)) return '—';
-  const d = String(s).slice(0, 16).replace('T', ' ');
-  return d || '—';
-}
-function statusBadge(s) {
-  if (!s) return '<span class="badge badge-s-default">—</span>';
-  const sl = s.toLowerCase();
-  let cls;
-  /* ── closed / resolved family ── */
-  if (sl === 'closed')                                    cls = 'badge-s-closed';
-  else if (sl === 'completed')                            cls = 'badge-s-completed';
-  else if (sl === 'repair completed')                     cls = 'badge-s-repair-done';
-  else if (sl === 'ready for pickup')                     cls = 'badge-s-pickup';
-  else if (sl === 'rma in progress')                      cls = 'badge-s-rma';
-  else if (sl.includes('awaiting for parts rma') || sl.includes('unit returned')) cls = 'badge-s-returned';
-  /* ── new statuses ── */
-  else if (sl.includes('technician onsite'))              cls = 'badge-s-tech-onsite';
-  else if (sl.includes('technician enroute') || sl.includes('technician en route')) cls = 'badge-s-tech-enroute';
-  else if (sl === 'in testing')                           cls = 'badge-s-in-testing';
-  else if (sl === 'requires review')                      cls = 'badge-s-req-review';
-  else if (sl === 'unit received')                        cls = 'badge-s-unit-received';
-  else if (sl === 'order changed')                        cls = 'badge-s-order-changed';
-  else if (sl.includes('awaiting order release') || sl.includes('awaiting order'))  cls = 'badge-s-await-release';
-  /* ── parts / logistics ── */
-  else if (sl.includes('transit'))                        cls = 'badge-s-transit';
-  else if (sl.includes('part') && sl.includes('hold'))   cls = 'badge-s-part-hold';
-  else if (sl.includes('part') && sl.includes('request'))cls = 'badge-s-part-req';
-  else if (sl.includes('part') && sl.includes('deliver'))cls = 'badge-s-part-delivered';
-  else if (sl === 'customer hold')                        cls = 'badge-s-cust-hold';
-  else if (sl === 'in repair')                            cls = 'badge-s-in-repair';
-  else if (sl.includes('technician assigned'))            cls = 'badge-s-tech-assigned';
-  else if (sl === 'order accepted')                       cls = 'badge-s-accepted';
-  else if (sl.includes('pick') && sl.includes('pack'))   cls = 'badge-s-pick-pack';
-  else if (sl.includes('cancel'))                         cls = 'badge-s-cancelled';
-  else                                                    cls = 'badge-s-default';
-  return `<span class="badge ${cls}">${esc(s)}</span>`;
+
+/* ── Status colour palette ─── */
+const OV_STATUS_COLOR = {
+  'technical escalation': '#f59e0b',
+  'progress':             '#3b82f6',
+  'qa result':            '#8b5cf6',
+};
+function ovStatusColor(s) {
+  return OV_STATUS_COLOR[(s || '').toLowerCase().trim()] || '#64748b';
 }
 
-/* ═══════════════════════════════════════════════════════
-   Server-side paginated table
-═══════════════════════════════════════════════════════ */
-let currentPage = 1;
-let totalPages  = 1;
-let searchTimer = null;
+/* ── Floating tooltip wiring ─── */
+const _floatTip = document.getElementById('ov-float-tip');
 
-function buildParams(page) {
-  const p = new URLSearchParams();
-  const q  = document.getElementById('wo-search').value.trim();
-  const st = document.getElementById('wo-filter-status').value;
-  const ty = document.getElementById('wo-filter-type').value;
-  const cs = document.getElementById('wo-filter-case-status').value;
-  if (q)  p.set('q',           q);
-  if (st) p.set('status',      st);
-  if (ty) p.set('wo_type',     ty);
-  if (cs) p.set('case_status', cs);
-  p.set('page',     page);
-  p.set('per_page', 25);
-  return p.toString();
+function _showTip(html, clientX, clientY) {
+  _floatTip.innerHTML = html;
+  _floatTip.style.display = 'block';
+  _positionTip(clientX, clientY);
 }
-
-function loadPage(page) {
-  currentPage = page;
-  const tbody = document.getElementById('wo-tbody');
-  tbody.innerHTML = '<tr><td colspan="11" class="loading-state">Loading…</td></tr>';
-  document.getElementById('wo-empty').style.display = 'none';
-  document.getElementById('wo-pagination').innerHTML = '';
-
-  fetch('/admin/api/wo-summary?' + buildParams(page))
-    .then(r => r.json())
-    .then(data => renderTable(data))
-    .catch(() => {
-      tbody.innerHTML = '<tr><td colspan="11" class="empty-state">Failed to load data.</td></tr>';
-    });
+function _positionTip(clientX, clientY) {
+  const tw = _floatTip.offsetWidth;
+  const th = _floatTip.offsetHeight;
+  let x = clientX - tw / 2;
+  let y = clientY - th - 12;
+  /* keep within viewport */
+  if (x < 6) x = 6;
+  if (x + tw > window.innerWidth - 6) x = window.innerWidth - tw - 6;
+  if (y < 6) y = clientY + 16;   // flip below cursor if too close to top
+  _floatTip.style.left = x + 'px';
+  _floatTip.style.top  = y + 'px';
 }
+function _hideTip() { _floatTip.style.display = 'none'; }
 
-function renderTable(data) {
-  totalPages = data.pages;
-  currentPage = data.page;
+/* ── Render: Open escalations by date (stacked coloured bars) ─── */
+function renderOpenEscChart(data) {
+  const rows       = data.open_esc_by_date        || [];
+  const statusRows = data.open_esc_by_date_status || [];
+  const total      = data.esc_open_total          || 0;
 
-  document.getElementById('wo-count').textContent =
-    `${data.total.toLocaleString()} record${data.total !== 1 ? 's' : ''}`;
+  document.getElementById('ov-esc-sub').innerHTML =
+    `<strong>${total.toLocaleString()}</strong> open escalation${total !== 1 ? 's' : ''}`;
 
-  const tbody = document.getElementById('wo-tbody');
-  const empty = document.getElementById('wo-empty');
-
-  if (!data.rows.length) {
-    tbody.innerHTML = '';
-    empty.style.display = 'block';
-    document.getElementById('wo-pagination').innerHTML = '';
+  if (!rows.length) {
+    document.getElementById('ov-chart').innerHTML = '<div class="ov-loading">No open escalations.</div>';
     return;
   }
-  empty.style.display = 'none';
 
-  const offset = (data.page - 1) * 25;
-  tbody.innerHTML = data.rows.map((r, i) => `
-    <tr>
-      <td style="text-align:center;color:#8c959f;font-size:12px">${offset + i + 1}</td>
-      <td>${fmt(r.created_on)}</td>
-      <td>
-        <button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>
-      </td>
-      <td>${esc(r.work_order_type)||'—'}</td>
-      <td title="${esc(r.case_desc)}">${esc(r.case_desc)||'—'}</td>
-      <td>${statusBadge(r.work_order_status)}</td>
-      <td>${esc(r.case_status)||'—'}</td>
-      <td>${fmt(r.committed_delivery_date)}</td>
-      <td>${fmt(r.actual_committed_onsite_date)}</td>
-      <td title="${esc(r.contact_name)}">${esc(r.contact_name)||'—'}</td>
-      <td title="${esc(r.customer)}">${esc(r.customer)||'—'}</td>
-    </tr>`).join('');
-
-  /* bind WO-number click → detail modal */
-  tbody.querySelectorAll('.wo-link').forEach(btn => {
-    btn.addEventListener('click', () => openDetail(btn.dataset.wo));
+  /* Build a map: day → [{ status, count }] */
+  const byDay = {};
+  statusRows.forEach(r => {
+    if (!byDay[r.day]) byDay[r.day] = [];
+    byDay[r.day].push({ status: r.status, count: r.count });
   });
 
-  renderPagination(data.total, data.page, data.pages);
-}
+  const max       = Math.max(...rows.map(d => d.count), 1);
+  const BAR_MAX_H = 100;
 
-function renderPagination(total, page, pages) {
-  const pg = document.getElementById('wo-pagination');
-  if (pages <= 1) { pg.innerHTML = ''; return; }
+  /* Pre-build tooltip HTML per day (stored in data-* attr on the stack el) */
+  const bars = rows.map(d => {
+    const totalH = Math.max(2, Math.round(d.count / max * BAR_MAX_H));
+    const lbl    = d.day.slice(5);
+    const segs   = byDay[d.day] || [];
 
-  const s = Math.max(1, page - 2);
-  const e = Math.min(pages, s + 4);
-
-  let h = `<span class="page-info">Page ${page} of ${pages} &nbsp;·&nbsp; ${total.toLocaleString()} total</span>`;
-  h += `<button class="page-btn" data-p="prev" ${page===1?'disabled':''}>&#8592;</button>`;
-  if (s > 1) h += `<button class="page-btn" data-p="1">1</button>${s>2?'<span style="padding:0 4px;color:#8c959f">…</span>':''}`;
-  for (let i = s; i <= e; i++) h += `<button class="page-btn ${i===page?'active':''}" data-p="${i}">${i}</button>`;
-  if (e < pages) h += `${e<pages-1?'<span style="padding:0 4px;color:#8c959f">…</span>':''}<button class="page-btn" data-p="${pages}">${pages}</button>`;
-  h += `<button class="page-btn" data-p="next" ${page===pages?'disabled':''}>&#8594;</button>`;
-  h += `<span class="page-jump">Go to <input type="number" id="pg-jump-inp" min="1" max="${pages}" value="${page}" /> <button class="page-btn" id="pg-jump-btn">Go</button></span>`;
-
-  pg.innerHTML = h;
-
-  pg.querySelectorAll('[data-p]').forEach(b => b.addEventListener('click', () => {
-    const v = b.dataset.p;
-    if (v === 'prev') loadPage(page - 1);
-    else if (v === 'next') loadPage(page + 1);
-    else loadPage(+v);
-  }));
-
-  document.getElementById('pg-jump-btn').addEventListener('click', () => {
-    const v = parseInt(document.getElementById('pg-jump-inp').value, 10);
-    if (v >= 1 && v <= pages) loadPage(v);
-  });
-  document.getElementById('pg-jump-inp').addEventListener('keydown', e => {
-    if (e.key === 'Enter') document.getElementById('pg-jump-btn').click();
-  });
-}
-
-/* ═══════════════════════════════════════════════════════
-   Filter / search wiring  (debounced search input)
-═══════════════════════════════════════════════════════ */
-document.getElementById('wo-search').addEventListener('input', () => {
-  clearTimeout(searchTimer);
-  if (document.getElementById('wo-search').value.trim()) {
-    document.getElementById('wo-filter-status').value      = '';
-    document.getElementById('wo-filter-type').value        = '';
-    document.getElementById('wo-filter-case-status').value = '';
-  }
-  searchTimer = setTimeout(() => loadPage(1), 350);
-});
-document.getElementById('wo-filter-status').addEventListener('change',      () => loadPage(1));
-document.getElementById('wo-filter-type').addEventListener('change',         () => loadPage(1));
-document.getElementById('wo-filter-case-status').addEventListener('change',  () => loadPage(1));
-
-/* Stat card → filter shortcut */
-document.querySelectorAll('.stat-row .stat-card[data-filter-status]').forEach(card => {
-  card.addEventListener('click', () => {
-    document.getElementById('wo-filter-status').value      = card.dataset.filterStatus;
-    document.getElementById('wo-search').value             = '';
-    document.getElementById('wo-filter-type').value        = '';
-    document.getElementById('wo-filter-case-status').value = '';
-    loadPage(1);
-    document.querySelector('.table-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
-});
-
-/* Initial load */
-loadPage(1);
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   WO DETAIL MODAL — same rendering engine as ASP Dashboard
-═══════════════════════════════════════════════════════════════════════════ */
-function field(label, value, mono, span) {
-  const v      = (value == null || value === '') ? null : String(value);
-  const cls    = ['detail-field', span ? `span-${span}` : ''].filter(Boolean).join(' ');
-  const valCls = ['df-value', mono ? 'mono' : '', v ? '' : 'muted'].filter(Boolean).join(' ');
-  return `<div class="${cls}"><div class="df-label">${esc(label)}</div><div class="${valCls}">${v ? esc(v) : '—'}</div></div>`;
-}
-function sectionTitle(icon, text) {
-  return `<div class="detail-section-title">${icon}<span>${esc(text)}</span></div>`;
-}
-const ICONS = {
-  summary : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>`,
-  details : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>`,
-  timeline: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="3"/></svg>`,
-  parts   : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>`,
-  closing : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
-  contact : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
-  related : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
-  ticket  : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v2z"/></svg>`,
-};
-
-function heroChipClass(s) {
-  if (!s) return 'gray';
-  const sl = s.toLowerCase();
-  if (sl === 'closed' || sl === 'completed' || sl === 'repair completed') return 'green';
-  if (sl.includes('cancel')) return 'gray';
-  if (sl.includes('part') && sl.includes('hold'))       return 'red';
-  if (sl.includes('transit') || sl.includes('deliver')) return 'purple';
-  if (sl.includes('part'))                              return 'amber';
-  if (sl.includes('technician') || sl.includes('repair')) return 'blue';
-  return 'blue';
-}
-
-function fmtShort(s) {
-  if (!s || isSentinel(s)) return null;
-  const d = new Date(String(s).replace(' ', 'T'));
-  if (isNaN(d)) return s.slice(0, 16).replace('T', ' ');
-  const day = d.getDate().toString().padStart(2, '0');
-  const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
-  const time = `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
-  return `${day} ${mon}\n${time}`;
-}
-
-function openDetail(woId) {
-  const overlay = document.getElementById('modal-detail');
-  const body    = document.getElementById('detail-body');
-  body.innerHTML = '<div class="modal-loading">Loading detail…</div>';
-  overlay.classList.add('open');
-  Promise.all([
-    fetch(`/admin/api/wo-detail/${woId}`).then(r => r.json()),
-    fetch(`/admin/api/wo-parts/${woId}`).then(r => r.json()),
-    fetch(`/admin/api/wo-related-serial/${woId}`).then(r => r.json()),
-    fetch(`/admin/api/wo-ticket-history/${woId}`).then(r => r.json()),
-  ])
-    .then(([d, parts, relatedSerial, ticketHistory]) => {
-      if (d.error) { body.innerHTML = `<div style="padding:24px;color:#dc2626">${esc(d.error)}</div>`; return; }
-      body.innerHTML =
-        renderHero(d) +
-        `<div class="detail-body-inner">` +
-          renderTimeline(d, parts) +
-          renderParts(parts, d.work_order_id) +
-          renderTicketHistory(ticketHistory.case_number, ticketHistory.current_wo_id, ticketHistory.rows) +
-          renderRelatedBySerial(relatedSerial.serial_number, relatedSerial.current_wo_id, relatedSerial.rows) +
-          renderDetailBody(d) +
-        `</div>`;
-      initCollapsibles();
-    })
-    .catch(() => { body.innerHTML = '<div style="padding:24px;color:#dc2626">Failed to load detail.</div>'; });
-}
-
-function caseStatusPill(val) {
-  if (!val) return '';
-  const v = val.toLowerCase();
-  let bg, color, border;
-  if (v === 'closed') {
-    bg = '#f0fdf4'; color = '#15803d'; border = '#bbf7d0';
-  } else if (v === 'solution provided') {
-    bg = '#f0fdf4'; color = '#15803d'; border = '#bbf7d0';
-  } else if (v === 'cancelled') {
-    bg = '#fef2f2'; color = '#b91c1c'; border = '#fecaca';
-  } else if (v === 'escalated') {
-    bg = '#fff7ed'; color = '#c2410c'; border = '#fed7aa';
-  } else if (v === 'wo on hold' || v === 'customer action') {
-    bg = '#fffbeb'; color = '#b45309'; border = '#fde68a';
-  } else if (v === 'wo follow up' || v === 'in progress') {
-    bg = '#f5f3ff'; color = '#6d28d9'; border = '#ddd6fe';
-  } else {
-    bg = '#f7f8fa'; color = '#57606a'; border = '#e5e7eb';
-  }
-  return `<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:${bg};color:${color};border:1px solid ${border}">${esc(val)}</span>`;
-}
-
-function closingCodePill(val) {
-  if (!val) return '';
-  const v = val.toLowerCase();
-  let bg, color, border;
-  if (v.includes('problem fixed parts replaced')) {
-    bg = '#f0fdf4'; color = '#15803d'; border = '#bbf7d0';
-  } else if (v.includes('problem fixed no parts')) {
-    bg = '#f0fdf4'; color = '#15803d'; border = '#bbf7d0';
-  } else if (v.includes('need follow up') || v.includes('needs follow up')) {
-    bg = '#fffbeb'; color = '#b45309'; border = '#fde68a';
-  } else if (v.includes('cancel')) {
-    bg = '#fef2f2'; color = '#b91c1c'; border = '#fecaca';
-  } else if (v.includes('no trouble') || v.includes('cannot recreate')) {
-    bg = '#f5f3ff'; color = '#6d28d9'; border = '#ddd6fe';
-  } else if (v.includes('customer induced') || v.includes('machine not found') || v.includes('returned but un-repaired')) {
-    bg = '#fff7ed'; color = '#c2410c'; border = '#fed7aa';
-  } else {
-    bg = '#f7f8fa'; color = '#57606a'; border = '#e5e7eb';
-  }
-  return `<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:${bg};color:${color};border:1px solid ${border}">${esc(val)}</span>`;
-}
-
-function renderHero(d) {
-  const rrVal   = d.repeat_repair || '—';
-  const rrIsYes = (d.repeat_repair || '').toLowerCase() === 'yes';
-  const bar1Items = [
-    d.work_order_type      ? { l: 'Type:',       v: d.work_order_type,                                    cls: 'gray'   } : null,
-    {                        l: 'Repeat Repair:', v: rrIsYes ? (d.repeat_repair_reason || d.repeat_repair) : rrVal,
-                                                                                                            cls: rrIsYes ? 'red' : 'green' },
-    d.work_order_priority && d.work_order_priority.toLowerCase() !== 'normal'
-      ?                      { l: 'Priority:',   v: d.work_order_priority,                                 cls: 'red'    } : null,
-    d.premier_service      ? { l: 'Premier:',    v: d.premier_service,                                     cls: 'purple' } : null,
-    d.order_type           ? { l: 'Order Type:', v: d.order_type,                                          cls: 'gray'   } : null,
-  ].filter(Boolean);
-  const renderBar = items => `<div class="wo-info-bar">
-    ${items.map(i => `<div class="wo-info-item">
-      <span class="wo-info-lbl">${esc(i.l)}</span>
-      <span class="wo-info-val ${i.cls}">${esc(i.v)}</span>
-    </div>`).join('')}
-  </div>`;
-  const hasContact = d.contact_name || d.mobile_phone || d.primary_email || d.address || d.company_name;
-  const hasAsp     = d.customer || d.labor_vendor_related || d.tech_id;
-  const customerCard = (hasContact || hasAsp) ? `
-    <div class="wo-customer-wrap">
-      ${hasContact ? `
-      <div class="wo-customer-box">
-        <div class="wo-customer-col">
-          ${d.contact_name ? `<div class="wo-customer-name">${esc(d.contact_name)}</div>` : ''}
-          ${d.mobile_phone  ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Mobile Phone:</span><span class="wo-customer-val">${esc(d.mobile_phone)}</span></div>` : ''}
-          ${d.primary_email ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Email:</span><span class="wo-customer-val">${esc(d.primary_email)}</span></div>` : ''}
-        </div>
-        <div class="wo-customer-col">
-          ${d.contact_name ? `<div class="wo-customer-name" style="visibility:hidden">—</div>` : ''}
-          ${d.company_name ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Company:</span><span class="wo-customer-val">${esc(d.company_name)}</span></div>` : ''}
-          ${d.address ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Address:</span><span class="wo-customer-val">${esc(d.address)}</span></div>` : ''}
-        </div>
-      </div>` : ''}
-      ${hasAsp ? `
-      <div class="wo-customer-box asp">
-        <div class="wo-customer-col">
-          ${d.customer             ? `<div class="wo-customer-asp">${esc(d.customer)}</div>` : ''}
-          ${d.labor_vendor_related ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Vendor ID:</span><span class="wo-customer-val">${esc(d.labor_vendor_related)}</span></div>` : ''}
-          ${d.tech_id        ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Technician:</span><span class="wo-customer-val"><span style="color:#3b82d4;font-weight:600">${esc(d.tech_id)}</span>${d.tech_name ? ` - ${esc(d.tech_name)}` : ''}</span></div>` : ''}
-        </div>
-      </div>` : ''}
-    </div>` : '';
-  return `<div class="wo-hero">
-    <!-- Row 1: WO ID + WO Status badge + Closing Code pill left; right side reserved for future actions -->
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;">
-        <div class="wo-hero-id"><span style="color:#8c959f">WO#</span> ${esc(String(d.work_order_id))}</div>
-        ${statusBadge(d.work_order_status)}
-        ${d.closing_code ? closingCodePill(d.closing_code) : ''}
-      </div>
-    </div>
-    <!-- Row 2 + 3: SN/CASE and MTM/PRODUCT in aligned grid columns -->
-    <div style="margin-top:6px;display:grid;grid-template-columns:200px 1fr;row-gap:4px;align-items:center;">
-      <div style="display:flex;align-items:center;gap:4px;min-width:0">
-        ${d.serial_number ? `<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;white-space:nowrap">SN:</span><strong style="color:#1f2328;font-family:ui-monospace,monospace;white-space:nowrap">${esc(d.serial_number)}</strong>` : ''}
-      </div>
-      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-width:0">
-        ${d.case_number ? `<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;white-space:nowrap">CASE#</span><span style="font-family:ui-monospace,monospace;color:#1f2328;font-weight:700;white-space:nowrap">${esc(d.case_number)}</span>` : ''}
-        ${d.case_status ? caseStatusPill(d.case_status) : ''}
-      </div>
-      <div style="display:flex;align-items:center;gap:4px;min-width:0">
-        ${d.product_id_mtm ? `<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;white-space:nowrap">MTM:</span><strong style="color:#1f2328;font-family:ui-monospace,monospace;white-space:nowrap">${esc(d.product_id_mtm)}</strong>` : ''}
-      </div>
-      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-width:0">
-        ${d.product_description ? `<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;white-space:nowrap">PRODUCT:</span><strong style="color:#1f2328;font-family:ui-monospace,monospace">${esc(d.product_description)}</strong>` : ''}
-      </div>
-    </div>
-    <!-- Case description -->
-    ${d.case_desc ? `<div style="margin-top:10px;font-size:12px;color:#57606a;background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:8px 12px;"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;margin-right:8px">Case Title:</span>${esc(d.case_desc)}</div>` : ''}
-    ${customerCard}
-    ${bar1Items.length ? renderBar(bar1Items) : ''}
-  </div>`;
-}
-
-function renderTimeline(d, parts) {
-  const now = Date.now();
-
-  const isCancelled = p => {
-    const s = (p.wo_product_status || '').toLowerCase();
-    return s.includes('cancel');
-  };
-
-  /* Collect non-cancelled part lines; fall back to all lines only when
-     every line is cancelled or there are no parts at all. */
-  const activeParts = (parts && parts.filter(p => !isCancelled(p)).length > 0)
-    ? parts.filter(p => !isCancelled(p))
-    : (parts || []);
-
-  /* Find the part line with the LATEST order_date (or acceptance_date).
-     This represents the most recently placed part order for the WO. */
-  const toTs = v => {
-    if (!v || isSentinel(v)) return -Infinity;
-    const t = new Date(String(v).replace(' ', 'T')).getTime();
-    return isNaN(t) ? -Infinity : t;
-  };
-  let latestPart = activeParts[0] || null;
-  let latestOrderTs = latestPart ? toTs(latestPart.order_date || latestPart.acceptance_date) : -Infinity;
-  for (const p of activeParts) {
-    const ts = toTs(p.order_date || p.acceptance_date);
-    if (ts > latestOrderTs) { latestOrderTs = ts; latestPart = p; }
-  }
-
-  /* For the footnote — index of the chosen part in the original list */
-  const activePartIdx = latestPart ? parts.indexOf(latestPart) : -1;
-
-  const partOrderDate  = latestPart ? (latestPart.order_date       || latestPart.acceptance_date || null) : null;
-  const partPickupDate = latestPart ? (latestPart.ship_pickup_time  || latestPart.shipment_date   || null) : null;
-  const partPodDate    = latestPart ? (latestPart.ship_pou_pod_time || latestPart.delivery_date   || null) : null;
-
-  /* true when the WO is closed/completed — forces onsite nodes to done */
-  const isWoClosed = !!(d.completion_date || d.closing_date);
-  const nd = v => (isSentinel(v) ? null : v);
-  const nodes = [
-    { label: 'Case\nCreated',        date: nd(d.created_on) },
-    { label: 'Released',             date: nd(d.release_date) },
-    { label: 'Part Order',           date: nd(partOrderDate) },
-    { label: 'Part Pickup',          date: nd(partPickupDate) },
-    { label: 'Part Received\n(POD)', date: nd(partPodDate) },
-    { label: 'Orig. Onsite',         date: nd(d.original_committed_onsite_date) },
-    { label: 'Defer Date',           date: nd(d.customer_defer_date), optional: true },
-    { label: 'Actual\nOnsite',       date: nd(d.actual_committed_onsite_date) },
-    { label: 'Completion',           date: nd(d.completion_date) },
-    { label: 'Closed',               date: nd(d.closing_date) },
-  ];
-  let lastDoneIdx = -1;
-  nodes.forEach((n, i) => { if (n.date) lastDoneIdx = i; });
-  const nodeHtml = nodes.map((n, i) => {
-    const hasDate = !!n.date;
-    const ts      = hasDate ? new Date(String(n.date).replace(' ', 'T')).getTime() : null;
-    const isPast  = ts && ts <= now;
-    const isOverdue = !hasDate && i > 0 && i <= lastDoneIdx + 1 && !n.optional;
-    /* Closed WO: Orig. Onsite (5) and Actual Onsite (7) forced done only when they
-       have a date — if empty they stay grey (future). Defer Date (6): forced done
-       if it has a date; forced grey if empty. */
-    const forceDone   = isWoClosed && ((hasDate && (i === 5 || i === 7)) || (i === 6 && hasDate));
-    const forceGrey   = isWoClosed && i === 6 && !hasDate;
-    /* Open WO: Orig. Onsite (5) and Actual Onsite (7) forced active (blue) when
-       they have a date — the WO is not finished yet so they are not "done".
-       Defer Date (6) forced skipped (amber) when it has a date — it is a deferral,
-       not a completion event. */
-    const forceActive = !isWoClosed && hasDate && (i === 5 || i === 7);
-    const forceSkip   = !isWoClosed && hasDate && i === 6;
-    let state;
-    if (forceDone)                   state = 'done';
-    else if (forceGrey)              state = 'future';
-    else if (forceActive)            state = 'active';
-    else if (forceSkip)              state = 'skipped';
-    else if (hasDate && isPast)      state = 'done';
-    else if (hasDate)                state = 'active';
-    else if (isOverdue)              state = 'future';
-    else if (n.optional && !hasDate) state = 'skipped';
-    else                             state = 'future';
-    const connCls = i < nodes.length - 1 ? `tl-connector ${(state === 'done' && i < lastDoneIdx) ? 'done' : ''}` : '';
-    const dateStr = fmtShort(n.date);
-    const dateCls = (i === 6 && hasDate) ? 'active-text' : state === 'done' ? 'done-text' : state === 'active' ? 'active-text' : 'future-text';
-    let dotSvg;
-    if (state === 'done')
-      dotSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
-    else if (state === 'active')
-      dotSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/></svg>`;
-    else if (state === 'overdue')
-      dotSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
-    else
-      dotSvg = `<div class="tl-dot-inner"></div>`;
-    return `
-      <div class="tl-node">
-        <div class="tl-dot-wrap ${state}">${dotSvg}</div>
-        <div class="tl-label">${n.label.replace(/\n/g, '<br>')}</div>
-        <div class="tl-date ${dateCls}">${dateStr ? dateStr.replace(/\n/g, '<br>') : '<span style="color:#d1d5db">—</span>'}</div>
-      </div>
-      ${i < nodes.length - 1 ? `<div class="${connCls}"></div>` : ''}`;
-  }).join('');
-  return `<div class="detail-section">
-    ${sectionTitle(ICONS.timeline, 'Date Timeline')}
-    <div class="tl-wrap"><div class="tl-scroll"><div class="tl-track">${nodeHtml}</div></div></div>
-    ${parts.length > 1 ? `<div style="font-size:11px;color:#8c959f;margin-top:8px">* Part dates shown for line #${activePartIdx + 1} (latest part order). See Part Order History for all lines.</div>` : ''}
-  </div>`;
-}
-
-function renderDetailBody(d) {
-  if (!d.wo_cancellation_reason) return '';
-  return `
-    <div class="detail-section">
-      ${sectionTitle(ICONS.closing, 'Cancellation')}
-      <div style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;color:#1f2328">${esc(d.wo_cancellation_reason)}</div>
-    </div>`;
-}
-
-function partStatusBadge(s) {
-  if (!s) return '<span class="badge badge-s-default">—</span>';
-  const sl = s.toLowerCase().trim();
-  let cls;
-  if (sl === 'delivered')                                          cls = 'badge-s-part-delivered';
-  else if (sl === 'shipped')                                       cls = 'badge-s-transit';
-  else if (sl === 'pick - pack' || sl === 'pick-pack' || sl === 'pick pack') cls = 'badge-s-pick-pack';
-  else if (sl === 'accepted')                                      cls = 'badge-s-accepted';
-  else if (sl === 'pending')                                       cls = 'badge-s-part-req';
-  else if (sl === 'on hold - part hold' || sl.includes('hold'))   cls = 'badge-s-part-hold';
-  else if (sl === 'cancelled by lenovo')                           cls = 'badge-s-cust-hold';
-  else if (sl.includes('cancel'))                                  cls = 'badge-s-cancelled';
-  else                                                             cls = 'badge-s-default';
-  return `<span class="badge ${cls}">${esc(s)}</span>`;
-}
-
-function renderParts(parts, woId) {
-  const uid  = 'parts-body-' + Date.now();
-  const title = sectionTitle(ICONS.parts, `Part Order History (WO #${esc(String(woId || ''))})`);
-
-  if (!parts.length) return `<div class="detail-section">
-    ${title}
-    <div style="font-size:13px;color:#8c959f;font-style:italic;padding:4px 0 8px">No part order lines found for this WO.</div>
-  </div>`;
-
-  /* Sort: cancelled lines last, preserving original order within each group */
-  const activeRows    = parts.filter(p => !(p.wo_product_status || '').toLowerCase().includes('cancel'));
-  const cancelledRows = parts.filter(p =>  (p.wo_product_status || '').toLowerCase().includes('cancel'));
-
-  function buildCard(p, i, isCancelledCard) {
-    const _dc = p.dc_number != null ? String(p.dc_number).trim() : '';
-    /* _dcFilled: has a real DC number — not null, not '0' sentinel, not '1' (filled but no display number) */
-    const _dcFilled  = _dc && _dc !== '0';
-    const _dcDisplay = _dcFilled && _dc !== '1';
-
-    const retFlag = p.return_flag === 'Y'
-      ? (_dcDisplay
-          ? `<span class="badge" style="background:#dcfce7;color:#15803d;border:1px solid #86efac">Returned (DC# ${esc(_dc)})</span>`
-          : _dcFilled
-            ? `<span class="badge" style="background:#dcfce7;color:#15803d;border:1px solid #86efac">Returned</span>`
-            : '<span class="badge" style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa">Return Yes</span>')
-      : (p.return_flag === 'N' ? '<span class="badge badge-default">No Return</span>' : '<span style="color:#8c959f">—</span>');
-
-    const isPartHold = (p.wo_product_status || '').toLowerCase() === 'on hold - part hold';
-    const etaWh      = isPartHold && p.eta_parthold_backlog
-      ? `<span style="display:inline-flex;align-items:center;gap:6px;margin-right:4px">
-           <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#8c959f">ETA Arrived on Warehouse</span>
-           <span style="font-size:13px;font-weight:700;color:#d97706">${String(p.eta_parthold_backlog).slice(0,10)}</span>
-         </span>`
-      : '';
-    return `<div class="part-card${isCancelledCard ? ' cancelled' : ''}">
-      <div class="part-card-hdr">
-        <span class="part-card-num">#${i + 1}</span>
-        <span class="part-card-pn">${esc(p.product || '—')}</span>
-        <span class="part-card-desc" title="${esc(p.description || '')}">${esc(p.description || '—')}</span>
-        <div style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">
-          ${etaWh}
-          ${partStatusBadge(p.wo_product_status)}
-          ${retFlag}
-        </div>
-      </div>
-      <div class="part-card-body">
-        <div class="part-card-field"><div class="pcf-label">SOID</div><div class="pcf-value mono">${esc(p.soid || '—')}</div></div>
-        <div class="part-card-field"><div class="pcf-label">AWB</div><div class="pcf-value mono">${esc(p.awb || '—')}</div></div>
-        <div class="part-card-field"><div class="pcf-label">SLA</div><div class="pcf-value">${esc(p.sla || '—')}</div></div>
-        <div class="part-card-field"><div class="pcf-label">Order Date</div><div class="pcf-value">${fmt(p.order_date || p.acceptance_date) || '—'}</div></div>
-        <div class="part-card-field"><div class="pcf-label">Pickup Date</div><div class="pcf-value">${fmt(p.ship_pickup_time || p.shipment_date) || '—'}</div></div>
-        ${(()=>{
-          const pod     = p.ship_pou_pod_time || p.delivery_date;
-          const eta     = p.target;
-          const etaFmt  = fmt(eta);
-          if (pod || !eta) {
-            return `<div class="part-card-field"><div class="pcf-label">Target ETA</div><div class="pcf-value">${etaFmt || '—'}</div></div>`;
-          }
-          const isOverdue = eta && new Date(String(eta).replace(' ','T')) < new Date();
-          const cls  = isOverdue ? 'eta-overdue' : 'eta-pending';
-          const pill = isOverdue
-            ? `<div><span class="eta-pill overdue">Overdue</span></div>`
-            : `<div><span class="eta-pill pending">Awaiting</span></div>`;
-          return `<div class="part-card-field ${cls}"><div class="pcf-label">Target ETA</div><div class="pcf-value">${etaFmt || '—'}</div>${pill}</div>`;
-        })()}
-        <div class="part-card-field"><div class="pcf-label">Part Received (POD)</div><div class="pcf-value">${fmt(p.ship_pou_pod_time || p.delivery_date) || '—'}</div></div>
-      </div>
-    </div>`;
-  }
-
-  const activeCards    = activeRows.map((p, i) => buildCard(p, i, false));
-  const cancelledCards = cancelledRows.map((p, i) => buildCard(p, i, true));
-
-  const divider = cancelledCards.length && activeCards.length
-    ? `<div class="parts-cancelled-divider"><span>Cancelled (${cancelledCards.length})</span></div>`
-    : '';
-
-  const cards = [...activeCards, divider ? [divider] : [], ...cancelledCards].flat().join('');
-
-  return `<div class="detail-section">
-    <div class="detail-section-title collapsible-hdr" data-target="${uid}">
-      ${ICONS.parts}<span>Part Order History (WO #${esc(String(woId || ''))})</span>
-      <svg class="caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-    </div>
-    <div class="collapsible-body" id="${uid}" style="max-height:2000px">
-      ${cards}
-    </div>
-  </div>`;
-}
-
-/* ─── Case History ───────────────────────────────────────────────────── */
-function renderTicketHistory(caseNumber, currentWoId, rows) {
-  const cn  = caseNumber || '—';
-  const uid = 'ticket-hist-body-' + Date.now();
-  const title = `<div class="detail-section-title collapsible-hdr" data-target="${uid}">
-    ${ICONS.ticket}<span>Case History (Case #${esc(String(cn))})</span>
-    <svg class="caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-  </div>`;
-  const caseLabel = `<div style="font-size:12px;color:#57606a;margin-bottom:12px">
-    Ticket / Case #: <strong style="font-family:ui-monospace,monospace;color:#1f2328">${esc(String(cn))}</strong>
-    <span style="margin-left:8px;color:#8c959f;font-size:11px">All Work Orders attached to this ticket</span>
-  </div>`;
-  if (!rows || !rows.length) return `<div class="detail-section">
-    ${title}
-    <div id="${uid}" class="collapsible-body" style="max-height:2000px">
-      ${caseLabel}
-      <div style="font-size:12px;color:#8c959f;font-style:italic;padding:4px 0 8px">No work orders found for this ticket.</div>
-    </div>
-  </div>`;
-  function partsCell(parts) {
-    if (!parts || !parts.length) return '<span style="color:#8c959f;font-size:12px">—</span>';
-    return parts.map(p => {
-      const pn   = esc(p.product || '—');
-      const desc = esc(p.description || '');
-      return `<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px;flex-wrap:wrap">
-        <span style="font-family:ui-monospace,monospace;font-size:11px;font-weight:700;color:#1f2328;white-space:nowrap">${pn}</span>
-        ${desc ? `<span style="font-size:11px;color:#57606a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px" title="${desc}">${desc}</span>` : ''}
-        ${partStatusBadge(p.wo_product_status)}
-      </div>`;
+    const segHtml = segs.map(s => {
+      const segH = Math.max(1, Math.round(s.count / d.count * totalH));
+      return `<div class="ov-seg" style="height:${segH}px;background:${ovStatusColor(s.status)}"></div>`;
     }).join('');
-  }
-  const tableRows = rows.map((r, i) => {
-    const isCurrent  = String(r.work_order_id) === String(currentWoId);
-    const rowBg      = isCurrent ? 'background:#fffbeb' : 'background:#fff';
-    const currentTag = isCurrent
-      ? `<span style="margin-left:6px;font-size:10px;font-weight:700;color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:1px 7px;vertical-align:middle">current</span>`
-      : '';
-    const woCell = isCurrent
-      ? `<span style="font-family:ui-monospace,monospace;font-size:13px;font-weight:700;color:#1f2328">${esc(r.work_order_id)}</span>${currentTag}`
-      : `<button class="related-wo-id" data-wo="${esc(r.work_order_id)}" onclick="openDetail(this.dataset.wo)">${esc(r.work_order_id)}</button>`;
-    return `
-    <tr style="${rowBg}">
-      <td style="text-align:center;color:#8c959f;font-size:12px;width:36px;vertical-align:top;padding-top:10px">${i + 1}</td>
-      <td style="vertical-align:top;padding-top:10px">${woCell}</td>
-      <td style="vertical-align:top;padding-top:8px">${statusBadge(r.work_order_status)}</td>
-      <td style="font-size:12px;vertical-align:top;padding-top:10px">${esc(r.work_order_type || '—')}</td>
-      <td style="font-size:12px;white-space:nowrap;vertical-align:top;padding-top:10px">${fmt(r.created_on)}</td>
-      <td style="font-size:12px;white-space:nowrap;vertical-align:top;padding-top:10px">${fmt(r.completion_date)}</td>
-      <td style="vertical-align:top;padding-top:6px">${partsCell(r.parts)}</td>
-    </tr>`;
-  }).join('');
-  const thStyle = 'padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:#57606a;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e5e7eb;white-space:nowrap';
-  return `<div class="detail-section">
-    ${title}
-    <div id="${uid}" class="collapsible-body" style="max-height:6000px">
-      ${caseLabel}
-      <div style="font-size:11px;color:#8c959f;margin-bottom:8px">${rows.length} WO${rows.length !== 1 ? 's' : ''} on this ticket</div>
-      <div style="overflow-x:auto">
-        <table class="ticket-table" style="width:100%;border-collapse:collapse;font-size:13px">
-          <thead><tr style="background:#f7f8fa">
-            <th style="${thStyle};text-align:center;width:36px">#</th>
-            <th style="${thStyle}">WO Number</th>
-            <th style="${thStyle}">WO Status</th>
-            <th style="${thStyle}">Type</th>
-            <th style="${thStyle}">Created</th>
-            <th style="${thStyle}">Completed</th>
-            <th style="${thStyle};white-space:normal">Part Order</th>
-          </tr></thead>
-          <tbody>${tableRows}</tbody>
-        </table>
-      </div>
-    </div>
-  </div>`;
-}
 
-/* ─── All Problem History ────────────────────────────────────────────── */
-function renderRelatedBySerial(serialNumber, currentWoId, rows) {
-  const sn  = serialNumber || '—';
-  const uid = 'related-body-' + Date.now();
-  const title = `<div class="detail-section-title collapsible-hdr" data-target="${uid}">
-    ${ICONS.related}<span>All Problem History (SN: ${esc(sn)})</span>
-    <svg class="caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-  </div>`;
-  const snLabel = `<div style="font-size:12px;color:#57606a;margin-bottom:10px">
-    Laptop Device SN: <strong style="font-family:ui-monospace,monospace;color:#1f2328">${esc(sn)}</strong>
-  </div>`;
-  if (!rows || !rows.length) return `<div class="detail-section">
-    ${title}
-    <div id="${uid}" class="collapsible-body" style="max-height:2000px">
-      ${snLabel}
-      <div style="font-size:12px;color:#8c959f;font-style:italic;padding:4px 0 8px">No work orders found for this serial number.</div>
-    </div>
-  </div>`;
-  const groups = {};
-  const order  = [];
-  rows.forEach(r => {
-    const key = r.case_number ? String(r.case_number) : '__none__';
-    if (!groups[key]) { groups[key] = []; order.push(key); }
-    groups[key].push(r);
-  });
-  let globalIdx = 0;
-  const tableRows = order.map(key => {
-    const wos    = groups[key];
-    const ticket = key === '__none__' ? '—' : key;
-    return wos.map((r, i) => {
-      globalIdx++;
-      const isCurrent  = String(r.work_order_id) === String(currentWoId);
-      const rowBg      = isCurrent ? 'background:#fffbeb' : '';
-      const currentTag = isCurrent
-        ? `<span style="margin-left:6px;font-size:10px;font-weight:700;color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:1px 7px;vertical-align:middle">current</span>`
-        : '';
-      const woCell = isCurrent
-        ? `<span style="font-family:ui-monospace,monospace;font-size:13px;font-weight:700;color:#1f2328">${esc(r.work_order_id)}</span>${currentTag}`
-        : `<button class="related-wo-id" data-wo="${esc(r.work_order_id)}" onclick="openDetail(this.dataset.wo)">${esc(r.work_order_id)}</button>`;
-      const ticketCell = i === 0
-        ? `<td rowspan="${wos.length}" style="font-family:ui-monospace,monospace;font-size:12px;font-weight:600;color:#3b82d4;vertical-align:top;padding-top:10px;white-space:nowrap;border-right:2px solid #bfdbfe;background:#eff6ff">${esc(ticket)}</td>`
-        : '';
-      const borderTop = i === 0 && globalIdx > 1 ? 'border-top:2px solid #e5e7eb;' : '';
-      return `
-      <tr style="${borderTop}${rowBg}">
-        <td style="text-align:center;color:#8c959f;font-size:12px;width:36px;vertical-align:top;padding-top:10px${borderTop ? ';border-top:2px solid #e5e7eb' : ''}">${globalIdx}</td>
-        ${ticketCell}
-        <td style="vertical-align:top;padding-top:10px">${woCell}</td>
-        <td style="vertical-align:top;padding-top:8px">${statusBadge(r.work_order_status)}</td>
-        <td style="font-size:12px;vertical-align:top;padding-top:10px">${esc(r.work_order_type || '—')}</td>
-        <td style="font-size:12px;white-space:nowrap;vertical-align:top;padding-top:10px">${fmt(r.created_on)}</td>
-        <td style="font-size:12px;white-space:nowrap;vertical-align:top;padding-top:10px">${fmt(r.completion_date)}</td>
-        <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:top;padding-top:10px" title="${esc(r.case_desc || '')}">${esc(r.case_desc || '—')}</td>
-      </tr>`;
-    }).join('');
-  }).join('');
-  const thStyle = 'padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:#57606a;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e5e7eb;white-space:nowrap';
-  return `<div class="detail-section">
-    ${title}
-    <div id="${uid}" class="collapsible-body" style="max-height:4000px">
-      ${snLabel}
-      <div style="font-size:11px;color:#8c959f;margin-bottom:8px">${rows.length} WO${rows.length !== 1 ? 's' : ''} found for this serial number</div>
-      <div style="overflow-x:auto">
-        <table class="ticket-table" style="width:100%;border-collapse:collapse;font-size:13px">
-          <thead><tr style="background:#f7f8fa">
-            <th style="${thStyle};text-align:center;width:36px">#</th>
-            <th style="${thStyle}">Ticket (Case#)</th>
-            <th style="${thStyle}">WO Number</th>
-            <th style="${thStyle}">WO Status</th>
-            <th style="${thStyle}">Type</th>
-            <th style="${thStyle}">Created</th>
-            <th style="${thStyle}">Completed</th>
-            <th style="${thStyle};white-space:normal">Case Description</th>
-          </tr></thead>
-          <tbody>${tableRows}</tbody>
-        </table>
-      </div>
-    </div>
-  </div>`;
-}
+    /* Build tooltip HTML inline — stored as JSON-safe data attr */
+    const tipDate = `<div class="ov-tip-date">${esc(d.day)} &mdash; ${d.count} total</div>`;
+    const tipRows = segs.map(s =>
+      `<div class="ov-tip-row"><span class="ov-tip-dot" style="background:${ovStatusColor(s.status)}"></span>${esc(s.status)}: <strong>${s.count}</strong></div>`
+    ).join('');
+    /* encode as base64 so it survives the HTML attribute */
+    const tipB64 = btoa(unescape(encodeURIComponent(tipDate + tipRows)));
 
-function initCollapsibles() {
-  document.querySelectorAll('#detail-body .collapsible-hdr').forEach(hdr => {
-    hdr.addEventListener('click', () => {
-      const target = document.getElementById(hdr.dataset.target);
-      if (!target) return;
-      const isCollapsed = target.classList.contains('collapsed');
-      if (isCollapsed) {
-        target.classList.remove('collapsed');
-        target.style.maxHeight = target.scrollHeight + 'px';
-        hdr.classList.remove('collapsed');
-      } else {
-        target.style.maxHeight = target.scrollHeight + 'px';
-        requestAnimationFrame(() => { target.classList.add('collapsed'); hdr.classList.add('collapsed'); });
-      }
+    return `<div class="ov-bar-col">
+      <div class="ov-bar-stack" style="height:${totalH}px" data-tip="${tipB64}">${segHtml}</div>
+      <div class="ov-bar-lbl">${esc(lbl)}</div>
+    </div>`;
+  }).join('');
+
+  const chart = document.createElement('div');
+  chart.className = 'ov-chart';
+  chart.innerHTML = bars;
+
+  /* Attach mouse events to each stack (not CSS hover — avoids clipping issues) */
+  chart.querySelectorAll('.ov-bar-stack[data-tip]').forEach(el => {
+    el.addEventListener('mouseenter', e => {
+      const html = decodeURIComponent(escape(atob(el.dataset.tip)));
+      _showTip(html, e.clientX, e.clientY);
     });
+    el.addEventListener('mousemove',  e => _positionTip(e.clientX, e.clientY));
+    el.addEventListener('mouseleave', () => _hideTip());
   });
+
+  const wrap = document.getElementById('ov-chart');
+  wrap.innerHTML = '';
+  wrap.appendChild(chart);
 }
 
-/* close modal */
-document.getElementById('detail-close').addEventListener('click', () =>
-  document.getElementById('modal-detail').classList.remove('open'));
-document.getElementById('modal-detail').addEventListener('click', e => {
-  if (e.target === document.getElementById('modal-detail'))
-    document.getElementById('modal-detail').classList.remove('open');
-});
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') document.getElementById('modal-detail').classList.remove('open');
-});
+/* ── Initial fetch ─── */
+fetch('/admin/api/dashboard-stats')
+  .then(r => r.json())
+  .then(data => renderOpenEscChart(data))
+  .catch(() => {
+    document.getElementById('ov-chart').innerHTML = '<div class="ov-loading">Failed to load.</div>';
+    document.getElementById('ov-esc-sub').textContent = '';
+  });
+
 </script>
 {% endblock %}

@@ -6,7 +6,7 @@
   /* ── State ───────────────────────────────────────────────────── */
   let BOARD_NAMES   = {};
   let _activeBoard  = '';
-  let _activeStatus = '';
+  let _activeStatus = 'in progress';   // default — overridden by meta load
   let _searchQ      = '';
   let _page         = 1;
   let _totalPages   = 1;
@@ -109,10 +109,16 @@
           </td>
           <td>${statusBadge}</td>
           <td style="font-size:12px;color:#57606a;white-space:nowrap">${date}</td>
-          <td>${r.serial_number ? `<span class="cell-link js-history-btn" data-serial="${_esc(r.serial_number)}">${_esc(_extractWO(r.wo_case_id) || r.wo_case_id || '—')}</span>` : `<span class="mono" style="color:#9ca3af">—</span>`}</td>
-          <td>${r.serial_number ? `<span class="cell-link js-history-btn" data-serial="${_esc(r.serial_number)}">${_esc(r.serial_number)}</span>` : `<span class="mono" style="color:#9ca3af">—</span>`}</td>
+          <td>${(() => {
+            if (!r.serial_number) return `<span class="mono" style="color:#9ca3af">—</span>`;
+            const woText = _extractWO(r.wo_case_id) || r.wo_case_id || '';
+            if (woText) return `<span class="cell-link js-history-btn${r.has_wo === 0 ? ' cell-no-wo' : ''}" data-serial="${_esc(r.serial_number)}">${_esc(woText)}</span>`;
+            if (r.latest_wo_id) return `<span class="cell-link cell-auto-wo js-history-btn" data-serial="${_esc(r.serial_number)}" title="Auto-filled: latest WO for this serial">${_esc(r.latest_wo_id)}</span>`;
+            return `<span class="mono" style="color:#9ca3af">—</span>`;
+          })()}</td>
+          <td>${r.serial_number ? `<span class="cell-link js-history-btn${r.has_wo === 0 ? ' cell-no-wo' : ''}" data-serial="${_esc(r.serial_number)}">${_esc(r.serial_number)}</span>` : `<span class="mono" style="color:#9ca3af">—</span>`}</td>
           <td style="font-size:12px">${_esc(r.work_order_type || '—')}</td>
-          <td><button class="${discClass} js-disc-btn" data-item-id="${_esc(r.monday_item_id)}" data-item-name="${_esc(r.item_name)}">${discSvg}${discBadge}</button></td>
+          <td><button class="${discClass} js-disc-btn" data-item-id="${_esc(r.monday_item_id)}" data-item-name="${_esc(r.item_name)}" data-board-id="${_esc(r.board_id || '')}">${discSvg}${discBadge}</button></td>
         </tr>`;
       }).join('');
     }
@@ -219,10 +225,15 @@
   };
 
   /* ── Discussion drawer ───────────────────────────────────────── */
-  function _openDrawer(itemId, itemName) {
+  function _openDrawer(itemId, itemName, boardId) {
     document.getElementById('drawer-title').textContent    = 'Discussion';
     document.getElementById('drawer-subtitle').textContent = itemName;
-    document.getElementById('drawer-body').innerHTML = '<div class="disc-loading">Loading discussions…</div>';
+    document.getElementById('drawer-body').innerHTML = '<div class="md-disc-loading">Loading discussions…</div>';
+    /* Footer link */
+    const footer = document.getElementById('disc-footer');
+    const link   = document.getElementById('disc-monday-link');
+    if (boardId) { link.href = 'https://ibm.monday.com/boards/' + encodeURIComponent(boardId); footer.style.display = ''; }
+    else         { footer.style.display = 'none'; }
     document.getElementById('disc-drawer').classList.add('open');
     document.getElementById('disc-overlay').classList.add('open');
     document.body.style.overflow = 'hidden';
@@ -231,19 +242,25 @@
       .then(data => _renderDrawer(data))
       .catch(() => {
         document.getElementById('drawer-body').innerHTML =
-          '<div class="disc-empty">Failed to load discussions.</div>';
+          '<div class="md-disc-empty">Failed to load discussions.</div>';
       });
   }
 
-  window.closeDrawer = function() {
+  window.closeDrawer = function(e) {
+    if (e) e.stopPropagation();
     document.getElementById('disc-drawer').classList.remove('open');
     document.getElementById('disc-overlay').classList.remove('open');
     document.body.style.overflow = '';
   };
 
+  /* Wire close button and overlay */
+  document.getElementById('disc-close-btn').addEventListener('click', closeDrawer);
+  document.getElementById('disc-overlay').addEventListener('click', closeDrawer);
+  document.getElementById('disc-drawer').addEventListener('click', function(e) { e.stopPropagation(); });
+
   document.getElementById('data-tbody').addEventListener('click', function(e) {
     const btn = e.target.closest('.js-disc-btn');
-    if (btn) _openDrawer(btn.dataset.itemId, btn.dataset.itemName);
+    if (btn) _openDrawer(btn.dataset.itemId, btn.dataset.itemName, btn.dataset.boardId);
   });
 
   document.getElementById('data-tbody').addEventListener('click', function(e) {
@@ -385,13 +402,13 @@
     return (txt || '').replace(/[\uFEFF\u200B\u200C\u200D\u00A0]/g, '').trim();
   }
   function _linkify(txt) {
-    return _esc(txt).replace(/(https?:\/\/[^\s<>"']+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="disc-link">$1</a>');
+    return _esc(txt).replace(/(https?:\/\/[^\s<>"']+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="md-disc-link">$1</a>');
   }
 
   function _renderDrawer(data) {
     const body = document.getElementById('drawer-body');
     if (!data || !data.updates || data.updates.length === 0) {
-      body.innerHTML = '<div class="disc-empty">No discussion threads found for this item.</div>';
+      body.innerHTML = '<div class="md-disc-empty">No discussion threads found for this item.</div>';
       return;
     }
     let html = '';
@@ -400,26 +417,26 @@
       const authorName = upd.creator_name || upd.creator_id || 'Unknown';
       const initials   = _initials(authorName);
       const avatarBg   = _avatarColor(authorName);
-      html += `<div class="disc-update">
-        <div class="disc-update-head">
-          <div class="disc-avatar" style="background:${avatarBg}">${initials}</div>
-          <div class="disc-meta">
-            <div class="disc-author">${_esc(authorName)}</div>
-            <div class="disc-time">${_fmtTs(upd.created_at)}</div>
+      html += `<div class="md-disc-update">
+        <div class="md-disc-update-head">
+          <div class="md-disc-avatar" style="background:${avatarBg}">${initials}</div>
+          <div>
+            <div class="md-disc-author">${_esc(authorName)}</div>
+            <div class="md-disc-time">${_fmtTs(upd.created_at)}</div>
           </div>
         </div>
-        <div class="disc-update-body">${bodyText ? _linkify(bodyText) : '<em style="color:#9ca3af">— empty —</em>'}</div>`;
+        <div class="md-disc-update-body">${bodyText ? _linkify(bodyText) : '<em style="color:#9ca3af">— empty —</em>'}</div>`;
       if (upd.replies && upd.replies.length > 0) {
-        html += '<div class="disc-replies">';
+        html += '<div class="md-disc-replies">';
         for (const rpl of upd.replies) {
           const rBody  = _cleanBody(rpl.body_text);
           const rName  = rpl.creator_name || rpl.creator_id || 'Unknown';
-          html += `<div class="disc-reply">
-            <div class="disc-reply-avatar" style="background:${_avatarColor(rName)}">${_initials(rName)}</div>
-            <div class="disc-reply-content">
-              <span class="disc-reply-author">${_esc(rName)}</span>
-              <span class="disc-reply-time">${_fmtTs(rpl.created_at)}</span>
-              <div class="disc-reply-body">${rBody ? _linkify(rBody) : '<em style="color:#9ca3af">— empty —</em>'}</div>
+          html += `<div class="md-disc-reply">
+            <div class="md-disc-reply-avatar" style="background:${_avatarColor(rName)}">${_initials(rName)}</div>
+            <div class="md-disc-reply-content">
+              <span class="md-disc-reply-author">${_esc(rName)}</span>
+              <span class="md-disc-reply-time">${_fmtTs(rpl.created_at)}</span>
+              <div class="md-disc-reply-body">${rBody ? _linkify(rBody) : '<em style="color:#9ca3af">— empty —</em>'}</div>
             </div>
           </div>`;
         }
@@ -804,10 +821,11 @@
 
         if (isFirstLoad) {
           buildIndex();
-          // Default to "In Progress" on first load only
-          _activeStatus = PINNED_STATUS;
+          // _activeStatus already defaults to PINNED_STATUS — just sync the UI
           const sel = document.getElementById('status-select');
           if (sel) { sel.value = PINNED_STATUS; sel.classList.add('has-filter'); }
+          const btn = document.getElementById('status-clear-btn');
+          if (btn) btn.classList.add('visible');
         } else {
           // Restore current selection after _buildStatusPills rebuilt innerHTML
           const sel = document.getElementById('status-select');
@@ -820,7 +838,7 @@
         loadData(false);
       })
       .catch(() => {
-        // If meta fails, still try to load data
+        // Meta failed — _activeStatus already defaults to PINNED_STATUS, just load
         loadData(false);
       });
   }
