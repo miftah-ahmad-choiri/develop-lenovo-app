@@ -477,11 +477,16 @@ def api_wo_monday_escalation(work_order_id: int):
     sn = detail["serial_number"].strip()
 
     project_root = _os.path.normpath(_os.path.join(_os.path.dirname(__file__), "..", ".."))
-    db_path = _os.path.join(project_root, "files", "lenovo_asp.db")
+    db_path = _os.path.join(project_root, "files", "lenovo_asp_escalation.db")
+    main_db_path = _os.path.join(project_root, "files", "lenovo_asp.db")
     if not _os.path.isfile(db_path):
         return jsonify({"serial_number": sn, "rows": []})
 
     edb = open_db(db_path)
+    try:
+        edb.execute(f"ATTACH DATABASE '{main_db_path}' AS main_db")
+    except Exception:
+        pass
     rows = []
     try:
         raw = edb.execute(
@@ -516,7 +521,7 @@ def api_wo_monday_escalation(work_order_id: int):
                 ) AS disc_count,
                 (
                     SELECT wd.case_number
-                    FROM wo_details wd
+                    FROM main_db.wo_details wd
                     WHERE CAST(wd.work_order_id AS TEXT) = TRIM(te.wo_case_id)
                     LIMIT 1
                 ) AS case_number
@@ -929,10 +934,10 @@ def api_return_reminder_export():
     ws.title = "Return Reminder"
 
     headers = ["No.", "SOID", "WO Number", "Created On", "WO Type",
-               "Return Status", "DC Number", "AWB Return", "WO Status", "Contact Name", "ASP"]
+               "Return Status", "WO Complete Date", "WO Status", "Contact Name", "ASP"]
     col_keys = [None, "soid", "work_order_id", "created_on", "work_order_type",
-                "return_status", "dc_number", "awb_return", "work_order_status", "contact_name", "customer"]
-    col_widths = [6, 18, 16, 18, 14, 26, 16, 20, 24, 24, 28]
+                "return_status", "completion_date", "work_order_status", "contact_name", "customer"]
+    col_widths = [6, 18, 16, 18, 14, 26, 20, 24, 24, 28]
 
     hdr_fill = PatternFill("solid", fgColor="1F2328")
     hdr_font = Font(bold=True, color="FFFFFF", size=11)

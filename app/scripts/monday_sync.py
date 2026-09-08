@@ -160,12 +160,14 @@ def _incremental_limit(item_count: int) -> int:
 def _fetch_group_items(board_id: str, group: dict,
                        since_dt: datetime | None,
                        incremental: bool = False) -> list[dict]:
-    group_id = group["id"]
+    group_id    = group["id"]
+    group_title = (group.get("title") or "").strip() or group_id
     items: list[dict] = []
     cursor = None
     page   = 0
+    est    = group.get("items_count") or 0
 
-    page_limit = _incremental_limit(group.get("items_count") or 0) if incremental else 100
+    page_limit = _incremental_limit(est) if incremental else 100
 
     while True:
         page += 1
@@ -182,6 +184,13 @@ def _fetch_group_items(board_id: str, group: dict,
             items.extend(matching)
         else:
             items.extend(batch)
+
+        # Log progress every 5 pages so the console doesn't go silent
+        # during long fetches (e.g. 800-item boards take 8+ pages at limit=100).
+        if page % 5 == 0 or not cursor:
+            log.info("  Fetching '%s': page %d — %d item(s) so far%s",
+                     group_title, page, len(items),
+                     f" / ~{est}" if est else "")
 
         if incremental:
             break
@@ -336,8 +345,8 @@ def load_boards(xlsx_path: str = XLSX_FILE) -> list[dict]:
 
 # ─── State persistence ────────────────────────────────────────────────────────
 
-def load_state() -> dict:
-    p = Path(STATE_FILE)
+def load_state(path: str | None = None) -> dict:
+    p = Path(path) if path else Path(STATE_FILE)
     if p.exists():
         data = json.loads(p.read_text(encoding="utf-8"))
         if "boards" not in data:
@@ -346,8 +355,9 @@ def load_state() -> dict:
     return {"boards": {}, "last_sync": None, "total_synced": 0}
 
 
-def save_state(state: dict) -> None:
-    Path(STATE_FILE).write_text(json.dumps(state, indent=2), encoding="utf-8")
+def save_state(state: dict, path: str | None = None) -> None:
+    p = Path(path) if path else Path(STATE_FILE)
+    p.write_text(json.dumps(state, indent=2), encoding="utf-8")
 
 
 def get_board_state(state: dict, board_id: str) -> dict:
@@ -485,9 +495,27 @@ def _needs_sync_log_migration(conn: sqlite3.Connection) -> bool:
             or "updates_count" not in sync_log_cols)
 
 
-def get_db(path: str = DB_FILE) -> sqlite3.Connection:
-    conn = sqlite3.connect(path)
+def get_db(path: str = DB_FILE, main_db_path: str | None = None) -> sqlite3.Connection:
+    """Open (or create) the escalation SQLite database.
+
+    Parameters
+    ----------
+    path : str
+        Path to the escalation-only DB file
+        (e.g. ``files/lenovo_asp_escalation.db``).
+    main_db_path : str | None
+        If provided, the main application DB (``files/lenovo_asp.db``) is
+        ATTACHed as ``main_db`` so that cross-reference queries against
+        ``asp_details`` and ``wo_summary`` can use the ``main_db.`` prefix
+        without the two databases sharing write locks.
+    """
+    conn = sqlite3.connect(path, timeout=60, check_same_thread=False)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout = 60000")
+    conn.execute("PRAGMA foreign_keys = ON")
+    if main_db_path:
+        conn.execute(f"ATTACH DATABASE '{main_db_path}' AS main_db")
     conn.executescript(SCHEMA)
     conn.executescript(UPDATES_SCHEMA)
     conn.executescript(SYNC_LOG_SCHEMA)
@@ -755,7 +783,7 @@ SET    work_order_type = 'CCI'
 WHERE  (work_order_type IS NULL OR work_order_type = '')
 AND    board_id IN (
            SELECT monday_board_id
-           FROM   asp_details
+           FROM   main_db.asp_details
            WHERE  LOWER(TRIM(operation_support)) = 'cci only'
        )
 """
@@ -781,11 +809,12 @@ def _apply_wo_type_from_asp(conn: sqlite3.Connection) -> int:
 
 
 def _stamp_has_wo(conn: sqlite3.Connection) -> int:
-    """Stamp has_wo = 1 or 0 for every row where it is still NULL.
+    """Stamp has_wo = 1 or 0 for every row that is NULL or currently 0.
 
     Rows with no serial_number get 0 immediately.
     Rows with a serial are checked against wo_summary (same DB file).
-    Safe to call repeatedly — only touches NULL rows, never overwrites 1/0.
+    Safe to call repeatedly — never downgrades an existing 1 back to 0,
+    but re-evaluates 0-stamped rows so new WO imports are reflected.
     Returns the number of rows updated.
     """
     try:
@@ -793,17 +822,19 @@ def _stamp_has_wo(conn: sqlite3.Connection) -> int:
             UPDATE technical_escalation
             SET has_wo = CASE
                 WHEN serial_number IS NULL OR serial_number = '' THEN 0
-                WHEN EXISTS (
-                    SELECT 1 FROM wo_summary ws
-                    WHERE LOWER(ws.serial_number) = LOWER(technical_escalation.serial_number)
+                WHEN LOWER(serial_number) IN (
+                    SELECT LOWER(serial_number)
+                    FROM main_db.wo_summary
+                    WHERE serial_number IS NOT NULL AND serial_number != ''
                 ) THEN 1
                 ELSE 0
             END
-            WHERE has_wo IS NULL
+            WHERE has_wo IS NULL OR has_wo = 0
         """)
         conn.commit()
         return cur.rowcount
     except Exception as exc:
+        conn.rollback()
         log.warning("_stamp_has_wo: %s", exc)
         return 0
 
@@ -819,9 +850,10 @@ def upsert_items(conn: sqlite3.Connection, items: list[dict],
     ])
     conn.executemany(UPSERT_SQL, rows)
     conn.commit()
-    filled = _apply_wo_type_from_asp(conn)
-    if filled:
-        log.info("work_order_type auto-fill: set 'CCI' on %d row(s) via asp_details", filled)
+    # NOTE: _apply_wo_type_from_asp is intentionally NOT called here.
+    # It was previously called per-board (85×/sync), each doing a full-table
+    # UPDATE + commit and holding the write lock unnecessarily.
+    # It is now called once after all boards complete in run_sync_all().
     return len(rows)
 
 
@@ -866,7 +898,13 @@ ON CONFLICT(reply_id) DO UPDATE SET
 """
 
 
-def upsert_updates(conn: sqlite3.Connection, monday_item_id: str, updates: list[dict]) -> int:
+def upsert_updates(conn: sqlite3.Connection, monday_item_id: str, updates: list[dict],
+                   autocommit: bool = True) -> int:
+    """Upsert update + reply rows for one Monday item.
+
+    Pass autocommit=False when the caller manages the transaction (e.g. when
+    writing all items for a board in a single batch commit).
+    """
     if not updates:
         return 0
     creators = {}
@@ -902,14 +940,16 @@ def upsert_updates(conn: sqlite3.Connection, monday_item_id: str, updates: list[
             })
     conn.executemany(UPSERT_UPDATE_SQL, update_rows)
     conn.executemany(UPSERT_REPLY_SQL, reply_rows)
-    conn.commit()
+    if autocommit:
+        conn.commit()
     return len(update_rows) + len(reply_rows)
 
 
 # ─── Sync logic ───────────────────────────────────────────────────────────────
 
 def run_sync_board(conn: sqlite3.Connection, state: dict, board: dict,
-                   force_full: bool = False, stop_event=None) -> None:
+                   force_full: bool = False, stop_event=None,
+                   state_path: str | None = None) -> None:
     board_id  = board["board_id"]
     asp_board = board["asp_board"]
     t0        = time.monotonic()
@@ -928,15 +968,48 @@ def run_sync_board(conn: sqlite3.Connection, state: dict, board: dict,
     items, col_map, group_summaries = fetch_all_items(board_id, since=last_sync, conn=conn)
     upserted = upsert_items(conn, items, board_id, asp_board, col_map) if items else 0
 
+    # On a Full run, skip items whose updates are already stored — only fetch
+    # updates for items that have no entry in item_updates yet.  On an
+    # incremental run all returned items are recently changed so always fetch.
+    if run_type == "full" and items:
+        existing_ids = {
+            str(r[0]) for r in conn.execute(
+                "SELECT DISTINCT monday_item_id FROM item_updates"
+            ).fetchall()
+        }
+        items_needing_updates = [i for i in items if str(i["id"]) not in existing_ids]
+        log.info("  Updates: %d/%d item(s) need update fetch (rest already stored)",
+                 len(items_needing_updates), len(items))
+    else:
+        items_needing_updates = items
+
+    # Fetch all updates from the Monday API first (network I/O, no DB lock held),
+    # then write them all in a single transaction per board.  This minimises the
+    # total time the write lock is held and gives concurrent web requests a clear
+    # window between boards.
     total_updates = 0
-    total_items   = len(items)
-    for idx, item in enumerate(items, 1):
+    total_items   = len(items_needing_updates)
+    pending_writes: list[tuple[str, list]] = []   # (monday_item_id, updates)
+    for idx, item in enumerate(items_needing_updates, 1):
         if stop_event and stop_event.is_set():
             log.info("Stop requested — aborting at item %d/%d", idx, total_items)
             break
-        updates = fetch_item_updates(item["id"])
-        n = upsert_updates(conn, item["id"], updates)
+        updates = fetch_item_updates(item["id"])   # network only — no lock
+        pending_writes.append((str(item["id"]), updates))
+        total_updates += len(updates)
+        # Log every 50 items so the console doesn't go silent during large runs
+        if idx % 50 == 0:
+            log.info("  Updates: %d/%d item(s) fetched, %d update(s) so far",
+                     idx, total_items, total_updates)
+
+    # Write all fetched updates in one transaction (lock held only during this block).
+    # autocommit=False so all items in the board share one BEGIN/COMMIT cycle.
+    total_updates = 0
+    for item_id, updates in pending_writes:
+        n = upsert_updates(conn, item_id, updates, autocommit=False)
         total_updates += n
+    if pending_writes:
+        conn.commit()
     duration = time.monotonic() - t0
     rows_per_group = upserted if len(group_summaries) == 1 else 0
     for group_summary in group_summaries:
@@ -947,12 +1020,8 @@ def run_sync_board(conn: sqlite3.Connection, state: dict, board: dict,
     if items:
         log.info("[%s]\tUpdates:\t%d across %d item(s)", asp_board, total_updates, total_items)
 
-    # Apply CCI work_order_type fill for any rows that still have it blank
-    # (covers rows inserted before asp_details was linked, or re-syncs).
-    filled = _apply_wo_type_from_asp(conn)
-    if filled:
-        log.info("[%s]\twork_order_type CCI fill:\t%d row(s) updated", asp_board, filled)
-
+    # Write sync_log entry — purge is deferred to run_sync_all() so it only
+    # runs once per full sync instead of once per board (85× write lock grabs).
     conn.execute(
         "INSERT INTO sync_log "
         "(run_at, board_id, asp_board, run_type, items_found, items_upserted, updates_count, duration_sec) "
@@ -961,16 +1030,15 @@ def run_sync_board(conn: sqlite3.Connection, state: dict, board: dict,
          len(items), upserted, total_updates, round(duration, 2)),
     )
     conn.commit()
-    conn.execute("DELETE FROM sync_log WHERE run_at < datetime('now', '-4 months')")
-    conn.commit()
 
     board_state["last_sync"]    = run_started_at
     board_state["total_synced"] = board_state.get("total_synced", 0) + upserted
-    save_state(state)
+    save_state(state, state_path)
 
 
 def run_sync_all(conn: sqlite3.Connection, state: dict, boards: list[dict],
-                 force_full: bool = False, stop_event=None) -> None:
+                 force_full: bool = False, stop_event=None,
+                 state_path: str | None = None) -> None:
     log.info("Starting sync for %d board(s)", len(boards))
     for idx, board in enumerate(boards, 1):
         if stop_event and stop_event.is_set():
@@ -979,13 +1047,34 @@ def run_sync_all(conn: sqlite3.Connection, state: dict, boards: list[dict],
         log.info("--------------------------------------------")
         log.info("[%d/%d]\tBoard:\t%s", idx, len(boards), board["asp_board"])
         try:
-            run_sync_board(conn, state, board, force_full=force_full, stop_event=stop_event)
+            run_sync_board(conn, state, board, force_full=force_full,
+                           stop_event=stop_event, state_path=state_path)
         except Exception as exc:
             log.error("Board '%s' failed: %s — skipping.", board["asp_board"], exc)
     log.info("All boards completed")
+
+    # ── Post-sync cleanup: run once after all boards, not per-board ──────────
+    # These are full-table writes that would hold the write lock 85× per sync
+    # if called inside run_sync_board.  Doing them once here gives concurrent
+    # web requests (upsert, etc.) clear windows between boards.
+
+    # 1. CCI work_order_type fill — fills rows whose board is CCI-only
+    filled = _apply_wo_type_from_asp(conn)
+    if filled:
+        log.info("work_order_type CCI fill: %d row(s) updated", filled)
+
+    # 2. has_wo stamp — correlated UPDATE against wo_summary
     stamped = _stamp_has_wo(conn)
     if stamped:
         log.info("has_wo stamped on %d new row(s)", stamped)
+
+    # 3. sync_log purge — keep latest 10 000 rows
+    conn.execute(
+        "DELETE FROM sync_log WHERE id <= "
+        "(SELECT COALESCE(MAX(id), 0) - 10000 FROM sync_log)"
+    )
+    conn.commit()
+    log.info("sync_log trimmed to latest 10 000 rows")
 
 
 def _backfill_updates(conn: sqlite3.Connection, stop_event=None) -> None:

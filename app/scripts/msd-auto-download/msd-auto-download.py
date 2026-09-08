@@ -205,6 +205,12 @@ options.add_argument(f"--user-data-dir={SELENIUM_PROFILE_DIR}")
 options.add_argument("--disable-features=DownloadBubble,DownloadBubbleV2")
 # Disable safebrowsing download checks that can trigger "Failed - Network error"
 options.add_argument("--safebrowsing-disable-download-protection")
+# After a forced kill (Reset), Chrome tries to restore the last session.
+# This lands on the MFA page mid-flow instead of starting fresh from LOGIN_URL.
+# These flags suppress the crash-restore and "Restore pages?" bubble.
+options.add_argument("--no-restore-last-session")
+options.add_argument("--restore-last-session=0")
+options.add_argument("--disable-session-crashed-bubble")
 
 # No "detach" — on normal exit the browser closes; on Ctrl+C only the window
 # is closed so the Chrome profile (cookies/session) is preserved on disk.
@@ -654,11 +660,15 @@ def do_login():
     print("Opening Dynamics URL...")
     driver.get(LOGIN_URL)
 
-    # Poll until page settles — either lands on Dynamics or redirects to login
+    # Poll until the driver has actually navigated away from any restored/blank
+    # page and landed somewhere meaningful (Dynamics or MS login).
     print("Waiting for page to settle...")
     for _ in range(30):
         time.sleep(1)
         current_url = driver.current_url
+        # Ignore about:blank and chrome:// pages — keep waiting
+        if current_url.startswith("about:") or current_url.startswith("chrome:"):
+            continue
         if "microsoftonline.com" in current_url or current_url.startswith(f"https://{DYNAMICS_HOST}"):
             break
 
@@ -690,8 +700,124 @@ def do_login():
     print("Redirected to login page. Starting login flow...")
 
     # =====================================
-    # HANDLE "PICK AN ACCOUNT" SCREEN
+    # HANDLE MFA METHOD SELECTION (EARLY)
     # =====================================
+    # When Chrome has a cached session, Microsoft skips email/password and
+    # goes DIRECTLY to the "Verify your identity" method selection screen.
+    # This must be handled BEFORE the email/password steps, otherwise the
+    # email field wait times out (30 s) because the page never shows it.
+    #
+    # Confirmed DOM:
+    #   <div class="table" tabindex="0" role="button"
+    #        data-bind="attr: {'data-value': value}, click: $parent.proof_onClick, ..."
+    #        data-value="OneWaySMS">
+    #     ...
+    #     <div data-bind="text: display">Text +XX XXXXXXXXX58</div>
+    #   </div>
+    #
+    # data-value is set by Knockout AFTER JS renders — we wait up to 8 s.
+
+    def _find_mfa_sms_tile(search_root):
+        """Return the OneWaySMS tile element, or None if not found."""
+        # Strategy 1: exact — role=button + data-value=OneWaySMS (confirmed attr)
+        for xpath in (
+            ".//*[@role='button' and @data-value='OneWaySMS']",
+            ".//*[@data-value='OneWaySMS']",
+        ):
+            try:
+                for el in search_root.find_elements(By.XPATH, xpath):
+                    if el.is_displayed():
+                        return el
+            except Exception:
+                pass
+        # Strategy 2: proof_onClick tiles — prefer SMS by data-value or text
+        try:
+            tiles = search_root.find_elements(
+                By.XPATH,
+                ".//*[@role='button' and @data-bind and contains(@data-bind,'proof_onClick')]"
+            )
+            for tile in tiles:
+                try:
+                    if not tile.is_displayed():
+                        continue
+                    dv  = (tile.get_attribute("data-value") or "").lower()
+                    txt = tile.text.strip().lower()
+                    if "onewaysms" in dv or "text +" in txt or ("text" in txt and "+" in txt):
+                        return tile
+                except Exception:
+                    pass
+            # Fallback: first visible tile of any method
+            for tile in tiles:
+                try:
+                    if tile.is_displayed() and tile.text.strip():
+                        return tile
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        return None
+
+    def _handle_mfa_screen():
+        """Detect and click the SMS tile on the MFA method selection screen.
+        Returns True if the screen was detected (whether or not the tile was clicked)."""
+        try:
+            WebDriverWait(driver, 8).until(
+                EC.presence_of_element_located((
+                    By.XPATH,
+                    "//*[@data-value='OneWaySMS' or "
+                    "(@role='button' and @data-bind and contains(@data-bind,'proof_onClick'))]"
+                ))
+            )
+        except TimeoutException:
+            return False   # not on MFA screen
+
+        print("MFA method selection screen detected.")
+        time.sleep(1)   # let Knockout finish binding data-value attributes
+
+        mfa_tile = _find_mfa_sms_tile(driver)
+
+        # Also search inside iframes
+        if mfa_tile is None:
+            for iframe in driver.find_elements(By.TAG_NAME, "iframe"):
+                try:
+                    driver.switch_to.frame(iframe)
+                    mfa_tile = _find_mfa_sms_tile(driver)
+                    if mfa_tile:
+                        print("MFA tile found inside iframe.")
+                        break
+                    driver.switch_to.default_content()
+                except Exception:
+                    driver.switch_to.default_content()
+            if mfa_tile is None:
+                driver.switch_to.default_content()
+
+        if mfa_tile is not None:
+            dv    = mfa_tile.get_attribute("data-value") or ""
+            label = mfa_tile.text.strip().replace("\n", " ")[:80]
+            print(f"Clicking MFA tile: '{label}' (data-value='{dv}')")
+            driver.execute_script(
+                "arguments[0].scrollIntoView({block:'center'});", mfa_tile
+            )
+            time.sleep(0.5)
+            driver.execute_script("arguments[0].click();", mfa_tile)
+            print("MFA tile clicked — waiting for OTP input screen...")
+            time.sleep(4)
+        else:
+            print("MFA screen detected but no tile found — page body:")
+            print(driver.current_url)
+            try:
+                print(driver.find_element(By.TAG_NAME, "body").text[:2000])
+            except Exception:
+                pass
+        return True
+
+    # Run the early MFA check — if it handled the screen, skip email/password.
+    _mfa_handled = _handle_mfa_screen()
+
+    if not _mfa_handled:
+      # ===================================
+      # HANDLE "PICK AN ACCOUNT" SCREEN
+      # ===================================
     # When the Chrome profile has cached account tiles but no active session,
     # Microsoft shows a "Pick an account" chooser instead of the email input.
     # DOM structure (confirmed):
@@ -703,7 +829,7 @@ def do_login():
     #         <div data-bind="text: session.tileDisplayName">IBMID_02@extlenovo.com</div>
     # Detect the screen, then find the tile whose data-test-id matches EMAIL and click it.
     # If no match → click "Use another account" so the normal email field appears.
-    try:
+      try:
         # Wait up to 5 s — short so we don't slow down the normal flow when the
         # email field appears directly without the account chooser.
         WebDriverWait(driver, 5).until(
@@ -801,9 +927,9 @@ def do_login():
             # Wait for the password field to appear (confirms the click worked)
             try:
                 WebDriverWait(driver, 10).until(
-                    EC.presence_of_element_located(
+                    EC.visibility_of_element_located(
                         (By.XPATH,
-                         "//input[@type='password' or @name='passwd' or @id='i0118']")
+                         "//input[@type='password' or @name='passwd']")
                     )
                 )
                 print("Password field detected — tile click successful.")
@@ -839,42 +965,39 @@ def do_login():
             else:
                 print("'Use another account' not found — proceeding to email entry.")
 
-    except TimeoutException:
+      except TimeoutException:
         print("No 'Pick an account' screen — proceeding directly to email entry.")
 
-    # =====================================
-    # INPUT EMAIL  (skipped when tile click already landed on password page)
-    # =====================================
-    # After clicking an account tile, Microsoft goes straight to the password
-    # field — no email entry step.  Check for the password field first so we
-    # don't waste 30 s waiting for an email box that will never appear.
-    _password_already_visible = False
-    try:
+      # =====================================
+      # INPUT EMAIL  (skipped when tile click already landed on password page)
+      # =====================================
+      # After clicking an account tile, Microsoft goes straight to the password
+      # field — no email entry step.  Check for the password field first so we
+      # don't waste 30 s waiting for an email box that will never appear.
+      _password_already_visible = False
+      try:
+        # Only match on type=password or name=passwd — NOT @id='i0118' which
+        # can match the email field on some Microsoft login page variants.
         WebDriverWait(driver, 3).until(
-            EC.presence_of_element_located(
+            EC.visibility_of_element_located(
                 (By.XPATH,
-                 "//input[@type='password' or @name='passwd' or @id='i0118']")
+                 "//input[@type='password' or @name='passwd']")
             )
         )
         _password_already_visible = True
         print("Password field already visible — skipping email entry step.")
-    except TimeoutException:
+      except TimeoutException:
         pass
 
-    if not _password_already_visible:
+      if not _password_already_visible:
         print("Finding email field...")
-
         email_box = wait.until(
-            EC.visibility_of_element_located(
-                (
-                    By.XPATH,
-                    "//input[@type='email' or @name='loginfmt' or @id='i0116']"
-                )
-            )
+            EC.visibility_of_element_located((
+                By.XPATH,
+                "//input[@type='email' or @name='loginfmt' or @id='i0116']"
+            ))
         )
-
         print("Email field found.")
-
         driver.execute_script("arguments[0].scrollIntoView(true);", email_box)
         time.sleep(1)
         email_box.click()
@@ -886,10 +1009,6 @@ def do_login():
         """, email_box)
         print("Email entered.")
         time.sleep(2)
-
-        # =====================================
-        # CLICK NEXT (EMAIL)
-        # =====================================
         print("Finding Next button...")
         next_button = wait.until(EC.element_to_be_clickable((By.ID, "idSIButton9")))
         print("Next button found.")
@@ -898,50 +1017,37 @@ def do_login():
         driver.execute_script("arguments[0].click();", next_button)
         print("Clicked Next.")
         time.sleep(3)
+        print("Current URL:"); print(driver.current_url)
+        print("Page title:");  print(driver.title)
 
-        print("Current URL:")
-        print(driver.current_url)
-        print("Page title:")
-        print(driver.title)
-
-    # =====================================
-    # INPUT PASSWORD
-    # =====================================
-    print("Finding password field...")
-    password_box = wait.until(
-        EC.visibility_of_element_located(
-            (By.XPATH, "//input[@type='password' or @name='passwd' or @id='i0118']")
-        )
-    )
-    print("Password field found.")
-    password_box.click()
-    driver.execute_script("arguments[0].value='';", password_box)
-    driver.execute_script("arguments[0].value = arguments[1];", password_box, PASSWORD)
-    driver.execute_script("""
-        arguments[0].dispatchEvent(new Event('input',  { bubbles: true }));
-        arguments[0].dispatchEvent(new Event('change', { bubbles: true }));
-    """, password_box)
-    print("Password entered.")
-    time.sleep(2)
-
-    # =====================================
-    # CLICK SIGN IN (PASSWORD)
-    # =====================================
-    print("Finding Sign in button...")
-    sign_in_button = wait.until(EC.element_to_be_clickable((By.ID, "idSIButton9")))
-    print("Sign in button found.")
-    driver.execute_script("arguments[0].scrollIntoView({block:'center'});", sign_in_button)
-    time.sleep(1)
-    driver.execute_script("arguments[0].click();", sign_in_button)
-    print("Sign in clicked.")
-    time.sleep(3)
-
-    # =====================================
-    # DETECT WRONG PASSWORD
-    # =====================================
-    # Microsoft shows an error element with id="passwordError" or a generic
-    # "#idA_PWD_ForgotPassword" sibling when the password is incorrect.
-    try:
+      # =====================================
+      # INPUT PASSWORD
+      # =====================================
+      print("Finding password field...")
+      password_box = wait.until(
+          EC.visibility_of_element_located(
+              (By.XPATH, "//input[@type='password' or @name='passwd']")
+          )
+      )
+      print("Password field found.")
+      password_box.click()
+      driver.execute_script("arguments[0].value='';", password_box)
+      driver.execute_script("arguments[0].value = arguments[1];", password_box, PASSWORD)
+      driver.execute_script("""
+          arguments[0].dispatchEvent(new Event('input',  { bubbles: true }));
+          arguments[0].dispatchEvent(new Event('change', { bubbles: true }));
+      """, password_box)
+      print("Password entered.")
+      time.sleep(2)
+      print("Finding Sign in button...")
+      sign_in_button = wait.until(EC.element_to_be_clickable((By.ID, "idSIButton9")))
+      print("Sign in button found.")
+      driver.execute_script("arguments[0].scrollIntoView({block:'center'});", sign_in_button)
+      time.sleep(1)
+      driver.execute_script("arguments[0].click();", sign_in_button)
+      print("Sign in clicked.")
+      time.sleep(3)
+      try:
         err_el = driver.find_element(
             By.XPATH,
             "//*[@id='passwordError' or @id='usernameError' "
@@ -949,35 +1055,21 @@ def do_login():
             "or @data-bind='text: error']",
         )
         if err_el.is_displayed() and err_el.text.strip():
-            print(
-                "❌ LOGIN FAILED — WRONG PASSWORD OR EMAIL: "
-                + err_el.text.strip()
-                + " — Please update the MSD credentials."
-            )
+            print("❌ LOGIN FAILED — WRONG PASSWORD OR EMAIL: "
+                  + err_el.text.strip()
+                  + " — Please update the MSD credentials.")
             print("__WRONG_PASSWORD__")
-    except Exception:
+      except Exception:
         pass
 
-    # =====================================
-    # HANDLE PHONE VERIFICATION PROMPT
-    # =====================================
-    try:
-        phone_option = WebDriverWait(driver, 5).until(
-            EC.element_to_be_clickable((By.XPATH, "//div[@data-value='OneWaySMS']"))
-        )
-        print("Phone verification prompt detected.")
-        print(f"Clicking option: {phone_option.text.strip()}")
-        driver.execute_script("arguments[0].click();", phone_option)
-        print("Phone option clicked.")
-        time.sleep(3)
-    except TimeoutException:
-        print("No phone selection prompt. Continuing...")
+      # After password sign-in, Microsoft may now show the MFA screen
+      _handle_mfa_screen()
 
     # =====================================
     # HANDLE OTP CODE INPUT  (with retry on wrong code)
     # =====================================
     try:
-        otp_box = WebDriverWait(driver, 10).until(
+        otp_box = WebDriverWait(driver, 20).until(
             EC.visibility_of_element_located(
                 (By.XPATH,
                  "//input[@name='otc' or @id='idTxtBx_SAOTCC_OTC' "

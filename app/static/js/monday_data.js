@@ -6,7 +6,8 @@
   /* ── State ───────────────────────────────────────────────────── */
   let BOARD_NAMES   = {};
   let _activeBoard  = '';
-  let _activeStatus = 'in progress';   // default — overridden by meta load
+  let _activeStatus = 'in progress';   // default: show only in-progress
+  let _activeWoType = '';
   let _searchQ      = '';
   let _page         = 1;
   let _totalPages   = 1;
@@ -19,60 +20,23 @@
   /* ── Search debounce timer ───────────────────────────────────── */
   let _searchTimer = null;
 
-  /* ── Status grouping — must match backend STATUS_GROUPS ─────── */
-  const STATUS_GROUPS = {
-    'in progress': ['technical escalation', 'progress', 'qa result'],
-  };
-  const _RAW_TO_GROUP = {};
-  Object.entries(STATUS_GROUPS).forEach(([group, raws]) => {
-    raws.forEach(raw => { _RAW_TO_GROUP[raw] = group; });
-  });
-
   /* ── Status filter dropdown ──────────────────────────────────── */
   window.selectStatus = function(status) {
     _activeStatus = status;
     _page = 1;
     const sel = document.getElementById('status-select');
-    const btn = document.getElementById('status-clear-btn');
     if (sel) { sel.value = status; sel.classList.toggle('has-filter', !!status); }
-    if (btn) btn.classList.toggle('visible', !!status);
     loadData(false);
   };
 
-  /* Populate <select> from meta endpoint counts.
-     "In Progress" is always pinned as the first option after "All". */
-  const PINNED_STATUS = 'in progress';
-
-  function _buildStatusPills(statusList, totalCount) {
-    const rawCounts = {};
-    (statusList || []).forEach(s => {
-      rawCounts[(s.status || '—').trim()] = s.cnt;
-    });
-
-    const displayCounts = {};
-    Object.entries(rawCounts).forEach(([raw, n]) => {
-      const group = _RAW_TO_GROUP[raw.toLowerCase()];
-      const key   = group || raw;
-      displayCounts[key] = (displayCounts[key] || 0) + n;
-    });
-
-    const sorted = Object.entries(displayCounts).sort((a, b) => {
-      if (a[0].toLowerCase() === PINNED_STATUS) return -1;
-      if (b[0].toLowerCase() === PINNED_STATUS) return  1;
-      return b[1] - a[1];
-    });
-
-    const sel = document.getElementById('status-select');
-    if (!sel) return;
-    sel.innerHTML = `<option value="">All statuses (${totalCount})</option>`;
-    sorted.forEach(([label, count]) => {
-      const opt     = document.createElement('option');
-      opt.value     = label.toLowerCase();
-      const display = label.replace(/\b\w/g, c => c.toUpperCase());
-      opt.textContent = `${display}  (${count})`;
-      sel.appendChild(opt);
-    });
-  }
+  /* ── WO Type filter dropdown ─────────────────────────────────── */
+  window.selectWoType = function(woType) {
+    _activeWoType = woType;
+    _page = 1;
+    const sel = document.getElementById('wotype-select');
+    if (sel) { sel.value = woType; sel.classList.toggle('has-filter', !!woType); }
+    loadData(false);
+  };
 
   /* ── Render table from server response ──────────────────────── */
   function render(data) {
@@ -101,6 +65,11 @@
         const discClass   = r.disc_count > 0 ? 'btn-disc has-disc' : 'btn-disc';
         const discBadge   = r.disc_count > 0 ? `<span class="disc-count">${r.disc_count}</span>` : '';
         const discSvg     = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+        // woText: trimmed, non-empty WO/Case ID value (or empty string)
+        const woText      = (_extractWO(r.wo_case_id) || (r.wo_case_id || '').trim());
+        // hasNoWo: true when the live DB check found no WO for this serial
+        const hasNoWo     = (r.has_wo === 0);
+        const noWoCls     = hasNoWo ? ' cell-no-wo' : '';
         return `<tr>
           <td class="mono" style="color:#9ca3af">${rowNum}</td>
           <td class="td-task">
@@ -111,12 +80,11 @@
           <td style="font-size:12px;color:#57606a;white-space:nowrap">${date}</td>
           <td>${(() => {
             if (!r.serial_number) return `<span class="mono" style="color:#9ca3af">—</span>`;
-            const woText = _extractWO(r.wo_case_id) || r.wo_case_id || '';
-            if (woText) return `<span class="cell-link js-history-btn${r.has_wo === 0 ? ' cell-no-wo' : ''}" data-serial="${_esc(r.serial_number)}">${_esc(woText)}</span>`;
+            if (woText) return `<span class="cell-link js-history-btn${noWoCls}" data-serial="${_esc(r.serial_number)}">${_esc(woText)}</span>`;
             if (r.latest_wo_id) return `<span class="cell-link cell-auto-wo js-history-btn" data-serial="${_esc(r.serial_number)}" title="Auto-filled: latest WO for this serial">${_esc(r.latest_wo_id)}</span>`;
             return `<span class="mono" style="color:#9ca3af">—</span>`;
           })()}</td>
-          <td>${r.serial_number ? `<span class="cell-link js-history-btn${r.has_wo === 0 ? ' cell-no-wo' : ''}" data-serial="${_esc(r.serial_number)}">${_esc(r.serial_number)}</span>` : `<span class="mono" style="color:#9ca3af">—</span>`}</td>
+          <td>${r.serial_number ? `<span class="cell-link js-history-btn${noWoCls}" data-serial="${_esc(r.serial_number)}">${_esc(r.serial_number)}</span>` : `<span class="mono" style="color:#9ca3af">—</span>`}</td>
           <td style="font-size:12px">${_esc(r.work_order_type || '—')}</td>
           <td><button class="${discClass} js-disc-btn" data-item-id="${_esc(r.monday_item_id)}" data-item-name="${_esc(r.item_name)}" data-board-id="${_esc(r.board_id || '')}">${discSvg}${discBadge}</button></td>
         </tr>`;
@@ -459,9 +427,15 @@
     document.getElementById('hist-body').innerHTML = '<div class="hist-loading">Loading…</div>';
     document.getElementById('hist-overlay').classList.add('open');
     document.body.style.overflow = 'hidden';
-    fetch('/admin/api/sn-history/' + encodeURIComponent(serial))
-      .then(r => r.json())
-      .then(data => { document.getElementById('hist-body').innerHTML = _renderHistory(data.serial_number, data.rows); })
+    Promise.all([
+      fetch('/admin/api/sn-history/' + encodeURIComponent(serial)).then(r => r.json()),
+      fetch('/admin/api/sn-monday-escalation/' + encodeURIComponent(serial)).then(r => r.json()),
+    ])
+      .then(([woData, escData]) => {
+        document.getElementById('hist-body').innerHTML =
+          _renderHistory(woData.serial_number, woData.rows) +
+          _renderMondayEscSection(escData.serial_number, escData.rows);
+      })
       .catch(() => { document.getElementById('hist-body').innerHTML = '<div class="hist-empty">Failed to load history. Please try again.</div>'; });
   }
 
@@ -515,6 +489,84 @@
       <tbody>${tbody}</tbody>
     </table></div>`;
     return snLabel + woCount + table;
+  }
+
+  /* ── Monday escalation section for history modal ────────────── */
+  function _renderMondayEscSection(sn, rows) {
+    if (!rows || !rows.length) return '';
+    const _esc2 = _esc;
+    const _discSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+    const thS = 'padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:#57606a;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e5e7eb;white-space:nowrap';
+
+    function _escBadge(status) {
+      const v = (status || '').toLowerCase().trim();
+      let bg = '#f3f4f6', color = '#374151', border = '#d1d5db';
+      if (v === 'technical escalation')      { bg='#fef3c7'; color='#92400e'; border='#fde68a'; }
+      else if (v === 'progress')             { bg='#eff6ff'; color='#1d4ed8'; border='#bfdbfe'; }
+      else if (v === 'qa result')            { bg='#f5f3ff'; color='#6d28d9'; border='#ddd6fe'; }
+      else if (v === 'complete'||v === 'completed') { bg='#dcfce7'; color='#15803d'; border='#86efac'; }
+      else if (v === 'approved to order')    { bg='#dbeafe'; color='#1e40af'; border='#93c5fd'; }
+      else if (v === 'reject')               { bg='#fee2e2'; color='#b91c1c'; border='#fca5a5'; }
+      return `<span style="display:inline-block;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:600;background:${bg};color:${color};border:1px solid ${border};white-space:nowrap">${_esc2(status || '—')}</span>`;
+    }
+
+    let tbody = '';
+    rows.forEach((r, i) => {
+      const ticketCell = r.case_number
+        ? `<span style="font-family:ui-monospace,SFMono-Regular,monospace;font-size:12px;font-weight:600;color:#3b82d4">${_esc2(r.case_number)}</span>`
+        : `<span style="color:#c9d0d8">—</span>`;
+      const woText = (r.wo_case_id || '').toString().trim();
+      const woCell = woText
+        ? `<button class="hist-wo-btn" onclick="openWoDetail(${_esc2(woText)})">${_esc2(woText)}</button>`
+        : `<span style="color:#c9d0d8">—</span>`;
+      const discCount = r.disc_count || 0;
+      const discBtn = r.monday_item_id
+        ? (discCount > 0
+            ? `<button class="js-disc-btn" data-item-id="${_esc2(r.monday_item_id)}" data-item-name="${_esc2(r.item_name||'')}" data-board-id="${_esc2(r.board_id||'')}" style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid #3b82d4;border-radius:5px;background:rgba(59,130,212,.06);color:#1d4ed8;font-size:11.5px;cursor:pointer;font-family:inherit">${_discSvg}<span style="font-size:10px;background:#3b82d4;color:#fff;border-radius:9px;padding:0 5px;min-width:16px;text-align:center;line-height:16px">${discCount}</span></button>`
+            : `<button class="js-disc-btn" data-item-id="${_esc2(r.monday_item_id)}" data-item-name="${_esc2(r.item_name||'')}" data-board-id="${_esc2(r.board_id||'')}" style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid #d0d7de;border-radius:5px;background:#fff;color:#374151;font-size:11.5px;cursor:pointer;font-family:inherit">${_discSvg}</button>`)
+        : `<button style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid #d0d7de;border-radius:5px;background:#fff;color:#374151;font-size:11.5px;opacity:.35;cursor:default;font-family:inherit" disabled>${_discSvg}</button>`;
+      const escDate = r.item_created_at ? r.item_created_at.slice(0, 10) : '—';
+      tbody += `<tr${i > 0 ? ' style="border-top:1px solid #f0f2f5"' : ''}>
+        <td style="text-align:center;color:#8b95a1;font-size:12px;width:32px;padding:9px 10px">${i + 1}</td>
+        <td style="padding:9px 10px;border-right:2px solid #bfdbfe;background:#eff6ff;white-space:nowrap">${ticketCell}</td>
+        <td style="padding:9px 10px;white-space:nowrap">${woCell}</td>
+        <td style="padding:9px 10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_esc2(r.item_name||'')}">${_esc2(r.item_name || '—')}</td>
+        <td style="padding:8px 10px">${_escBadge(r.status)}</td>
+        <td style="font-size:12px;color:#57606a;white-space:nowrap;padding:9px 10px">${_esc2(escDate)}</td>
+        <td style="padding:8px 10px;text-align:center">${discBtn}</td>
+      </tr>`;
+    });
+
+    const snLabel  = `<div class="hist-sn-label" style="margin-top:4px">Laptop Device SN: <strong>${_esc2(sn || '—')}</strong></div>`;
+    const recCount = `<div class="hist-wo-count">${rows.length} escalation record${rows.length !== 1 ? 's' : ''} found for this serial number</div>`;
+    const table = `<div class="hist-table-wrap"><table class="hist-table">
+      <thead><tr>
+        <th style="${thS};text-align:center;width:32px">#</th>
+        <th style="${thS};background:#eff6ff;border-right:2px solid #bfdbfe;color:#3730a3">Ticket (Case#)</th>
+        <th style="${thS}">WO Number</th>
+        <th style="${thS}">Task / Item Name</th>
+        <th style="${thS}">Status</th>
+        <th style="${thS}">Escalation Date</th>
+        <th style="${thS};text-align:center;width:90px">Discussion</th>
+      </tr></thead>
+      <tbody>${tbody}</tbody>
+    </table></div>`;
+
+    const sectionHeader = `<div style="display:flex;align-items:center;gap:8px;margin-top:20px;margin-bottom:10px;padding-top:16px;border-top:2px solid #e5e7eb">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3730a3" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+      <span style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#3730a3">All Escalation Monday (SN: ${_esc2(sn || '—')})</span>
+    </div>`;
+
+    // After rendering, wire up the disc buttons so they open the drawer
+    setTimeout(() => {
+      const body = document.getElementById('hist-body');
+      if (!body) return;
+      body.querySelectorAll('.js-disc-btn[data-item-id]').forEach(btn => {
+        btn.addEventListener('click', () => _openDrawer(btn.dataset.itemId, btn.dataset.itemName, btn.dataset.boardId));
+      });
+    }, 0);
+
+    return sectionHeader + snLabel + recCount + table;
   }
 
   /* ── WO Detail sub-modal ─────────────────────────────────────── */
@@ -788,9 +840,10 @@
 
     // Build query string from current filter state
     const params = new URLSearchParams({ page: _page, per_page: PAGE_SIZE });
-    if (_activeBoard)  params.set('board_id', _activeBoard);
-    if (_activeStatus) params.set('status',   _activeStatus);
-    if (_searchQ)      params.set('q',        _searchQ);
+    if (_activeBoard)   params.set('board_id', _activeBoard);
+    if (_activeStatus)  params.set('status',   _activeStatus);
+    if (_activeWoType)  params.set('wo_type',  _activeWoType);
+    if (_searchQ)       params.set('q',        _searchQ);
 
     fetch('/admin/api/monday-data?' + params.toString())
       .then(r => r.json())
@@ -806,7 +859,7 @@
       });
   };
 
-  /* ── Load meta (boards + status counts) ─────────────────────── */
+  /* ── Load meta (boards) ──────────────────────────────────────── */
   function _loadMeta(isFirstLoad) {
     fetch('/admin/api/monday-data/meta')
       .then(r => r.json())
@@ -817,28 +870,23 @@
         const countAll = document.getElementById('fi-count-all');
         if (countAll) countAll.textContent = meta.total_count || 0;
 
-        _buildStatusPills(meta.statuses || [], meta.total_count || 0);
-
         if (isFirstLoad) {
           buildIndex();
-          // _activeStatus already defaults to PINNED_STATUS — just sync the UI
+          // Default to "In Progress" on first load
           const sel = document.getElementById('status-select');
-          if (sel) { sel.value = PINNED_STATUS; sel.classList.add('has-filter'); }
-          const btn = document.getElementById('status-clear-btn');
-          if (btn) btn.classList.add('visible');
+          if (sel) { sel.value = 'in progress'; sel.classList.add('has-filter'); }
         } else {
-          // Restore current selection after _buildStatusPills rebuilt innerHTML
+          // Restore current selections
           const sel = document.getElementById('status-select');
-          if (sel) {
-            sel.value = _activeStatus;
-            sel.classList.toggle('has-filter', !!_activeStatus);
-          }
+          if (sel) { sel.value = _activeStatus; sel.classList.toggle('has-filter', !!_activeStatus); }
+          const wt = document.getElementById('wotype-select');
+          if (wt) { wt.value = _activeWoType; wt.classList.toggle('has-filter', !!_activeWoType); }
         }
 
         loadData(false);
       })
       .catch(() => {
-        // Meta failed — _activeStatus already defaults to PINNED_STATUS, just load
+        // Meta failed — load without filters.
         loadData(false);
       });
   }

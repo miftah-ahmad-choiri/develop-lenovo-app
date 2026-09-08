@@ -21,11 +21,15 @@ import sqlite3
 from flask import g, current_app
 
 # Pragmas applied to every connection opened by this module.
-# WAL  — allows concurrent readers alongside a single writer; eliminates
-#         "database is locked" errors caused by overlapping connections.
-# FK   — enforce foreign-key constraints at the SQLite level.
+# WAL          — allows concurrent readers alongside a single writer.
+# busy_timeout — SQLite-level retry period (ms) when a write lock is held by
+#                another connection.  Without this the C-level busy handler
+#                returns immediately and the caller gets "database is locked"
+#                even though Python's sqlite3.connect(timeout=) is set.
+# FK           — enforce foreign-key constraints at the SQLite level.
 _SETUP_SQL = [
     "PRAGMA journal_mode=WAL",
+    "PRAGMA busy_timeout = 60000",
     "PRAGMA foreign_keys = ON",
 ]
 

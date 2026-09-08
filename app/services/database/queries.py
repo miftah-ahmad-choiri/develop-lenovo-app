@@ -1087,12 +1087,13 @@ def get_return_reminder_page(
             s.work_order_status,
             s.contact_name,
             s.customer,
-            s.serial_number
+            s.serial_number,
+            d.completion_date
         FROM wo_product_detail p
         JOIN wo_summary s USING (work_order_id)
         LEFT JOIN wo_details d USING (work_order_id)
         {where_sql}
-        ORDER BY p.soid DESC
+        ORDER BY d.completion_date DESC, p.soid DESC
         """,
         params,
     ).fetchall()

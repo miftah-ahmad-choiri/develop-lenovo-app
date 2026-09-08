@@ -63,10 +63,21 @@
     <div class="table-card">
       <div class="table-toolbar">
         <div class="toolbar-right-group">
+          <span class="status-filter-label">WO Type</span>
+          <div class="status-select-wrap">
+            <select id="wotype-select" onchange="selectWoType(this.value)">
+              <option value="">All Type</option>
+              <option value="ONS">ONS</option>
+              <option value="CCI">CCI</option>
+            </select>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
           <span class="status-filter-label">Status</span>
           <div class="status-select-wrap">
             <select id="status-select" onchange="selectStatus(this.value)">
-              <option value="">All statuses</option>
+              <option value="">All Status</option>
+              <option value="in progress">In-Progress</option>
+              <option value="complete">Complete</option>
             </select>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
           </div>

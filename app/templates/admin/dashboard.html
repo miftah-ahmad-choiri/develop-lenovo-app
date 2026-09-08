@@ -28,8 +28,13 @@
   .section-header { font-size: 14px; font-weight: 700; margin-bottom: 14px; color: #1f2328; }
 
   /* ── Overview grid ────────────────────────────────────────────── */
-  .ov-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 28px; align-items: start; }
-  .ov-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px 16px; }
+  .ov-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 28px; align-items: stretch; }
+  .ov-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px 16px; overflow: hidden; }
+  .ov-card.stretch { display: flex; flex-direction: column; }
+  .ov-card.stretch .ov-chart-area { flex: 1; min-height: 0; display: flex; align-items: flex-end; }
+  .ov-card.stretch .ov-y-axis     { flex-shrink: 0; }
+  .ov-card.stretch .ov-chart-wrap { flex: 1; min-width: 0; overflow-x: auto; }
+  .ov-card.stretch .ov-chart      { height: var(--esc-chart-h, 110px); }
   .ov-card-hdr { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 2px; }
   .ov-card-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #57606a; display: flex; align-items: center; gap: 5px; flex: 1; min-width: 0; }
   .ov-card-title svg { flex-shrink: 0; }
@@ -38,14 +43,33 @@
   .ov-goto-btn { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: #3b82d4; text-decoration: none; border: 1px solid #bfdbfe; border-radius: 5px; padding: 3px 8px; white-space: nowrap; flex-shrink: 0; transition: background .12s, color .12s; }
   .ov-goto-btn:hover { background: #eff6ff; color: #1d4ed8; border-color: #93c5fd; }
   .ov-goto-btn svg { flex-shrink: 0; }
+  .ov-refresh-btn { display: inline-flex; align-items: center; justify-content: center; color: #57606a; border: 1px solid #d0d7de; border-radius: 5px; padding: 3px 5px; background: none; cursor: pointer; flex-shrink: 0; transition: background .12s, color .12s, border-color .12s; }
+  .ov-refresh-btn:hover { background: #eff6ff; color: #3b82d4; border-color: #93c5fd; }
+  .ov-refresh-btn svg { flex-shrink: 0; display: block; }
+  .ov-refresh-btn.spinning svg { animation: ov-spin .6s linear infinite; }
+  @keyframes ov-spin { to { transform: rotate(360deg); } }
 
-  /* stacked bar chart */
-  .ov-chart-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .ov-chart { display: flex; align-items: flex-end; gap: 2px; height: 110px; min-width: 0; }
-  .ov-bar-col { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 10px; height: 100%; justify-content: flex-end; cursor: default; }
-  .ov-bar-stack { width: 100%; display: flex; flex-direction: column-reverse; border-radius: 3px 3px 0 0; overflow: hidden; }
-  .ov-seg { width: 100%; flex-shrink: 0; }
-  .ov-bar-lbl { font-size: 7.5px; color: #8c959f; margin-top: 3px; writing-mode: vertical-rl; transform: rotate(180deg); line-height: 1; white-space: nowrap; }
+  /* bar charts with y-axis */
+  .ov-chart-area   { display: flex; align-items: flex-end; gap: 0; }
+  /* y-axis: margin-bottom set by JS to match the label row height exactly */
+  .ov-y-axis       { position: relative; flex-shrink: 0; width: 28px; height: 110px; }
+  .ov-y-tick        { position: absolute; right: 0; font-size: 9px; color: #8c959f; line-height: 1; white-space: nowrap; }
+  .ov-y-axis-right  { }
+  .ov-y-axis-right .ov-y-tick { right: auto; left: 0; }
+  .ov-chart-wrap    { overflow-x: auto; -webkit-overflow-scrolling: touch; flex: 1; min-width: 0; }
+  /* outer flex column: bars row on top, label row below */
+  .ov-chart-outer  { display: flex; flex-direction: column; min-width: 0; }
+  .ov-chart         { display: flex; align-items: flex-end; gap: 2px; height: 110px; min-width: 0; border-left: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; }
+  .ov-chart-area:has(.ov-y-axis-right) .ov-chart { border-left: none; border-right: 1px solid #e5e7eb; }
+  .ov-chart-area:has(.ov-y-axis-right) .ov-lbl-row { border-left: none; border-right: 1px solid transparent; }
+  .ov-bar-col      { display: flex; align-items: flex-end; flex: 1; min-width: 10px; height: 100%; cursor: default; }
+  .ov-bar-stack    { width: 100%; display: flex; flex-direction: column-reverse; border-radius: 3px 3px 0 0; overflow: hidden; }
+  .ov-seg          { width: 100%; flex-shrink: 0; }
+  /* label row: fixed height so y-axis margin-bottom can match exactly */
+  .ov-lbl-row           { display: flex; gap: 2px; padding-top: 3px; height: 16px; overflow: hidden; border-left: 1px solid transparent; }
+  .ov-lbl-row.vertical  { height: 32px; }
+  .ov-bar-lbl           { font-size: 7.5px; color: #8c959f; line-height: 1; white-space: nowrap; flex: 1; min-width: 10px; display: flex; justify-content: center; align-items: flex-start; padding-top: 2px; overflow: hidden; }
+  .ov-lbl-row.vertical .ov-bar-lbl { writing-mode: vertical-rl; transform: rotate(180deg); align-items: center; padding-top: 0; }
   /* floating tooltip — fixed to viewport, moved by JS, never clipped */
   #ov-float-tip { display: none; position: fixed; background: #1f2328; color: #fff; font-size: 10px; font-weight: 500; padding: 7px 10px; border-radius: 6px; white-space: nowrap; pointer-events: none; z-index: 9999; line-height: 1.7; }
   #ov-float-tip::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 4px solid transparent; border-top-color: #1f2328; }
@@ -54,6 +78,186 @@
   .ov-tip-dot  { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 
   .ov-loading { color: #8c959f; font-size: 12px; font-style: italic; text-align: center; padding: 20px 0; }
+
+  /* ── Closing-code widget table ──────────────────────────────────────────── */
+  .cc-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+  .cc-filter-wrap { position: relative; display: inline-flex; align-items: center; }
+  .cc-filter-wrap svg { position: absolute; right: 7px; pointer-events: none; color: #57606a; }
+  .cc-filter-select { appearance: none; -webkit-appearance: none; padding: 4px 24px 4px 9px; border: 1px solid #d0d7de; border-radius: 6px; background: #fff; font-size: 11.5px; font-family: inherit; color: #1f2328; cursor: pointer; }
+  .cc-filter-select:focus { outline: none; border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,.1); }
+  .cc-filter-select.has-filter { border-color: #3b82d4; background: #eff6ff; color: #1d4ed8; font-weight: 600; }
+  .cc-table-wrap { overflow-y: auto; max-height: 300px; margin-top: 4px; }
+  .cc-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .cc-table thead th { position: sticky; top: 0; background: #f7f8fa; padding: 7px 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #57606a; border-bottom: 1px solid #e5e7eb; white-space: nowrap; z-index: 1; }
+  .cc-table thead th.cc-col-wo   { background: #d1fae5; color: #065f46; }
+  .cc-table thead th.cc-col-esc  { background: #dde3ff; color: #3730a3; }
+  .cc-table tbody td { padding: 7px 10px; border-bottom: 1px solid #f0f2f5; vertical-align: middle; white-space: nowrap; }
+  .cc-table tbody td.cc-col-wo   { background: #ecfdf5; }
+  .cc-table tbody td.cc-col-esc  { background: #eef0ff; }
+  .cc-table tbody tr:last-child td { border-bottom: none; }
+  .cc-table tbody tr:hover td.cc-col-wo  { background: #d1fae5; }
+  .cc-table tbody tr:hover td.cc-col-esc { background: #dde3ff; }
+  .cc-table tbody tr:hover td:not(.cc-col-wo):not(.cc-col-esc) { background: #f7f8fa; }
+  .cc-wocaseid         { font-weight: 700; font-size: 12px; }
+  .cc-wocaseid.match   { color: #1d4ed8; }
+  .cc-wocaseid.nomatch { color: #7c3aed; text-decoration: underline; text-decoration-style: wavy; text-underline-offset: 2px; }
+  .cc-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; background: #fef3c7; color: #92400e; white-space: normal; word-break: break-word; vertical-align: middle; }
+  .cc-badge.cid  { background: #ffe4e6; color: #be123c; }
+  .cc-badge.done { background: #dcfce7; color: #15803d; }
+  .cc-wo-btn { color: #3b82d4; font-weight: 600; cursor: pointer; background: none; border: none; font-family: inherit; font-size: inherit; padding: 0; text-decoration: underline; text-underline-offset: 2px; white-space: nowrap; }
+  .cc-wo-btn:hover { color: #1d4ed8; }
+  /* discussion button — same as ticket_management */
+  .btn-md-disc { display: inline-flex; align-items: center; gap: 5px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; padding: 3px 9px 3px 7px; cursor: pointer; color: #57606a; font-size: 12px; transition: border-color .15s, background .15s; }
+  .btn-md-disc:hover { border-color: #3b82d4; background: #eff6ff; color: #3b82d4; }
+  .btn-md-disc.has-disc { border-color: #bfdbfe; color: #1d4ed8; }
+  .btn-md-disc.has-disc:hover { background: #dbeafe; }
+  .btn-md-disc .md-disc-cnt { display: inline-block; min-width: 16px; padding: 0 4px; text-align: center; font-size: 10px; font-weight: 700; background: #3b82d4; color: #fff; border-radius: 8px; line-height: 17px; }
+
+  /* ── WO Detail modal (shared with ticket_management) ─────────────────────── */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2400; align-items: flex-start; justify-content: center; padding: 20px 8px 40px; overflow-y: auto; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: #fff; border-radius: 12px; width: 100%; max-width: 1100px; box-shadow: 0 12px 40px rgba(0,0,0,0.2); }
+  .modal-header { padding: 8px 14px 8px; border-bottom: none; display: flex; align-items: center; justify-content: flex-end; }
+  .modal-close { background: none; border: none; cursor: pointer; color: #8c959f; font-size: 20px; line-height: 1; padding: 2px 6px; flex-shrink: 0; }
+  .modal-close:hover { color: #1f2328; }
+  .modal-body { padding: 0; }
+  .modal-loading { padding: 48px; text-align: center; color: #57606a; font-size: 13px; }
+  .wo-info-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 0; margin-top: 10px; }
+  .wo-info-item { display: flex; align-items: center; gap: 5px; padding: 0 16px 0 0; white-space: nowrap; }
+  .wo-info-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #8c959f; }
+  .wo-info-val { display: inline-block; font-size: 11px; font-weight: 700; border-radius: 12px; padding: 2px 9px; border: 1px solid transparent; }
+  .wo-info-val.gray   { color: #374151; background: #f3f4f6; border-color: #e5e7eb; }
+  .wo-info-val.blue   { color: #1e40af; background: #dbeafe; border-color: #bfdbfe; }
+  .wo-info-val.green  { color: #15803d; background: #dcfce7; border-color: #bbf7d0; }
+  .wo-info-val.red    { color: #b91c1c; background: #fee2e2; border-color: #fecaca; }
+  .wo-info-val.amber  { color: #92400e; background: #fef3c7; border-color: #fde68a; }
+  .wo-info-val.purple { color: #6d28d9; background: #ede9fe; border-color: #ddd6fe; }
+  .wo-customer-wrap { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .wo-customer-box  { background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 14px; display: flex; flex-direction: column; gap: 2px; }
+  .wo-customer-col  { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+  @media (min-width: 600px) { .wo-customer-wrap { flex-direction: row; } .wo-customer-box { flex: 2; flex-direction: row; gap: 0; align-items: flex-start; } .wo-customer-box.asp { flex: 1; } .wo-customer-col { padding: 0 16px 0 0; } .wo-customer-col:last-child { padding-right: 0; } }
+  .wo-customer-name { font-size: 13px; font-weight: 800; color: #1f2328; text-transform: uppercase; letter-spacing: .01em; margin-bottom: 4px; }
+  .wo-customer-asp  { font-size: 13px; font-weight: 800; color: #1f2328; letter-spacing: .01em; margin-bottom: 4px; }
+  .wo-customer-row  { display: flex; align-items: baseline; gap: 6px; min-height: 20px; font-size: 12px; }
+  .wo-customer-lbl  { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #8c959f; white-space: nowrap; }
+  .wo-customer-val  { color: #1f2328; word-break: break-all; }
+  .wo-hero { padding: 20px 22px 16px; background: #f7f8fa; border-bottom: 1px solid #e5e7eb; }
+  .wo-hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .wo-hero-id { font-size: 22px; font-weight: 700; color: #1f2328; letter-spacing: -0.02em; }
+  .wo-hero-sn { font-size: 12px; color: #57606a; margin-top: 2px; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .badge-s-closed,.badge-s-completed,.badge-s-repair-done,.badge-s-pickup,.badge-s-rma,.badge-s-returned { background: #bbf7d0; color: #166534; }
+  .badge-s-transit { background: #ede9fe; color: #6d28d9; }
+  .badge-s-part-hold { background: #fce7f3; color: #9d174d; }
+  .badge-s-part-req { background: #fef3c7; color: #92400e; }
+  .badge-s-part-delivered { background: #dcfce7; color: #15803d; }
+  .badge-s-cust-hold { background: #ffe4e6; color: #be123c; }
+  .badge-s-in-repair { background: #dbeafe; color: #1d4ed8; }
+  .badge-s-tech-assigned { background: #fef3c7; color: #b45309; }
+  .badge-s-accepted { background: #ecfccb; color: #4d7c0f; }
+  .badge-s-pick-pack { background: #ffedd5; color: #c2410c; }
+  .badge-s-cancelled { background: #f3f4f6; color: #6b7280; }
+  .badge-s-tech-onsite { background: #dbeafe; color: #1e40af; }
+  .badge-s-tech-enroute { background: #fef3c7; color: #c2410c; }
+  .badge-s-in-testing { background: #f3e8ff; color: #6b21a8; }
+  .badge-s-req-review { background: #fff7ed; color: #c2410c; }
+  .badge-s-unit-received { background: #fef3c7; color: #92400e; }
+  .badge-s-order-changed { background: #ffedd5; color: #9a3412; }
+  .badge-s-await-release { background: #ffedd5; color: #9a3412; }
+  .badge-s-default { background: #f0f2f5; color: #57606a; }
+  .detail-body-inner { padding: 20px 22px; }
+  .detail-section { margin-bottom: 22px; }
+  .detail-section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #8c959f; border-bottom: 1px solid #e5e7eb; padding-bottom: 7px; margin-bottom: 14px; display: flex; align-items: center; justify-content: flex-start; gap: 7px; }
+  .detail-section-title svg { flex-shrink: 0; }
+  .detail-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: #e5e7eb; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
+  .detail-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .detail-field { background: #fff; padding: 10px 14px; min-width: 0; }
+  .detail-field.span-2 { grid-column: span 2; }
+  .detail-field.span-3 { grid-column: span 3; }
+  .detail-field .df-label { font-size: 10px; color: #8c959f; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 3px; }
+  .detail-field .df-value { font-size: 13px; color: #1f2328; word-break: break-word; white-space: normal; line-height: 1.4; }
+  .detail-field .df-value.mono { font-family: ui-monospace, monospace; font-size: 12px; }
+  .detail-field .df-value.muted { color: #8c959f; font-style: italic; }
+  .tl-wrap { position: relative; padding: 4px 0; }
+  .tl-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+  .tl-track { display: flex; align-items: flex-start; gap: 0; padding: 0 2px; }
+  .tl-connector { flex: 1; min-width: 8px; height: 2px; margin-top: 18px; background: #e5e7eb; }
+  .tl-connector.done { background: #86efac; }
+  .tl-node { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 72px; max-width: 100px; }
+  .tl-dot-wrap { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .tl-dot-wrap.done    { background: #dcfce7; border: 2px solid #86efac; }
+  .tl-dot-wrap.active  { background: #dbeafe; border: 2px solid #93c5fd; }
+  .tl-dot-wrap.future  { background: #f3f4f6; border: 2px dashed #d1d5db; }
+  .tl-dot-wrap.skipped { background: #fef9c3; border: 2px dashed #fde68a; }
+  .tl-dot-wrap.overdue { background: #fee2e2; border: 2px solid #fca5a5; }
+  .tl-dot-inner { width: 10px; height: 10px; border-radius: 50%; }
+  .tl-dot-wrap.done    .tl-dot-inner { background: #22c55e; }
+  .tl-dot-wrap.active  .tl-dot-inner { background: #3b82f6; }
+  .tl-dot-wrap.future  .tl-dot-inner { background: #d1d5db; }
+  .tl-dot-wrap.skipped .tl-dot-inner { background: #ca8a04; }
+  .tl-dot-wrap.overdue .tl-dot-inner { background: #ef4444; }
+  .tl-label { font-size: 10px; font-weight: 600; color: #57606a; text-align: center; margin-top: 6px; line-height: 1.3; max-width: 80px; }
+  .tl-date  { font-size: 10px; color: #8c959f; text-align: center; margin-top: 2px; line-height: 1.2; max-width: 80px; }
+  .tl-date.done-text   { color: #16a34a; font-weight: 600; }
+  .tl-date.active-text { color: #2563eb; font-weight: 600; }
+  .tl-date.future-text { color: #9ca3af; }
+  .collapsible-hdr { cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; }
+  .collapsible-hdr .caret { transition: transform 0.2s; flex-shrink: 0; }
+  .collapsible-hdr.collapsed .caret { transform: rotate(-90deg); }
+  .collapsible-body { overflow: hidden; transition: max-height 0.25s ease; }
+  .collapsible-body.collapsed { max-height: 0 !important; }
+  .part-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
+  .part-card.cancelled { background: #fafafa; border-color: #e5e7eb; opacity: 0.7; }
+  .part-card.cancelled .part-card-hdr { background: #f3f4f6; }
+  .part-card.cancelled .part-card-pn  { text-decoration: line-through; color: #8c959f; }
+  .part-card.cancelled .part-card-desc { color: #adb5bd; }
+  .part-card.cancelled .part-card-field { background: #fafafa; }
+  .part-card.cancelled .pcf-value { color: #8c959f; }
+  .parts-cancelled-divider { display: flex; align-items: center; gap: 8px; margin: 14px 0 10px; }
+  .parts-cancelled-divider span { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #8c959f; white-space: nowrap; }
+  .parts-cancelled-divider::before, .parts-cancelled-divider::after { content: ''; flex: 1; height: 1px; background: #e5e7eb; }
+  .part-card-hdr { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #f7f8fa; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap; }
+  .part-card-num  { font-size: 11px; font-weight: 700; color: #8c959f; flex-shrink: 0; }
+  .part-card-pn   { font-size: 12px; font-weight: 700; font-family: ui-monospace, monospace; color: #1f2328; }
+  .part-card-desc { font-size: 12px; color: #57606a; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .part-card-body { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: #e5e7eb; }
+  .part-card-field { background: #fff; padding: 8px 12px; }
+  .part-card-field .pcf-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #8c959f; margin-bottom: 2px; }
+  .part-card-field .pcf-value { font-size: 12px; color: #1f2328; }
+  .part-card-field .pcf-value.mono { font-family: ui-monospace, monospace; font-size: 11px; }
+  .part-card-field.eta-pending { background: #fffbeb; border-left: 3px solid #f59e0b; }
+  .part-card-field.eta-pending .pcf-label { color: #b45309; }
+  .part-card-field.eta-pending .pcf-value { color: #92400e; font-weight: 700; }
+  .part-card-field.eta-overdue { background: #fff1f2; border-left: 3px solid #f43f5e; }
+  .part-card-field.eta-overdue .pcf-label { color: #be123c; }
+  .part-card-field.eta-overdue .pcf-value { color: #9f1239; font-weight: 700; }
+  .eta-pill { display: inline-block; font-size: 10px; font-weight: 700; border-radius: 10px; padding: 1px 7px; margin-top: 4px; letter-spacing: 0.03em; }
+  .eta-pill.pending { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+  .eta-pill.overdue { background: #ffe4e6; color: #9f1239; border: 1px solid #fecdd3; }
+  .related-wo-id { font-size: 13px; font-weight: 700; color: #3b82d4; cursor: pointer; background: none; border: none; font-family: inherit; padding: 0; text-decoration: underline; text-underline-offset: 2px; flex-shrink: 0; }
+  .related-wo-id:hover { color: #1d4ed8; }
+  .ticket-table td { padding: 8px 10px; border-bottom: 1px solid #f0f2f5; vertical-align: middle; }
+  .ticket-table tr:last-child td { border-bottom: none; }
+  .ticket-table tbody tr:hover { background: #f7f8fa; }
+  @media (max-width: 700px) { .detail-grid { grid-template-columns: repeat(2,1fr); } .detail-field.span-2 { grid-column: span 1; } .detail-field.span-3 { grid-column: span 2; } .part-card-body { grid-template-columns: repeat(2,1fr); } .modal-overlay { padding: 0 !important; } .modal { border-radius: 0; min-height: 100dvh; max-width: 100% !important; } .wo-hero-id { font-size: 18px; } }
+  @media (max-width: 480px) { .detail-grid { grid-template-columns: 1fr; } .detail-grid.cols-2 { grid-template-columns: 1fr; } .detail-field.span-2,.detail-field.span-3 { grid-column: span 1; } .part-card-body { grid-template-columns: repeat(2,1fr); } }
+
+  /* ── Return Reminder widget ──────────────────────────────────────── */
+  .rr-panels { display: flex; gap: 12px; }
+  .rr-panel  { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+  .rr-pill { background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 7px; padding: 8px 12px; display: flex; flex-direction: column; gap: 2px; }
+  .rr-pill.dc  { border-left: 3px solid #f59e0b; }
+  .rr-pill.prt { border-left: 3px solid #3b82f6; }
+  .rr-pill-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #57606a; }
+  .rr-pill-val   { font-size: 22px; font-weight: 700; line-height: 1.1; }
+  .rr-pill.dc  .rr-pill-val { color: #d97706; }
+  .rr-pill.prt .rr-pill-val { color: #2563eb; }
+  /* individual rr bar charts — reuse .ov-chart-area/.ov-y-axis/.ov-chart-wrap */
+  .rr-chart-outer { display: flex; flex-direction: column; min-width: 0; }
+  .rr-chart { display: flex; align-items: flex-end; gap: 3px; height: 110px; min-width: 0; border-left: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; }
+  .rr-lbl-row { display: flex; gap: 3px; padding-top: 3px; height: 16px; overflow: hidden; border-left: 1px solid transparent; }
+  .rr-bar-col { display: flex; align-items: flex-end; flex: 1; min-width: 8px; height: 100%; }
+  .rr-bar { width: 100%; border-radius: 3px 3px 0 0; cursor: default; }
 
   @media (max-width: 1024px) { .stat-row { grid-template-columns: repeat(3,1fr); } .quick-links { grid-template-columns: repeat(2,1fr); } .ov-grid { grid-template-columns: 1fr; } }
   @media (max-width: 700px)  { .stat-row { grid-template-columns: repeat(2,1fr); } .quick-links { grid-template-columns: 1fr; } }
@@ -150,24 +354,250 @@
 <div class="section-header">Overview</div>
 <div class="ov-grid">
 
-  <!-- Escalation widget (1 of 3 cols) -->
-  <div class="ov-card">
+  <!-- Return Reminder widget (col 1) -->
+  <div class="ov-card" style="grid-column: span 2;">
+    <div class="ov-card-hdr">
+      <div class="ov-card-title">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.27"/></svg>
+        Return Reminder
+      </div>
+      <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+        <button class="ov-refresh-btn" id="rr-refresh-btn" title="Refresh">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="ov-card-sub" id="rr-sub">Loading…</div>
+    <!-- Two separate pill + chart panels side by side -->
+    <div class="rr-panels">
+      <div class="rr-panel">
+        <div class="rr-pill prt">
+          <div class="rr-pill-label">Pending with Partner</div>
+          <div class="rr-pill-val" id="rr-prt-val">—</div>
+        </div>
+        <div class="ov-chart-area">
+          <div class="ov-chart-wrap">
+            <div id="rr-chart-prt"><div class="ov-loading">Loading…</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="rr-panel">
+        <div class="rr-pill dc">
+          <div class="rr-pill-label">Pending DC Generate</div>
+          <div class="rr-pill-val" id="rr-dc-val">—</div>
+        </div>
+        <div class="ov-chart-area">
+          <div class="ov-chart-wrap">
+            <div id="rr-chart-dc"><div class="ov-loading">Loading…</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Escalation widget (col 1 of 2) -->
+  <div class="ov-card stretch">
     <div class="ov-card-hdr">
       <div class="ov-card-title">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
         Open Escalation Monday
       </div>
-      <a href="/admin/monday-data" class="ov-goto-btn">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-        Go to Details
-      </a>
+      <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+        <button class="ov-refresh-btn" id="esc-refresh-btn" title="Refresh">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </button>
+        <a href="/admin/monday-data" class="ov-goto-btn">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          Go to Details
+        </a>
+      </div>
     </div>
     <div class="ov-card-sub" id="ov-esc-sub">Loading…</div>
-    <div class="ov-chart-wrap">
-      <div id="ov-chart"><div class="ov-loading">Loading…</div></div>
+    <div class="ov-chart-area">
+      <div class="ov-chart-wrap">
+        <div id="ov-chart"><div class="ov-loading">Loading…</div></div>
+      </div>
     </div>
   </div>
 
+  <!-- Closing-code follow-up WO list (col 2 of 2) -->
+  <div class="ov-card" style="grid-column: span 3;">
+    <div class="ov-card-hdr" style="flex-wrap:wrap;gap:6px;row-gap:4px">
+      <div class="ov-card-title" style="flex-shrink:0">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Closing Code Follow-ups &mdash; Last 30 Days
+      </div>
+      <span style="font-size:11px;color:#8c959f;flex-shrink:0" id="cc-sub">Loading…</span>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex-shrink:0">
+        <div class="cc-filter-wrap">
+          <select class="cc-filter-select" id="cc-filter-type" onchange="ccApplyFilters()">
+            <option value="">All Type</option>
+            <option value="Onsite">ONS</option>
+            <option value="Carry-In">CCI</option>
+          </select>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="cc-filter-wrap">
+          <select class="cc-filter-select" id="cc-filter-status" onchange="ccApplyFilters()">
+            <option value="">All Status</option>
+            <option value="in-progress">In-Progress</option>
+            <option value="complete">Complete</option>
+            <option value="no-status">No Monday Status</option>
+          </select>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <button class="ov-refresh-btn" id="cc-refresh-btn" title="Refresh">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </button>
+        <a href="/admin/tickets" class="ov-goto-btn">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          Go to Details
+        </a>
+      </div>
+    </div>
+    <div class="cc-table-wrap">
+      <table class="cc-table">
+        <thead>
+          <tr>
+            <th style="text-align:center;width:36px">#</th>
+            <th class="cc-col-wo">Completed</th>
+            <th class="cc-col-wo">WO ID</th>
+            <th class="cc-col-wo">Type</th>
+            <th class="cc-col-wo">Closing Code</th>
+            <th class="cc-col-esc">WO/Case ID Monday</th>
+            <th class="cc-col-esc">Escalation Date</th>
+            <th class="cc-col-esc">Monday Status</th>
+            <th class="cc-col-esc" style="text-align:center;width:90px">Discussion</th>
+          </tr>
+        </thead>
+        <tbody id="cc-tbody">
+          <tr><td colspan="9" style="text-align:center;padding:20px;color:#8c959f;font-style:italic">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- WO Detail Modal -->
+<div class="modal-overlay" id="cc-modal-detail">
+  <div class="modal">
+    <div class="modal-header">
+      <button class="modal-close" id="cc-btn-detail-close">×</button>
+    </div>
+    <div class="modal-body" id="cc-detail-body">
+      <div class="modal-loading">Loading detail…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Monday Discussion Drawer (scoped with cc- prefix) -->
+<style>
+.cc-disc-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:2300}
+.cc-disc-overlay.open{display:block}
+.cc-disc-drawer{position:fixed;top:0;right:-560px;width:520px;max-width:96vw;height:100vh;background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,.14);z-index:2301;display:flex;flex-direction:column;overflow:hidden;transition:right .25s cubic-bezier(.4,0,.2,1)}
+.cc-disc-drawer.open{right:0}
+.cc-disc-head{padding:16px 18px;border-bottom:1px solid #e5e7eb;display:flex;align-items:flex-start;gap:10px;flex-shrink:0}
+.cc-disc-title{flex:1;min-width:0}
+.cc-disc-title h3{font-size:14px;font-weight:700;margin:0 0 2px;line-height:1.4}
+.cc-disc-title p{font-size:12px;color:#57606a;margin:0;white-space:normal;word-break:break-word}
+.cc-disc-close{border:none;background:none;cursor:pointer;color:#57606a;padding:4px;border-radius:4px;flex-shrink:0;margin-top:-2px;line-height:1}
+.cc-disc-close:hover{background:#f3f4f6;color:#1f2328}
+.cc-disc-body{flex:1 1 0;min-height:0;overflow-y:scroll;padding:16px 18px;background:#e8edf2;display:flex;flex-direction:column;gap:14px}
+.cc-disc-body::-webkit-scrollbar{width:8px}
+.cc-disc-body::-webkit-scrollbar-track{background:#d1d7de}
+.cc-disc-body::-webkit-scrollbar-thumb{background:#8b95a1;border-radius:4px}
+.cc-disc-body::-webkit-scrollbar-thumb:hover{background:#57606a}
+.cc-disc-empty{text-align:center;padding:40px 20px;color:#9ca3af;font-size:13px}
+.cc-disc-loading{text-align:center;padding:40px 20px;color:#9ca3af;font-size:13px}
+.cc-disc-update{background:#fff;border:1px solid #c8d0da;border-radius:10px;overflow:clip;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.cc-disc-update-head{padding:10px 14px;background:#f0f4f8;border-bottom:1px solid #dde3ea;display:flex;align-items:center;gap:8px}
+.cc-disc-avatar{width:28px;height:28px;border-radius:50%;background:#3b82d4;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.cc-disc-author{font-size:12px;font-weight:700;color:#1f2328}
+.cc-disc-time{font-size:11px;color:#8b95a1;margin-top:1px}
+.cc-disc-update-body{padding:12px 14px;font-size:12.5px;color:#2d3748;line-height:1.65;white-space:pre-wrap;word-break:break-word;background:#fff}
+.cc-disc-link{color:#3b82d4;text-decoration:underline;word-break:break-all}
+.cc-disc-replies{background:#f7f9fb;border-top:1px solid #dde3ea}
+.cc-disc-reply{display:flex;gap:8px;padding:9px 14px;border-top:1px solid #dde3ea}
+.cc-disc-reply:first-child{border-top:none}
+.cc-disc-reply-avatar{width:22px;height:22px;border-radius:50%;background:#7c5cd8;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.cc-disc-reply-content{flex:1;min-width:0}
+.cc-disc-reply-author{font-size:11.5px;font-weight:700;color:#1f2328}
+.cc-disc-reply-time{font-size:10.5px;color:#8b95a1;margin-left:6px}
+.cc-disc-reply-body{font-size:12px;color:#374151;line-height:1.55;white-space:pre-wrap;word-break:break-word;margin-top:3px}
+.cc-disc-footer{flex-shrink:0;padding:12px 18px;border-top:1px solid #e5e7eb;background:#fff}
+.cc-disc-footer a{display:flex;align-items:center;justify-content:center;gap:7px;font-size:13px;font-weight:600;color:#3b82d4;text-decoration:none;padding:10px 0;border:none;background:transparent;transition:color .15s,background .15s}
+.cc-disc-footer a:hover{color:#1d4ed8;background:#f0f6ff}
+</style>
+<div class="cc-disc-overlay" id="cc-disc-overlay"></div>
+<div class="cc-disc-drawer" id="cc-disc-drawer">
+  <div class="cc-disc-head">
+    <div class="cc-disc-title">
+      <h3 id="cc-disc-drawer-title">Discussion</h3>
+      <p id="cc-disc-drawer-subtitle"></p>
+    </div>
+    <button class="cc-disc-close" id="cc-disc-close" title="Close">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="cc-disc-body" id="cc-disc-drawer-body">
+    <div class="cc-disc-loading">Loading discussions…</div>
+  </div>
+  <div class="cc-disc-footer" id="cc-disc-footer" style="display:none">
+    <a id="cc-disc-monday-link" href="#" target="_blank" rel="noopener noreferrer">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      Go to Monday.com
+    </a>
+  </div>
+</div>
+
+<!-- Serial History Modal (All Problem History) -->
+<style>
+.cc-hist-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2200;align-items:center;justify-content:center;padding:20px}
+.cc-hist-overlay.open{display:flex}
+.cc-hist-modal{position:relative;width:860px;max-width:100%;max-height:90vh;background:#fff;border-radius:14px;box-shadow:0 12px 48px rgba(0,0,0,.28);z-index:2201;display:flex;flex-direction:column;animation:dbHistIn 0.2s cubic-bezier(.4,0,.2,1)}
+@keyframes dbHistIn{from{opacity:0;transform:scale(.97) translateY(10px)}to{opacity:1;transform:none}}
+.cc-hist-head{padding:18px 22px 14px;border-bottom:1px solid #e5e7eb;display:flex;align-items:flex-start;gap:12px;flex-shrink:0;border-radius:14px 14px 0 0;background:#fff}
+.cc-hist-head-title{flex:1;min-width:0}
+.cc-hist-eyebrow{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8b95a1;margin-bottom:3px}
+.cc-hist-head-title h3{font-size:15px;font-weight:700;margin:0;color:#1f2328}
+.cc-hist-close{border:none;background:none;cursor:pointer;color:#57606a;padding:6px;border-radius:6px;flex-shrink:0}
+.cc-hist-close:hover{background:#f3f4f6;color:#1f2328}
+.cc-hist-body{overflow-y:auto;padding:20px 22px;background:#f0f4f8;border-radius:0 0 14px 14px;max-height:calc(90vh - 76px)}
+.cc-hist-body::-webkit-scrollbar{width:6px}
+.cc-hist-body::-webkit-scrollbar-thumb{background:#b0bac5;border-radius:3px}
+.cc-hist-sn-label{font-size:12px;color:#57606a;margin-bottom:10px}
+.cc-hist-sn-label strong{font-family:ui-monospace,SFMono-Regular,monospace;color:#1f2328}
+.cc-hist-wo-count{font-size:11px;color:#8b95a1;margin-bottom:8px}
+.cc-hist-table-wrap{background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:clip}
+.cc-hist-table{width:100%;border-collapse:collapse;font-size:13px}
+.cc-hist-table thead tr{background:#f7f8fa}
+.cc-hist-table th{padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:#57606a;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e5e7eb;white-space:nowrap}
+.cc-hist-table td{padding:9px 10px;border-bottom:1px solid #f0f2f5;vertical-align:top}
+.cc-hist-table tr:last-child td{border-bottom:none}
+.cc-hist-ticket-cell{font-family:ui-monospace,SFMono-Regular,monospace;font-size:12px;font-weight:600;color:#3b82d4;white-space:nowrap;border-right:2px solid #bfdbfe!important;background:#eff6ff!important}
+.cc-hist-wo-btn{font-family:ui-monospace,SFMono-Regular,monospace;font-size:12.5px;font-weight:700;color:#2563eb;background:none;border:none;cursor:pointer;padding:0;text-decoration:underline}
+.cc-hist-wo-btn:hover{color:#1d4ed8}
+.cc-hist-empty{text-align:center;padding:48px 20px;color:#9ca3af;font-size:13px}
+.cc-hist-loading{text-align:center;padding:48px 20px;color:#9ca3af;font-size:13px}
+.cc-wocaseid.clickable{cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.cc-wocaseid.clickable:hover{opacity:.75}
+</style>
+<div class="cc-hist-overlay" id="cc-hist-overlay" onclick="ccCloseSnHistory()">
+  <div class="cc-hist-modal" onclick="event.stopPropagation()">
+    <div class="cc-hist-head">
+      <div class="cc-hist-head-title">
+        <div class="cc-hist-eyebrow">All Problem History</div>
+        <h3 id="cc-hist-title"></h3>
+      </div>
+      <button class="cc-hist-close" onclick="ccCloseSnHistory()" title="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="cc-hist-body" id="cc-hist-body">
+      <div class="cc-hist-loading">Loading…</div>
+    </div>
+  </div>
 </div>
 {% endblock %}
 
@@ -177,6 +607,777 @@ function esc(s) {
   return String(s == null ? '' : s)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+/* ── Closing-code badge CSS class helper ─── */
+function ccBadgeClass(code) {
+  const c = (code || '').toLowerCase();
+  if (c.includes('customer induced')) return 'cc-badge cid';
+  if (c === 'parts replaced')         return 'cc-badge done';
+  return 'cc-badge';
+}
+
+/* ── Monday escalation status badge helper ─── */
+function escStatusBadge(status) {
+  const v = (status || '').toLowerCase().trim();
+  let bg = '#f3f4f6', color = '#374151', border = '#d1d5db';
+  if (v === 'technical escalation')  { bg = '#fef3c7'; color = '#92400e'; border = '#fde68a'; }
+  else if (v === 'progress')         { bg = '#eff6ff'; color = '#1d4ed8'; border = '#bfdbfe'; }
+  else if (v === 'qa result')        { bg = '#f5f3ff'; color = '#6d28d9'; border = '#ddd6fe'; }
+  else if (v === 'complete')         { bg = '#dcfce7'; color = '#15803d'; border = '#86efac'; }
+  else if (v === 'approved to order'){ bg = '#dbeafe'; color = '#1e40af'; border = '#93c5fd'; }
+  else if (v === 'reject')           { bg = '#fee2e2'; color = '#b91c1c'; border = '#fca5a5'; }
+  else if (v === '' || v === '—')    { bg = '#f7f8fa'; color = '#8c959f'; border = '#e5e7eb'; }
+  return `<span style="display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600;background:${bg};color:${color};border:1px solid ${border};white-space:nowrap;margin:1px 2px 1px 0">${esc(status || '—')}</span>`;
+}
+
+/* ── Render escalation cell from pipe-separated statuses ─── */
+function escStatusCell(escStatuses) {
+  if (!escStatuses) return '<span style="color:#d0d7de;font-size:11px">—</span>';
+  const parts = escStatuses.split(',').map(s => s.trim()).filter(Boolean);
+  if (!parts.length) return '<span style="color:#d0d7de;font-size:11px">—</span>';
+  return `<div style="display:flex;flex-wrap:wrap;gap:2px">${parts.map(escStatusBadge).join('')}</div>`;
+}
+
+/* ── All loaded rows (cache for client-side filtering) ─── */
+let _ccAllRows = [];
+
+/* ── Build one table row HTML ─── */
+function _ccRowHtml(r, displayIdx) {
+  const _discSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+  const completed  = (r.completion_date || '').slice(0, 10) || '—';
+  const escDate    = r.esc_created_at ? r.esc_created_at.slice(0, 10) : '—';
+  const discCount  = r.esc_disc_count || 0;
+  const hasDisc    = discCount > 0 && r.esc_item_id;
+  const discBtn    = r.esc_item_id
+    ? (hasDisc
+        ? `<button class="btn-md-disc has-disc" data-item="${esc(r.esc_item_id)}" data-name="${esc(r.esc_item_name || '')}" data-board="${esc(r.esc_board_id || '')}">${_discSvg}<span class="md-disc-cnt">${discCount}</span></button>`
+        : `<button class="btn-md-disc" data-item="${esc(r.esc_item_id)}" data-name="${esc(r.esc_item_name || '')}" data-board="${esc(r.esc_board_id || '')}">${_discSvg}</button>`)
+    : `<button class="btn-md-disc" disabled style="opacity:.35;cursor:default">${_discSvg}</button>`;
+  const woCaseId   = r.wo_case_id || null;
+  const woMatched  = r.wo_case_match === 'wo';
+  const snForHist  = r.product_serial_number || r.serial_number || null;
+  const currentWoId  = String(r.work_order_id || '');
+  const currentCaseN = String(r.case_number   || '');
+  const woCaseHtml = woCaseId && snForHist
+    ? `<span class="cc-wocaseid ${woMatched ? 'match' : 'nomatch'} clickable" data-serial="${esc(snForHist)}" onclick="ccOpenSnHistory('${esc(snForHist)}','${esc(currentWoId)}','${esc(currentCaseN)}')" title="View all problem history for SN: ${esc(snForHist)}">${esc(woCaseId)}</span>`
+    : woCaseId
+      ? `<span class="cc-wocaseid ${woMatched ? 'match' : 'nomatch'}">${esc(woCaseId)}</span>`
+      : `<span style="color:#d0d7de">—</span>`;
+  return `<tr>
+    <td style="text-align:center;color:#8c959f;font-size:12px;width:36px">${displayIdx}</td>
+    <td class="cc-col-wo" style="min-width:82px;color:#57606a">${esc(completed)}</td>
+    <td class="cc-col-wo"><button class="cc-wo-btn" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button></td>
+    <td class="cc-col-wo">${esc(r.work_order_type || '—')}</td>
+    <td class="cc-col-wo" style="white-space:normal;max-width:220px"><span class="${ccBadgeClass(r.closing_code)}" title="${esc(r.closing_code || '')}">${esc(r.closing_code || '—')}</span></td>
+    <td class="cc-col-esc">${woCaseHtml}</td>
+    <td class="cc-col-esc" style="color:#57606a;min-width:82px">${esc(escDate)}</td>
+    <td class="cc-col-esc">${escStatusCell(r.esc_statuses)}</td>
+    <td class="cc-col-esc" style="text-align:center">${discBtn}</td>
+  </tr>`;
+}
+
+/* ── Apply WO Type + Monday Status filters and re-render ─── */
+window.ccApplyFilters = function() {
+  const typeVal   = (document.getElementById('cc-filter-type')   || {}).value || '';
+  const statusVal = (document.getElementById('cc-filter-status') || {}).value || '';
+
+  const selType   = document.getElementById('cc-filter-type');
+  const selStatus = document.getElementById('cc-filter-status');
+  if (selType)   selType.classList.toggle('has-filter',   !!typeVal);
+  if (selStatus) selStatus.classList.toggle('has-filter', !!statusVal);
+
+  // Monday status grouping
+  const COMPLETE_VALS = new Set(['complete', 'completed', 'reject', 'approved to order']);
+
+  const filtered = _ccAllRows.filter(r => {
+    // WO Type filter — typeVal is "Onsite" or "Carry-In" matching DB values directly
+    if (typeVal && (r.work_order_type || '') !== typeVal) return false;
+    // Monday Status filter
+    if (statusVal) {
+      const statuses = (r.esc_statuses || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+      if (statusVal === 'in-progress') {
+        // In-Progress = has at least one non-empty status that is NOT in the complete set
+        if (!statuses.some(s => s && !COMPLETE_VALS.has(s))) return false;
+      } else if (statusVal === 'complete') {
+        if (!statuses.some(s => COMPLETE_VALS.has(s))) return false;
+      } else if (statusVal === 'no-status') {
+        // show only rows with no Monday escalation statuses (null/empty esc_statuses)
+        if (statuses.length > 0) return false;
+      }
+    }
+    return true;
+  });
+
+  const tbody = document.getElementById('cc-tbody');
+  const sub   = document.getElementById('cc-sub');
+  const hasFilter = typeVal || statusVal;
+  if (sub) sub.innerHTML = hasFilter
+    ? `<strong>${filtered.length.toLocaleString()}</strong> of <strong>${_ccAllRows.length.toLocaleString()}</strong> WO${_ccAllRows.length !== 1 ? 's' : ''}`
+    : `<strong>${_ccAllRows.length.toLocaleString()}</strong> WO${_ccAllRows.length !== 1 ? 's' : ''} in the last 30 days`;
+
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#8c959f;font-style:italic">No records match the selected filters.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.map((r, i) => _ccRowHtml(r, i + 1)).join('');
+  tbody.querySelectorAll('.cc-wo-btn').forEach(btn =>
+    btn.addEventListener('click', () => ccOpenDetail(btn.dataset.wo))
+  );
+  tbody.querySelectorAll('.btn-md-disc:not([disabled])').forEach(btn =>
+    btn.addEventListener('click', () => ccOpenDisc(btn.dataset.item, btn.dataset.name, btn.dataset.board))
+  );
+};
+
+/* ── Initial load ─── */
+function renderClosingCodeTable(data) {
+  _ccAllRows = data.rows || [];
+  const sub = document.getElementById('cc-sub');
+  if (sub) sub.innerHTML = `<strong>${_ccAllRows.length.toLocaleString()}</strong> WO${_ccAllRows.length !== 1 ? 's' : ''} in the last 30 days`;
+  // Reset filters on fresh load
+  const selType   = document.getElementById('cc-filter-type');
+  const selStatus = document.getElementById('cc-filter-status');
+  if (selType)   { selType.value = '';   selType.classList.remove('has-filter');   }
+  if (selStatus) { selStatus.value = ''; selStatus.classList.remove('has-filter'); }
+  ccApplyFilters();
+}
+
+function loadClosingCodeTable() {
+  const btn = document.getElementById('cc-refresh-btn');
+  if (btn) btn.classList.add('spinning');
+  const sub = document.getElementById('cc-sub');
+  if (sub) sub.textContent = 'Loading…';
+  const tbody = document.getElementById('cc-tbody');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#8c959f;font-style:italic">Loading…</td></tr>';
+  fetch('/admin/api/dashboard-closing-codes')
+    .then(r => r.json())
+    .then(data => renderClosingCodeTable(data))
+    .catch(() => {
+      if (tbody) tbody.innerHTML =
+        '<tr><td colspan="9" style="text-align:center;padding:20px;color:#dc2626">Failed to load.</td></tr>';
+      if (sub) sub.textContent = '';
+    })
+    .finally(() => { if (btn) btn.classList.remove('spinning'); });
+}
+loadClosingCodeTable();
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   WO DETAIL MODAL — same rendering engine as ticket_management
+═══════════════════════════════════════════════════════════════════════════ */
+function isSentinel(s) { return s && String(s).slice(0, 4) === '2099'; }
+function fmt(s) {
+  if (!s || isSentinel(s)) return '—';
+  return String(s).slice(0, 16).replace('T', ' ') || '—';
+}
+function statusBadge(s) {
+  if (!s) return '<span class="badge badge-s-default">—</span>';
+  const sl = s.toLowerCase();
+  let cls;
+  if (sl === 'closed')                                         cls = 'badge-s-closed';
+  else if (sl === 'completed')                                 cls = 'badge-s-completed';
+  else if (sl === 'repair completed')                          cls = 'badge-s-repair-done';
+  else if (sl === 'ready for pickup')                          cls = 'badge-s-pickup';
+  else if (sl === 'rma in progress')                           cls = 'badge-s-rma';
+  else if (sl.includes('awaiting for parts rma') || sl.includes('unit returned')) cls = 'badge-s-returned';
+  else if (sl.includes('technician onsite'))                   cls = 'badge-s-tech-onsite';
+  else if (sl.includes('technician enroute') || sl.includes('technician en route')) cls = 'badge-s-tech-enroute';
+  else if (sl === 'in testing')                                cls = 'badge-s-in-testing';
+  else if (sl === 'requires review')                           cls = 'badge-s-req-review';
+  else if (sl === 'unit received')                             cls = 'badge-s-unit-received';
+  else if (sl === 'order changed')                             cls = 'badge-s-order-changed';
+  else if (sl.includes('awaiting order'))                      cls = 'badge-s-await-release';
+  else if (sl.includes('transit'))                             cls = 'badge-s-transit';
+  else if (sl.includes('part') && sl.includes('hold'))         cls = 'badge-s-part-hold';
+  else if (sl.includes('part') && sl.includes('request'))      cls = 'badge-s-part-req';
+  else if (sl.includes('part') && sl.includes('deliver'))      cls = 'badge-s-part-delivered';
+  else if (sl === 'customer hold')                             cls = 'badge-s-cust-hold';
+  else if (sl === 'in repair')                                 cls = 'badge-s-in-repair';
+  else if (sl.includes('technician assigned'))                 cls = 'badge-s-tech-assigned';
+  else if (sl === 'order accepted')                            cls = 'badge-s-accepted';
+  else if (sl.includes('pick') && sl.includes('pack'))         cls = 'badge-s-pick-pack';
+  else if (sl.includes('cancel'))                              cls = 'badge-s-cancelled';
+  else                                                         cls = 'badge-s-default';
+  return `<span class="badge ${cls}">${esc(s)}</span>`;
+}
+function caseStatusPill(val) {
+  if (!val) return '';
+  const v = val.toLowerCase();
+  let bg, color, border;
+  if (v === 'closed' || v === 'solution provided')             { bg='#f0fdf4';color='#15803d';border='#bbf7d0'; }
+  else if (v === 'cancelled')                                  { bg='#fef2f2';color='#b91c1c';border='#fecaca'; }
+  else if (v === 'escalated')                                  { bg='#fff7ed';color='#c2410c';border='#fed7aa'; }
+  else if (v === 'wo on hold' || v === 'customer action')      { bg='#fffbeb';color='#b45309';border='#fde68a'; }
+  else if (v === 'wo follow up' || v === 'in progress')        { bg='#f5f3ff';color='#6d28d9';border='#ddd6fe'; }
+  else                                                         { bg='#f7f8fa';color='#57606a';border='#e5e7eb'; }
+  return `<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:${bg};color:${color};border:1px solid ${border}">${esc(val)}</span>`;
+}
+function closingCodePill(val) {
+  if (!val) return '';
+  const v = val.toLowerCase();
+  let bg, color, border;
+  if (v.includes('problem fixed parts replaced'))              { bg='#f0fdf4';color='#15803d';border='#bbf7d0'; }
+  else if (v.includes('problem fixed no parts'))               { bg='#f0fdf4';color='#15803d';border='#bbf7d0'; }
+  else if (v.includes('need follow up') || v.includes('needs follow up')) { bg='#fffbeb';color='#b45309';border='#fde68a'; }
+  else if (v.includes('cancel'))                               { bg='#fef2f2';color='#b91c1c';border='#fecaca'; }
+  else if (v.includes('no trouble') || v.includes('cannot recreate')) { bg='#f5f3ff';color='#6d28d9';border='#ddd6fe'; }
+  else if (v.includes('customer induced') || v.includes('machine not found') || v.includes('returned but un-repaired')) { bg='#fff7ed';color='#c2410c';border='#fed7aa'; }
+  else                                                         { bg='#f7f8fa';color='#57606a';border='#e5e7eb'; }
+  return `<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:${bg};color:${color};border:1px solid ${border}">${esc(val)}</span>`;
+}
+function fmtShort(s) {
+  if (!s || isSentinel(s)) return null;
+  const d = new Date(String(s).replace(' ', 'T'));
+  if (isNaN(d)) return s.slice(0, 16).replace('T', ' ');
+  const day = d.getDate().toString().padStart(2, '0');
+  const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
+  const time = `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+  return `${day} ${mon}\n${time}`;
+}
+function field(label, value, mono, span) {
+  const v      = (value == null || value === '') ? null : String(value);
+  const cls    = ['detail-field', span ? `span-${span}` : ''].filter(Boolean).join(' ');
+  const valCls = ['df-value', mono ? 'mono' : '', v ? '' : 'muted'].filter(Boolean).join(' ');
+  return `<div class="${cls}"><div class="df-label">${esc(label)}</div><div class="${valCls}">${v ? esc(v) : '—'}</div></div>`;
+}
+function sectionTitle(icon, text) {
+  return `<div class="detail-section-title">${icon}<span>${esc(text)}</span></div>`;
+}
+const ICONS = {
+  summary : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>`,
+  details : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>`,
+  timeline: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="3"/></svg>`,
+  parts   : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>`,
+  closing : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+  contact : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+  related : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+  ticket  : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v2z"/></svg>`,
+  monday  : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>`,
+};
+function renderHero(d) {
+  const rrVal   = d.repeat_repair || '—';
+  const rrIsYes = (d.repeat_repair || '').toLowerCase() === 'yes';
+  const bar1Items = [
+    d.work_order_type      ? { l:'Type:',       v:d.work_order_type,                                                  cls:'gray'   } : null,
+    {                        l:'Repeat Repair:', v:rrIsYes ? (d.repeat_repair_reason || d.repeat_repair) : rrVal,      cls:rrIsYes ? 'red' : 'green' },
+    d.work_order_priority && d.work_order_priority.toLowerCase() !== 'normal'
+      ?                      { l:'Priority:',   v:d.work_order_priority,                                              cls:'red'    } : null,
+    d.premier_service      ? { l:'Premier:',    v:d.premier_service,                                                  cls:'purple' } : null,
+    d.order_type           ? { l:'Order Type:', v:d.order_type,                                                       cls:'gray'   } : null,
+  ].filter(Boolean);
+  const renderBar = items => `<div class="wo-info-bar">${items.map(i=>`<div class="wo-info-item"><span class="wo-info-lbl">${esc(i.l)}</span><span class="wo-info-val ${i.cls}">${esc(i.v)}</span></div>`).join('')}</div>`;
+  const hasContact = d.contact_name || d.mobile_phone || d.primary_email || d.address || d.company_name;
+  const hasAsp     = d.customer || d.labor_vendor_related || d.tech_id;
+  const customerCard = (hasContact || hasAsp) ? `<div class="wo-customer-wrap">
+    ${hasContact ? `<div class="wo-customer-box"><div class="wo-customer-col">
+      ${d.contact_name ? `<div class="wo-customer-name">${esc(d.contact_name)}</div>` : ''}
+      ${d.mobile_phone  ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Mobile Phone:</span><span class="wo-customer-val">${esc(d.mobile_phone)}</span></div>` : ''}
+      ${d.primary_email ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Email:</span><span class="wo-customer-val">${esc(d.primary_email)}</span></div>` : ''}
+    </div><div class="wo-customer-col">
+      ${d.contact_name ? `<div class="wo-customer-name" style="visibility:hidden">—</div>` : ''}
+      ${d.company_name ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Company:</span><span class="wo-customer-val">${esc(d.company_name)}</span></div>` : ''}
+      ${d.address ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Address:</span><span class="wo-customer-val">${esc(d.address)}</span></div>` : ''}
+    </div></div>` : ''}
+    ${hasAsp ? `<div class="wo-customer-box asp"><div class="wo-customer-col">
+      ${d.customer             ? `<div class="wo-customer-asp">${esc(d.customer)}</div>` : ''}
+      ${d.labor_vendor_related ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Vendor ID:</span><span class="wo-customer-val">${esc(d.labor_vendor_related)}</span></div>` : ''}
+      ${d.tech_id ? `<div class="wo-customer-row"><span class="wo-customer-lbl">Technician:</span><span class="wo-customer-val"><span style="color:#3b82d4;font-weight:600">${esc(d.tech_id)}</span>${d.tech_name ? ` - ${esc(d.tech_name)}` : ''}</span></div>` : ''}
+    </div></div>` : ''}
+  </div>` : '';
+  return `<div class="wo-hero">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;">
+        <div class="wo-hero-id"><span style="color:#8c959f">WO#</span> ${esc(String(d.work_order_id))}</div>
+        ${statusBadge(d.work_order_status)}
+        ${d.closing_code ? closingCodePill(d.closing_code) : ''}
+      </div>
+    </div>
+    <div style="margin-top:6px;display:grid;grid-template-columns:200px 1fr;row-gap:4px;align-items:center;">
+      <div style="display:flex;align-items:center;gap:4px;min-width:0">
+        ${d.serial_number ? `<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;white-space:nowrap">SN:</span><strong style="color:#1f2328;font-family:ui-monospace,monospace;white-space:nowrap">${esc(d.serial_number)}</strong>` : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-width:0">
+        ${d.case_number ? `<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;white-space:nowrap">CASE#</span><span style="font-family:ui-monospace,monospace;color:#1f2328;font-weight:700;white-space:nowrap">${esc(d.case_number)}</span>` : ''}
+        ${d.case_status ? caseStatusPill(d.case_status) : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;min-width:0">
+        ${d.product_id_mtm ? `<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;white-space:nowrap">MTM:</span><strong style="color:#1f2328;font-family:ui-monospace,monospace;white-space:nowrap">${esc(d.product_id_mtm)}</strong>` : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-width:0">
+        ${d.product_description ? `<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;white-space:nowrap">PRODUCT:</span><strong style="color:#1f2328;font-family:ui-monospace,monospace">${esc(d.product_description)}</strong>` : ''}
+      </div>
+    </div>
+    ${d.case_desc ? `<div style="margin-top:10px;font-size:12px;color:#57606a;background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:8px 12px;"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8c959f;margin-right:8px">Case Title:</span>${esc(d.case_desc)}</div>` : ''}
+    ${customerCard}
+    ${bar1Items.length ? renderBar(bar1Items) : ''}
+  </div>`;
+}
+function renderTimeline(d, parts) {
+  const now = Date.now();
+  const isCancelled = p => (p.wo_product_status || '').toLowerCase().includes('cancel');
+  const activeParts = (parts && parts.filter(p => !isCancelled(p)).length > 0) ? parts.filter(p => !isCancelled(p)) : (parts || []);
+  const toTs = v => { if (!v || isSentinel(v)) return -Infinity; const t = new Date(String(v).replace(' ','T')).getTime(); return isNaN(t) ? -Infinity : t; };
+  let latestPart = activeParts[0] || null, latestOrderTs = latestPart ? toTs(latestPart.order_date || latestPart.acceptance_date) : -Infinity;
+  for (const p of activeParts) { const ts = toTs(p.order_date || p.acceptance_date); if (ts > latestOrderTs) { latestOrderTs = ts; latestPart = p; } }
+  const activePartIdx  = latestPart ? parts.indexOf(latestPart) : -1;
+  const partOrderDate  = latestPart ? (latestPart.order_date       || latestPart.acceptance_date || null) : null;
+  const partPickupDate = latestPart ? (latestPart.ship_pickup_time  || latestPart.shipment_date   || null) : null;
+  const partPodDate    = latestPart ? (latestPart.ship_pou_pod_time || latestPart.delivery_date   || null) : null;
+  const isWoClosed = !!(d.completion_date || d.closing_date);
+  const nd = v => (isSentinel(v) ? null : v);
+  const nodes = [
+    { label:'Case\nCreated',        date:nd(d.created_on) },
+    { label:'Released',             date:nd(d.release_date) },
+    { label:'Part Order',           date:nd(partOrderDate) },
+    { label:'Part Pickup',          date:nd(partPickupDate) },
+    { label:'Part Received\n(POD)', date:nd(partPodDate) },
+    { label:'Orig. Onsite',         date:nd(d.original_committed_onsite_date) },
+    { label:'Defer Date',           date:nd(d.customer_defer_date), optional:true },
+    { label:'Actual\nOnsite',       date:nd(d.actual_committed_onsite_date) },
+    { label:'Completion',           date:nd(d.completion_date) },
+    { label:'Closed',               date:nd(d.closing_date) },
+  ];
+  let lastDoneIdx = -1;
+  nodes.forEach((n,i) => { if (n.date) lastDoneIdx = i; });
+  const nodeHtml = nodes.map((n,i) => {
+    const hasDate = !!n.date;
+    const ts = hasDate ? new Date(String(n.date).replace(' ','T')).getTime() : null;
+    const isPast = ts && ts <= now;
+    const isOverdue = !hasDate && i > 0 && i <= lastDoneIdx + 1 && !n.optional;
+    const forceDone   = isWoClosed && ((hasDate && (i===5||i===7)) || (i===6&&hasDate));
+    const forceGrey   = isWoClosed && i===6 && !hasDate;
+    const forceActive = !isWoClosed && hasDate && (i===5||i===7);
+    const forceSkip   = !isWoClosed && hasDate && i===6;
+    let state;
+    if (forceDone)                   state='done';
+    else if (forceGrey)              state='future';
+    else if (forceActive)            state='active';
+    else if (forceSkip)              state='skipped';
+    else if (hasDate && isPast)      state='done';
+    else if (hasDate)                state='active';
+    else if (isOverdue)              state='future';
+    else if (n.optional && !hasDate) state='skipped';
+    else                             state='future';
+    const connCls  = i < nodes.length-1 ? `tl-connector ${(state==='done'&&i<lastDoneIdx)?'done':''}` : '';
+    const dateStr  = fmtShort(n.date);
+    const dateCls  = (i===6&&hasDate)?'active-text':state==='done'?'done-text':state==='active'?'active-text':'future-text';
+    let dotSvg;
+    if (state==='done')    dotSvg=`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+    else if (state==='active') dotSvg=`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/></svg>`;
+    else if (state==='overdue') dotSvg=`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+    else dotSvg=`<div class="tl-dot-inner"></div>`;
+    return `<div class="tl-node"><div class="tl-dot-wrap ${state}">${dotSvg}</div><div class="tl-label">${n.label.replace(/\n/g,'<br>')}</div><div class="tl-date ${dateCls}">${dateStr?dateStr.replace(/\n/g,'<br>'):'<span style="color:#d1d5db">—</span>'}</div></div>${i<nodes.length-1?`<div class="${connCls}"></div>`:''}`;
+  }).join('');
+  return `<div class="detail-section">${sectionTitle(ICONS.timeline,'Date Timeline')}<div class="tl-wrap"><div class="tl-scroll"><div class="tl-track">${nodeHtml}</div></div></div>${parts.length>1?`<div style="font-size:11px;color:#8c959f;margin-top:8px">* Part dates shown for line #${activePartIdx+1} (latest part order).</div>`:''}</div>`;
+}
+function renderDetailBody(d) {
+  if (!d.wo_cancellation_reason) return '';
+  return `<div class="detail-section">${sectionTitle(ICONS.closing,'Cancellation')}<div style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;color:#1f2328">${esc(d.wo_cancellation_reason)}</div></div>`;
+}
+function partStatusBadge(s) {
+  if (!s) return '<span class="badge badge-s-default">—</span>';
+  const sl = s.toLowerCase().trim();
+  let cls;
+  if (sl==='delivered')                                          cls='badge-s-part-delivered';
+  else if (sl==='shipped')                                       cls='badge-s-transit';
+  else if (sl.includes('pick')&&sl.includes('pack'))             cls='badge-s-pick-pack';
+  else if (sl==='accepted')                                      cls='badge-s-accepted';
+  else if (sl==='pending')                                       cls='badge-s-part-req';
+  else if (sl.includes('hold'))                                  cls='badge-s-part-hold';
+  else if (sl==='cancelled by lenovo')                           cls='badge-s-cust-hold';
+  else if (sl.includes('cancel'))                                cls='badge-s-cancelled';
+  else                                                           cls='badge-s-default';
+  return `<span class="badge ${cls}">${esc(s)}</span>`;
+}
+function renderParts(parts, woId) {
+  const uid = 'db-parts-body-' + Date.now();
+  const title = sectionTitle(ICONS.parts, `Part Order History (WO #${esc(String(woId||''))})`);
+  if (!parts.length) return `<div class="detail-section">${title}<div style="font-size:13px;color:#8c959f;font-style:italic;padding:4px 0 8px">No part order lines found for this WO.</div></div>`;
+  const activeRows    = parts.filter(p=>!(p.wo_product_status||'').toLowerCase().includes('cancel'));
+  const cancelledRows = parts.filter(p=> (p.wo_product_status||'').toLowerCase().includes('cancel'));
+  function buildCard(p, i, isCancelledCard) {
+    const _dc = p.dc_number!=null?String(p.dc_number).trim():'';
+    const _dcFilled=_dc&&_dc!=='0', _dcDisplay=_dcFilled&&_dc!=='1';
+    const retFlag = p.return_flag==='Y'
+      ? (_dcDisplay?`<span class="badge" style="background:#dcfce7;color:#15803d;border:1px solid #86efac">Returned (DC# ${esc(_dc)})</span>`:_dcFilled?`<span class="badge" style="background:#dcfce7;color:#15803d;border:1px solid #86efac">Returned</span>`:'<span class="badge" style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa">Return Yes</span>')
+      : (p.return_flag==='N'?'<span class="badge badge-default">No Return</span>':'<span style="color:#8c959f">—</span>');
+    const isPartHold = (p.wo_product_status||'').toLowerCase()==='on hold - part hold';
+    const etaWh = isPartHold&&p.eta_parthold_backlog?`<span style="display:inline-flex;align-items:center;gap:6px;margin-right:4px"><span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#8c959f">ETA Arrived on Warehouse</span><span style="font-size:13px;font-weight:700;color:#d97706">${String(p.eta_parthold_backlog).slice(0,10)}</span></span>`:'';
+    const pod=p.ship_pou_pod_time||p.delivery_date, eta=p.target, etaFmt=fmt(eta);
+    let etaCell;
+    if (pod||!eta) { etaCell=`<div class="part-card-field"><div class="pcf-label">Target ETA</div><div class="pcf-value">${etaFmt||'—'}</div></div>`; }
+    else { const isOD=eta&&new Date(String(eta).replace(' ','T'))<new Date(); const cls2=isOD?'eta-overdue':'eta-pending'; const pill=isOD?`<div><span class="eta-pill overdue">Overdue</span></div>`:`<div><span class="eta-pill pending">Awaiting</span></div>`; etaCell=`<div class="part-card-field ${cls2}"><div class="pcf-label">Target ETA</div><div class="pcf-value">${etaFmt||'—'}</div>${pill}</div>`; }
+    return `<div class="part-card${isCancelledCard?' cancelled':''}"><div class="part-card-hdr"><span class="part-card-num">#${i+1}</span><span class="part-card-pn">${esc(p.product||'—')}</span><span class="part-card-desc" title="${esc(p.description||'')}">${esc(p.description||'—')}</span><div style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">${etaWh}${partStatusBadge(p.wo_product_status)}${retFlag}</div></div><div class="part-card-body"><div class="part-card-field"><div class="pcf-label">SOID</div><div class="pcf-value mono">${esc(p.soid||'—')}</div></div><div class="part-card-field"><div class="pcf-label">AWB</div><div class="pcf-value mono">${esc(p.awb||'—')}</div></div><div class="part-card-field"><div class="pcf-label">SLA</div><div class="pcf-value">${esc(p.sla||'—')}</div></div><div class="part-card-field"><div class="pcf-label">Order Date</div><div class="pcf-value">${fmt(p.order_date||p.acceptance_date)||'—'}</div></div><div class="part-card-field"><div class="pcf-label">Pickup Date</div><div class="pcf-value">${fmt(p.ship_pickup_time||p.shipment_date)||'—'}</div></div>${etaCell}<div class="part-card-field"><div class="pcf-label">Part Received (POD)</div><div class="pcf-value">${fmt(p.ship_pou_pod_time||p.delivery_date)||'—'}</div></div></div></div>`;
+  }
+  const activeCards=activeRows.map((p,i)=>buildCard(p,i,false));
+  const cancelledCards=cancelledRows.map((p,i)=>buildCard(p,i,true));
+  const divider=cancelledCards.length&&activeCards.length?`<div class="parts-cancelled-divider"><span>Cancelled (${cancelledCards.length})</span></div>`:'';
+  const cards=[...activeCards,divider?[divider]:[],  ...cancelledCards].flat().join('');
+  return `<div class="detail-section"><div class="detail-section-title collapsible-hdr" data-target="${uid}">${ICONS.parts}<span>Part Order History (WO #${esc(String(woId||''))})</span><svg class="caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div><div class="collapsible-body" id="${uid}" style="max-height:2000px">${cards}</div></div>`;
+}
+const _TH = 'padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:#57606a;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e5e7eb;white-space:nowrap';
+function renderTicketHistory(caseNumber, currentWoId, rows) {
+  const cn=caseNumber||'—', uid='db-ticket-hist-'+Date.now();
+  const title=`<div class="detail-section-title collapsible-hdr" data-target="${uid}">${ICONS.ticket}<span>Case History (Case #${esc(String(cn))})</span><svg class="caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div>`;
+  const caseLabel=`<div style="font-size:12px;color:#57606a;margin-bottom:12px">Ticket / Case #: <strong style="font-family:ui-monospace,monospace;color:#1f2328">${esc(String(cn))}</strong></div>`;
+  if (!rows||!rows.length) return `<div class="detail-section">${title}<div id="${uid}" class="collapsible-body" style="max-height:2000px">${caseLabel}<div style="font-size:12px;color:#8c959f;font-style:italic;padding:4px 0 8px">No work orders found for this ticket.</div></div></div>`;
+  function partsCell(parts) {
+    if (!parts||!parts.length) return '<span style="color:#8c959f;font-size:12px">—</span>';
+    return parts.map(p=>`<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px;flex-wrap:wrap"><span style="font-family:ui-monospace,monospace;font-size:11px;font-weight:700;color:#1f2328;white-space:nowrap">${esc(p.product||'—')}</span>${p.description?`<span style="font-size:11px;color:#57606a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px" title="${esc(p.description)}">${esc(p.description)}</span>`:''}${partStatusBadge(p.wo_product_status)}</div>`).join('');
+  }
+  const tableRows=rows.map((r,i)=>{const isCurrent=String(r.work_order_id)===String(currentWoId);const rowBg=isCurrent?'background:#fffbeb':'background:#fff';const currentTag=isCurrent?`<span style="margin-left:6px;font-size:10px;font-weight:700;color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:1px 7px;vertical-align:middle">current</span>`:'';const woCell=isCurrent?`<span style="font-family:ui-monospace,monospace;font-size:13px;font-weight:700;color:#1f2328">${esc(r.work_order_id)}</span>${currentTag}`:`<button class="related-wo-id" data-wo="${esc(r.work_order_id)}" onclick="ccOpenDetail(this.dataset.wo)">${esc(r.work_order_id)}</button>`;return `<tr style="${rowBg}"><td style="text-align:center;color:#8c959f;font-size:12px;width:36px;vertical-align:top;padding-top:10px">${i+1}</td><td style="vertical-align:top;padding-top:10px">${woCell}</td><td style="vertical-align:top;padding-top:8px">${statusBadge(r.work_order_status)}</td><td style="font-size:12px;vertical-align:top;padding-top:10px">${esc(r.work_order_type||'—')}</td><td style="font-size:12px;white-space:nowrap;vertical-align:top;padding-top:10px">${fmt(r.created_on)}</td><td style="font-size:12px;white-space:nowrap;vertical-align:top;padding-top:10px">${fmt(r.completion_date)}</td><td style="vertical-align:top;padding-top:6px">${partsCell(r.parts)}</td></tr>`;}).join('');
+  return `<div class="detail-section">${title}<div id="${uid}" class="collapsible-body" style="max-height:6000px">${caseLabel}<div style="font-size:11px;color:#8c959f;margin-bottom:8px">${rows.length} WO${rows.length!==1?'s':''} on this ticket</div><div style="overflow-x:auto"><table class="ticket-table" style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#f7f8fa"><th style="${_TH};text-align:center;width:36px">#</th><th style="${_TH}">WO Number</th><th style="${_TH}">WO Status</th><th style="${_TH}">Type</th><th style="${_TH}">Created</th><th style="${_TH}">Completed</th><th style="${_TH};white-space:normal">Part Order</th></tr></thead><tbody>${tableRows}</tbody></table></div></div></div>`;
+}
+function renderRelatedBySerial(serialNumber, currentWoId, rows) {
+  const sn=serialNumber||'—', uid='db-related-body-'+Date.now();
+  const title=`<div class="detail-section-title collapsible-hdr" data-target="${uid}">${ICONS.related}<span>All Problem History (SN: ${esc(sn)})</span><svg class="caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div>`;
+  const snLabel=`<div style="font-size:12px;color:#57606a;margin-bottom:10px">Laptop Device SN: <strong style="font-family:ui-monospace,monospace;color:#1f2328">${esc(sn)}</strong></div>`;
+  if (!rows||!rows.length) return `<div class="detail-section">${title}<div id="${uid}" class="collapsible-body" style="max-height:2000px">${snLabel}<div style="font-size:12px;color:#8c959f;font-style:italic;padding:4px 0 8px">No work orders found for this serial number.</div></div></div>`;
+  const groups={}, order=[];
+  rows.forEach(r=>{ const key=r.case_number?String(r.case_number):'__none__'; if(!groups[key]){groups[key]=[];order.push(key);} groups[key].push(r); });
+  let globalIdx=0;
+  const tableRows=order.map(key=>{ const wos=groups[key]; const ticket=key==='__none__'?'—':key; return wos.map((r,i)=>{ globalIdx++; const isCurrent=String(r.work_order_id)===String(currentWoId); const rowBg=isCurrent?'background:#fffbeb':''; const currentTag=isCurrent?`<span style="margin-left:6px;font-size:10px;font-weight:700;color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:1px 7px;vertical-align:middle">current</span>`:''; const woCell=isCurrent?`<span style="font-family:ui-monospace,monospace;font-size:13px;font-weight:700;color:#1f2328">${esc(r.work_order_id)}</span>${currentTag}`:`<button class="related-wo-id" data-wo="${esc(r.work_order_id)}" onclick="ccOpenDetail(this.dataset.wo)">${esc(r.work_order_id)}</button>`; const ticketCell=i===0?`<td rowspan="${wos.length}" style="font-family:ui-monospace,monospace;font-size:12px;font-weight:600;color:#3b82d4;vertical-align:top;padding-top:10px;white-space:nowrap;border-right:2px solid #bfdbfe;background:#eff6ff">${esc(ticket)}</td>`:''; const borderTop=i===0&&globalIdx>1?'border-top:2px solid #e5e7eb;':''; return `<tr style="${borderTop}${rowBg}"><td style="text-align:center;color:#8c959f;font-size:12px;width:36px;vertical-align:top;padding-top:10px${borderTop?';border-top:2px solid #e5e7eb':''}">${globalIdx}</td>${ticketCell}<td style="vertical-align:top;padding-top:10px">${woCell}</td><td style="vertical-align:top;padding-top:8px">${statusBadge(r.work_order_status)}</td><td style="font-size:12px;vertical-align:top;padding-top:10px">${esc(r.work_order_type||'—')}</td><td style="font-size:12px;white-space:nowrap;vertical-align:top;padding-top:10px">${fmt(r.created_on)}</td><td style="font-size:12px;white-space:nowrap;vertical-align:top;padding-top:10px">${fmt(r.completion_date)}</td><td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:top;padding-top:10px" title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</td></tr>`; }).join(''); }).join('');
+  return `<div class="detail-section">${title}<div id="${uid}" class="collapsible-body" style="max-height:4000px">${snLabel}<div style="font-size:11px;color:#8c959f;margin-bottom:8px">${rows.length} WO${rows.length!==1?'s':''} found for this serial number</div><div style="overflow-x:auto"><table class="ticket-table" style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#f7f8fa"><th style="${_TH};text-align:center;width:36px">#</th><th style="${_TH}">Ticket (Case#)</th><th style="${_TH}">WO Number</th><th style="${_TH}">WO Status</th><th style="${_TH}">Type</th><th style="${_TH}">Created</th><th style="${_TH}">Completed</th><th style="${_TH};white-space:normal">Case Description</th></tr></thead><tbody>${tableRows}</tbody></table></div></div></div>`;
+}
+function renderMondayEscalation(serialNumber, rows, currentWoId) {
+  if (!rows||!rows.length) return '';
+  const sn=serialNumber||'—', uid='db-monday-esc-'+Date.now();
+  const title=`<div class="detail-section-title collapsible-hdr" data-target="${uid}">${ICONS.monday}<span>All Escalation Monday (SN: ${esc(sn)})</span><svg class="caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div>`;
+  const snLabel=`<div style="font-size:12px;color:#57606a;margin-bottom:10px">Laptop Device SN: <strong style="font-family:ui-monospace,monospace;color:#1f2328">${esc(sn)}</strong></div>`;
+  function _extractWO(raw) { if(!raw) return ''; const str=raw.toString().trim(); const parts=str.split(/[\/,;\|\s]+/).map(p=>p.trim()).filter(Boolean); const wo=parts.find(p=>/^40\d{8,}/.test(p)); if(wo) return wo; if(/^40\d/.test(str.slice(0,10))) return str.slice(0,10); if(/^40\d/.test(str.slice(-10))) return str.slice(-10); return str; }
+  function _escBadge(status) { const v=(status||'').toLowerCase(); let bg='#f3f4f6',color='#374151',border='#d1d5db'; if(v==='complete'||v==='completed'){bg='#f0fdf4';color='#15803d';border='#bbf7d0';}else if(v.includes('approved')){bg='#eff6ff';color='#1d4ed8';border='#bfdbfe';}else if(v==='reject'||v==='rejected'){bg='#fef2f2';color='#dc2626';border='#fecaca';}else if(v==='technical escalation'){bg='#fef3c7';color='#92400e';border='#fde68a';}else if(v.includes('progress')||v.includes('running')||v.includes('pending')||v==='qa result'){bg='#eff6ff';color='#1d4ed8';border='#bfdbfe';} return `<span style="display:inline-block;font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;background:${bg};color:${color};border:1px solid ${border};white-space:nowrap">${esc(status||'—')}</span>`; }
+  function _fmtDate(iso) { if(!iso) return '—'; try { const d=new Date(String(iso).replace(' ','T')); if(isNaN(d)) return String(iso).slice(0,10)||'—'; return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); } catch(e) { return String(iso).slice(0,10)||'—'; } }
+  const tableRows=rows.map((r,i)=>{ const woNum=_extractWO(r.wo_case_id); const isCurrent=woNum&&String(woNum)===String(currentWoId); const ticketCell=r.case_number?`<span style="font-family:ui-monospace,monospace;font-size:12px;font-weight:600;color:#3b82d4">${esc(r.case_number)}</span>`:`<span style="color:#c9d0d8">—</span>`; const currentTag=`<span style="margin-left:6px;font-size:10px;font-weight:700;color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:1px 7px;vertical-align:middle">current</span>`; const woCell=woNum?(isCurrent?`<span style="font-family:ui-monospace,monospace;font-size:13px;font-weight:700;color:#1f2328">${esc(woNum)}</span>${currentTag}`:`<button class="related-wo-id" data-wo="${esc(woNum)}" onclick="ccOpenDetail(this.dataset.wo)">${esc(woNum)}</button>`):`<span style="color:#c9d0d8">—</span>`; return `<tr style="${i>0?'border-top:1px solid #f0f2f5':''}"><td style="text-align:center;color:#8c959f;font-size:12px;width:36px;vertical-align:top;padding-top:10px">${i+1}</td><td style="vertical-align:top;padding-top:10px;white-space:nowrap;border-right:2px solid #bfdbfe;background:#eff6ff;padding-right:12px">${ticketCell}</td><td style="vertical-align:top;padding-top:8px;white-space:nowrap">${woCell}</td><td style="vertical-align:top;padding-top:8px;max-width:180px"><div style="font-size:13px;font-weight:600;color:#1f2328;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.item_name)}">${esc(r.item_name||'—')}</div></td><td style="vertical-align:top;padding-top:8px">${_escBadge(r.status)}</td><td style="font-size:12px;color:#57606a;white-space:nowrap;vertical-align:top;padding-top:10px">${_fmtDate(r.item_created_at)}</td></tr>`; }).join('');
+  return `<div class="detail-section">${title}<div id="${uid}" class="collapsible-body" style="max-height:4000px">${snLabel}<div style="font-size:11px;color:#8c959f;margin-bottom:8px">${rows.length} escalation record${rows.length!==1?'s':''} found for this serial number</div><div style="overflow-x:auto"><table class="ticket-table" style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#f7f8fa"><th style="${_TH};text-align:center;width:36px">#</th><th style="${_TH};width:130px;background:#eff6ff;border-right:2px solid #bfdbfe">Ticket (Case#)</th><th style="${_TH};width:115px">WO Number</th><th style="${_TH}">Task / Item Name</th><th style="${_TH};width:160px">Status</th><th style="${_TH};width:115px">Escalation Date</th></tr></thead><tbody>${tableRows}</tbody></table></div></div></div>`;
+}
+function initCollapsibles() {
+  document.querySelectorAll('#cc-detail-body .collapsible-hdr').forEach(hdr => {
+    hdr.addEventListener('click', () => {
+      const target = document.getElementById(hdr.dataset.target);
+      if (!target) return;
+      const isCollapsed = target.classList.contains('collapsed');
+      if (isCollapsed) { target.classList.remove('collapsed'); target.style.maxHeight = target.scrollHeight + 'px'; hdr.classList.remove('collapsed'); }
+      else { target.style.maxHeight = target.scrollHeight + 'px'; requestAnimationFrame(() => { target.classList.add('collapsed'); hdr.classList.add('collapsed'); }); }
+    });
+  });
+}
+function ccOpenDetail(woId) {
+  const overlay = document.getElementById('cc-modal-detail');
+  const body    = document.getElementById('cc-detail-body');
+  body.innerHTML = '<div class="modal-loading">Loading detail…</div>';
+  overlay.classList.add('open');
+  Promise.all([
+    fetch(`/admin/api/wo-detail/${woId}`).then(r => r.json()),
+    fetch(`/admin/api/wo-parts/${woId}`).then(r => r.json()),
+    fetch(`/admin/api/wo-related-serial/${woId}`).then(r => r.json()),
+    fetch(`/admin/api/wo-ticket-history/${woId}`).then(r => r.json()),
+    fetch(`/admin/api/wo-monday-escalation/${woId}`).then(r => r.json()),
+  ])
+    .then(([d, parts, relatedSerial, ticketHistory, mondayEsc]) => {
+      if (d.error) { body.innerHTML = `<div style="padding:24px;color:#dc2626">${esc(d.error)}</div>`; return; }
+      body.innerHTML =
+        renderHero(d) +
+        `<div class="detail-body-inner">` +
+          renderTimeline(d, parts) +
+          renderParts(parts, d.work_order_id) +
+          renderTicketHistory(ticketHistory.case_number, ticketHistory.current_wo_id, ticketHistory.rows) +
+          renderRelatedBySerial(relatedSerial.serial_number, relatedSerial.current_wo_id, relatedSerial.rows) +
+          renderMondayEscalation(mondayEsc.serial_number, mondayEsc.rows, d.work_order_id) +
+          renderDetailBody(d) +
+        `</div>`;
+      initCollapsibles();
+    })
+    .catch(() => { body.innerHTML = '<div style="padding:24px;color:#dc2626">Failed to load detail.</div>'; });
+}
+document.getElementById('cc-btn-detail-close').addEventListener('click', () =>
+  document.getElementById('cc-modal-detail').classList.remove('open'));
+document.getElementById('cc-modal-detail').addEventListener('click', e => {
+  if (e.target === document.getElementById('cc-modal-detail'))
+    document.getElementById('cc-modal-detail').classList.remove('open');
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.getElementById('cc-hist-overlay').classList.remove('open');
+    document.getElementById('cc-modal-detail').classList.remove('open');
+    document.getElementById('cc-disc-drawer').classList.remove('open');
+    document.getElementById('cc-disc-overlay').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SERIAL HISTORY MODAL — All Problem History
+═══════════════════════════════════════════════════════════════════════════ */
+window.ccOpenSnHistory = function(serial, currentWoId, currentCaseN) {
+  if (!serial) return;
+  document.getElementById('cc-hist-title').textContent = 'All Problem History (SN: ' + serial + ')';
+  document.getElementById('cc-hist-body').innerHTML = '<div class="cc-hist-loading">Loading…</div>';
+  document.getElementById('cc-hist-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  Promise.all([
+    fetch('/admin/api/sn-history/' + encodeURIComponent(serial)).then(r => r.json()),
+    fetch('/admin/api/sn-monday-escalation/' + encodeURIComponent(serial)).then(r => r.json()),
+  ])
+    .then(([woData, escData]) => {
+      document.getElementById('cc-hist-body').innerHTML =
+        ccRenderSnHistory(woData.serial_number, woData.rows, currentWoId || '', currentCaseN || '') +
+        ccRenderMondayEscalation(escData.serial_number, escData.rows, currentWoId || '');
+    })
+    .catch(() => { document.getElementById('cc-hist-body').innerHTML = '<div class="cc-hist-empty">Failed to load history. Please try again.</div>'; });
+};
+
+window.ccCloseSnHistory = function() {
+  document.getElementById('cc-hist-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+};
+
+function ccStatusBadge(s) {
+  if (!s) return '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:#f0f2f5;color:#57606a;white-space:nowrap">—</span>';
+  const sl = s.toLowerCase();
+  let bg='#f0f2f5',color='#57606a',border='#d1d5db';
+  if (sl==='closed'||sl==='completed'||sl==='repair completed'||sl==='ready for pickup'||sl.includes('unit returned')) { bg='#bbf7d0';color='#166534'; }
+  else if (sl.includes('transit'))                         { bg='#ede9fe';color='#6d28d9'; }
+  else if (sl.includes('part')&&sl.includes('hold'))       { bg='#fce7f3';color='#9d174d'; }
+  else if (sl.includes('part')&&sl.includes('request'))    { bg='#fef3c7';color='#92400e'; }
+  else if (sl.includes('part')&&sl.includes('deliver'))    { bg='#dcfce7';color='#15803d'; }
+  else if (sl==='customer hold')                           { bg='#ffe4e6';color='#be123c'; }
+  else if (sl==='in repair')                               { bg='#dbeafe';color='#1d4ed8'; }
+  else if (sl.includes('technician assigned'))             { bg='#fef3c7';color='#b45309'; }
+  else if (sl==='order accepted')                          { bg='#ecfccb';color='#4d7c0f'; }
+  else if (sl.includes('pick')&&sl.includes('pack'))       { bg='#ffedd5';color='#c2410c'; }
+  else if (sl.includes('cancel'))                          { bg='#f3f4f6';color='#6b7280'; }
+  return `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:${bg};color:${color};border:1px solid ${border};white-space:nowrap">${esc(s)}</span>`;
+}
+
+function ccRenderSnHistory(sn, rows, currentWoId, currentCaseN) {
+  const snLabel = `<div class="cc-hist-sn-label">Laptop Device SN: <strong>${esc(sn || '—')}</strong></div>`;
+  if (!rows || !rows.length) {
+    return snLabel + `<div class="cc-hist-empty">No work orders found for this serial number in the WO database.</div>`;
+  }
+  const woCount = `<div class="cc-hist-wo-count">${rows.length} WO${rows.length !== 1 ? 's' : ''} found for this serial number</div>`;
+  const groups = {}, order = [];
+  rows.forEach(r => {
+    const key = r.case_number ? String(r.case_number) : '__none__';
+    if (!groups[key]) { groups[key] = []; order.push(key); }
+    groups[key].push(r);
+  });
+  const thS = 'padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:#57606a;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e5e7eb;white-space:nowrap';
+  const _currentTag = `<span style="margin-left:6px;font-size:10px;font-weight:700;color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:1px 7px;vertical-align:middle">current</span>`;
+  let globalIdx = 0, tbody = '';
+  order.forEach((key, gIdx) => {
+    const wos = groups[key]; const ticket = key === '__none__' ? '—' : key;
+    // detect if this ticket group is the current case
+    const isCurrCase = currentCaseN && key !== '__none__' && key === currentCaseN;
+    wos.forEach((r, i) => {
+      globalIdx++;
+      const isCurrWo  = currentWoId && String(r.work_order_id) === currentWoId;
+      const rowBg     = isCurrWo ? 'background:#fffbeb;' : '';
+      const groupTop  = i === 0 && gIdx > 0 ? 'border-top:2px solid #e5e7eb;' : '';
+      const ticketLabel = isCurrCase && i === 0
+        ? `${esc(ticket)}${_currentTag}`
+        : esc(ticket);
+      const ticketCell = i === 0
+        ? `<td class="cc-hist-ticket-cell" rowspan="${wos.length}" style="padding:9px 10px;vertical-align:top${gIdx>0?';border-top:2px solid #e5e7eb':''}">${ticketLabel}</td>`
+        : '';
+      const woLabel = isCurrWo
+        ? `<span style="font-family:ui-monospace,SFMono-Regular,monospace;font-size:12.5px;font-weight:700;color:#1f2328">${esc(r.work_order_id)}</span>${_currentTag}`
+        : `<button class="cc-hist-wo-btn" onclick="ccOpenDetail(${esc(r.work_order_id)})">${esc(r.work_order_id)}</button>`;
+      tbody += `<tr style="${rowBg}${groupTop}">
+        <td style="text-align:center;color:#8b95a1;font-size:12px;width:32px;padding:9px 10px">${globalIdx}</td>
+        ${ticketCell}
+        <td style="padding:9px 10px">${woLabel}</td>
+        <td style="padding:8px 10px">${ccStatusBadge(r.work_order_status)}</td>
+        <td style="font-size:12px;padding:9px 10px">${esc(r.work_order_type || '—')}</td>
+        <td style="font-size:12px;white-space:nowrap;padding:9px 10px">${esc(r.created_on ? r.created_on.slice(0,10) : '—')}</td>
+        <td style="font-size:12px;white-space:nowrap;padding:9px 10px">${esc(r.completion_date ? r.completion_date.slice(0,10) : '—')}</td>
+        <td style="font-size:12px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:9px 10px" title="${esc(r.case_desc||'')}">${esc(r.case_desc || '—')}</td>
+      </tr>`;
+    });
+  });
+  const table = `<div class="cc-hist-table-wrap"><table class="cc-hist-table">
+    <thead><tr>
+      <th style="${thS};text-align:center;width:32px">#</th>
+      <th style="${thS}">Ticket (Case #)</th>
+      <th style="${thS}">WO Number</th>
+      <th style="${thS}">WO Status</th>
+      <th style="${thS}">Type</th>
+      <th style="${thS}">Created</th>
+      <th style="${thS}">Completed</th>
+      <th style="${thS};white-space:normal">Case Description</th>
+    </tr></thead>
+    <tbody>${tbody}</tbody>
+  </table></div>`;
+  return snLabel + woCount + table;
+}
+
+function ccEscStatusBadge(status) {
+  const v = (status || '').toLowerCase().trim();
+  let bg = '#f3f4f6', color = '#374151', border = '#d1d5db';
+  if (v === 'technical escalation')   { bg='#fef3c7'; color='#92400e'; border='#fde68a'; }
+  else if (v === 'progress')          { bg='#eff6ff'; color='#1d4ed8'; border='#bfdbfe'; }
+  else if (v === 'qa result')         { bg='#f5f3ff'; color='#6d28d9'; border='#ddd6fe'; }
+  else if (v === 'complete'||v === 'completed') { bg='#dcfce7'; color='#15803d'; border='#86efac'; }
+  else if (v === 'approved to order') { bg='#dbeafe'; color='#1e40af'; border='#93c5fd'; }
+  else if (v === 'reject')            { bg='#fee2e2'; color='#b91c1c'; border='#fca5a5'; }
+  return `<span style="display:inline-block;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:600;background:${bg};color:${color};border:1px solid ${border};white-space:nowrap">${esc(status || '—')}</span>`;
+}
+
+function ccRenderMondayEscalation(sn, rows, currentWoId) {
+  if (!rows || !rows.length) return '';
+  const _discSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+  const thS = 'padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:#57606a;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e5e7eb;white-space:nowrap';
+  const _currentTag = `<span style="margin-left:6px;font-size:10px;font-weight:700;color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:1px 7px;vertical-align:middle">current</span>`;
+
+  function _extractWO(raw) {
+    if (!raw) return '';
+    const str = raw.toString().trim();
+    const parts = str.split(/[\/,;\|\s]+/).map(p => p.trim()).filter(Boolean);
+    const wo = parts.find(p => /^40\d{8,}/.test(p));
+    if (wo) return wo;
+    if (/^40\d/.test(str.slice(0,10))) return str.slice(0,10);
+    if (/^40\d/.test(str.slice(-10))) return str.slice(-10);
+    return str;
+  }
+
+  const snLabel  = `<div class="cc-hist-sn-label" style="margin-top:4px">Laptop Device SN: <strong>${esc(sn || '—')}</strong></div>`;
+  const recCount = `<div class="cc-hist-wo-count">${rows.length} escalation record${rows.length !== 1 ? 's' : ''} found for this serial number</div>`;
+
+  let tbody = '';
+  rows.forEach((r, i) => {
+    const woNum      = _extractWO(r.wo_case_id);
+    const isCurrRow  = currentWoId && woNum && woNum === currentWoId;
+    const ticketCell = r.case_number
+      ? `<span style="font-family:ui-monospace,SFMono-Regular,monospace;font-size:12px;font-weight:600;color:#3b82d4">${esc(r.case_number)}</span>`
+      : `<span style="color:#c9d0d8">—</span>`;
+    const woCell = woNum
+      ? (isCurrRow
+          ? `<span style="font-family:ui-monospace,SFMono-Regular,monospace;font-size:12.5px;font-weight:700;color:#1f2328">${esc(woNum)}</span>${_currentTag}`
+          : `<button class="cc-hist-wo-btn" onclick="ccOpenDetail(${esc(woNum)})" style="font-family:ui-monospace,SFMono-Regular,monospace">${esc(woNum)}</button>`)
+      : `<span style="color:#c9d0d8">—</span>`;
+    const discCount  = r.disc_count || 0;
+    const discBtn    = r.monday_item_id
+      ? (discCount > 0
+          ? `<button style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid #3b82d4;border-radius:5px;background:rgba(59,130,212,.06);color:#1d4ed8;font-size:11.5px;cursor:pointer;font-family:inherit" onclick="ccOpenDisc('${esc(r.monday_item_id)}','${esc(r.item_name||'')}','${esc(r.board_id||'')}' )">${_discSvg}<span style="font-size:10px;background:#3b82d4;color:#fff;border-radius:9px;padding:0 5px;min-width:16px;text-align:center;line-height:16px">${discCount}</span></button>`
+          : `<button style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid #d0d7de;border-radius:5px;background:#fff;color:#374151;font-size:11.5px;cursor:pointer;font-family:inherit" onclick="ccOpenDisc('${esc(r.monday_item_id)}','${esc(r.item_name||'')}','${esc(r.board_id||'')}' )">${_discSvg}</button>`)
+      : `<button style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid #d0d7de;border-radius:5px;background:#fff;color:#374151;font-size:11.5px;opacity:.35;cursor:default;font-family:inherit" disabled>${_discSvg}</button>`;
+    const escDate = r.item_created_at ? r.item_created_at.slice(0, 10) : '—';
+    const rowBg   = isCurrRow ? 'background:#fffbeb;' : '';
+    tbody += `<tr style="${rowBg}${i > 0 ? 'border-top:1px solid #f0f2f5' : ''}">
+      <td style="text-align:center;color:#8b95a1;font-size:12px;width:32px;padding:9px 10px">${i + 1}</td>
+      <td style="padding:9px 10px;border-right:2px solid #bfdbfe;background:#eff6ff;white-space:nowrap">${ticketCell}</td>
+      <td style="padding:9px 10px;white-space:nowrap">${woCell}</td>
+      <td style="padding:9px 10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.item_name||'')}">${esc(r.item_name || '—')}</td>
+      <td style="padding:8px 10px">${ccEscStatusBadge(r.status)}</td>
+      <td style="font-size:12px;color:#57606a;white-space:nowrap;padding:9px 10px">${esc(escDate)}</td>
+      <td style="padding:8px 10px;text-align:center">${discBtn}</td>
+    </tr>`;
+  });
+
+  const table = `<div class="cc-hist-table-wrap"><table class="cc-hist-table">
+    <thead><tr>
+      <th style="${thS};text-align:center;width:32px">#</th>
+      <th style="${thS};background:#eff6ff;border-right:2px solid #bfdbfe;color:#3730a3">Ticket (Case#)</th>
+      <th style="${thS}">WO Number</th>
+      <th style="${thS}">Task / Item Name</th>
+      <th style="${thS}">Status</th>
+      <th style="${thS}">Escalation Date</th>
+      <th style="${thS};text-align:center;width:90px">Discussion</th>
+    </tr></thead>
+    <tbody>${tbody}</tbody>
+  </table></div>`;
+
+  const sectionHeader = `<div style="display:flex;align-items:center;gap:8px;margin-top:20px;margin-bottom:10px;padding-top:16px;border-top:2px solid #e5e7eb">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3730a3" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+    <span style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#3730a3">All Escalation Monday (SN: ${esc(sn || '—')})</span>
+  </div>`;
+
+  return sectionHeader + snLabel + recCount + table;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DISCUSSION DRAWER
+═══════════════════════════════════════════════════════════════════════════ */
+(function () {
+  function _initials(name) {
+    if (!name) return '?';
+    const p = name.trim().split(/\s+/);
+    return p.length >= 2 ? (p[0][0] + p[p.length-1][0]).toUpperCase() : name.slice(0,2).toUpperCase();
+  }
+  function _avatarColor(name) {
+    const colors = ['#2563eb','#16a34a','#d97706','#7c3aed','#dc2626','#0891b2','#65a30d','#db2777','#ea580c','#0d9488','#7c5cd8','#b45309','#15803d','#1d4ed8','#9333ea','#c2410c','#0369a1','#4f46e5','#be185d','#047857'];
+    let h = 5381; const s = (name || '').toLowerCase();
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h) ^ s.charCodeAt(i);
+    return colors[(h >>> 0) % colors.length];
+  }
+  function _fmtTs(iso) {
+    if (!iso) return '';
+    try {
+      const d = new Date(iso);
+      if (isNaN(d)) return iso.slice(0,16).replace('T',' ');
+      return d.toLocaleString('en-GB', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    } catch(e) { return iso.slice(0,16).replace('T',' '); }
+  }
+  function _cleanBody(txt) { return (txt || '').replace(/[\uFEFF\u200B\u200C\u200D\u00A0]/g, '').trim(); }
+  function _linkify(txt) {
+    return esc(txt).replace(/(https?:\/\/[^\s<>"']+)/g,
+      '<a href="$1" target="_blank" rel="noopener noreferrer" class="cc-disc-link">$1</a>');
+  }
+  function _renderDiscDrawer(data) {
+    const body = document.getElementById('cc-disc-drawer-body');
+    if (!data || !data.updates || !data.updates.length) {
+      body.innerHTML = '<div class="cc-disc-empty">No discussion threads found for this item.</div>'; return;
+    }
+    let html = '';
+    for (const upd of data.updates) {
+      const bodyText   = _cleanBody(upd.body_text);
+      const authorName = upd.creator_name || upd.creator_id || 'Unknown';
+      html += `<div class="cc-disc-update">
+        <div class="cc-disc-update-head">
+          <div class="cc-disc-avatar" style="background:${_avatarColor(authorName)}">${_initials(authorName)}</div>
+          <div><div class="cc-disc-author">${esc(authorName)}</div><div class="cc-disc-time">${_fmtTs(upd.created_at)}</div></div>
+        </div>
+        <div class="cc-disc-update-body">${bodyText ? _linkify(bodyText) : '<em style="color:#9ca3af">— empty —</em>'}</div>`;
+      if (upd.replies && upd.replies.length) {
+        html += '<div class="cc-disc-replies">';
+        for (const rpl of upd.replies) {
+          const rBody = _cleanBody(rpl.body_text);
+          const rName = rpl.creator_name || rpl.creator_id || 'Unknown';
+          html += `<div class="cc-disc-reply">
+            <div class="cc-disc-reply-avatar" style="background:${_avatarColor(rName)}">${_initials(rName)}</div>
+            <div class="cc-disc-reply-content">
+              <span class="cc-disc-reply-author">${esc(rName)}</span>
+              <span class="cc-disc-reply-time">${_fmtTs(rpl.created_at)}</span>
+              <div class="cc-disc-reply-body">${rBody ? _linkify(rBody) : '<em style="color:#9ca3af">— empty —</em>'}</div>
+            </div>
+          </div>`;
+        }
+        html += '</div>';
+      }
+      html += '</div>';
+    }
+    body.innerHTML = html;
+  }
+  window.ccOpenDisc = function(itemId, itemName, boardId) {
+    document.getElementById('cc-disc-drawer-title').textContent    = 'Discussion';
+    document.getElementById('cc-disc-drawer-subtitle').textContent = itemName || '';
+    document.getElementById('cc-disc-drawer-body').innerHTML = '<div class="cc-disc-loading">Loading discussions…</div>';
+    const footer = document.getElementById('cc-disc-footer');
+    const link   = document.getElementById('cc-disc-monday-link');
+    if (boardId) { link.href = 'https://ibm.monday.com/boards/' + encodeURIComponent(boardId); footer.style.display = ''; }
+    else         { footer.style.display = 'none'; }
+    document.getElementById('cc-disc-drawer').classList.add('open');
+    document.getElementById('cc-disc-overlay').classList.add('open');
+    fetch('/admin/monday-data/discussion/' + encodeURIComponent(itemId))
+      .then(r => r.json()).then(data => _renderDiscDrawer(data))
+      .catch(() => { document.getElementById('cc-disc-drawer-body').innerHTML = '<div class="cc-disc-empty">Failed to load discussions.</div>'; });
+  };
+  function _close() {
+    document.getElementById('cc-disc-drawer').classList.remove('open');
+    document.getElementById('cc-disc-overlay').classList.remove('open');
+  }
+  document.getElementById('cc-disc-close').addEventListener('click', _close);
+  document.getElementById('cc-disc-overlay').addEventListener('click', _close);
+  document.getElementById('cc-disc-drawer').addEventListener('click', e => e.stopPropagation());
+})();
+
 
 /* ── Status colour palette ─── */
 const OV_STATUS_COLOR = {
@@ -210,8 +1411,36 @@ function _positionTip(clientX, clientY) {
 }
 function _hideTip() { _floatTip.style.display = 'none'; }
 
+/* ── Shared Y-axis helper ─────────────────────────────────────── */
+const BAR_MAX_H = 110;   /* px — default chart height, matches .ov-chart { height } */
+const Y_TICKS   = 4;     /* number of tick lines on Y axis     */
+
+function _niceMax(rawMax) {
+  /* Round up to next multiple of Y_TICKS so every tick is a clean integer */
+  if (rawMax <= 0) return Y_TICKS;
+  return Math.ceil(rawMax / Y_TICKS) * Y_TICKS;
+}
+
+function _renderYAxis(axisId, maxVal, barHeightPx) {
+  const el = document.getElementById(axisId);
+  if (!el) return;
+  const h = barHeightPx || BAR_MAX_H;
+  let html = '';
+  for (let i = 0; i <= Y_TICKS; i++) {
+    const val   = Math.round(maxVal * i / Y_TICKS);
+    const pct   = (i / Y_TICKS) * 100;             /* 0% = bottom, 100% = top */
+    const label = val >= 1000 ? (val/1000).toFixed(val%1000===0?0:1)+'k' : val;
+    /* translateY(-50%) centres label on its grid line; i=0 nudges up so it stays inside */
+    const shift = i === 0 ? 'translateY(-100%)' : 'translateY(-50%)';
+    html += `<div class="ov-y-tick" style="bottom:${pct}%;transform:${shift}">${label}</div>`;
+  }
+  el.innerHTML = html;
+  el.dataset.maxVal = maxVal;  /* store for re-render on resize */
+}
+
 /* ── Render: Open escalations by date (stacked coloured bars) ─── */
-function renderOpenEscChart(data) {
+function renderOpenEscChart(data, sharedMax, barHeightPx) {
+  const h          = barHeightPx || BAR_MAX_H;
   const rows       = data.open_esc_by_date        || [];
   const statusRows = data.open_esc_by_date_status || [];
   const total      = data.esc_open_total          || 0;
@@ -231,12 +1460,14 @@ function renderOpenEscChart(data) {
     byDay[r.day].push({ status: r.status, count: r.count });
   });
 
-  const max       = Math.max(...rows.map(d => d.count), 1);
-  const BAR_MAX_H = 100;
+  const localMax = Math.max(...rows.map(d => d.count), 1);
+  const max      = _niceMax(sharedMax != null ? sharedMax : localMax);
 
   /* Pre-build tooltip HTML per day (stored in data-* attr on the stack el) */
-  const bars = rows.map(d => {
-    const totalH = Math.max(2, Math.round(d.count / max * BAR_MAX_H));
+  const barCols  = [];
+  const lblItems = [];
+  rows.forEach(d => {
+    const totalH = Math.max(2, Math.round(d.count / max * h));
     const lbl    = d.day.slice(5);
     const segs   = byDay[d.day] || [];
 
@@ -245,25 +1476,30 @@ function renderOpenEscChart(data) {
       return `<div class="ov-seg" style="height:${segH}px;background:${ovStatusColor(s.status)}"></div>`;
     }).join('');
 
-    /* Build tooltip HTML inline — stored as JSON-safe data attr */
     const tipDate = `<div class="ov-tip-date">${esc(d.day)} &mdash; ${d.count} total</div>`;
     const tipRows = segs.map(s =>
       `<div class="ov-tip-row"><span class="ov-tip-dot" style="background:${ovStatusColor(s.status)}"></span>${esc(s.status)}: <strong>${s.count}</strong></div>`
     ).join('');
-    /* encode as base64 so it survives the HTML attribute */
     const tipB64 = btoa(unescape(encodeURIComponent(tipDate + tipRows)));
 
-    return `<div class="ov-bar-col">
-      <div class="ov-bar-stack" style="height:${totalH}px" data-tip="${tipB64}">${segHtml}</div>
-      <div class="ov-bar-lbl">${esc(lbl)}</div>
-    </div>`;
-  }).join('');
+    barCols.push(`<div class="ov-bar-col"><div class="ov-bar-stack" style="height:${totalH}px" data-tip="${tipB64}">${segHtml}</div></div>`);
+    lblItems.push(`<div class="ov-bar-lbl">${esc(lbl)}</div>`);
+  });
+
+  const outer = document.createElement('div');
+  outer.className = 'ov-chart-outer';
 
   const chart = document.createElement('div');
   chart.className = 'ov-chart';
-  chart.innerHTML = bars;
+  chart.innerHTML = barCols.join('');
 
-  /* Attach mouse events to each stack (not CSS hover — avoids clipping issues) */
+  const lblRow = document.createElement('div');
+  lblRow.className = 'ov-lbl-row vertical';
+  lblRow.innerHTML = lblItems.join('');
+
+  outer.appendChild(chart);
+  outer.appendChild(lblRow);
+
   chart.querySelectorAll('.ov-bar-stack[data-tip]').forEach(el => {
     el.addEventListener('mouseenter', e => {
       const html = decodeURIComponent(escape(atob(el.dataset.tip)));
@@ -275,17 +1511,171 @@ function renderOpenEscChart(data) {
 
   const wrap = document.getElementById('ov-chart');
   wrap.innerHTML = '';
-  wrap.appendChild(chart);
+  wrap.appendChild(outer);
 }
 
 /* ── Initial fetch ─── */
-fetch('/admin/api/dashboard-stats')
-  .then(r => r.json())
-  .then(data => renderOpenEscChart(data))
-  .catch(() => {
-    document.getElementById('ov-chart').innerHTML = '<div class="ov-loading">Failed to load.</div>';
-    document.getElementById('ov-esc-sub').textContent = '';
+function loadEscChart() {
+  const btn = document.getElementById('esc-refresh-btn');
+  if (btn) btn.classList.add('spinning');
+  const chart = document.getElementById('ov-chart');
+  if (chart) chart.innerHTML = '<div class="ov-loading">Loading…</div>';
+  const sub = document.getElementById('ov-esc-sub');
+  if (sub) sub.textContent = 'Loading…';
+  fetch('/admin/api/dashboard-stats')
+    .then(r => r.json())
+    .then(data => { _escData = data; _renderAll(); })
+    .catch(() => {
+      if (chart) chart.innerHTML = '<div class="ov-loading">Failed to load.</div>';
+      if (sub) sub.textContent = '';
+    })
+    .finally(() => { if (btn) btn.classList.remove('spinning'); });
+}
+loadEscChart();
+
+document.getElementById('esc-refresh-btn').addEventListener('click', loadEscChart);
+document.getElementById('cc-refresh-btn').addEventListener('click', loadClosingCodeTable);
+
+/* ── Return Reminder widget ─────────────────────────────────────────────── */
+const RR_DC_COLOR  = '#f59e0b';   /* amber  — Pending DC Generate  */
+const RR_PRT_COLOR = '#3b82f6';   /* blue   — Pending with Partner */
+
+function _buildRrChart(rows, valueKey, color, chartId, axisId, sharedMax) {
+  const wrap    = document.getElementById(chartId);
+  const localMx = Math.max(...rows.map(r => r[valueKey] || 0), 1);
+  const max     = _niceMax(sharedMax != null ? sharedMax : localMx);
+
+  const barCols  = [];
+  const lblItems = [];
+  rows.forEach(r => {
+    const val = r[valueKey] || 0;
+    const h   = val > 0 ? Math.max(2, Math.round(val / max * BAR_MAX_H)) : 2;
+    const lbl   = r.week_label || r.week_key || '';
+    const range = r.week_range || lbl;
+    const tip = btoa(unescape(encodeURIComponent(
+      `<div class="ov-tip-date">${esc(lbl)} &nbsp;<span style="font-weight:400;color:#94a3b8">${esc(range)}</span></div>` +
+      `<div class="ov-tip-row"><span class="ov-tip-dot" style="background:${color}"></span>${val} item${val !== 1 ? 's' : ''}</div>`
+    )));
+    const bar = val > 0
+      ? `<div class="rr-bar" style="height:${h}px;background:${color}" data-tip="${tip}"></div>`
+      : `<div class="rr-bar" style="height:${h}px;background:#e5e7eb;opacity:.4"></div>`;
+    barCols.push(`<div class="rr-bar-col">${bar}</div>`);
+    lblItems.push(`<div class="ov-bar-lbl">${esc(lbl)}</div>`);
   });
+
+  const outer = document.createElement('div');
+  outer.className = 'rr-chart-outer';
+
+  const chart = document.createElement('div');
+  chart.className = 'rr-chart';
+  chart.innerHTML = barCols.join('');
+
+  const lblRow = document.createElement('div');
+  lblRow.className = 'rr-lbl-row';
+  lblRow.innerHTML = lblItems.join('');
+
+  outer.appendChild(chart);
+  outer.appendChild(lblRow);
+
+  chart.querySelectorAll('.rr-bar[data-tip]').forEach(el => {
+    el.addEventListener('mouseenter', e => {
+      const html = decodeURIComponent(escape(atob(el.dataset.tip)));
+      _showTip(html, e.clientX, e.clientY);
+    });
+    el.addEventListener('mousemove',  e => _positionTip(e.clientX, e.clientY));
+    el.addEventListener('mouseleave', () => _hideTip());
+  });
+
+  wrap.innerHTML = '';
+  wrap.appendChild(outer);
+}
+
+function renderReturnReminderChart(rrData, sharedMax) {
+  const dcTotal  = rrData.pending_dc_total      || 0;
+  const prtTotal = rrData.pending_partner_total || 0;
+  const rows     = rrData.by_week               || [];
+
+  document.getElementById('rr-dc-val').textContent  = dcTotal.toLocaleString();
+  document.getElementById('rr-prt-val').textContent = prtTotal.toLocaleString();
+
+  const total = dcTotal + prtTotal;
+  document.getElementById('rr-sub').innerHTML =
+    `<strong>${total.toLocaleString()}</strong> pending return items &mdash; grouped by week`;
+
+  const empty = '<div class="ov-loading">No data.</div>';
+  if (!rows.length) {
+    document.getElementById('rr-chart-dc').innerHTML  = empty;
+    document.getElementById('rr-chart-prt').innerHTML = empty;
+    return;
+  }
+
+  _buildRrChart(rows, 'pending_dc',      RR_DC_COLOR,  'rr-chart-dc',  'rr-yaxis-dc',  sharedMax);
+  _buildRrChart(rows, 'pending_partner', RR_PRT_COLOR, 'rr-chart-prt', 'rr-yaxis-prt', sharedMax);
+}
+
+/* ── Combined load: fetch both APIs, compute shared max, render all ── */
+let _rrData  = null;
+let _escData = null;
+
+function _rrMax() {
+  if (!_rrData) return null;
+  return Math.max(
+    ...(_rrData.by_week || []).map(r => Math.max(r.pending_dc || 0, r.pending_partner || 0)), 1
+  );
+}
+
+function _renderAll() {
+  if (_rrData)  renderReturnReminderChart(_rrData,  _rrMax());
+  if (_escData) requestAnimationFrame(_syncEscChartHeight);  /* height must be known before rendering bars */
+}
+
+function loadReturnReminder() {
+  const btn    = document.getElementById('rr-refresh-btn');
+  const wrapDc = document.getElementById('rr-chart-dc');
+  const wrapPt = document.getElementById('rr-chart-prt');
+  const sub    = document.getElementById('rr-sub');
+  const loading = '<div class="ov-loading">Loading…</div>';
+  if (btn)    btn.classList.add('spinning');
+  if (wrapDc) wrapDc.innerHTML = loading;
+  if (wrapPt) wrapPt.innerHTML = loading;
+  if (sub)    sub.textContent  = 'Loading…';
+  fetch('/admin/api/dashboard-return-reminder')
+    .then(r => r.json())
+    .then(data => { _rrData = data; _renderAll(); })
+    .catch(() => {
+      const err = '<div class="ov-loading">Failed to load.</div>';
+      if (wrapDc) wrapDc.innerHTML = err;
+      if (wrapPt) wrapPt.innerHTML = err;
+      if (sub)    sub.textContent  = '';
+    })
+    .finally(() => { if (btn) btn.classList.remove('spinning'); });
+}
+loadReturnReminder();
+document.getElementById('rr-refresh-btn').addEventListener('click', loadReturnReminder);
+
+/* ── Sync escalation chart height to RR card after both have rendered ── */
+const _ESC_LBL_ROW_H = 35;   /* reserved px for vertical x-axis label row below the chart */
+
+function _syncEscChartHeight() {
+  const rrCard  = document.querySelector('.ov-grid .ov-card:not(.stretch)');
+  const escCard = document.querySelector('.ov-card.stretch');
+  if (!rrCard || !escCard) return;
+
+  /* Available height inside escCard = card height minus header/sub/padding/label-row */
+  const escHdr    = escCard.querySelector('.ov-card-hdr');
+  const escSub    = escCard.querySelector('.ov-card-sub');
+  const cardH     = escCard.clientHeight;
+  const usedH     = (escHdr ? escHdr.offsetHeight : 0) +
+                    (escSub ? escSub.offsetHeight  : 0) +
+                    28 + 12 + _ESC_LBL_ROW_H;   /* padding + sub margin + label row */
+  const chartH    = Math.max(80, cardH - usedH);
+
+  escCard.style.setProperty('--esc-chart-h', chartH + 'px');
+
+  if (_escData) renderOpenEscChart(_escData, null, chartH);
+}
+
+window.addEventListener('resize', _syncEscChartHeight);
 
 </script>
 {% endblock %}

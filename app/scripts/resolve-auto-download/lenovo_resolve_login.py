@@ -403,6 +403,22 @@ def solve_captcha_with_timeout(solver: RecaptchaSolver) -> bool:
     return True
 
 
+def _is_captcha_already_checked(driver: ChromiumPage) -> bool:
+    """Return True when the reCAPTCHA checkbox is already ticked (saved session)."""
+    try:
+        # The reCAPTCHA widget lives inside an iframe; DrissionPage lets us
+        # query the inner document directly via a nested selector.
+        frame = driver.ele('xpath://iframe[contains(@src,"recaptcha") and contains(@src,"anchor")]', timeout=5)
+        if frame is None:
+            return False
+        # Inside the anchor frame the checked state is carried by
+        # #recaptcha-anchor[aria-checked="true"]
+        checked = frame.inner_ele('xpath://*[@id="recaptcha-anchor" and @aria-checked="true"]', timeout=3)
+        return checked is not None
+    except Exception:
+        return False
+
+
 def attempt_login(driver: ChromiumPage) -> bool:
     solver = RecaptchaSolver(driver)
 
@@ -418,12 +434,16 @@ def attempt_login(driver: ChromiumPage) -> bool:
     print("[*] Filling password...")
     driver.ele('xpath://input[@formcontrolname="password"]', timeout=10).input(PASSWORD, clear=True)
 
-    # 4. Solve reCAPTCHA (with timeout)
-    print("[*] Solving reCAPTCHA...")
-    t0 = time.time()
-    if not solve_captcha_with_timeout(solver):
-        return False   # caller will restart Chrome
-    print(f"[+] reCAPTCHA solved in {time.time() - t0:.2f}s")
+    # 4. Solve reCAPTCHA — skip if the checkbox is already ticked by the saved session
+    time.sleep(2)   # let the reCAPTCHA widget settle after page load
+    if _is_captcha_already_checked(driver):
+        print("[+] reCAPTCHA already checked (saved session) — skipping solver.")
+    else:
+        print("[*] Solving reCAPTCHA...")
+        t0 = time.time()
+        if not solve_captcha_with_timeout(solver):
+            return False   # caller will restart Chrome
+        print(f"[+] reCAPTCHA solved in {time.time() - t0:.2f}s")
 
     # 5. Wait 5s then click Login
     for remaining in range(5, 0, -1):

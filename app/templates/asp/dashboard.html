@@ -643,7 +643,7 @@
     📅 ONS Follow-Up
     <span class="tab-badge" id="tab-ons-followup-badge" style="display:none"></span>
   </button>
-  <button class="tab-btn" data-tab="tab-return-part">
+  <button class="tab-btn" data-tab="tab-return-part" style="display:none">
     📦 Return Part
     <span class="tab-badge" id="tab-return-part-badge" style="display:none"></span>
   </button>
@@ -651,7 +651,7 @@
     🔔 Return Reminder
     <span class="tab-badge" id="tab-return-reminder-badge" style="display:none"></span>
   </button>
-  <button class="tab-btn" data-tab="tab-completed-30d">
+  <button class="tab-btn" data-tab="tab-completed-30d" style="display:none">
     ✅ Complete Last 30Days
   </button>
 </div>
@@ -893,7 +893,7 @@
           <thead><tr>
             <th style="width:40px;text-align:center">#</th>
             <th>Created On</th><th>SOID</th><th>WO Number</th>
-            <th>WO Type</th><th>DC Number</th><th>AWB Return</th>
+            <th>WO Type</th><th>Return Status</th><th>WO Complete Date</th>
             <th>WO Status</th><th>Contact Name</th>
           </tr></thead>
           <tbody id="tbody-rr-partner"><tr><td colspan="9" class="loading-state">Loading…</td></tr></tbody>
@@ -910,7 +910,7 @@
           <thead><tr>
             <th style="width:40px;text-align:center">#</th>
             <th>Created On</th><th>SOID</th><th>WO Number</th>
-            <th>WO Type</th><th>DC Number</th><th>AWB Return</th>
+            <th>WO Type</th><th>Return Status</th><th>WO Complete Date</th>
             <th>WO Status</th><th>Contact Name</th>
           </tr></thead>
           <tbody id="tbody-rr-dc"><tr><td colspan="9" class="loading-state">Loading…</td></tr></tbody>
@@ -3890,18 +3890,20 @@ function _rrCols() {
         : '<span style="color:#8c959f">—</span>' },
     { key: 'work_order_id',    render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
     { key: 'work_order_type',  render: r => esc(r.work_order_type || '—') },
-    { key: 'dc_number',        render: r => {
-        const dc  = r.dc_number  != null ? String(r.dc_number).trim()  : '';
-        const dcL = r.dc_lenovo  != null ? String(r.dc_lenovo).trim()  : '';
-        const v   = (dc  && dc  !== '0') ? dc  : ((dcL && dcL !== '0') ? dcL : '');
-        return v ? `<span style="font-family:ui-monospace,monospace;font-size:12px;font-weight:700;color:#1f2328">${esc(v)}</span>`
+    { key: 'return_status',    render: r => {
+        const v = (r.return_status || '').trim().toUpperCase();
+        if (v === 'PENDING WITH PARTNER') {
+          return `<span style="display:inline-block;font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;white-space:nowrap">Pending With Partner</span>`;
+        } else if (v === 'PENDING FOR DC GENERATION' || v === 'PENDING DC GENERATION') {
+          return `<span style="display:inline-block;font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;white-space:nowrap">Pending DC Generation</span>`;
+        }
+        return v ? `<span style="display:inline-block;font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;white-space:nowrap">${esc(v)}</span>`
                  : '<span style="color:#8c959f">—</span>';
       }
     },
-    { key: 'awb_return',       render: r => {
-        const v = r.awb_return != null ? String(r.awb_return).trim() : '';
-        return v ? `<span style="font-family:ui-monospace,monospace;font-size:12px;font-weight:700;color:#0f766e">${esc(v)}</span>`
-                 : '<span style="color:#8c959f">—</span>';
+    { key: 'completion_date',  render: r => {
+        const v = r.completion_date ? String(r.completion_date).trim() : '';
+        return v ? fmt(v) : '<span style="color:#8c959f">—</span>';
       }
     },
     { key: 'work_order_status', render: r => statusBadge(r.work_order_status) },

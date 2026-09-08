@@ -97,8 +97,7 @@ def api_dashboard_stats():
                            where status is NOT Reject / Approved to Order / Complete
       - esc_open_total   : total open escalation count (same filter)
     """
-    from app.services.database.db import get_db
-    conn = get_db()
+    edb = _get_monday_sync_db()
 
     _OPEN_FILTER = """
         LOWER(COALESCE(status, '')) NOT IN (
@@ -106,35 +105,337 @@ def api_dashboard_stats():
         )
     """
 
-    # Total count per day (for bar height)
-    open_by_date = conn.execute(f"""
-        SELECT DATE(item_created_at) AS day, COUNT(*) AS count
-        FROM technical_escalation
-        WHERE {_OPEN_FILTER}
-        GROUP BY day
-        ORDER BY day ASC
-    """).fetchall()
+    open_by_date        = []
+    open_by_date_status = []
+    esc_open_total      = 0
 
-    # Per-status count per day (for colour segments and hover detail)
-    open_by_date_status = conn.execute(f"""
-        SELECT DATE(item_created_at) AS day,
-               COALESCE(status, '—') AS status,
-               COUNT(*) AS count
-        FROM technical_escalation
-        WHERE {_OPEN_FILTER}
-        GROUP BY day, status
-        ORDER BY day ASC, count DESC
-    """).fetchall()
+    if edb:
+        try:
+            # Total count per day (for bar height)
+            open_by_date = edb.execute(f"""
+                SELECT DATE(item_created_at) AS day, COUNT(*) AS count
+                FROM technical_escalation
+                WHERE {_OPEN_FILTER}
+                GROUP BY day
+                ORDER BY day ASC
+            """).fetchall()
 
-    esc_open_total = conn.execute(
-        f"SELECT COUNT(*) FROM technical_escalation WHERE {_OPEN_FILTER}"
-    ).fetchone()[0]
+            # Per-status count per day (for colour segments and hover detail)
+            open_by_date_status = edb.execute(f"""
+                SELECT DATE(item_created_at) AS day,
+                       COALESCE(status, '—') AS status,
+                       COUNT(*) AS count
+                FROM technical_escalation
+                WHERE {_OPEN_FILTER}
+                GROUP BY day, status
+                ORDER BY day ASC, count DESC
+            """).fetchall()
+
+            esc_open_total = edb.execute(
+                f"SELECT COUNT(*) FROM technical_escalation WHERE {_OPEN_FILTER}"
+            ).fetchone()[0]
+        except Exception:
+            pass
+        finally:
+            edb.close()
 
     return jsonify({
         "open_esc_by_date":        [dict(r) for r in open_by_date],
         "open_esc_by_date_status": [dict(r) for r in open_by_date_status],
         "esc_open_total":          esc_open_total,
     })
+
+
+# ── API: Dashboard return-reminder stats ─────────────────────────────────────
+
+@admin_bp.route("/admin/api/dashboard-return-reminder", methods=["GET"])
+def api_dashboard_return_reminder():
+    """
+    Return pending return-reminder statistics grouped by ISO week.
+
+    Response keys:
+      - pending_dc_total     : int  — total rows with return_status = 'PENDING FOR DC GENERATION'
+      - pending_partner_total: int  — total rows with return_status = 'PENDING WITH PARTNER'
+      - by_week              : [{week_key, week_label, pending_dc, pending_partner}] sorted desc
+    """
+    conn = get_db()
+
+    totals = conn.execute("""
+        SELECT
+            SUM(CASE WHEN return_status = 'PENDING FOR DC GENERATION' THEN 1 ELSE 0 END) AS pending_dc_total,
+            SUM(CASE WHEN return_status = 'PENDING WITH PARTNER'      THEN 1 ELSE 0 END) AS pending_partner_total
+        FROM wo_product_detail
+        WHERE return_status IN ('PENDING FOR DC GENERATION', 'PENDING WITH PARTNER')
+    """).fetchone()
+
+    by_week_rows = conn.execute("""
+        SELECT
+            strftime('%Y-W%W', d.completion_date) AS week_key,
+            MIN(DATE(d.completion_date, 'weekday 1', '-7 days')) AS week_start,
+            SUM(CASE WHEN p.return_status = 'PENDING FOR DC GENERATION' THEN 1 ELSE 0 END) AS pending_dc,
+            SUM(CASE WHEN p.return_status = 'PENDING WITH PARTNER'      THEN 1 ELSE 0 END) AS pending_partner
+        FROM wo_product_detail p
+        LEFT JOIN wo_details d USING (work_order_id)
+        WHERE p.return_status IN ('PENDING FOR DC GENERATION', 'PENDING WITH PARTNER')
+          AND d.completion_date IS NOT NULL
+        GROUP BY week_key
+        ORDER BY week_key ASC
+    """).fetchall()
+
+    import datetime as _dt
+    by_week = []
+    for r in by_week_rows:
+        ws = r["week_start"] or ""
+        try:
+            d_start    = _dt.date.fromisoformat(ws)
+            d_end      = d_start + _dt.timedelta(days=6)
+            label      = "W" + str(d_start.isocalendar()[1])
+            if d_start.month == d_end.month:
+                week_range = d_start.strftime("%b %d") + " – " + d_end.strftime("%d")
+            else:
+                week_range = d_start.strftime("%b %d") + " – " + d_end.strftime("%b %d")
+        except Exception:
+            label      = r["week_key"] or ""
+            week_range = label
+        by_week.append({
+            "week_key":        r["week_key"],
+            "week_label":      label,
+            "week_range":      week_range,
+            "pending_dc":      r["pending_dc"]      or 0,
+            "pending_partner": r["pending_partner"] or 0,
+        })
+
+    return jsonify({
+        "pending_dc_total":      totals["pending_dc_total"]      or 0,
+        "pending_partner_total": totals["pending_partner_total"] or 0,
+        "by_week":               by_week,
+    })
+
+
+# ── API: Dashboard closing-code WO list ─────────────────────────────────────
+
+@admin_bp.route("/admin/api/dashboard-closing-codes", methods=["GET"])
+def api_dashboard_closing_codes():
+    """
+    Return WOs whose completion_date falls within the last 30 days (WIB / UTC+7)
+    and whose closing_code is one of the tracked follow-up / special-outcome codes,
+    sorted by completion_date DESC.  Capped at 200 rows.
+
+    Each row also includes `esc_statuses` — a pipe-separated list of distinct
+    Monday escalation statuses for that WO that are NOT Reject / Approved to
+    Order / Complete (i.e. still open/active escalations).
+    """
+    import datetime as _dt
+
+    _TRACKED_CODES = (
+        "Need follow up \u2013 New Problem Found",
+        "Needs Follow up - Wrong Part",
+        "Needs Follow up - Dead on Arrival",
+        "Need follow up \u2013 Parts Issue",
+        "Need follow up \u2013 Others",
+        "Need Follow up - Wrong Diagnosis",
+        "Need Follow Up",
+        "Customer Induced Damage",
+        "Cannot recreate problem",
+        "Parts replaced",
+    )
+
+    now_wib = _dt.datetime.utcnow() + _dt.timedelta(hours=7)
+    cutoff  = (now_wib - _dt.timedelta(days=30)).strftime("%Y-%m-%d")
+
+    placeholders = ",".join("?" * len(_TRACKED_CODES))
+    params       = list(_TRACKED_CODES) + [cutoff]
+
+    # WO data lives in the main DB; escalation data lives in the escalation DB.
+    conn = get_db()
+    edb  = _get_monday_sync_db()
+
+    # ── Step 1: fetch the WO rows first (fast — indexed on closing_code + completion_date)
+    wo_rows = conn.execute(f"""
+        SELECT
+            s.work_order_id,
+            s.serial_number,
+            d.serial_number AS product_serial_number,
+            s.work_order_type,
+            s.work_order_status,
+            s.customer,
+            s.contact_name,
+            d.product_description,
+            d.city,
+            d.completion_date,
+            d.closing_date,
+            d.closing_code,
+            d.case_number,
+            CAST(s.work_order_id AS TEXT)   AS wo_id_str,
+            CAST(COALESCE(d.case_number, '') AS TEXT) AS case_num_str
+        FROM wo_summary s
+        LEFT JOIN wo_details d USING (work_order_id)
+        WHERE d.closing_code IN ({placeholders})
+          AND TRIM(COALESCE(d.completion_date, '')) != ''
+          AND SUBSTR(d.completion_date, 1, 10) >= ?
+        ORDER BY d.completion_date DESC
+        LIMIT 200
+    """, params).fetchall()
+
+    wo_rows = [dict(r) for r in wo_rows]
+
+    if edb and wo_rows:
+        try:
+            # ── Step 2: collect the set of lookup keys for a single IN-query
+            keys = set()
+            for r in wo_rows:
+                keys.add(r["wo_id_str"])
+                if r["case_num_str"]:
+                    keys.add(r["case_num_str"])
+            keys.discard("")
+            key_list = list(keys)
+            key_ph   = ",".join("?" * len(key_list))
+
+            # ── Step 3: one pass over technical_escalation — aggregate per key
+            esc_agg = edb.execute(f"""
+                SELECT
+                    TRIM(wo_case_id)                             AS key,
+                    GROUP_CONCAT(DISTINCT COALESCE(status,'—')) AS statuses,
+                    MAX(item_created_at)                         AS latest_created_at,
+                    monday_item_id,
+                    item_name,
+                    board_id
+                FROM technical_escalation
+                WHERE TRIM(wo_case_id) IN ({key_ph})
+                GROUP BY TRIM(wo_case_id)
+            """, key_list).fetchall()
+            esc_by_key = {dict(r)["key"]: dict(r) for r in esc_agg}
+
+            # ── Step 4: one pass over item_updates — disc count per monday_item_id
+            item_ids = [r["monday_item_id"] for r in esc_agg if r["monday_item_id"]]
+            disc_by_item: dict = {}
+            if item_ids:
+                item_ph    = ",".join("?" * len(item_ids))
+                _disc_rows = edb.execute(f"""
+                    SELECT u.monday_item_id,
+                           COUNT(DISTINCT u.update_id) + COUNT(DISTINCT r.reply_id) AS cnt
+                    FROM item_updates u
+                    LEFT JOIN item_update_replies r ON r.update_id = u.update_id
+                    WHERE u.monday_item_id IN ({item_ph})
+                    GROUP BY u.monday_item_id
+                """, item_ids).fetchall()
+                disc_by_item = {row["monday_item_id"]: row["cnt"] for row in _disc_rows}
+
+            # ── Step 5: merge escalation data into each WO row
+            serial_esc = {}
+            for esc_row in edb.execute("""
+                SELECT
+                    TRIM(serial_number) AS serial_key,
+                    monday_item_id,
+                    item_name,
+                    item_created_at,
+                    status,
+                    wo_case_id,
+                    board_id
+                FROM technical_escalation
+                WHERE TRIM(COALESCE(serial_number, '')) != ''
+            """).fetchall():
+                serial_esc.setdefault(esc_row["serial_key"].lower(), []).append(dict(esc_row))
+
+            for r in wo_rows:
+                wo_esc  = esc_by_key.get(r["wo_id_str"])
+                case_esc = esc_by_key.get(r["case_num_str"])
+                esc = wo_esc or case_esc
+                match_type = "wo" if wo_esc else ("case" if case_esc else None)
+
+                if not esc:
+                    serial_key = (r["product_serial_number"] or r["serial_number"] or "").strip().lower()
+                    completion_date = (r["completion_date"] or "")[:10]
+                    candidates = []
+                    if serial_key and completion_date:
+                        try:
+                            _comp_dt = _dt.date.fromisoformat(completion_date)
+                        except ValueError:
+                            _comp_dt = None
+                        if _comp_dt:
+                            for serial_row in serial_esc.get(serial_key, []):
+                                escalation_date = (serial_row["item_created_at"] or "")[:10]
+                                if escalation_date:
+                                    try:
+                                        _esc_dt = _dt.date.fromisoformat(escalation_date)
+                                    except ValueError:
+                                        continue
+                                    # escalation must fall within [completion - 4 days, completion + 7 days]
+                                    delta = (_esc_dt - _comp_dt).days
+                                    if -4 <= delta <= 7:
+                                        candidates.append(serial_row)
+                    if candidates:
+                        esc = max(candidates, key=lambda item: item["item_created_at"] or "")
+                        esc["statuses"] = ",".join(dict.fromkeys(
+                            item["status"] or "—" for item in candidates
+                        ))
+                        esc["latest_created_at"] = max(
+                            item["item_created_at"] or "" for item in candidates
+                        )
+                        match_type = "serial"
+                if esc:
+                    r["esc_statuses"]   = esc["statuses"]
+                    r["esc_created_at"] = esc["latest_created_at"]
+                    r["esc_item_id"]    = esc["monday_item_id"]
+                    r["esc_item_name"]  = esc["item_name"]
+                    r["esc_board_id"]   = esc["board_id"]
+                    r["esc_disc_count"] = disc_by_item.get(esc["monday_item_id"], 0)
+                    if match_type == "serial" and esc["monday_item_id"]:
+                        disc_rows = edb.execute("""
+                            SELECT COUNT(DISTINCT u.update_id) + COUNT(DISTINCT rep.reply_id) AS cnt
+                            FROM item_updates u
+                            LEFT JOIN item_update_replies rep ON rep.update_id = u.update_id
+                            WHERE u.monday_item_id = ?
+                        """, (esc["monday_item_id"],)).fetchone()
+                        r["esc_disc_count"] = disc_rows["cnt"] if disc_rows else 0
+                    r["wo_case_id"]     = (
+                        esc.get("key") or esc.get("wo_case_id")
+                        if match_type != "serial"
+                        else f"SN: {r['product_serial_number'] or r['serial_number']}"
+                    )
+                    r["wo_case_match"]  = match_type
+                else:
+                    r["esc_statuses"]   = None
+                    r["esc_created_at"] = None
+                    r["esc_item_id"]    = None
+                    r["esc_item_name"]  = None
+                    r["esc_board_id"]   = None
+                    r["esc_disc_count"] = 0
+                    r["wo_case_id"]     = None
+                    r["wo_case_match"]  = None
+        except Exception:
+            for r in wo_rows:
+                r["esc_statuses"]   = None
+                r["esc_created_at"] = None
+                r["esc_item_id"]    = None
+                r["esc_item_name"]  = None
+                r["esc_board_id"]   = None
+                r["esc_disc_count"] = 0
+                r["wo_case_id"]     = None
+                r["wo_case_match"]  = None
+        finally:
+            edb.close()
+    else:
+        if edb:
+            edb.close()
+        for r in wo_rows:
+            r["esc_statuses"]   = None
+            r["esc_created_at"] = None
+            r["esc_item_id"]    = None
+            r["esc_item_name"]  = None
+            r["esc_board_id"]   = None
+            r["esc_disc_count"] = 0
+            r["wo_case_id"]     = None
+            r["wo_case_match"]  = None
+
+    # strip internal helper columns before returning
+    rows = []
+    for r in wo_rows:
+        r.pop("wo_id_str",    None)
+        r.pop("case_num_str", None)
+        rows.append(r)
+
+    return jsonify({"rows": [dict(r) for r in rows], "cutoff": cutoff})
 
 
 # ── API: WO Detail (single WO, on-demand) ────────────────────────────────────
@@ -213,11 +514,16 @@ def api_wo_monday_escalation(work_order_id: int):
     sn = detail["serial_number"].strip()
 
     project_root = _os.path.normpath(_os.path.join(_os.path.dirname(__file__), "..", ".."))
-    db_path = _os.path.join(project_root, "files", "lenovo_asp.db")
+    db_path = _os.path.join(project_root, "files", "lenovo_asp_escalation.db")
+    main_db_path = _os.path.join(project_root, "files", "lenovo_asp.db")
     if not _os.path.isfile(db_path):
         return jsonify({"serial_number": sn, "rows": []})
 
     edb = open_db(db_path)
+    try:
+        edb.execute(f"ATTACH DATABASE '{main_db_path}' AS main_db")
+    except Exception:
+        pass
     rows = []
     try:
         raw = edb.execute(
@@ -252,7 +558,7 @@ def api_wo_monday_escalation(work_order_id: int):
                 ) AS disc_count,
                 (
                     SELECT wd.case_number
-                    FROM wo_details wd
+                    FROM main_db.wo_details wd
                     WHERE CAST(wd.work_order_id AS TEXT) = TRIM(te.wo_case_id)
                     LIMIT 1
                 ) AS case_number
@@ -265,6 +571,66 @@ def api_wo_monday_escalation(work_order_id: int):
         rows = [dict(r) for r in raw]
     except Exception as _e:
         current_app.logger.error("admin api_wo_monday_escalation query failed: %s", _e)
+    finally:
+        edb.close()
+
+    return jsonify({"serial_number": sn, "rows": rows})
+
+
+# ── API: Monday escalation records by serial number (direct lookup) ───────────
+
+@admin_bp.route("/admin/api/sn-monday-escalation/<path:serial_number>", methods=["GET"])
+def api_sn_monday_escalation(serial_number: str):
+    """Return all Monday technical_escalation rows for a given serial number."""
+    import os as _os
+    sn = serial_number.strip()
+
+    project_root = _os.path.normpath(_os.path.join(_os.path.dirname(__file__), "..", ".."))
+    db_path      = _os.path.join(project_root, "files", "lenovo_asp_escalation.db")
+    main_db_path = _os.path.join(project_root, "files", "lenovo_asp.db")
+    if not _os.path.isfile(db_path):
+        return jsonify({"serial_number": sn, "rows": []})
+
+    edb = open_db(db_path)
+    try:
+        edb.execute(f"ATTACH DATABASE '{main_db_path}' AS main_db")
+    except Exception:
+        pass
+    rows = []
+    try:
+        raw = edb.execute(
+            """
+            SELECT
+                te.monday_item_id,
+                te.board_id,
+                te.asp_board,
+                te.item_name,
+                te.item_created_at,
+                te.status,
+                te.work_order_type,
+                te.wo_case_id,
+                te.serial_number,
+                (
+                    SELECT COUNT(DISTINCT u2.update_id) + COUNT(DISTINCT r2.reply_id)
+                    FROM item_updates u2
+                    LEFT JOIN item_update_replies r2 ON u2.update_id = r2.update_id
+                    WHERE u2.monday_item_id = te.monday_item_id
+                ) AS disc_count,
+                (
+                    SELECT wd.case_number
+                    FROM main_db.wo_details wd
+                    WHERE CAST(wd.work_order_id AS TEXT) = TRIM(te.wo_case_id)
+                    LIMIT 1
+                ) AS case_number
+            FROM technical_escalation te
+            WHERE LOWER(TRIM(te.serial_number)) = LOWER(?)
+            ORDER BY te.item_created_at ASC
+            """,
+            (sn,),
+        ).fetchall()
+        rows = [dict(r) for r in raw]
+    except Exception as _e:
+        current_app.logger.error("api_sn_monday_escalation query failed: %s", _e)
     finally:
         edb.close()
 
@@ -706,6 +1072,14 @@ def msd_wo_updates_trigger():
         if _msd_thread is not None and _msd_thread.is_alive():
             return jsonify({"ok": False, "error": "MSD auto-download is already running."}), 409
 
+        # Drain any stale sentinel left by a previous reset/cancel so the new
+        # run's _msd_otp_queue.get() doesn't immediately pick up __OTP_CANCELLED__.
+        while not _msd_otp_queue.empty():
+            try:
+                _msd_otp_queue.get_nowait()
+            except _queue.Empty:
+                break
+
         app = current_app._get_current_object()
         _msd_thread = threading.Thread(
             target=_run_msd_download_task,
@@ -842,6 +1216,16 @@ def _msd_reset_task_state() -> str:
         _msd_otp_queue.put_nowait("__OTP_CANCELLED__")
     except _queue.Full:
         pass
+    # Drain any leftover sentinels so the next run's queue.get() starts clean.
+    # Without this, a new run immediately picks up the stale __OTP_CANCELLED__
+    # and closes Chrome right after login.
+    import time as _drain_t
+    _drain_t.sleep(0.3)   # give the script thread time to consume the sentinel
+    while not _msd_otp_queue.empty():
+        try:
+            _msd_otp_queue.get_nowait()
+        except _queue.Empty:
+            break
 
     # ── Step 2: kill Chrome PIDs on the Selenium profile ────────────────────
     import pathlib as _pl
@@ -3803,6 +4187,9 @@ SYNC_HOUR_END     = 20        # 20:00 local (exclusive)
 _sync_thread: threading.Thread | None = None
 _sync_stop        = threading.Event()
 _log_queue: _queue.Queue = _queue.Queue(maxsize=2000)
+# Ring buffer — replayed to new SSE clients so a reconnect/refresh mid-run
+# shows the full current-run log history (same pattern as _msd_log_history).
+_log_history: _collections.deque = _collections.deque(maxlen=500)
 _sync_lock        = threading.Lock()
 _scheduler_thread: threading.Thread | None = None
 _scheduler_stop   = threading.Event()
@@ -3851,21 +4238,19 @@ class _QueueHandler(logging.Handler):
         # Only forward records that originated from the monday_sync logger
         if not record.name.startswith("monday_sync"):
             return
+        rec = {
+            "ts":    _queue_formatter.formatTime(record, "%Y-%m-%d %H:%M:%S"),
+            "level": record.levelname,
+            "msg":   record.getMessage(),
+        }
+        _log_history.append(rec)
         try:
-            _log_queue.put_nowait({
-                "ts":    _queue_formatter.formatTime(record, "%Y-%m-%d %H:%M:%S"),
-                "level": record.levelname,
-                "msg":   record.getMessage(),
-            })
+            _log_queue.put_nowait(rec)
         except _queue.Full:
             # Queue full — drop oldest entry to make room for this one
             try:
                 _log_queue.get_nowait()
-                _log_queue.put_nowait({
-                    "ts":    _queue_formatter.formatTime(record, "%Y-%m-%d %H:%M:%S"),
-                    "level": record.levelname,
-                    "msg":   record.getMessage(),
-                })
+                _log_queue.put_nowait(rec)
             except (_queue.Full, _queue.Empty):
                 pass
 
@@ -3874,21 +4259,45 @@ _queue_handler = _QueueHandler()
 _queue_handler.setLevel(logging.DEBUG)
 
 
-def _get_monday_sync_db():
-    """Open a fresh SQLite connection to files/lenovo_asp.db.
+# Separate DB file for Monday escalation data — keeps write traffic completely
+# isolated from the main application DB (lenovo_asp.db) so upsert operations
+# (WOID, SOID, etc.) never contend with the Monday sync background thread.
+_ESCALATION_DB_NAME = "lenovo_asp_escalation.db"
 
-    Also ensures the has_wo column exists on technical_escalation so the
-    column can be queried immediately even before monday_sync.get_db() has
-    run its own migration on this file.
+
+def _get_monday_sync_db():
+    """Open a fresh SQLite connection to files/lenovo_asp_escalation.db.
+
+    The main application DB (lenovo_asp.db) is ATTACHed as ``main_db`` so
+    cross-reference queries against ``asp_details`` and ``wo_summary`` still
+    work, but write locks on either DB are fully independent.
+
+    Also ensures the has_wo column exists on technical_escalation.
     """
     import os as _os
     project_root = _os.path.normpath(
         _os.path.join(_os.path.dirname(__file__), "..", "..")
     )
-    db_path = _os.path.join(project_root, "files", "lenovo_asp.db")
-    if not _os.path.isfile(db_path):
-        return None
-    conn = open_db(db_path)
+    esc_db_path  = _os.path.join(project_root, "files", _ESCALATION_DB_NAME)
+    main_db_path = _os.path.join(project_root, "files", "lenovo_asp.db")
+    conn = open_db(esc_db_path)
+    # Attach main DB for read-only cross-references (wo_summary, wo_details, asp_details)
+    try:
+        conn.execute(f"ATTACH DATABASE '{main_db_path}' AS main_db")
+        # All escalation data is now fully in the escalation DB — simple pass-through
+        # views so existing SQL references to monday_* names continue to work.
+        conn.executescript("""
+            CREATE TEMP VIEW IF NOT EXISTS monday_technical_escalation AS
+            SELECT * FROM technical_escalation;
+            CREATE TEMP VIEW IF NOT EXISTS monday_creators AS
+            SELECT * FROM creators;
+            CREATE TEMP VIEW IF NOT EXISTS monday_item_updates AS
+            SELECT * FROM item_updates;
+            CREATE TEMP VIEW IF NOT EXISTS monday_item_update_replies AS
+            SELECT * FROM item_update_replies;
+        """)
+    except Exception:
+        pass
     # Ensure has_wo column exists (added in a later schema version)
     try:
         cols = {r[1] for r in conn.execute("PRAGMA table_info(technical_escalation)")}
@@ -4011,6 +4420,7 @@ def _scheduler_loop(app) -> None:
             if _sync_thread and _sync_thread.is_alive():
                 continue
             _sync_stop.clear()
+            _log_history.clear()   # fresh run — don't replay stale history to new clients
             t = threading.Thread(
                 target=_run_sync_task,
                 args=(app, mode, None),
@@ -4098,8 +4508,11 @@ def _run_sync_task(app, mode: str, board_id: str | None = None) -> None:
 
     with app.app_context():
         try:
-            conn  = _ms.get_db(_os.path.join(project_root, "files", "lenovo_asp.db"))
-            state = _ms.load_state()
+            state_path = _os.path.join(project_root, "sync_state.json")
+            esc_db  = _os.path.join(project_root, "files", _ESCALATION_DB_NAME)
+            main_db = _os.path.join(project_root, "files", "lenovo_asp.db")
+            conn  = _ms.get_db(esc_db, main_db_path=main_db)
+            state = _ms.load_state(state_path)
             boards = _ms.load_boards(xlsx_path)
 
             if board_id:
@@ -4109,9 +4522,9 @@ def _run_sync_task(app, mode: str, board_id: str | None = None) -> None:
                     return
 
             if mode == "full":
-                _ms.run_sync_all(conn, state, boards, force_full=True)
+                _ms.run_sync_all(conn, state, boards, force_full=True, state_path=state_path)
             elif mode == "incremental":
-                _ms.run_sync_all(conn, state, boards, force_full=False)
+                _ms.run_sync_all(conn, state, boards, force_full=False, state_path=state_path)
             elif mode == "backfill":
                 _ms._backfill_updates(conn)
             else:
@@ -4241,6 +4654,11 @@ def _run_msd_download_task(app, run_once: bool = False) -> None:
     #   • OTP prompt      — shows OTP panel in browser, waits for /otp
     #   • OTP cancelled   — user clicked Cancel; close Chrome, preserve session
     #   • Re-login        — shows Re-login panel, waits for /relogin
+    OTP_TIMEOUT_SEC = 3 * 60   # 3 minutes — user must enter code before this expires
+
+    class _OtpTimedOutError(Exception):
+        """Raised when the user does not submit an OTP code within OTP_TIMEOUT_SEC."""
+
     def _web_input(prompt: str = "") -> str:
         global _msd_otp_pending, _msd_relogin_pending
         if prompt == "__RELOGIN_WAIT__":
@@ -4250,14 +4668,36 @@ def _run_msd_download_task(app, run_once: bool = False) -> None:
             _msd_otp_queue.get()  # blocks until /relogin puts __RELOGIN_CONFIRMED__
             logger.info("Re-login confirmed by user.")
             return ""
-        # Normal OTP flow
+        # Normal OTP flow — countdown visible in the UI
         if prompt:
             logger.info(prompt)
-        logger.info("__OTP_REQUIRED__")   # sentinel picked up by SSE stream
+        logger.info("__OTP_REQUIRED__")   # sentinel picked up by SSE stream → shows OTP panel
         _msd_otp_pending = True
-        code = _msd_otp_queue.get()       # blocks until /otp or /otp/cancel puts a value
+
+        # Countdown log lines so the user sees the timer ticking in the console
+        import threading as _thr
+        _countdown_stop = _thr.Event()
+        def _countdown():
+            for remaining in range(OTP_TIMEOUT_SEC, 0, -15):
+                if _countdown_stop.wait(15):
+                    return   # code received or cancelled — stop counting
+                if remaining > 15:
+                    logger.info("⏳ OTP expires in %d s — enter the code in the panel above.",
+                                remaining - 15)
+        _ct = _thr.Thread(target=_countdown, daemon=True)
+        _ct.start()
+
+        try:
+            code = _msd_otp_queue.get(timeout=OTP_TIMEOUT_SEC)
+        except _queue.Empty:
+            _countdown_stop.set()
+            raise _OtpTimedOutError(
+                f"OTP not submitted within {OTP_TIMEOUT_SEC // 60} minutes — session expired."
+            )
+        finally:
+            _countdown_stop.set()
+
         if code == "__OTP_CANCELLED__":
-            # Raise so the except _OtpCancelledError block above closes Chrome cleanly.
             raise _OtpCancelledError("OTP cancelled by user.")
         logger.info("OTP code received from browser.")
         return code
@@ -4283,24 +4723,24 @@ def _run_msd_download_task(app, run_once: bool = False) -> None:
                 )
             stdout_writer.flush()
             stderr_writer.flush()
-        except _OtpCancelledError:
-            # User cancelled OTP — close the Chrome window but keep the profile on disk
-            # so the saved session (cookies) is preserved for the next run.
-            logger.info("MSD auto-download cancelled by user (OTP dismissed).")
+        except (_OtpCancelledError, _OtpTimedOutError) as _otp_ex:
+            # OTP cancelled by user OR timed out — close Chrome, preserve session cookies.
+            _timed_out = isinstance(_otp_ex, _OtpTimedOutError)
+            if _timed_out:
+                logger.warning(
+                    "⏰ OTP timed out — no code entered within %d minutes. "
+                    "Chrome closed. Click Reset to try again.",
+                    OTP_TIMEOUT_SEC // 60,
+                )
+            else:
+                logger.info("MSD auto-download cancelled by user (OTP dismissed).")
             try:
-                # runpy executes the script in its own globals dict — the script's
-                # `driver` variable lives there. We injected _web_input via init_globals
-                # so we can reach the script module's globals through the exception
-                # traceback frame.  Simplest safe approach: import the selenium driver
-                # that was already instantiated at module level in the script by finding
-                # it on the thread's current stack.
                 import sys as _sys
                 _frame = _sys._getframe()
                 _drv = None
                 while _frame is not None:
                     if "driver" in _frame.f_locals:
                         _candidate = _frame.f_locals["driver"]
-                        # Make sure it's a Selenium WebDriver instance
                         try:
                             from selenium.webdriver.remote.webdriver import WebDriver as _WD
                             if isinstance(_candidate, _WD):
@@ -4315,7 +4755,8 @@ def _run_msd_download_task(app, run_once: bool = False) -> None:
                 else:
                     logger.warning("Could not locate Chrome driver to close window.")
             except Exception as _ce:
-                logger.warning("Warning closing Chrome after OTP cancel: %s", _ce)
+                logger.warning("Warning closing Chrome after OTP %s: %s",
+                               "timeout" if _timed_out else "cancel", _ce)
         except SystemExit as exc:
             code = exc.code if isinstance(exc.code, int) else 0
             if code == 0:
@@ -5116,7 +5557,7 @@ def escalation_center():
             "synced":       bool(bs.get("last_sync")),
         })
 
-    # DB stats from lenovo_asp.db
+    # DB stats from lenovo_asp_escalation.db
     stats = {"items": 0, "updates": 0, "boards_synced": 0, "creators": 0}
     # latest_runs: dict keyed by board_id → most-recent sync_log row for that board
     latest_runs = {}
@@ -5184,6 +5625,7 @@ def escalation_center_trigger():
             return jsonify({"ok": False, "error": "Sync already running"}), 409
 
         _sync_stop.clear()
+        _log_history.clear()   # fresh run — don't replay stale history to new clients
         app = current_app._get_current_object()
         _sync_thread = threading.Thread(
             target=_run_sync_task,
@@ -5220,6 +5662,9 @@ def escalation_center_stop():
 def escalation_center_stream():
     def generate():
         import json as _json
+        # Replay history so a reconnect/refresh mid-run shows the full log
+        for rec in list(_log_history):
+            yield f"data: {_json.dumps(rec)}\n\n"
         while True:
             try:
                 rec = _log_queue.get(timeout=15)
@@ -5392,8 +5837,54 @@ def _monday_daily_totals_save(data: dict) -> None:
 
 @admin_bp.route("/admin/escalation-center/daily-totals", methods=["GET"])
 def escalation_center_daily_totals_get():
-    """Return the persisted monday daily totals JSON."""
-    return jsonify({"ok": True, "data": _monday_daily_totals_load()})
+    """Return today's totals computed live from the DB (WIB UTC+7).
+
+    - found   : items whose item_created_at (Monday-side) falls on today WIB
+                → genuinely new cases created on Monday today
+    - updates : new update + reply rows whose created_at falls on today WIB
+                → genuinely new comments/replies posted today
+    - syncs   : number of sync_log rows written today
+    """
+    edb = _get_monday_sync_db()
+    today_wib = (datetime.now(ZoneInfo("Asia/Jakarta"))).strftime("%Y-%m-%d")
+    totals = {"found": 0, "updates": 0, "syncs": 0}
+    if edb:
+        try:
+            # New cases: items whose Monday creation date is today (WIB)
+            new_row = edb.execute(
+                "SELECT COUNT(*) FROM technical_escalation "
+                "WHERE date(item_created_at, '+7 hours') = ?",
+                (today_wib,),
+            ).fetchone()
+            # New updates: item_updates rows created today (WIB)
+            upd_row = edb.execute(
+                "SELECT COUNT(*) FROM item_updates "
+                "WHERE date(created_at, '+7 hours') = ?",
+                (today_wib,),
+            ).fetchone()
+            # New replies: item_update_replies rows created today (WIB)
+            rep_row = edb.execute(
+                "SELECT COUNT(*) FROM item_update_replies "
+                "WHERE date(created_at, '+7 hours') = ?",
+                (today_wib,),
+            ).fetchone()
+            # Sync run count from sync_log
+            log_row = edb.execute(
+                "SELECT COUNT(*) FROM sync_log "
+                "WHERE date(run_at, '+7 hours') = ?",
+                (today_wib,),
+            ).fetchone()
+            totals = {
+                "found":   new_row[0] if new_row else 0,
+                "updates": (upd_row[0] if upd_row else 0)
+                         + (rep_row[0] if rep_row else 0),
+                "syncs":   log_row[0] if log_row else 0,
+            }
+        except Exception:
+            pass
+        finally:
+            edb.close()
+    return jsonify({"ok": True, "data": {today_wib: totals}})
 
 
 @admin_bp.route("/admin/escalation-center/daily-totals", methods=["POST"])
@@ -5543,11 +6034,11 @@ def monday_data():
     if edb:
         try:
             total_count = edb.execute(
-                "SELECT COUNT(*) FROM technical_escalation"
+                "SELECT COUNT(*) FROM monday_technical_escalation"
             ).fetchone()[0]
             board_raw = edb.execute("""
                 SELECT asp_board, board_id, COUNT(*) AS item_count
-                FROM technical_escalation
+                FROM monday_technical_escalation
                 GROUP BY board_id
                 ORDER BY asp_board
             """).fetchall()
@@ -5583,12 +6074,12 @@ def monday_data_meta():
     if edb:
         try:
             total_count = edb.execute(
-                "SELECT COUNT(*) FROM technical_escalation"
+                "SELECT COUNT(*) FROM monday_technical_escalation"
             ).fetchone()[0]
 
             board_raw = edb.execute("""
                 SELECT asp_board, board_id, COUNT(*) AS item_count
-                FROM technical_escalation
+                FROM monday_technical_escalation
                 GROUP BY board_id
                 ORDER BY asp_board
             """).fetchall()
@@ -5596,7 +6087,7 @@ def monday_data_meta():
 
             status_raw = edb.execute("""
                 SELECT COALESCE(status, '') AS status, COUNT(*) AS cnt
-                FROM technical_escalation
+                FROM monday_technical_escalation
                 GROUP BY status
             """).fetchall()
             status_list = [dict(r) for r in status_raw]
@@ -5640,12 +6131,11 @@ def monday_data_api():
 
     board_id   = (_req.args.get("board_id") or "").strip()
     status_arg = (_req.args.get("status")   or "").strip()
+    wo_type    = (_req.args.get("wo_type")  or "").strip()
     q          = (_req.args.get("q")        or "").strip()
 
-    # Status grouping (mirrors the JS STATUS_GROUPS)
-    STATUS_GROUPS = {
-        "in progress": ["technical escalation", "progress", "qa result"],
-    }
+    # Complete = these specific values; In-Progress = anything else that is non-empty.
+    COMPLETE_VALS = ["complete", "completed", "reject", "approved to order"]
 
     # ── build WHERE clauses ───────────────────────────────────────
     where_parts  = []
@@ -5656,14 +6146,25 @@ def monday_data_api():
         params.append(board_id)
 
     if status_arg:
-        members = STATUS_GROUPS.get(status_arg.lower())
-        if members:
-            placeholders = ",".join("?" * len(members))
+        if status_arg.lower() == "complete":
+            placeholders = ",".join("?" * len(COMPLETE_VALS))
             where_parts.append(f"LOWER(COALESCE(te.status,'')) IN ({placeholders})")
-            params.extend(members)
+            params.extend(COMPLETE_VALS)
+        elif status_arg.lower() == "in progress":
+            # In-Progress = non-empty AND not in the complete set
+            placeholders = ",".join("?" * len(COMPLETE_VALS))
+            where_parts.append(
+                f"COALESCE(te.status,'') != '' "
+                f"AND LOWER(COALESCE(te.status,'')) NOT IN ({placeholders})"
+            )
+            params.extend(COMPLETE_VALS)
         else:
             where_parts.append("LOWER(COALESCE(te.status,'')) = ?")
             params.append(status_arg.lower())
+
+    if wo_type:
+        where_parts.append("UPPER(COALESCE(te.work_order_type,'')) = ?")
+        params.append(wo_type.upper())
 
     if q:
         where_parts.append(
@@ -5682,7 +6183,7 @@ def monday_data_api():
     if edb:
         try:
             # ── total count for this filter ───────────────────────
-            count_sql = f"SELECT COUNT(*) FROM technical_escalation te {where_sql}"
+            count_sql = f"SELECT COUNT(*) FROM monday_technical_escalation te {where_sql}"
             total = edb.execute(count_sql, params).fetchone()[0]
 
             # ── disc_count subquery (no expensive GROUP-BY JOIN) ──
@@ -5715,21 +6216,33 @@ def monday_data_api():
                     c.creator_name,
                     (
                         SELECT COUNT(DISTINCT u2.update_id) + COUNT(DISTINCT r2.reply_id)
-                        FROM item_updates u2
-                        LEFT JOIN item_update_replies r2 ON u2.update_id = r2.update_id
+                        FROM monday_item_updates u2
+                        LEFT JOIN monday_item_update_replies r2 ON u2.update_id = r2.update_id
                         WHERE u2.monday_item_id = te.monday_item_id
                     ) AS disc_count,
-                    te.has_wo,
-                    CASE WHEN (te.wo_case_id IS NULL OR te.wo_case_id = '') AND te.has_wo = 1
+                    -- live check: 1 if serial exists in main_db.wo_summary, 0 otherwise
+                    CASE
+                        WHEN te.serial_number IS NULL OR te.serial_number = '' THEN 0
+                        WHEN EXISTS (
+                            SELECT 1 FROM main_db.wo_summary ws
+                            WHERE LOWER(ws.serial_number) = LOWER(te.serial_number)
+                        ) THEN 1
+                        ELSE 0
+                    END AS has_wo,
+                    CASE WHEN (te.wo_case_id IS NULL OR te.wo_case_id = '')
+                         AND EXISTS (
+                            SELECT 1 FROM main_db.wo_summary ws
+                            WHERE LOWER(ws.serial_number) = LOWER(te.serial_number)
+                         )
                         THEN (
-                            SELECT ws.work_order_id FROM wo_summary ws
+                            SELECT ws.work_order_id FROM main_db.wo_summary ws
                             WHERE LOWER(ws.serial_number) = LOWER(te.serial_number)
                             ORDER BY ws.created_on DESC LIMIT 1
                         )
                         ELSE NULL
                     END AS latest_wo_id
-                FROM technical_escalation te
-                LEFT JOIN creators c ON te.creator_id = c.creator_id
+                FROM monday_technical_escalation te
+                LEFT JOIN monday_creators c ON te.creator_id = c.creator_id
                 {where_sql}
                 ORDER BY te.item_created_at DESC
                 LIMIT ? OFFSET ?
@@ -5771,8 +6284,8 @@ def monday_data_item(item_id):
                     te.diag_warranty, te.diag_problem, te.diag_esc_approval,
                     te.diag_parts_request, te.diagnose_note, te.repair_note,
                     c.creator_name
-                FROM technical_escalation te
-                LEFT JOIN creators c ON te.creator_id = c.creator_id
+                FROM monday_technical_escalation te
+                LEFT JOIN monday_creators c ON te.creator_id = c.creator_id
                 WHERE te.monday_item_id = ?
             """, (item_id,)).fetchone()
             if raw:
@@ -5800,8 +6313,8 @@ def monday_data_discussion(item_id):
         updates = edb.execute("""
             SELECT u.update_id, u.body_text, u.created_at, u.updated_at,
                    u.creator_id, c.creator_name
-            FROM item_updates u
-            LEFT JOIN creators c ON u.creator_id = c.creator_id
+            FROM monday_item_updates u
+            LEFT JOIN monday_creators c ON u.creator_id = c.creator_id
             WHERE u.monday_item_id = ?
             ORDER BY u.created_at ASC
         """, (item_id,)).fetchall()
@@ -5813,8 +6326,8 @@ def monday_data_discussion(item_id):
             replies = edb.execute("""
                 SELECT r.reply_id, r.body_text, r.created_at,
                        r.creator_id, c.creator_name
-                FROM item_update_replies r
-                LEFT JOIN creators c ON r.creator_id = c.creator_id
+                FROM monday_item_update_replies r
+                LEFT JOIN monday_creators c ON r.creator_id = c.creator_id
                 WHERE r.update_id = ?
                 ORDER BY r.created_at ASC
             """, (upd_dict["update_id"],)).fetchall()

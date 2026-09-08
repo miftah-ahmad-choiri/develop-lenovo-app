@@ -754,9 +754,16 @@ function connectStream() {
 
   _es.onerror = function() {
     appendLog('log-system', '— stream disconnected —');
-    setRunning(false);
+    // Do NOT call setRunning(false) here — a transient network blip or
+    // Werkzeug reload should not collapse the running UI. pollStatus()
+    // (running every 5 s while active) will correct the state if the
+    // sync really has stopped.
     _es.close();
     _es = null;
+    // Attempt to reconnect after 3 s if the sync is still running
+    setTimeout(function() {
+      if (_isRunning) connectStream();
+    }, 3000);
   };
 }
 
