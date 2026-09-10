@@ -729,7 +729,6 @@ function renderTimeline(d, parts) {
     { label: 'Part Order',           date: nd(partOrderDate) },
     { label: 'Part Pickup',          date: nd(partPickupDate) },
     { label: 'Part Received\n(POD)', date: nd(partPodDate) },
-    { label: 'Orig. Onsite',         date: nd(d.original_committed_onsite_date) },
     { label: 'Defer Date',           date: nd(d.customer_defer_date), optional: true },
     { label: 'Actual\nOnsite',       date: nd(d.actual_committed_onsite_date) },
     { label: 'Completion',           date: nd(d.completion_date) },
@@ -742,17 +741,17 @@ function renderTimeline(d, parts) {
     const ts      = hasDate ? new Date(String(n.date).replace(' ', 'T')).getTime() : null;
     const isPast  = ts && ts <= now;
     const isOverdue = !hasDate && i > 0 && i <= lastDoneIdx + 1 && !n.optional;
-    /* Closed WO: Orig. Onsite (5) and Actual Onsite (7) forced done only when they
-       have a date — if empty they stay grey (future). Defer Date (6): forced done
+    /* Closed WO: Actual Onsite (6) forced done only when it
+       has a date — if empty it stays grey (future). Defer Date (5): forced done
        if it has a date; forced grey if empty. */
-    const forceDone   = isWoClosed && ((hasDate && (i === 5 || i === 7)) || (i === 6 && hasDate));
-    const forceGrey   = isWoClosed && i === 6 && !hasDate;
-    /* Open WO: Orig. Onsite (5) and Actual Onsite (7) forced active (blue) when
-       they have a date — the WO is not finished yet so they are not "done".
-       Defer Date (6) forced skipped (amber) when it has a date — it is a deferral,
+    const forceDone   = isWoClosed && ((hasDate && i === 6) || (i === 5 && hasDate));
+    const forceGrey   = isWoClosed && i === 5 && !hasDate;
+    /* Open WO: Actual Onsite (6) forced active (blue) when
+       it has a date — the WO is not finished yet so it is not "done".
+       Defer Date (5) forced skipped (amber) when it has a date — it is a deferral,
        not a completion event. */
-    const forceActive = !isWoClosed && hasDate && (i === 5 || i === 7);
-    const forceSkip   = !isWoClosed && hasDate && i === 6;
+    const forceActive = !isWoClosed && hasDate && i === 6;
+    const forceSkip   = !isWoClosed && hasDate && i === 5;
     let state;
     if (forceDone)                   state = 'done';
     else if (forceGrey)              state = 'future';
@@ -765,7 +764,7 @@ function renderTimeline(d, parts) {
     else                             state = 'future';
     const connCls = i < nodes.length - 1 ? `tl-connector ${(state === 'done' && i < lastDoneIdx) ? 'done' : ''}` : '';
     const dateStr = fmtShort(n.date);
-    const dateCls = (i === 6 && hasDate) ? 'active-text' : state === 'done' ? 'done-text' : state === 'active' ? 'active-text' : 'future-text';
+    const dateCls = (i === 5 && hasDate) ? 'active-text' : state === 'done' ? 'done-text' : state === 'active' ? 'active-text' : 'future-text';
     let dotSvg;
     if (state === 'done')
       dotSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;

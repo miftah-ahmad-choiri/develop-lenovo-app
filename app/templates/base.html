@@ -489,6 +489,23 @@
       max-width: 520px;
       margin: 40px auto 0;
     }
+    .nav-item.nav-dev,
+    .nav-group-header.nav-dev { opacity: 0.45; cursor: default; pointer-events: none; }
+    .nav-sub-item.nav-dev     { opacity: 0.45; cursor: default; pointer-events: none; }
+    .nav-dev-badge {
+      margin-left: auto;
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #78350f;
+      background: rgba(251,191,36,0.22);
+      border: 1px solid rgba(251,191,36,0.35);
+      border-radius: 4px;
+      padding: 1px 5px;
+      flex-shrink: 0;
+    }
+    .nav-sub-item.nav-dev .nav-dev-badge { font-size: 9px; padding: 1px 4px; }
     .coming-soon svg { color: #d0d7de; margin-bottom: 16px; }
     .coming-soon h2 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
     .coming-soon p  { font-size: 13px; color: #57606a; line-height: 1.7; }
@@ -645,48 +662,52 @@
         <span class="nav-label">Dashboard</span>
       </a>
 
-      <!-- Work Orders group -->
-      <div class="nav-group-header {% if active_group == 'work_orders' %}open{% endif %}" data-group="grp-wo">
+      <!-- Work Orders group — under development -->
+      <div class="nav-group-header nav-dev" data-group="grp-wo">
         <span class="nav-icon">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
         </span>
         <span class="nav-label">Work Orders</span>
-        <svg class="nav-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        <span class="nav-dev-badge nav-label">Dev</span>
       </div>
-      <div class="nav-sub {% if active_group == 'work_orders' %}open{% endif %}" id="grp-wo">
-        <a href="/asp/work-orders?tab=active"  class="nav-sub-item {% if active_page == 'wo_active' %}active{% endif %}"><span class="nav-sub-dot"></span>Active WO</a>
-        <a href="/asp/work-orders?tab=closed"  class="nav-sub-item {% if active_page == 'wo_closed' %}active{% endif %}"><span class="nav-sub-dot"></span>Closed WO</a>
-        <a href="/asp/work-orders?tab=escalated" class="nav-sub-item {% if active_page == 'wo_escalated' %}active{% endif %}"><span class="nav-sub-dot"></span>Escalated WO</a>
-        <a href="/asp/work-orders?tab=pending" class="nav-sub-item {% if active_page == 'wo_pending' %}active{% endif %}"><span class="nav-sub-dot"></span>My Pending Actions</a>
+      <div class="nav-sub" id="grp-wo">
+        <span class="nav-sub-item nav-dev"><span class="nav-sub-dot"></span>Active WO<span class="nav-dev-badge">Dev</span></span>
+        <span class="nav-sub-item nav-dev"><span class="nav-sub-dot"></span>Closed WO<span class="nav-dev-badge">Dev</span></span>
+        <span class="nav-sub-item nav-dev"><span class="nav-sub-dot"></span>Escalated WO<span class="nav-dev-badge">Dev</span></span>
+        <span class="nav-sub-item nav-dev"><span class="nav-sub-dot"></span>My Pending Actions<span class="nav-dev-badge">Dev</span></span>
       </div>
 
-      <!-- Parts Management group -->
-      <div class="nav-group-header {% if active_group == 'parts' %}open{% endif %}" data-group="grp-parts">
+      <!-- Parts Management group — under development -->
+      <div class="nav-group-header nav-dev" data-group="grp-parts">
         <span class="nav-icon">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
         </span>
         <span class="nav-label">Parts Management</span>
-        <svg class="nav-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        <span class="nav-dev-badge nav-label">Dev</span>
       </div>
-      <div class="nav-sub {% if active_group == 'parts' %}open{% endif %}" id="grp-parts">
-        <a href="/asp/parts?tab=awaiting"    class="nav-sub-item {% if active_page == 'parts_awaiting' %}active{% endif %}"><span class="nav-sub-dot"></span>Awaiting Delivery</a>
-        <a href="/asp/parts?tab=received"    class="nav-sub-item {% if active_page == 'parts_received' %}active{% endif %}"><span class="nav-sub-dot"></span>Received Confirmation</a>
-        <a href="/asp/parts?tab=return"      class="nav-sub-item {% if active_page == 'parts_return' %}active{% endif %}"><span class="nav-sub-dot"></span>Return Status</a>
+      <div class="nav-sub" id="grp-parts">
+        <span class="nav-sub-item nav-dev"><span class="nav-sub-dot"></span>Awaiting Delivery<span class="nav-dev-badge">Dev</span></span>
+        <span class="nav-sub-item nav-dev"><span class="nav-sub-dot"></span>Received Confirmation<span class="nav-dev-badge">Dev</span></span>
+        <span class="nav-sub-item nav-dev"><span class="nav-sub-dot"></span>Return Status<span class="nav-dev-badge">Dev</span></span>
       </div>
 
-      <a href="/asp/reschedule" class="nav-item {% if active_page == 'reschedule' %}active{% endif %}">
+      <!-- Reschedule Mgmt — under development -->
+      <span class="nav-item nav-dev">
         <span class="nav-icon">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         </span>
         <span class="nav-label">Reschedule Mgmt</span>
-      </a>
+        <span class="nav-dev-badge">Dev</span>
+      </span>
 
-      <a href="/asp/escalation" class="nav-item {% if active_page == 'escalation' %}active{% endif %}">
+      <!-- Escalation Center — under development -->
+      <span class="nav-item nav-dev">
         <span class="nav-icon">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         </span>
         <span class="nav-label">Escalation Center</span>
-      </a>
+        <span class="nav-dev-badge">Dev</span>
+      </span>
 
       {% else %}
       <!-- ── Admin Portal nav ───────────────────────────────────────── -->
@@ -697,12 +718,14 @@
         <span class="nav-label">Dashboard</span>
       </a>
 
-      <a href="/admin/tickets" class="nav-item {% if active_page == 'admin_tickets' %}active{% endif %}">
+      <!-- Ticket Management — under development -->
+      <span class="nav-item nav-dev">
         <span class="nav-icon">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
         </span>
         <span class="nav-label">Ticket Management</span>
-      </a>
+        <span class="nav-dev-badge">Dev</span>
+      </span>
 
       <div class="nav-group-header {% if active_group == 'data_import_export' %}open{% endif %}" data-group="grp-data-import-export">
         <span class="nav-icon">
@@ -730,6 +753,27 @@
         <a href="/admin/validation/pou-unreturn" class="nav-sub-item {% if active_page == 'pou_unreturn' %}active{% endif %}"><span class="nav-sub-dot"></span>PoU Unreturn Report</a>
       </div>
 
+      <div class="nav-group-header {% if active_group == 'escalation_center' %}open{% endif %}" data-group="grp-escalation">
+        <span class="nav-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </span>
+        <span class="nav-label">Escalation Center</span>
+        <svg class="nav-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <div class="nav-sub {% if active_group == 'escalation_center' %}open{% endif %}" id="grp-escalation">
+        <a href="/admin/monday-data" class="nav-sub-item {% if active_page == 'monday_data' %}active{% endif %}"><span class="nav-sub-dot"></span>Monday Data</a>
+      </div>
+
+      <!-- System Archive — under development -->
+      <span class="nav-item nav-dev">
+        <span class="nav-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+        </span>
+        <span class="nav-label">System Archive</span>
+        <span class="nav-dev-badge">Dev</span>
+      </span>
+
+      <!-- User & ASP Mgmt — moved below System Archive -->
       <div class="nav-group-header {% if active_group == 'user_mgmt' %}open{% endif %}" data-group="grp-user-mgmt">
         <span class="nav-icon">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -742,24 +786,6 @@
         <a href="/admin/users/asp-directory" class="nav-sub-item {% if active_page == 'asp_directory' %}active{% endif %}"><span class="nav-sub-dot"></span>ASP Directory</a>
         <a href="/admin/users/pw-change-requests" class="nav-sub-item {% if active_page == 'pw_change_requests' %}active{% endif %}"><span class="nav-sub-dot"></span>PW Change Requests</a>
       </div>
-
-      <div class="nav-group-header {% if active_group == 'escalation_center' %}open{% endif %}" data-group="grp-escalation">
-        <span class="nav-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        </span>
-        <span class="nav-label">Escalation Center</span>
-        <svg class="nav-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-      </div>
-      <div class="nav-sub {% if active_group == 'escalation_center' %}open{% endif %}" id="grp-escalation">
-        <a href="/admin/monday-data" class="nav-sub-item {% if active_page == 'monday_data' %}active{% endif %}"><span class="nav-sub-dot"></span>Monday Data</a>
-      </div>
-
-      <a href="/admin/archive" class="nav-item {% if active_page == 'archive' %}active{% endif %}">
-        <span class="nav-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-        </span>
-        <span class="nav-label">System Archive</span>
-      </a>
 
       {% endif %}
     </nav>

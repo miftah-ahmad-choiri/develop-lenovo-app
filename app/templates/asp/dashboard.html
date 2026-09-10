@@ -2297,7 +2297,7 @@ function openDetail(woId) {
       body.querySelectorAll('[data-action="cci-report-problem"]').forEach(b =>
         b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, 'cci', b.dataset.pod)));
       body.querySelectorAll('[data-action="onsite-reschedule"]').forEach(b =>
-        b.addEventListener('click', () => openReschedule(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, b.dataset.origOnsite, b.dataset.deferDate, b.dataset.actualOnsite, b.dataset.pod)));
+        b.addEventListener('click', () => openReschedule(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, b.dataset.deferDate, b.dataset.actualOnsite, b.dataset.pod)));
       body.querySelectorAll('[data-action="onsite-part-sla"]').forEach(b =>
         b.addEventListener('click', () => openPartSla(b.dataset.wo, b.dataset.woType, b.dataset.eta, b.dataset.pickup, b.dataset.pod, b.dataset.awb, b.dataset.status, b.dataset.asp, 'onsite')));
       body.querySelectorAll('[data-action="onsite-wo-sla"]').forEach(b =>
@@ -2463,18 +2463,17 @@ function _onsiteHeroBtns(d) {
   const aspEsc        = esc(d.customer || '');
   const pickupEsc     = esc(d.part_pickup_raw || '');
   const podEsc        = esc(d.part_pod_raw    || '');
-  const origOnsiteEsc = esc(d.original_committed_onsite_date || '');
   const deferDateEsc  = esc(d.customer_defer_date || '');
   const actOnsiteEsc  = esc(d.actual_committed_onsite_date || '');
   const partAwbFilled = !!(d.part_awb && String(d.part_awb).trim());
 
   const btns = [];
   if (state === 'wo_reschedule')
-    btns.push(`<button class="fu-badge fu-reschedule fu-badge-btn" data-action="onsite-reschedule" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-status="${stEsc}" data-asp="${aspEsc}" data-orig-onsite="${origOnsiteEsc}" data-defer-date="${deferDateEsc}" data-actual-onsite="${actOnsiteEsc}" data-pod="${podEsc}">📅 WO Reschedule</button>`);
+    btns.push(`<button class="fu-badge fu-reschedule fu-badge-btn" data-action="onsite-reschedule" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-status="${stEsc}" data-asp="${aspEsc}" data-defer-date="${deferDateEsc}" data-actual-onsite="${actOnsiteEsc}" data-pod="${podEsc}">📅 WO Reschedule</button>`);
   if (state === 'part_sla')
     btns.push(`<button class="fu-badge fu-part-sla fu-badge-btn" data-action="onsite-part-sla" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-eta="${etaEsc}" data-pickup="${pickupEsc}" data-pod="${podEsc}" data-awb="${esc(d.part_awb||'')}" data-status="${stEsc}" data-asp="${aspEsc}">⚠️ Part SLA Overdue</button>`);
   if (state === 'wo_sla' || state === 'report_problem')
-    btns.push(`<button class="fu-badge fu-reschedule fu-badge-btn" data-action="onsite-reschedule" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-status="${stEsc}" data-asp="${aspEsc}" data-orig-onsite="${origOnsiteEsc}" data-defer-date="${deferDateEsc}" data-actual-onsite="${actOnsiteEsc}" data-pod="${podEsc}">📅 WO Reschedule</button>`);
+    btns.push(`<button class="fu-badge fu-reschedule fu-badge-btn" data-action="onsite-reschedule" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-status="${stEsc}" data-asp="${aspEsc}" data-defer-date="${deferDateEsc}" data-actual-onsite="${actOnsiteEsc}" data-pod="${podEsc}">📅 WO Reschedule</button>`);
   if (state === 'report_problem')
     btns.push(`<button class="fu-badge fu-wo-sla fu-badge-btn" data-action="onsite-wo-sla" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-pod="${podEsc}" data-defer-date="${deferDateEsc}" data-status="${stEsc}" data-asp="${aspEsc}">🔔 WO SLA Follow-Up</button>`);
   /* Part POD'd but AWB still blank — show receipt button alongside other buttons */
@@ -2618,11 +2617,10 @@ function renderTimeline(d, parts) {
     { label: 'Part Order',           date: nd(partOrderDate) },                                     // 2
     { label: 'Part Pickup',          date: nd(partPickupDate) },                                    // 3
     { label: 'Part Received\n(POD)', date: nd(partPodDate) },                                       // 4
-    { label: 'Orig. Onsite',         date: nd(d.original_committed_onsite_date) },                  // 5
-    { label: 'Actual\nOnsite',       date: nd(d.actual_committed_onsite_date) },                    // 6
-    { label: 'Defer Date',           date: nd(d.customer_defer_date), optional: true },             // 7
-    { label: 'Completion',           date: nd(d.completion_date) },                                 // 8
-    { label: 'Closed',               date: nd(d.closing_date) },                                    // 9
+    { label: 'Actual\nOnsite',       date: nd(d.actual_committed_onsite_date) },                    // 5
+    { label: 'Defer Date',           date: nd(d.customer_defer_date), optional: true },             // 6
+    { label: 'Completion',           date: nd(d.completion_date) },                                 // 7
+    { label: 'Closed',               date: nd(d.closing_date) },                                    // 8
   ];
 
   /* Determine "progress" — the last node index that has a real date */
@@ -2634,17 +2632,17 @@ function renderTimeline(d, parts) {
     const ts      = hasDate ? new Date(String(n.date).replace(' ', 'T')).getTime() : null;
     const isPast  = ts && ts <= now;
     const isOverdue = !hasDate && i > 0 && i <= lastDoneIdx + 1 && !n.optional;
-    /* Closed WO: Orig. Onsite (5) and Actual Onsite (6) forced done only when they
-       have a date — if empty they stay grey (future). Defer Date (7): forced done
+    /* Closed WO: Actual Onsite (5) forced done only when it
+       has a date — if empty it stays grey (future). Defer Date (6): forced done
        if it has a date; forced grey if empty. */
-    const forceDone   = isWoClosed && ((hasDate && (i === 5 || i === 6)) || (i === 7 && hasDate));
-    const forceGrey   = isWoClosed && i === 7 && !hasDate;
-    /* Open WO: Orig. Onsite (5) and Actual Onsite (6) forced active (blue) when
-       they have a date — the WO is not finished yet so they are not "done".
-       Defer Date (7) forced skipped (amber) when it has a date — it is a deferral,
+    const forceDone   = isWoClosed && ((hasDate && i === 5) || (i === 6 && hasDate));
+    const forceGrey   = isWoClosed && i === 6 && !hasDate;
+    /* Open WO: Actual Onsite (5) forced active (blue) when
+       it has a date — the WO is not finished yet so it is not "done".
+       Defer Date (6) forced skipped (amber) when it has a date — it is a deferral,
        not a completion event. */
-    const forceActive = !isWoClosed && hasDate && (i === 5 || i === 6);
-    const forceSkip   = !isWoClosed && hasDate && i === 7;
+    const forceActive = !isWoClosed && hasDate && i === 5;
+    const forceSkip   = !isWoClosed && hasDate && i === 6;
 
     let state;
     if (forceDone)                   state = 'done';
@@ -2661,7 +2659,7 @@ function renderTimeline(d, parts) {
       ? `tl-connector ${(state === 'done' && i < lastDoneIdx) ? 'done' : ''}` : '';
 
     const dateStr  = fmtShort(n.date);
-    const dateCls  = (i === 7 && hasDate) ? 'active-text' : state === 'done' ? 'done-text' : state === 'active' ? 'active-text' : 'future-text';
+    const dateCls  = (i === 6 && hasDate) ? 'active-text' : state === 'done' ? 'done-text' : state === 'active' ? 'active-text' : 'future-text';
 
     /* SVG icon inside dot */
     let dotSvg = '';
@@ -3641,12 +3639,11 @@ const onsFollowUpTable = makeTabTable({
         const status        = esc(r.work_order_status || '');
         const asp           = esc(r.customer || '');
         const deferDate     = esc(r.customer_defer_date || '');
-        const origOnsiteEsc = esc(r.committed_delivery_date || '');
         const actOnsiteEsc  = esc(r.actual_committed_onsite_date || '');
         const podEsc        = esc(r.part_pod_time || '');
         if (deferDate)
-          return `<button class="fu-badge fu-reschedule fu-badge-btn" data-action="ons-followup-schedule" data-wo="${wo}" data-wo-type="${woType}" data-status="${status}" data-asp="${asp}" data-orig-onsite="${origOnsiteEsc}" data-defer-date="${deferDate}" data-actual-onsite="${actOnsiteEsc}" data-pod="${podEsc}">📅 Reschedule ONS</button>`;
-        return `<button class="fu-badge fu-set-schedule fu-badge-btn" data-action="ons-followup-schedule" data-wo="${wo}" data-wo-type="${woType}" data-status="${status}" data-asp="${asp}" data-orig-onsite="${origOnsiteEsc}" data-defer-date="${deferDate}" data-actual-onsite="${actOnsiteEsc}" data-pod="${podEsc}">📅 Set ONS Schedule</button>`;
+          return `<button class="fu-badge fu-reschedule fu-badge-btn" data-action="ons-followup-schedule" data-wo="${wo}" data-wo-type="${woType}" data-status="${status}" data-asp="${asp}" data-defer-date="${deferDate}" data-actual-onsite="${actOnsiteEsc}" data-pod="${podEsc}">📅 Reschedule ONS</button>`;
+        return `<button class="fu-badge fu-set-schedule fu-badge-btn" data-action="ons-followup-schedule" data-wo="${wo}" data-wo-type="${woType}" data-status="${status}" data-asp="${asp}" data-defer-date="${deferDate}" data-actual-onsite="${actOnsiteEsc}" data-pod="${podEsc}">📅 Set ONS Schedule</button>`;
       }
     },
     { key: '_escalation_action', render: r => {
@@ -3753,7 +3750,7 @@ const onsFollowUpTable = makeTabTable({
     tbody.querySelectorAll('.wo-link').forEach(b =>
       b.addEventListener('click', () => openDetail(b.dataset.wo)));
     tbody.querySelectorAll('[data-action="ons-followup-schedule"]').forEach(b =>
-      b.addEventListener('click', () => openOnsiteRecv(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, b.dataset.origOnsite, b.dataset.deferDate, b.dataset.actualOnsite, b.dataset.pod)));
+      b.addEventListener('click', () => openOnsiteRecv(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, b.dataset.deferDate, b.dataset.actualOnsite, b.dataset.pod)));
     tbody.querySelectorAll('[data-action="ons-followup-wo-sla"]').forEach(b =>
       b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, 'onsite', b.dataset.pod, b.dataset.deferDate)));
     tbody.querySelectorAll('[data-action="ons-followup-escalate"]').forEach(b =>
@@ -4731,7 +4728,7 @@ function _onOrEvidenceChange() {
 document.getElementById('or-evidence-file').addEventListener('change', _onOrEvidenceChange);
 document.getElementById('or-evidence-remove').addEventListener('click', _clearOrEvidence);
 
-function openOnsiteRecv(woId, woType, woStatus, aspName, origOnsite, deferDate, actualOnsite, podDate) {
+function openOnsiteRecv(woId, woType, woStatus, aspName, deferDate, actualOnsite, podDate) {
   activeOnsiteRecvWo      = woId;
   activeOnsiteRecvContact = '';
   activeOnsiteRecvStatus  = woStatus || '';
@@ -4757,8 +4754,8 @@ function openOnsiteRecv(woId, woType, woStatus, aspName, origOnsite, deferDate, 
   /* Show onsite timeline (always shown for onsite type modals) */
   const tlDiv   = document.getElementById('or-onsite-timeline');
   const trackEl = document.getElementById('or-onsite-tl-track');
-  if (podDate || origOnsite || deferDate || actualOnsite) {
-    renderOnsiteTimeline(trackEl, podDate, origOnsite, actualOnsite, deferDate);
+  if (podDate || deferDate || actualOnsite) {
+    renderOnsiteTimeline(trackEl, podDate, actualOnsite, deferDate);
     tlDiv.style.display = '';
   } else {
     tlDiv.style.display = 'none';
@@ -5694,13 +5691,12 @@ document.getElementById('btn-psla-prompt-reschedule').addEventListener('click', 
 });
 
 /* ── Onsite mini-timeline helper ──
-   Renders 4-node timeline: Received (POD) → Orig. Onsite → Actual Onsite → Defer Date
+   Renders 3-node timeline: Received (POD) → Actual Onsite → Defer Date
    into a container element. Only shown when WO type contains 'onsite'. */
-function renderOnsiteTimeline(trackEl, podDate, origOnsite, actualOnsite, deferDate) {
+function renderOnsiteTimeline(trackEl, podDate, actualOnsite, deferDate) {
   if (!trackEl) return;
   const nodes = [
     { label: 'Received\n(POD)',  val: podDate                       },
-    { label: 'Orig. Onsite',    val: origOnsite,  isOnsite: true   },
     { label: 'Actual\nOnsite',  val: actualOnsite, isOnsite: true  },
     { label: 'Defer Date',      val: deferDate,   isDefer: true    },
   ];
@@ -5740,7 +5736,7 @@ function renderOnsiteTimeline(trackEl, podDate, origOnsite, actualOnsite, deferD
 }
 
 let activeRsWo = null;
-function openReschedule(woId, woType, status, aspName, origOnsite, deferDate, actualOnsite, podDate) {
+function openReschedule(woId, woType, status, aspName, deferDate, actualOnsite, podDate) {
   activeRsWo = woId;
   document.getElementById('rs-wo-num').textContent        = woId;
   document.getElementById('rs-wo-type').textContent       = woType  || '';
@@ -5754,8 +5750,8 @@ function openReschedule(woId, woType, status, aspName, origOnsite, deferDate, ac
   const tlDiv   = document.getElementById('rs-onsite-timeline');
   const trackEl = document.getElementById('rs-onsite-tl-track');
   const isOnsite = (woType || '').toLowerCase().includes('onsite');
-  if (isOnsite && (podDate || origOnsite || deferDate || actualOnsite)) {
-    renderOnsiteTimeline(trackEl, podDate, origOnsite, actualOnsite, deferDate);
+  if (isOnsite && (podDate || deferDate || actualOnsite)) {
+    renderOnsiteTimeline(trackEl, podDate, actualOnsite, deferDate);
     tlDiv.style.display = '';
   } else {
     tlDiv.style.display = 'none';

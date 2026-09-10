@@ -279,63 +279,74 @@ def api_dashboard_closing_codes():
 
     wo_rows = [dict(r) for r in wo_rows]
 
-    if edb and wo_rows:
+    # tag every existing row as sourced from closing-code table
+    for r in wo_rows:
+        r["row_source"] = "closing_code"
+
+    monday_extra_rows = []   # rows sourced from Monday that have no closing-code WO
+
+    if edb:
         try:
-            # ── Step 2: collect the set of lookup keys for a single IN-query
-            keys = set()
-            for r in wo_rows:
-                keys.add(r["wo_id_str"])
-                if r["case_num_str"]:
-                    keys.add(r["case_num_str"])
-            keys.discard("")
-            key_list = list(keys)
-            key_ph   = ",".join("?" * len(key_list))
-
-            # ── Step 3: one pass over technical_escalation — aggregate per key
-            esc_agg = edb.execute(f"""
-                SELECT
-                    TRIM(wo_case_id)                             AS key,
-                    GROUP_CONCAT(DISTINCT COALESCE(status,'—')) AS statuses,
-                    MAX(item_created_at)                         AS latest_created_at,
-                    monday_item_id,
-                    item_name,
-                    board_id
-                FROM technical_escalation
-                WHERE TRIM(wo_case_id) IN ({key_ph})
-                GROUP BY TRIM(wo_case_id)
-            """, key_list).fetchall()
-            esc_by_key = {dict(r)["key"]: dict(r) for r in esc_agg}
-
-            # ── Step 4: one pass over item_updates — disc count per monday_item_id
-            item_ids = [r["monday_item_id"] for r in esc_agg if r["monday_item_id"]]
             disc_by_item: dict = {}
-            if item_ids:
-                item_ph    = ",".join("?" * len(item_ids))
-                _disc_rows = edb.execute(f"""
-                    SELECT u.monday_item_id,
-                           COUNT(DISTINCT u.update_id) + COUNT(DISTINCT r.reply_id) AS cnt
-                    FROM item_updates u
-                    LEFT JOIN item_update_replies r ON r.update_id = u.update_id
-                    WHERE u.monday_item_id IN ({item_ph})
-                    GROUP BY u.monday_item_id
-                """, item_ids).fetchall()
-                disc_by_item = {row["monday_item_id"]: row["cnt"] for row in _disc_rows}
+            esc_by_key: dict   = {}
+            serial_esc: dict   = {}
 
-            # ── Step 5: merge escalation data into each WO row
-            serial_esc = {}
-            for esc_row in edb.execute("""
-                SELECT
-                    TRIM(serial_number) AS serial_key,
-                    monday_item_id,
-                    item_name,
-                    item_created_at,
-                    status,
-                    wo_case_id,
-                    board_id
-                FROM technical_escalation
-                WHERE TRIM(COALESCE(serial_number, '')) != ''
-            """).fetchall():
-                serial_esc.setdefault(esc_row["serial_key"].lower(), []).append(dict(esc_row))
+            # ── Steps 2-5: merge escalation data into each closing-code WO row ──
+            if wo_rows:
+                # ── Step 2: collect the set of lookup keys for a single IN-query
+                keys = set()
+                for r in wo_rows:
+                    keys.add(r["wo_id_str"])
+                    if r["case_num_str"]:
+                        keys.add(r["case_num_str"])
+                keys.discard("")
+                key_list = list(keys)
+                key_ph   = ",".join("?" * len(key_list))
+
+                # ── Step 3: one pass over technical_escalation — aggregate per key
+                esc_agg = edb.execute(f"""
+                    SELECT
+                        TRIM(wo_case_id)                             AS key,
+                        GROUP_CONCAT(DISTINCT COALESCE(status,'—')) AS statuses,
+                        MAX(item_created_at)                         AS latest_created_at,
+                        monday_item_id,
+                        item_name,
+                        board_id
+                    FROM technical_escalation
+                    WHERE TRIM(wo_case_id) IN ({key_ph})
+                    GROUP BY TRIM(wo_case_id)
+                """, key_list).fetchall()
+                esc_by_key = {dict(r)["key"]: dict(r) for r in esc_agg}
+
+                # ── Step 4: one pass over item_updates — disc count per monday_item_id
+                item_ids = [r["monday_item_id"] for r in esc_agg if r["monday_item_id"]]
+                if item_ids:
+                    item_ph    = ",".join("?" * len(item_ids))
+                    _disc_rows = edb.execute(f"""
+                        SELECT u.monday_item_id,
+                               COUNT(DISTINCT u.update_id) + COUNT(DISTINCT r.reply_id) AS cnt
+                        FROM item_updates u
+                        LEFT JOIN item_update_replies r ON r.update_id = u.update_id
+                        WHERE u.monday_item_id IN ({item_ph})
+                        GROUP BY u.monday_item_id
+                    """, item_ids).fetchall()
+                    disc_by_item = {row["monday_item_id"]: row["cnt"] for row in _disc_rows}
+
+                # ── Step 5: merge escalation data into each WO row
+                serial_esc = {}
+                for esc_row in edb.execute("""
+                    SELECT
+                        TRIM(serial_number) AS serial_key,
+                        monday_item_id,
+                        item_name,
+                        item_created_at,
+                        status,
+                        wo_case_id,
+                        board_id
+                    FROM technical_escalation
+                    WHERE TRIM(COALESCE(serial_number, '')) != ''
+                """).fetchall():
+                    serial_esc.setdefault(esc_row["serial_key"].lower(), []).append(dict(esc_row))
 
             for r in wo_rows:
                 wo_esc  = esc_by_key.get(r["wo_id_str"])
@@ -403,6 +414,263 @@ def api_dashboard_closing_codes():
                     r["esc_disc_count"] = 0
                     r["wo_case_id"]     = None
                     r["wo_case_match"]  = None
+
+            # ── Step 6: find Monday rows NOT already matched to a closing-code WO ──
+            # Collect all WO IDs and case IDs already represented in wo_rows
+            matched_wo_ids  = {r["wo_id_str"] for r in wo_rows}
+            matched_case_ids = {r["case_num_str"] for r in wo_rows if r["case_num_str"]}
+
+            # All Monday items created in the last 30 days
+            all_monday = edb.execute("""
+                SELECT
+                    monday_item_id,
+                    item_name,
+                    item_created_at,
+                    status,
+                    wo_case_id,
+                    serial_number,
+                    board_id,
+                    work_order_type
+                FROM technical_escalation
+                WHERE TRIM(COALESCE(item_created_at, '')) != ''
+                  AND SUBSTR(item_created_at, 1, 10) >= ?
+                ORDER BY item_created_at DESC
+            """, (cutoff,)).fetchall()
+
+            # Build a map of closed WOs (last 30 days) keyed by WO ID str for date lookup
+            # (for case-ID date matching)
+            closed_wo_by_id    = {r["wo_id_str"]: r for r in wo_rows}
+            # Also build a map of case_number → list of WO rows (for case-ID matching against
+            # ANY closed WO in the main DB, not just closing-code WOs)
+            closed_by_case: dict = {}
+            all_closed_wo = conn.execute("""
+                SELECT
+                    CAST(s.work_order_id AS TEXT) AS wo_id_str,
+                    d.completion_date,
+                    d.closing_date,
+                    s.work_order_type,
+                    s.work_order_status,
+                    d.case_number,
+                    d.closing_code,
+                    s.serial_number,
+                    d.serial_number AS product_serial_number,
+                    s.customer,
+                    s.contact_name,
+                    d.product_description,
+                    d.city
+                FROM wo_summary s
+                LEFT JOIN wo_details d USING (work_order_id)
+                WHERE TRIM(COALESCE(d.completion_date, '')) != ''
+                  AND SUBSTR(d.completion_date, 1, 10) >= ?
+            """, (cutoff,)).fetchall()
+            all_closed_wo = [dict(r) for r in all_closed_wo]
+            all_closed_wo_by_id: dict = {r["wo_id_str"]: r for r in all_closed_wo}
+            for r in all_closed_wo:
+                if r["case_number"]:
+                    closed_by_case.setdefault(str(r["case_number"]), []).append(r)
+
+            # ── Build a map of WOs that have a case_number but NO closing_date ──
+            # Used to surface Monday items whose case_number matches a WO that is
+            # still open (no close date) — these are skipped by the date-window
+            # check because they have no reference date to compare against.
+            no_close_by_case: dict = {}
+            _no_close_rows = conn.execute("""
+                SELECT
+                    CAST(s.work_order_id AS TEXT) AS wo_id_str,
+                    d.completion_date,
+                    d.closing_date,
+                    s.work_order_type,
+                    s.work_order_status,
+                    d.case_number,
+                    d.closing_code,
+                    s.serial_number,
+                    d.serial_number AS product_serial_number,
+                    s.customer,
+                    s.contact_name,
+                    d.product_description,
+                    d.city
+                FROM wo_summary s
+                LEFT JOIN wo_details d USING (work_order_id)
+                WHERE d.case_number IS NOT NULL
+                  AND TRIM(COALESCE(d.case_number, '')) != ''
+                  AND TRIM(COALESCE(d.closing_date, '')) = ''
+            """).fetchall()
+            for r in _no_close_rows:
+                r = dict(r)
+                if r["case_number"]:
+                    no_close_by_case.setdefault(str(r["case_number"]), []).append(r)
+
+            # disc counts for monday items not already in disc_by_item
+            def _disc_count_for(item_id):
+                if not item_id:
+                    return 0
+                if item_id in disc_by_item:
+                    return disc_by_item[item_id]
+                row = edb.execute("""
+                    SELECT COUNT(DISTINCT u.update_id) + COUNT(DISTINCT rep.reply_id) AS cnt
+                    FROM item_updates u
+                    LEFT JOIN item_update_replies rep ON rep.update_id = u.update_id
+                    WHERE u.monday_item_id = ?
+                """, (item_id,)).fetchone()
+                cnt = row["cnt"] if row else 0
+                disc_by_item[item_id] = cnt
+                return cnt
+
+            # Helper: does a wo_case_id look like a WO number (starts with 40...)
+            def _looks_like_wo(val):
+                v = str(val or "").strip()
+                return bool(v and _re.match(r'^40\d{8,}', v))
+
+            # ── Pre-pass: collect all WO-like Monday keys not already in all_closed_wo_by_id,
+            #    then fetch their status/type in a single batch query (covers open/in-transit WOs
+            #    that have no completion_date within the last 30 days).
+            _unresolved_wo_ids = set()
+            for _mr in all_monday:
+                _rk = str(dict(_mr).get("wo_case_id") or "").strip()
+                if _looks_like_wo(_rk) and _rk not in matched_wo_ids and _rk not in all_closed_wo_by_id:
+                    _unresolved_wo_ids.add(_rk)
+
+            _open_wo_by_id: dict = {}
+            if _unresolved_wo_ids:
+                _uid_ph = ",".join("?" * len(_unresolved_wo_ids))
+                _open_rows = conn.execute(f"""
+                    SELECT
+                        CAST(s.work_order_id AS TEXT) AS wo_id_str,
+                        s.work_order_type,
+                        s.work_order_status,
+                        s.serial_number,
+                        d.serial_number      AS product_serial_number,
+                        s.customer,
+                        s.contact_name,
+                        d.product_description,
+                        d.city,
+                        d.completion_date,
+                        d.closing_date,
+                        d.closing_code,
+                        d.case_number
+                    FROM wo_summary s
+                    LEFT JOIN wo_details d USING (work_order_id)
+                    WHERE CAST(s.work_order_id AS TEXT) IN ({_uid_ph})
+                """, list(_unresolved_wo_ids)).fetchall()
+                _open_wo_by_id = {dict(r)["wo_id_str"]: dict(r) for r in _open_rows}
+
+            seen_monday_item_ids = set()
+
+            for mrow in all_monday:
+                mrow = dict(mrow)
+                raw_key = str(mrow["wo_case_id"] or "").strip()
+                if not raw_key:
+                    continue
+
+                item_id = mrow["monday_item_id"]
+                if item_id in seen_monday_item_ids:
+                    continue
+
+                if _looks_like_wo(raw_key):
+                    # WO-type key — check if it is already covered by a closing-code row
+                    if raw_key in matched_wo_ids:
+                        # already shown via the closing-code row; skip
+                        continue
+                    seen_monday_item_ids.add(item_id)
+                    # Look up WO data: prefer recently-closed WOs, fall back to open/in-transit
+                    closed_wo = all_closed_wo_by_id.get(raw_key) or _open_wo_by_id.get(raw_key)
+                    disc = _disc_count_for(item_id)
+                    extra = {
+                        "work_order_id":          closed_wo["wo_id_str"] if closed_wo else raw_key,
+                        "serial_number":          closed_wo["serial_number"] if closed_wo else None,
+                        "product_serial_number":  closed_wo["product_serial_number"] if closed_wo else None,
+                        "work_order_type":        closed_wo["work_order_type"] if closed_wo else (mrow.get("work_order_type") or None),
+                        "work_order_status":      closed_wo["work_order_status"] if closed_wo else None,
+                        "customer":               closed_wo["customer"] if closed_wo else None,
+                        "contact_name":           closed_wo["contact_name"] if closed_wo else None,
+                        "product_description":    closed_wo["product_description"] if closed_wo else None,
+                        "city":                   closed_wo["city"] if closed_wo else None,
+                        "completion_date":        closed_wo["completion_date"] if closed_wo else None,
+                        "closing_date":           closed_wo["closing_date"] if closed_wo else None,
+                        "closing_code":           closed_wo["closing_code"] if closed_wo else None,
+                        "case_number":            closed_wo["case_number"] if closed_wo else None,
+                        "esc_statuses":           mrow["status"],
+                        "esc_created_at":         mrow["item_created_at"],
+                        "esc_item_id":            item_id,
+                        "esc_item_name":          mrow["item_name"],
+                        "esc_board_id":           mrow["board_id"],
+                        "esc_disc_count":         disc,
+                        "wo_case_id":             raw_key,
+                        "wo_case_match":          "wo",
+                        "row_source":             "monday_wo" if closed_wo else "monday_only",
+                    }
+                    monday_extra_rows.append(extra)
+                else:
+                    # Case-number-type key — check if it matches a closed WO by date
+                    if raw_key in matched_case_ids:
+                        # already shown via the closing-code row; skip
+                        continue
+                    esc_date_str = (mrow["item_created_at"] or "")[:10]
+                    if not esc_date_str:
+                        continue
+                    try:
+                        _esc_dt = _dt.date.fromisoformat(esc_date_str)
+                    except ValueError:
+                        continue
+
+                    # Find any matching closed WO for this case within the date window
+                    matched_wo = None
+                    for cwo in closed_by_case.get(raw_key, []):
+                        ref_date_str = (cwo.get("closing_date") or cwo.get("completion_date") or "")[:10]
+                        if not ref_date_str:
+                            continue
+                        try:
+                            _ref_dt = _dt.date.fromisoformat(ref_date_str)
+                        except ValueError:
+                            continue
+                        delta = (_esc_dt - _ref_dt).days
+                        if -4 <= delta <= 7:
+                            matched_wo = cwo
+                            break
+
+                    # Fall back: check if this case_number matches a WO with NO closing_date
+                    # (open / still in-progress WOs that haven't been closed yet).
+                    no_close_wo = None
+                    if not matched_wo:
+                        candidates_nc = no_close_by_case.get(raw_key, [])
+                        if candidates_nc:
+                            # Prefer the candidate whose case_number matches the Monday key;
+                            # if multiple WOs share the same case number take the first one.
+                            no_close_wo = candidates_nc[0]
+
+                    if not matched_wo and not no_close_wo:
+                        continue
+
+                    seen_monday_item_ids.add(item_id)
+                    disc = _disc_count_for(item_id)
+                    src_wo = matched_wo or no_close_wo
+                    extra = {
+                        "work_order_id":          src_wo["wo_id_str"],
+                        "serial_number":          src_wo["serial_number"],
+                        "product_serial_number":  src_wo["product_serial_number"],
+                        "work_order_type":        src_wo["work_order_type"],
+                        "work_order_status":      src_wo["work_order_status"],
+                        "customer":               src_wo["customer"],
+                        "contact_name":           src_wo["contact_name"],
+                        "product_description":    src_wo["product_description"],
+                        "city":                   src_wo["city"],
+                        "completion_date":        src_wo["completion_date"],
+                        "closing_date":           src_wo["closing_date"],
+                        "closing_code":           src_wo["closing_code"],
+                        "case_number":            src_wo["case_number"],
+                        "esc_statuses":           mrow["status"],
+                        "esc_created_at":         mrow["item_created_at"],
+                        "esc_item_id":            item_id,
+                        "esc_item_name":          mrow["item_name"],
+                        "esc_board_id":           mrow["board_id"],
+                        "esc_disc_count":         disc,
+                        "wo_case_id":             raw_key,
+                        "wo_case_match":          "case",
+                        "row_source":             "monday_case",
+                        "no_close_date":          no_close_wo is not None,
+                    }
+                    monday_extra_rows.append(extra)
+
         except Exception:
             for r in wo_rows:
                 r["esc_statuses"]   = None
@@ -416,8 +684,7 @@ def api_dashboard_closing_codes():
         finally:
             edb.close()
     else:
-        if edb:
-            edb.close()
+        # edb is None — no escalation DB available
         for r in wo_rows:
             r["esc_statuses"]   = None
             r["esc_created_at"] = None
@@ -428,9 +695,16 @@ def api_dashboard_closing_codes():
             r["wo_case_id"]     = None
             r["wo_case_match"]  = None
 
+    # Combine closing-code rows + Monday-only extra rows, sort by escalation date DESC
+    combined = wo_rows + monday_extra_rows
+    combined.sort(
+        key=lambda r: (r.get("esc_created_at") or ""),
+        reverse=True,
+    )
+
     # strip internal helper columns before returning
     rows = []
-    for r in wo_rows:
+    for r in combined:
         r.pop("wo_id_str",    None)
         r.pop("case_num_str", None)
         rows.append(r)

@@ -88,16 +88,24 @@
   .cc-filter-select.has-filter { border-color: #3b82d4; background: #eff6ff; color: #1d4ed8; font-weight: 600; }
   .cc-table-wrap { overflow-y: auto; max-height: 300px; margin-top: 4px; }
   .cc-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  .cc-table thead th { position: sticky; top: 0; background: #f7f8fa; padding: 7px 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #57606a; border-bottom: 1px solid #e5e7eb; white-space: nowrap; z-index: 1; }
+  .cc-table thead th { position: sticky; top: 0; background: #f7f8fa; padding: 7px 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #57606a; border-bottom: 1px solid #e5e7eb; white-space: nowrap; z-index: 1; text-align: center; }
   .cc-table thead th.cc-col-wo   { background: #d1fae5; color: #065f46; }
   .cc-table thead th.cc-col-esc  { background: #dde3ff; color: #3730a3; }
-  .cc-table tbody td { padding: 7px 10px; border-bottom: 1px solid #f0f2f5; vertical-align: middle; white-space: nowrap; }
+  .cc-table tbody td { padding: 7px 10px; border-bottom: 1px solid #f0f2f5; vertical-align: middle; white-space: nowrap; text-align: center; }
   .cc-table tbody td.cc-col-wo   { background: #ecfdf5; }
   .cc-table tbody td.cc-col-esc  { background: #eef0ff; }
   .cc-table tbody tr:last-child td { border-bottom: none; }
   .cc-table tbody tr:hover td.cc-col-wo  { background: #d1fae5; }
   .cc-table tbody tr:hover td.cc-col-esc { background: #dde3ff; }
-  .cc-table tbody tr:hover td:not(.cc-col-wo):not(.cc-col-esc) { background: #f7f8fa; }
+  .cc-table tbody tr:hover td:not(.cc-col-wo):not(.cc-col-esc):not(.cc-col-esc-src) { background: #f7f8fa; }
+  /* WO/Case ID Monday cell: colored by Monday status */
+  .cc-col-esc-src               { background: #eef0ff; }  /* no status — default blue  */
+  .cc-col-esc-src.src-st-green  { background: #d1fae5; }  /* Approved to Order / Complete */
+  .cc-col-esc-src.src-st-red    { background: #fee2e2; }  /* Reject */
+  .cc-col-esc-src.src-st-yellow { background: #fef9c3; }  /* all other statuses */
+  .cc-table tbody tr:hover .cc-col-esc-src.src-st-green  { background: #a7f3d0; }
+  .cc-table tbody tr:hover .cc-col-esc-src.src-st-red    { background: #fecaca; }
+  .cc-table tbody tr:hover .cc-col-esc-src.src-st-yellow { background: #fef08a; }
   .cc-wocaseid         { font-weight: 700; font-size: 12px; }
   .cc-wocaseid.match   { color: #1d4ed8; }
   .cc-wocaseid.nomatch { color: #7c3aed; text-decoration: underline; text-decoration-style: wavy; text-underline-offset: 2px; }
@@ -439,7 +447,7 @@
         </div>
         <div class="cc-filter-wrap">
           <select class="cc-filter-select" id="cc-filter-status" onchange="ccApplyFilters()">
-            <option value="">All Status</option>
+            <option value="">All Monday Status</option>
             <option value="in-progress">In-Progress</option>
             <option value="complete">Complete</option>
             <option value="no-status">No Monday Status</option>
@@ -460,8 +468,8 @@
         <thead>
           <tr>
             <th style="text-align:center;width:36px">#</th>
-            <th class="cc-col-wo">Completed</th>
             <th class="cc-col-wo">WO ID</th>
+            <th class="cc-col-wo">Completed</th>
             <th class="cc-col-wo">Type</th>
             <th class="cc-col-wo">Closing Code</th>
             <th class="cc-col-esc">WO/Case ID Monday</th>
@@ -641,6 +649,17 @@ function escStatusCell(escStatuses) {
 /* ── All loaded rows (cache for client-side filtering) ─── */
 let _ccAllRows = [];
 
+/* ── Monday-status CSS class for the WO/Case ID Monday cell ─── */
+function _ccEscSrcClass(escStatuses) {
+  if (!escStatuses) return '';
+  const COMPLETE_VALS = new Set(['complete', 'completed', 'approved to order']);
+  const parts = escStatuses.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  if (!parts.length) return '';
+  if (parts.some(s => s === 'reject'))               return 'src-st-red';
+  if (parts.some(s => COMPLETE_VALS.has(s)))         return 'src-st-green';
+  return 'src-st-yellow';
+}
+
 /* ── Build one table row HTML ─── */
 function _ccRowHtml(r, displayIdx) {
   const _discSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
@@ -663,20 +682,46 @@ function _ccRowHtml(r, displayIdx) {
     : woCaseId
       ? `<span class="cc-wocaseid ${woMatched ? 'match' : 'nomatch'}">${esc(woCaseId)}</span>`
       : `<span style="color:#d0d7de">—</span>`;
+
+  // For monday-only rows whose WO ID is not in the main DB, disable the detail button
+  const source      = r.row_source || 'closing_code';
+  const srcClass    = _ccEscSrcClass(r.esc_statuses);
+  const woId        = r.work_order_id;
+  const woIsNumeric = woId && /^\d+$/.test(String(woId));
+  const woBtn       = woIsNumeric
+    ? `<button class="cc-wo-btn" data-wo="${esc(woId)}">${esc(woId)}</button>`
+    : `<span style="font-family:ui-monospace,monospace;font-size:12px;color:#57606a">${esc(woId || '—')}</span>`;
+
+  // closing_code cell:
+  //   • closing_code rows       → original tracked-code badge color (amber / red / green per ccBadgeClass)
+  //   • Monday-sourced with code → green pill (not tracked, just informational)
+  //   • Monday-sourced, no code, has WO status → WO status badge (same palette as ASP portal)
+  //   • Monday-sourced, no code, no WO status  → plain dash
+  let closingCell;
+  if (source === 'closing_code') {
+    closingCell = `<span class="${ccBadgeClass(r.closing_code)}" title="${esc(r.closing_code || '')}">${esc(r.closing_code || '—')}</span>`;
+  } else if (r.closing_code) {
+    closingCell = `<span class="cc-badge done" title="${esc(r.closing_code)}">${esc(r.closing_code)}</span>`;
+  } else if (r.work_order_status) {
+    closingCell = statusBadge(r.work_order_status);
+  } else {
+    closingCell = `<span style="color:#d0d7de">—</span>`;
+  }
+
   return `<tr>
     <td style="text-align:center;color:#8c959f;font-size:12px;width:36px">${displayIdx}</td>
+    <td class="cc-col-wo">${woBtn}</td>
     <td class="cc-col-wo" style="min-width:82px;color:#57606a">${esc(completed)}</td>
-    <td class="cc-col-wo"><button class="cc-wo-btn" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button></td>
     <td class="cc-col-wo">${esc(r.work_order_type || '—')}</td>
-    <td class="cc-col-wo" style="white-space:normal;max-width:220px"><span class="${ccBadgeClass(r.closing_code)}" title="${esc(r.closing_code || '')}">${esc(r.closing_code || '—')}</span></td>
-    <td class="cc-col-esc">${woCaseHtml}</td>
+    <td class="cc-col-wo" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.closing_code || r.work_order_status || '')}">${closingCell}</td>
+    <td class="cc-col-esc-src ${srcClass}">${woCaseHtml}</td>
     <td class="cc-col-esc" style="color:#57606a;min-width:82px">${esc(escDate)}</td>
     <td class="cc-col-esc">${escStatusCell(r.esc_statuses)}</td>
     <td class="cc-col-esc" style="text-align:center">${discBtn}</td>
   </tr>`;
 }
 
-/* ── Apply WO Type + Monday Status filters and re-render ─── */
+/* ── Apply WO Type + Monday Status + Source filters and re-render ─── */
 window.ccApplyFilters = function() {
   const typeVal   = (document.getElementById('cc-filter-type')   || {}).value || '';
   const statusVal = (document.getElementById('cc-filter-status') || {}).value || '';
@@ -712,8 +757,8 @@ window.ccApplyFilters = function() {
   const sub   = document.getElementById('cc-sub');
   const hasFilter = typeVal || statusVal;
   if (sub) sub.innerHTML = hasFilter
-    ? `<strong>${filtered.length.toLocaleString()}</strong> of <strong>${_ccAllRows.length.toLocaleString()}</strong> WO${_ccAllRows.length !== 1 ? 's' : ''}`
-    : `<strong>${_ccAllRows.length.toLocaleString()}</strong> WO${_ccAllRows.length !== 1 ? 's' : ''} in the last 30 days`;
+    ? `<strong>${filtered.length.toLocaleString()}</strong> of <strong>${_ccAllRows.length.toLocaleString()}</strong> WOs in the last 30 days`
+    : `<strong>${_ccAllRows.length.toLocaleString()}</strong> WOs in the last 30 days`;
 
   if (!filtered.length) {
     tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#8c959f;font-style:italic">No records match the selected filters.</td></tr>';
@@ -732,7 +777,7 @@ window.ccApplyFilters = function() {
 function renderClosingCodeTable(data) {
   _ccAllRows = data.rows || [];
   const sub = document.getElementById('cc-sub');
-  if (sub) sub.innerHTML = `<strong>${_ccAllRows.length.toLocaleString()}</strong> WO${_ccAllRows.length !== 1 ? 's' : ''} in the last 30 days`;
+  if (sub) sub.innerHTML = `<strong>${_ccAllRows.length.toLocaleString()}</strong> WOs in the last 30 days`;
   // Reset filters on fresh load
   const selType   = document.getElementById('cc-filter-type');
   const selStatus = document.getElementById('cc-filter-status');
@@ -1119,7 +1164,7 @@ window.ccOpenSnHistory = function(serial, currentWoId, currentCaseN) {
     .then(([woData, escData]) => {
       document.getElementById('cc-hist-body').innerHTML =
         ccRenderSnHistory(woData.serial_number, woData.rows, currentWoId || '', currentCaseN || '') +
-        ccRenderMondayEscalation(escData.serial_number, escData.rows, currentWoId || '');
+        ccRenderMondayEscalation(escData.serial_number, escData.rows, currentWoId || '', currentCaseN || '');
     })
     .catch(() => { document.getElementById('cc-hist-body').innerHTML = '<div class="cc-hist-empty">Failed to load history. Please try again.</div>'; });
 };
@@ -1220,7 +1265,7 @@ function ccEscStatusBadge(status) {
   return `<span style="display:inline-block;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:600;background:${bg};color:${color};border:1px solid ${border};white-space:nowrap">${esc(status || '—')}</span>`;
 }
 
-function ccRenderMondayEscalation(sn, rows, currentWoId) {
+function ccRenderMondayEscalation(sn, rows, currentWoId, currentCaseN) {
   if (!rows || !rows.length) return '';
   const _discSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
   const thS = 'padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:#57606a;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e5e7eb;white-space:nowrap';
@@ -1234,7 +1279,13 @@ function ccRenderMondayEscalation(sn, rows, currentWoId) {
     if (wo) return wo;
     if (/^40\d/.test(str.slice(0,10))) return str.slice(0,10);
     if (/^40\d/.test(str.slice(-10))) return str.slice(-10);
-    return str;
+    return '';   // not a WO-format ID — treat as case number
+  }
+
+  // Returns true when the raw wo_case_id looks like a case/ticket number rather than a WO ID
+  function _isCaseKey(raw) {
+    if (!raw) return false;
+    return !_extractWO(raw) && !!raw.toString().trim();
   }
 
   const snLabel  = `<div class="cc-hist-sn-label" style="margin-top:4px">Laptop Device SN: <strong>${esc(sn || '—')}</strong></div>`;
@@ -1242,13 +1293,22 @@ function ccRenderMondayEscalation(sn, rows, currentWoId) {
 
   let tbody = '';
   rows.forEach((r, i) => {
-    const woNum      = _extractWO(r.wo_case_id);
-    const isCurrRow  = currentWoId && woNum && woNum === currentWoId;
-    const ticketCell = r.case_number
-      ? `<span style="font-family:ui-monospace,SFMono-Regular,monospace;font-size:12px;font-weight:600;color:#3b82d4">${esc(r.case_number)}</span>`
+    const rawKey     = (r.wo_case_id || '').toString().trim();
+    const woNum      = _extractWO(rawKey);
+    const caseKey    = _isCaseKey(rawKey) ? rawKey : null;  // wo_case_id is a case number
+
+    const isCurrRow  = (currentWoId && woNum && woNum === currentWoId) ||
+                       (currentCaseN && caseKey && caseKey === currentCaseN);
+
+    // Ticket (Case#) column: prefer DB-resolved case_number, fall back to wo_case_id when it IS a case key
+    const displayCase = r.case_number || caseKey || null;
+    const isCurrCase  = currentCaseN && displayCase && displayCase === currentCaseN;
+    const ticketCell  = displayCase
+      ? `<span style="font-family:ui-monospace,SFMono-Regular,monospace;font-size:12px;font-weight:600;color:#3b82d4">${esc(displayCase)}</span>${isCurrCase ? _currentTag : ''}`
       : `<span style="color:#c9d0d8">—</span>`;
+
     const woCell = woNum
-      ? (isCurrRow
+      ? ((currentWoId && woNum === currentWoId)
           ? `<span style="font-family:ui-monospace,SFMono-Regular,monospace;font-size:12.5px;font-weight:700;color:#1f2328">${esc(woNum)}</span>${_currentTag}`
           : `<button class="cc-hist-wo-btn" onclick="ccOpenDetail(${esc(woNum)})" style="font-family:ui-monospace,SFMono-Regular,monospace">${esc(woNum)}</button>`)
       : `<span style="color:#c9d0d8">—</span>`;

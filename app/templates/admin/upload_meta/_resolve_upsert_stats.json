@@ -258,14 +258,32 @@
   },
   "GTAAP_Report_export_1788836462284_1788836453.xlsx": {
     "new_dc": 0,
-    "new_status": 36,
+    "new_status": 0,
     "status": "success",
-    "upsert_date": "2026-09-08"
+    "upsert_date": "2026-09-09"
   },
   "Generated_DCs_20260908_100048.xlsx": {
     "new_dc": 0,
     "new_awb": 0,
     "status": "success",
     "upsert_date": "2026-09-08"
+  },
+  "Generated_DCs_20260909_010649.xlsx": {
+    "new_dc": 0,
+    "new_awb": 0,
+    "status": "success",
+    "upsert_date": "2026-09-09"
+  },
+  "GTAAP_Report_export_1788891076385_1788891070.xlsx": {
+    "new_dc": 49,
+    "new_status": 101,
+    "status": "success",
+    "upsert_date": "2026-09-09"
+  },
+  "Generated_DCs_20260909_011106.xlsx": {
+    "new_dc": 3,
+    "new_awb": 49,
+    "status": "success",
+    "upsert_date": "2026-09-09"
   }
 }
