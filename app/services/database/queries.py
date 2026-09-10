@@ -587,7 +587,16 @@ _CCI_FOLLOWUP_COLS = """
      WHERE p.work_order_id = s.work_order_id
        AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
        AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != ''
-     ORDER BY p.soid DESC LIMIT 1) AS part_dc_filled
+     ORDER BY p.soid DESC LIMIT 1) AS part_dc_filled,
+    (SELECT COUNT(*)
+     FROM wo_product_detail p
+     WHERE p.work_order_id = s.work_order_id
+       AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
+       AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != ''
+       AND (
+           TRIM(COALESCE(p.ship_pou_pod_time,'')) != ''
+           OR TRIM(COALESCE(p.delivery_date,''))  != ''
+       )) AS part_delivered_count
 """
 
 # SLA thresholds: Carry-In/CCI = 1 day, Onsite = 3.75 days (in hours)
@@ -1405,7 +1414,16 @@ _IN_PREPARE_COLS = """
        AND LOWER(COALESCE(pw.wo_product_status,'')) NOT LIKE '%cancel%'
        AND TRIM(COALESCE(pw.ship_pickup_time,'')) = ''
        AND TRIM(COALESCE(pw.shipment_date,''))    = ''
-    )                        AS part_waiting_pickup_count
+     )                        AS part_waiting_pickup_count,
+    (SELECT COUNT(*)
+     FROM wo_product_detail pr
+     WHERE pr.work_order_id = s.work_order_id
+       AND LOWER(COALESCE(pr.wo_product_status,'')) NOT LIKE '%cancel%'
+       AND (
+           TRIM(COALESCE(pr.ship_pou_pod_time,'')) != ''
+           OR TRIM(COALESCE(pr.delivery_date,''))  != ''
+       )
+     )                        AS part_received_count
 """
 
 # Columns for PATH B (zero part lines) — part columns are all NULL / 0
@@ -1425,7 +1443,8 @@ _IN_PREPARE_COLS_NO_PART = """
     1    AS no_part_lines,
     0    AS part_on_hold_count,
     0    AS part_total_order_count,
-    0    AS part_waiting_pickup_count
+    0    AS part_waiting_pickup_count,
+    0    AS part_received_count
 """
 
 
