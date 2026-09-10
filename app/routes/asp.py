@@ -540,6 +540,134 @@ def api_wo_monday_escalation(work_order_id: int):
     return jsonify({"serial_number": sn, "rows": rows})
 
 
+@asp_bp.route("/asp/api/escalation-inprogress", methods=["GET"])
+@login_required
+def api_escalation_inprogress():
+    """Return all in-progress Monday escalations for this ASP's boards.
+
+    In-progress = status is non-empty AND not in (complete, completed, reject, approved to order).
+    Filtered to boards whose monday_board_id matches the current session's labor_vendor.
+    """
+    import os as _os, math as _math
+    from app.services.database.db import get_db, open_db
+    from flask import request as _req
+
+    vf = _vendor_filter()
+
+    try:
+        page     = max(1, int(_req.args.get("page", 1)))
+    except (ValueError, TypeError):
+        page = 1
+    try:
+        per_page = min(200, max(1, int(_req.args.get("per_page", 50))))
+    except (ValueError, TypeError):
+        per_page = 50
+
+    q       = (_req.args.get("q") or "").strip()
+    wo_type = (_req.args.get("wo_type") or "").strip()
+
+    project_root  = _os.path.normpath(_os.path.join(_os.path.dirname(__file__), "..", ".."))
+    esc_db_path   = _os.path.join(project_root, "files", "lenovo_asp_escalation.db")
+    main_db_path  = _os.path.join(project_root, "files", "lenovo_asp.db")
+
+    if not _os.path.isfile(esc_db_path):
+        return jsonify({"rows": [], "total": 0, "page": 1, "pages": 1, "per_page": per_page})
+
+    COMPLETE_VALS = ["complete", "completed", "reject", "approved to order"]
+
+    # Build WHERE
+    where_parts = [
+        "COALESCE(te.status,'') != ''",
+        "LOWER(COALESCE(te.status,'')) NOT IN ({})".format(",".join("?" * len(COMPLETE_VALS))),
+    ]
+    params = list(COMPLETE_VALS)
+
+    # Filter to this ASP's boards via asp_details
+    if vf:
+        where_parts.append("""
+            te.board_id IN (
+                SELECT CAST(ad.monday_board_id AS TEXT)
+                FROM main_db.asp_details ad
+                WHERE ad.labor_vendor_related = ?
+                  AND ad.monday_board_id IS NOT NULL
+            )
+        """)
+        params.append(vf)
+
+    if wo_type:
+        where_parts.append("UPPER(COALESCE(te.work_order_type,'')) = ?")
+        params.append(wo_type.upper())
+
+    if q:
+        where_parts.append(
+            "(te.item_name LIKE ? OR te.wo_case_id LIKE ? "
+            "OR te.serial_number LIKE ? OR te.status LIKE ?)"
+        )
+        like = f"%{q}%"
+        params.extend([like, like, like, like])
+
+    where_sql = "WHERE " + " AND ".join(where_parts)
+
+    edb = open_db(esc_db_path)
+    rows_list = []
+    total = 0
+    try:
+        edb.execute(f"ATTACH DATABASE '{main_db_path}' AS main_db")
+    except Exception:
+        pass
+    try:
+        total = edb.execute(
+            f"SELECT COUNT(*) FROM technical_escalation te {where_sql}", params
+        ).fetchone()[0]
+
+        offset = (page - 1) * per_page
+        raw = edb.execute(f"""
+            SELECT
+                te.monday_item_id,
+                te.board_id,
+                te.asp_board,
+                te.item_name,
+                te.item_created_at,
+                te.status,
+                te.work_order_type,
+                te.wo_case_id,
+                te.serial_number,
+                (
+                    SELECT COUNT(DISTINCT u2.update_id) + COUNT(DISTINCT r2.reply_id)
+                    FROM item_updates u2
+                    LEFT JOIN item_update_replies r2 ON u2.update_id = r2.update_id
+                    WHERE u2.monday_item_id = te.monday_item_id
+                ) AS disc_count,
+                CASE
+                    WHEN te.serial_number IS NULL OR te.serial_number = '' THEN 0
+                    WHEN EXISTS (
+                        SELECT 1 FROM main_db.wo_summary ws
+                        WHERE LOWER(ws.serial_number) = LOWER(te.serial_number)
+                    ) THEN 1
+                    ELSE 0
+                END AS has_wo
+            FROM technical_escalation te
+            {where_sql}
+            ORDER BY te.item_created_at DESC
+            LIMIT ? OFFSET ?
+        """, params + [per_page, offset]).fetchall()
+        rows_list = [dict(r) for r in raw]
+    except Exception as _e:
+        current_app.logger.error("api_escalation_inprogress query failed: %s", _e)
+    finally:
+        edb.close()
+
+    pages = max(1, _math.ceil(total / per_page)) if total else 1
+    return jsonify({
+        "rows":     rows_list,
+        "total":    total,
+        "page":     page,
+        "pages":    pages,
+        "per_page": per_page,
+    })
+
+
+
 
 @asp_bp.route("/asp/api/working-hours", methods=["POST"])
 @login_required
@@ -899,12 +1027,13 @@ def api_return_reminder():
     from app.services.database.queries import get_return_reminder_page
     per_page = min(_int_arg("per_page", 25), 100)
     return jsonify(get_return_reminder_page(
-        search         = request.args.get("q", "").strip(),
-        return_status  = request.args.get("return_status", "").strip(),
-        page           = _int_arg("page", 1),
-        page_size      = per_page,
-        vendor_filter  = _vendor_filter(),
-        tech_id_filter = _tech_id_filter(),
+        search              = request.args.get("q", "").strip(),
+        return_status       = request.args.get("return_status", "").strip(),
+        return_flag_filter  = request.args.get("return_flag_filter", "").strip(),
+        page                = _int_arg("page", 1),
+        page_size           = per_page,
+        vendor_filter       = _vendor_filter(),
+        tech_id_filter      = _tech_id_filter(),
     ))
 
 
@@ -916,16 +1045,18 @@ def api_return_reminder_export():
     from openpyxl.styles import Font, PatternFill, Alignment
     from app.services.database.queries import get_return_reminder_page
 
-    rs = request.args.get("return_status", "").strip()
-    q  = request.args.get("q", "").strip()
+    rs   = request.args.get("return_status",      "").strip()
+    q    = request.args.get("q",                  "").strip()
+    flag = request.args.get("return_flag_filter", "").strip()
 
     result = get_return_reminder_page(
-        search         = q,
-        return_status  = rs,
-        page           = 1,
-        page_size      = 9999,
-        vendor_filter  = _vendor_filter(),
-        tech_id_filter = _tech_id_filter(),
+        search             = q,
+        return_status      = rs,
+        return_flag_filter = flag,
+        page               = 1,
+        page_size          = 9999,
+        vendor_filter      = _vendor_filter(),
+        tech_id_filter     = _tech_id_filter(),
     )
     rows = result.get("rows", [])
 

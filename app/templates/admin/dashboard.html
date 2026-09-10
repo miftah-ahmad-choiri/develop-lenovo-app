@@ -106,9 +106,14 @@
   .cc-table tbody tr:hover .cc-col-esc-src.src-st-green  { background: #a7f3d0; }
   .cc-table tbody tr:hover .cc-col-esc-src.src-st-red    { background: #fecaca; }
   .cc-table tbody tr:hover .cc-col-esc-src.src-st-yellow { background: #fef08a; }
-  .cc-wocaseid         { font-weight: 700; font-size: 12px; }
-  .cc-wocaseid.match   { color: #1d4ed8; }
-  .cc-wocaseid.nomatch { color: #7c3aed; text-decoration: underline; text-decoration-style: wavy; text-underline-offset: 2px; }
+  .cc-wocaseid                { font-weight: 700; font-size: 12px; font-family: ui-monospace, SFMono-Regular, monospace; }
+  .cc-wocaseid.match          { color: #2563eb; }
+  .cc-wocaseid.nomatch        { color: #7c3aed; }
+  .cc-wocaseid.no-match       { color: #dc2626; }
+  .cc-wocaseid-autofill       { color: #16a34a; border-bottom: 1px dashed #86efac; }
+  .cc-wocaseid-autofill:hover { color: #15803d; border-bottom-color: #4ade80; }
+  .cc-wocaseid.clickable      { cursor: pointer; border-bottom: 1px dashed currentColor; }
+  .cc-wocaseid.clickable:hover{ opacity: .8; }
   .cc-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; background: #fef3c7; color: #92400e; white-space: normal; word-break: break-word; vertical-align: middle; }
   .cc-badge.cid  { background: #ffe4e6; color: #be123c; }
   .cc-badge.done { background: #dcfce7; color: #15803d; }
@@ -369,7 +374,20 @@
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.27"/></svg>
         Return Reminder
       </div>
-      <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <div class="cc-filter-wrap">
+          <select class="cc-filter-select" id="rr-flag-filter" title="Filter by Return Flag">
+            <option value="">All Flags</option>
+            <option value="yes">Return YES</option>
+            <option value="no">Return NO</option>
+            <option value="empty">Empty</option>
+          </select>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <a href="/asp/dashboard?tab=return-reminder" target="_blank" class="ov-goto-btn" title="Go to Return Reminder">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          Go to Details
+        </a>
         <button class="ov-refresh-btn" id="rr-refresh-btn" title="Refresh">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
         </button>
@@ -448,9 +466,9 @@
         <div class="cc-filter-wrap">
           <select class="cc-filter-select" id="cc-filter-status" onchange="ccApplyFilters()">
             <option value="">All Monday Status</option>
-            <option value="in-progress">In-Progress</option>
+            <option value="in-progress" selected>In-Progress</option>
             <option value="complete">Complete</option>
-            <option value="no-status">No Monday Status</option>
+            <option value="no-status">No Escalation</option>
           </select>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
@@ -471,7 +489,7 @@
             <th class="cc-col-wo">WO ID</th>
             <th class="cc-col-wo">Completed</th>
             <th class="cc-col-wo">Type</th>
-            <th class="cc-col-wo">Closing Code</th>
+            <th class="cc-col-wo">Closing Code / WO Status</th>
             <th class="cc-col-esc">WO/Case ID Monday</th>
             <th class="cc-col-esc">Escalation Date</th>
             <th class="cc-col-esc">Monday Status</th>
@@ -673,24 +691,43 @@ function _ccRowHtml(r, displayIdx) {
         : `<button class="btn-md-disc" data-item="${esc(r.esc_item_id)}" data-name="${esc(r.esc_item_name || '')}" data-board="${esc(r.esc_board_id || '')}">${_discSvg}</button>`)
     : `<button class="btn-md-disc" disabled style="opacity:.35;cursor:default">${_discSvg}</button>`;
   const woCaseId   = r.wo_case_id || null;
-  const woMatched  = r.wo_case_match === 'wo';
+  const latestWoId = r.latest_wo_id ? String(r.latest_wo_id) : null;
+  // match    → blue  (#2563eb): WO/case confirmed in DB  (wo_case_match = 'wo' or 'case')
+  // nomatch  → purple (#7c3aed): partial / serial-based match  (wo_case_match = 'serial')
+  // no-match → red (#dc2626): Monday-only row, no DB record found  (wo_case_match = null)
+  const _wcMatchCls = r.wo_case_match === 'wo' || r.wo_case_match === 'case'
+    ? 'match'
+    : r.wo_case_match === null || r.wo_case_match === undefined
+      ? 'no-match'
+      : 'nomatch';
   const snForHist  = r.product_serial_number || r.serial_number || null;
   const currentWoId  = String(r.work_order_id || '');
-  const currentCaseN = String(r.case_number   || '');
-  const woCaseHtml = woCaseId && snForHist
-    ? `<span class="cc-wocaseid ${woMatched ? 'match' : 'nomatch'} clickable" data-serial="${esc(snForHist)}" onclick="ccOpenSnHistory('${esc(snForHist)}','${esc(currentWoId)}','${esc(currentCaseN)}')" title="View all problem history for SN: ${esc(snForHist)}">${esc(woCaseId)}</span>`
-    : woCaseId
-      ? `<span class="cc-wocaseid ${woMatched ? 'match' : 'nomatch'}">${esc(woCaseId)}</span>`
-      : `<span style="color:#d0d7de">—</span>`;
+  // For monday_only rows whose wo_case_id IS a case number (not a WO id),
+  // pass it as currentCaseN so the modal can mark it as "current".
+  const _isCaseNum = woCaseId && !/^40\d{8}/.test(woCaseId.toString().trim());
+  const currentCaseN = String(r.case_number || (_isCaseNum ? woCaseId : '') || '');
+  let woCaseHtml;
+  if (woCaseId && snForHist) {
+    woCaseHtml = `<span class="cc-wocaseid ${_wcMatchCls} clickable" data-serial="${esc(snForHist)}" onclick="ccOpenSnHistory('${esc(snForHist)}','${esc(currentWoId)}','${esc(currentCaseN)}')" title="View all problem history for SN: ${esc(snForHist)}">${esc(woCaseId)}</span>`;
+  } else if (woCaseId) {
+    woCaseHtml = `<span class="cc-wocaseid ${_wcMatchCls}">${esc(woCaseId)}</span>`;
+  } else if (latestWoId && snForHist) {
+    // Auto-filled: no wo_case_id in Monday, but serial matches a WO in the DB — show in green
+    woCaseHtml = `<span class="cc-wocaseid cc-wocaseid-autofill clickable" data-serial="${esc(snForHist)}" onclick="ccOpenSnHistory('${esc(snForHist)}','${esc(latestWoId)}','')" title="Auto-filled: latest WO for serial ${esc(snForHist)}">${esc(latestWoId)}</span>`;
+  } else {
+    woCaseHtml = `<span style="color:#d0d7de">—</span>`;
+  }
 
-  // For monday-only rows whose WO ID is not in the main DB, disable the detail button
   const source      = r.row_source || 'closing_code';
   const srcClass    = _ccEscSrcClass(r.esc_statuses);
   const woId        = r.work_order_id;
   const woIsNumeric = woId && /^\d+$/.test(String(woId));
+  /* monday_only rows have no WO in the DB — show empty dash in the left WO column */
   const woBtn       = woIsNumeric
     ? `<button class="cc-wo-btn" data-wo="${esc(woId)}">${esc(woId)}</button>`
-    : `<span style="font-family:ui-monospace,monospace;font-size:12px;color:#57606a">${esc(woId || '—')}</span>`;
+    : (source === 'monday_only' || !woId)
+      ? `<span style="color:#d0d7de">—</span>`
+      : `<span style="font-family:ui-monospace,monospace;font-size:12px;color:#57606a">${esc(String(woId))}</span>`;
 
   // closing_code cell:
   //   • closing_code rows       → original tracked-code badge color (amber / red / green per ccBadgeClass)
@@ -708,12 +745,14 @@ function _ccRowHtml(r, displayIdx) {
     closingCell = `<span style="color:#d0d7de">—</span>`;
   }
 
+  const noWo = !woIsNumeric && (source === 'monday_only' || !r.work_order_id);
+  const noWoBg = noWo ? 'background:rgba(220,38,38,.15);' : '';
   return `<tr>
     <td style="text-align:center;color:#8c959f;font-size:12px;width:36px">${displayIdx}</td>
-    <td class="cc-col-wo">${woBtn}</td>
-    <td class="cc-col-wo" style="min-width:82px;color:#57606a">${esc(completed)}</td>
-    <td class="cc-col-wo">${esc(r.work_order_type || '—')}</td>
-    <td class="cc-col-wo" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.closing_code || r.work_order_status || '')}">${closingCell}</td>
+    <td class="cc-col-wo" style="${noWoBg}">${woBtn}</td>
+    <td class="cc-col-wo" style="min-width:82px;color:#57606a;${noWoBg}">${esc(completed)}</td>
+    <td class="cc-col-wo" style="${noWoBg}">${esc(r.work_order_type === 'CCI' ? 'Carry-In' : r.work_order_type === 'ONS' ? 'Onsite' : r.work_order_type || '—')}</td>
+    <td class="cc-col-wo" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${noWoBg}" title="${esc(r.closing_code || r.work_order_status || '')}">${closingCell}</td>
     <td class="cc-col-esc-src ${srcClass}">${woCaseHtml}</td>
     <td class="cc-col-esc" style="color:#57606a;min-width:82px">${esc(escDate)}</td>
     <td class="cc-col-esc">${escStatusCell(r.esc_statuses)}</td>
@@ -778,11 +817,11 @@ function renderClosingCodeTable(data) {
   _ccAllRows = data.rows || [];
   const sub = document.getElementById('cc-sub');
   if (sub) sub.innerHTML = `<strong>${_ccAllRows.length.toLocaleString()}</strong> WOs in the last 30 days`;
-  // Reset filters on fresh load
+  // Reset type filter; default status to in-progress on every load
   const selType   = document.getElementById('cc-filter-type');
   const selStatus = document.getElementById('cc-filter-status');
-  if (selType)   { selType.value = '';   selType.classList.remove('has-filter');   }
-  if (selStatus) { selStatus.value = ''; selStatus.classList.remove('has-filter'); }
+  if (selType)   { selType.value = '';            selType.classList.remove('has-filter');  }
+  if (selStatus) { selStatus.value = 'in-progress'; selStatus.classList.add('has-filter'); }
   ccApplyFilters();
 }
 
@@ -1294,7 +1333,7 @@ function ccRenderMondayEscalation(sn, rows, currentWoId, currentCaseN) {
   let tbody = '';
   rows.forEach((r, i) => {
     const rawKey     = (r.wo_case_id || '').toString().trim();
-    const woNum      = _extractWO(rawKey);
+    const woNum      = _extractWO(rawKey);   // only WO-format IDs (40xxxxxxxx); case numbers stay blank
     const caseKey    = _isCaseKey(rawKey) ? rawKey : null;  // wo_case_id is a case number
 
     const isCurrRow  = (currentWoId && woNum && woNum === currentWoId) ||
@@ -1302,7 +1341,8 @@ function ccRenderMondayEscalation(sn, rows, currentWoId, currentCaseN) {
 
     // Ticket (Case#) column: prefer DB-resolved case_number, fall back to wo_case_id when it IS a case key
     const displayCase = r.case_number || caseKey || null;
-    const isCurrCase  = currentCaseN && displayCase && displayCase === currentCaseN;
+    // Mark "current" when this case matches the WO that was opened from the closing code table
+    const isCurrCase  = currentCaseN && displayCase && String(displayCase) === String(currentCaseN);
     const ticketCell  = displayCase
       ? `<span style="font-family:ui-monospace,SFMono-Regular,monospace;font-size:12px;font-weight:600;color:#3b82d4">${esc(displayCase)}</span>${isCurrCase ? _currentTag : ''}`
       : `<span style="color:#c9d0d8">—</span>`;
@@ -1600,26 +1640,76 @@ document.getElementById('cc-refresh-btn').addEventListener('click', loadClosingC
 const RR_DC_COLOR  = '#f59e0b';   /* amber  — Pending DC Generate  */
 const RR_PRT_COLOR = '#3b82f6';   /* blue   — Pending with Partner */
 
-function _buildRrChart(rows, valueKey, color, chartId, axisId, sharedMax) {
-  const wrap    = document.getElementById(chartId);
-  const localMx = Math.max(...rows.map(r => r[valueKey] || 0), 1);
+/* Return-flag stacked bar colours — Partner panel */
+const RR_PRT_COLOURS = {
+  yes:   '#3b82f6',   /* blue  — Return YES */
+  no:    '#f43f5e',   /* rose  — Return NO  */
+  empty: '#cbd5e1',   /* grey  — Empty      */
+};
+/* Return-flag stacked bar colours — DC Generation panel */
+const RR_DC_COLOURS = {
+  yes:   '#22c55e',   /* green — Return YES */
+  no:    '#ef4444',   /* red   — Return NO  */
+  empty: '#cbd5e1',   /* grey  — Empty      */
+};
+
+function _buildRrStackedChart(rows, chartId, sharedMax, flagFilter, colours) {
+  const wrap = document.getElementById(chartId);
+
+  /* Apply filter: zero-out segments that are not selected */
+  const filtered = rows.map(r => {
+    const yes   = (!flagFilter || flagFilter === 'yes')   ? (r.flag_yes   || 0) : 0;
+    const no    = (!flagFilter || flagFilter === 'no')    ? (r.flag_no    || 0) : 0;
+    const empty = (!flagFilter || flagFilter === 'empty') ? (r.flag_empty || 0) : 0;
+    return Object.assign({}, r, { _yes: yes, _no: no, _empty: empty });
+  });
+
+  const localMx = Math.max(...filtered.map(r => r._yes + r._no + r._empty), 1);
   const max     = _niceMax(sharedMax != null ? sharedMax : localMx);
 
   const barCols  = [];
   const lblItems = [];
-  rows.forEach(r => {
-    const val = r[valueKey] || 0;
-    const h   = val > 0 ? Math.max(2, Math.round(val / max * BAR_MAX_H)) : 2;
-    const lbl   = r.week_label || r.week_key || '';
-    const range = r.week_range || lbl;
+
+  filtered.forEach(r => {
+    const yes   = r._yes;
+    const no    = r._no;
+    const empty = r._empty;
+    /* Tooltip always shows original counts regardless of filter */
+    const tYes   = r.flag_yes   || 0;
+    const tNo    = r.flag_no    || 0;
+    const tEmpty = r.flag_empty || 0;
+    const tTotal = tYes + tNo + tEmpty;
+    const total  = yes + no + empty;
+    const lbl    = r.week_label || r.week_key || '';
+    const range  = r.week_range || lbl;
+
+    /* Heights proportional to shared max, minimum 2px when non-zero */
+    const hYes   = yes   > 0 ? Math.max(2, Math.round(yes   / max * BAR_MAX_H)) : 0;
+    const hNo    = no    > 0 ? Math.max(2, Math.round(no    / max * BAR_MAX_H)) : 0;
+    const hEmpty = empty > 0 ? Math.max(2, Math.round(empty / max * BAR_MAX_H)) : 0;
+    const hTotal = hYes + hNo + hEmpty;
+
+    /* Tooltip */
     const tip = btoa(unescape(encodeURIComponent(
       `<div class="ov-tip-date">${esc(lbl)} &nbsp;<span style="font-weight:400;color:#94a3b8">${esc(range)}</span></div>` +
-      `<div class="ov-tip-row"><span class="ov-tip-dot" style="background:${color}"></span>${val} item${val !== 1 ? 's' : ''}</div>`
+      `<div class="ov-tip-row"><span class="ov-tip-dot" style="background:${colours.yes}"></span>Return YES: ${tYes}</div>` +
+      `<div class="ov-tip-row"><span class="ov-tip-dot" style="background:${colours.no}"></span>Return NO: ${tNo}</div>` +
+      `<div class="ov-tip-row"><span class="ov-tip-dot" style="background:${colours.empty}"></span>Empty: ${tEmpty}</div>` +
+      `<div class="ov-tip-row" style="border-top:1px solid rgba(255,255,255,.15);margin-top:4px;padding-top:4px"><strong>Total: ${tTotal}</strong></div>`
     )));
-    const bar = val > 0
-      ? `<div class="rr-bar" style="height:${h}px;background:${color}" data-tip="${tip}"></div>`
-      : `<div class="rr-bar" style="height:${h}px;background:#e5e7eb;opacity:.4"></div>`;
-    barCols.push(`<div class="rr-bar-col">${bar}</div>`);
+
+    /* Stack order bottom→top: YES (bottom) → Empty (middle) → NO (top)
+       DOM order top-to-bottom: NO first, Empty, YES last (sits at bottom). */
+    let segments = '';
+    if (hNo    > 0) segments += `<div style="height:${hNo}px;background:${colours.no};width:100%"></div>`;
+    if (hEmpty > 0) segments += `<div style="height:${hEmpty}px;background:${colours.empty};width:100%"></div>`;
+    if (hYes   > 0) segments += `<div style="height:${hYes}px;background:${colours.yes};width:100%"></div>`;
+
+    const stack = total > 0
+      ? `<div class="rr-bar rr-bar-stack" style="height:${hTotal}px;display:flex;flex-direction:column;overflow:hidden;border-radius:2px 2px 0 0;justify-content:flex-end" data-tip="${tip}">${segments}</div>`
+      : `<div class="rr-bar" style="height:2px;background:#e5e7eb;opacity:.4"></div>`;
+
+    barCols.push(`<div class="rr-bar-col">${stack}</div>`);
     lblItems.push(`<div class="ov-bar-lbl">${esc(lbl)}</div>`);
   });
 
@@ -1634,8 +1724,18 @@ function _buildRrChart(rows, valueKey, color, chartId, axisId, sharedMax) {
   lblRow.className = 'rr-lbl-row';
   lblRow.innerHTML = lblItems.join('');
 
+  /* Legend row — dim items not active in current filter */
+  const _legOpacity = f => (!flagFilter || flagFilter === f) ? '1' : '0.3';
+  const legend = document.createElement('div');
+  legend.style.cssText = 'display:flex;gap:12px;justify-content:center;margin-top:6px;flex-wrap:wrap';
+  legend.innerHTML =
+    `<span style="display:flex;align-items:center;gap:4px;font-size:11px;color:#57606a;opacity:${_legOpacity('yes')}"><span style="width:10px;height:10px;border-radius:2px;background:${colours.yes};display:inline-block"></span>Return YES</span>` +
+    `<span style="display:flex;align-items:center;gap:4px;font-size:11px;color:#57606a;opacity:${_legOpacity('no')}"><span style="width:10px;height:10px;border-radius:2px;background:${colours.no};display:inline-block"></span>Return NO</span>` +
+    `<span style="display:flex;align-items:center;gap:4px;font-size:11px;color:#57606a;opacity:${_legOpacity('empty')}"><span style="width:10px;height:10px;border-radius:2px;background:${colours.empty};display:inline-block"></span>Empty</span>`;
+
   outer.appendChild(chart);
   outer.appendChild(lblRow);
+  outer.appendChild(legend);
 
   chart.querySelectorAll('.rr-bar[data-tip]').forEach(el => {
     el.addEventListener('mouseenter', e => {
@@ -1651,26 +1751,37 @@ function _buildRrChart(rows, valueKey, color, chartId, axisId, sharedMax) {
 }
 
 function renderReturnReminderChart(rrData, sharedMax) {
-  const dcTotal  = rrData.pending_dc_total      || 0;
-  const prtTotal = rrData.pending_partner_total || 0;
-  const rows     = rrData.by_week               || [];
+  const rowsPrt  = rrData.by_week_partner || [];
+  const rowsDc   = rrData.by_week_dc      || [];
 
-  document.getElementById('rr-dc-val').textContent  = dcTotal.toLocaleString();
+  const flagFilter = (document.getElementById('rr-flag-filter') || {}).value || '';
+
+  /* Use API-sourced totals (no completion_date restriction) so numbers match ASP portal */
+  function _apiTotal(totalKey, flagPrefix) {
+    if (!flagFilter)            return rrData[totalKey]                       || 0;
+    if (flagFilter === 'yes')   return rrData[`${flagPrefix}_flag_yes`]      || 0;
+    if (flagFilter === 'no')    return rrData[`${flagPrefix}_flag_no`]       || 0;
+    if (flagFilter === 'empty') return rrData[`${flagPrefix}_flag_empty`]    || 0;
+    return 0;
+  }
+
+  const prtTotal = _apiTotal('pending_partner_total', 'prt');
+  const dcTotal  = _apiTotal('pending_dc_total',      'dc');
+
   document.getElementById('rr-prt-val').textContent = prtTotal.toLocaleString();
+  document.getElementById('rr-dc-val').textContent  = dcTotal.toLocaleString();
 
-  const total = dcTotal + prtTotal;
+  const total = prtTotal + dcTotal;
   document.getElementById('rr-sub').innerHTML =
     `<strong>${total.toLocaleString()}</strong> pending return items &mdash; grouped by week`;
 
-  const empty = '<div class="ov-loading">No data.</div>';
-  if (!rows.length) {
-    document.getElementById('rr-chart-dc').innerHTML  = empty;
-    document.getElementById('rr-chart-prt').innerHTML = empty;
-    return;
-  }
+  const emptyMsg = '<div class="ov-loading">No data.</div>';
 
-  _buildRrChart(rows, 'pending_dc',      RR_DC_COLOR,  'rr-chart-dc',  'rr-yaxis-dc',  sharedMax);
-  _buildRrChart(rows, 'pending_partner', RR_PRT_COLOR, 'rr-chart-prt', 'rr-yaxis-prt', sharedMax);
+  if (!rowsPrt.length) document.getElementById('rr-chart-prt').innerHTML = emptyMsg;
+  else _buildRrStackedChart(rowsPrt, 'rr-chart-prt', sharedMax, flagFilter, RR_PRT_COLOURS);
+
+  if (!rowsDc.length) document.getElementById('rr-chart-dc').innerHTML = emptyMsg;
+  else _buildRrStackedChart(rowsDc,  'rr-chart-dc',  sharedMax, flagFilter, RR_DC_COLOURS);
 }
 
 /* ── Combined load: fetch both APIs, compute shared max, render all ── */
@@ -1679,8 +1790,11 @@ let _escData = null;
 
 function _rrMax() {
   if (!_rrData) return null;
+  /* Max is the tallest stacked column across both panels */
+  const allRows = [...(_rrData.by_week_partner || []), ...(_rrData.by_week_dc || [])];
   return Math.max(
-    ...(_rrData.by_week || []).map(r => Math.max(r.pending_dc || 0, r.pending_partner || 0)), 1
+    ...allRows.map(r => (r.flag_yes || 0) + (r.flag_no || 0) + (r.flag_empty || 0)),
+    1
   );
 }
 
@@ -1712,6 +1826,9 @@ function loadReturnReminder() {
 }
 loadReturnReminder();
 document.getElementById('rr-refresh-btn').addEventListener('click', loadReturnReminder);
+document.getElementById('rr-flag-filter').addEventListener('change', () => {
+  if (_rrData) renderReturnReminderChart(_rrData, _rrMax());
+});
 
 /* ── Sync escalation chart height to RR card after both have rendered ── */
 const _ESC_LBL_ROW_H = 35;   /* reserved px for vertical x-axis label row below the chart */

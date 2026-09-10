@@ -105,6 +105,8 @@ CREATE TABLE IF NOT EXISTS wo_product_detail (
     ship_pn             TEXT,                         -- part number shipped (may differ from product)
     ship_pn_desc        TEXT,
     return_flag         TEXT,                         -- Y / N
+    return_flag_msd     TEXT,                         -- Yes / No (Returnable Indicator from MSD WO Product)
+    return_flag_resolv   TEXT,                        -- Return Flag from GTAAP DC Extract Report (Yes / No / NA)
     ship_pickup_time    TEXT,                         -- nullable
     ship_pou_pod_time   TEXT,                         -- actual delivery timestamp
     awb                 TEXT,                         -- airwaybill number

@@ -51,16 +51,13 @@ URL_GENERATED = "https://resolve-prod.lenovo.com/#/home/rpl-gtap/generated"
 URL_REPORT    = "https://resolve-prod.lenovo.com/#/home/report"
 URL_GTAP_RPT  = "https://resolve-prod.lenovo.com/#/home/report/gtap-report"
 
-# ── Output directories / session ───────────────────────────────────────────────
+# ── Output directories ─────────────────────────────────────────────────────────
 BASE_DIR         = os.path.dirname(os.path.abspath(__file__))
 EXTRACT_AWB_DIR  = os.path.join(BASE_DIR, "Extract-AWB")
 EXTRACT_DC_DIR   = os.path.join(BASE_DIR, "Extract-DC")
-SESSION_DIR      = os.path.join(BASE_DIR, "session")          # Chrome user-data-dir
-SESSION_PROFILE  = os.path.join(SESSION_DIR, "Default")       # Chrome default profile
 # Note: makedirs for EXTRACT_AWB_DIR / EXTRACT_DC_DIR are deferred to
 # export_to_excel() and move_latest_download() so that init_globals overrides
 # (injected by the web app) take effect before the directories are created.
-os.makedirs(SESSION_PROFILE, exist_ok=True)
 
 # URLs that mean the session has expired / user is not logged in
 LOGGED_OUT_URLS = (
@@ -76,66 +73,60 @@ MAX_RETRIES     = 5
 
 # ── Chrome launch arguments ────────────────────────────────────────────────────
 CHROME_ARGUMENTS = [
-    "-no-first-run",
-    "-force-color-profile=srgb",
-    "-metrics-recording-only",
-    "-password-store=basic",
-    "-use-mock-keychain",
-    "-export-tagged-pdf",
-    "-no-default-browser-check",
-    "-disable-background-mode",
-    "-enable-features=NetworkService,NetworkServiceInProcess",
-    "-disable-features=FlashDeprecationWarning",
-    "-deny-permission-prompts",
-    "-disable-gpu",
-    "-accept-lang=en-US",
+    "--no-first-run",
+    "--force-color-profile=srgb",
+    "--metrics-recording-only",
+    "--password-store=basic",
+    "--use-mock-keychain",
+    "--export-tagged-pdf",
+    "--no-default-browser-check",
+    "--disable-background-mode",
+    "--enable-features=NetworkService,NetworkServiceInProcess",
+    "--disable-features=FlashDeprecationWarning",
+    "--deny-permission-prompts",
+    "--disable-gpu",
+    "--accept-lang=en-US",
     "--disable-usage-stats",
     "--disable-crash-reporter",
     "--no-sandbox",
     "--start-maximized",
+    # NOTE: --incognito is intentionally excluded — incognito mode ignores all
+    # download-directory preferences and always shows a Save-As dialog.
 ]
 
 
-def _write_chrome_prefs() -> None:
-    """Write Chrome Preferences file so download dir is always Extract-DC.
+def _set_download_dir(driver: ChromiumPage, directory: str) -> None:
+    """Force Chrome's download directory via the DevTools Protocol.
 
-    When --user-data-dir is used Chrome reads its prefs from disk and ignores
-    set_pref() calls made via ChromiumOptions. Writing the file directly is the
-    only reliable way to set the download directory.
+    set_pref() on ChromiumOptions is unreliable across DrissionPage versions
+    and is ignored entirely in incognito mode.  Sending the CDP command
+    directly after the browser starts is the only approach that works
+    consistently regardless of profile state.
     """
-    import json
-    prefs_path = os.path.join(SESSION_PROFILE, "Preferences")
-    # Load existing prefs if present so we don't wipe saved cookies/tokens
-    try:
-        with open(prefs_path, "r", encoding="utf-8") as f:
-            prefs = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        prefs = {}
-
-    prefs.setdefault("download", {})
-    # Pass path as-is — json.dump handles backslash escaping correctly
-    prefs["download"]["default_directory"]   = EXTRACT_DC_DIR
-    prefs["download"]["prompt_for_download"] = False
-    prefs["download"]["directory_upgrade"]   = True
-    prefs.setdefault("profile", {})
-    prefs["profile"]["default_content_setting_values"] = {"automatic_downloads": 1}
-
-    with open(prefs_path, "w", encoding="utf-8") as f:
-        json.dump(prefs, f, indent=2)
+    os.makedirs(directory, exist_ok=True)
+    driver.run_cdp(
+        "Browser.setDownloadBehavior",
+        behavior="allow",
+        downloadPath=directory,
+        eventsEnabled=True,
+    )
 
 
 def make_driver() -> ChromiumPage:
-    # Write download prefs into the profile BEFORE Chrome starts so it reads them
-    _write_chrome_prefs()
+    """Create a fresh Chrome instance with no saved session.
 
+    No --user-data-dir is passed so Chrome starts with a clean temporary
+    profile on every run, preventing stale cookies / reCAPTCHA state from
+    interfering with the audio-challenge solver.
+    The download directory is enforced via CDP after startup.
+    """
     options = ChromiumOptions()
     for arg in CHROME_ARGUMENTS:
         options.set_argument(arg)
-    # Persist cookies/localStorage between runs using a fixed user-data-dir
-    options.set_argument(f"--user-data-dir={SESSION_DIR}")
     driver = ChromiumPage(addr_or_opts=options)
-    # Maximise window — ensures no buttons are cropped or hidden
     driver.set.window.max()
+    # Set download directory via CDP — reliable without a persistent profile
+    _set_download_dir(driver, EXTRACT_DC_DIR)
     return driver
 
 
@@ -226,32 +217,12 @@ def keep_latest_files(directory: str, keep: int = 5) -> None:
             print(f"[cleanup] Could not delete {old_file}: {e}")
 
 
-def is_session_valid(driver: ChromiumPage) -> bool:
-    """Navigate to the home page and check if the session is still alive.
-
-    Returns True  → already logged in, landed on #/home/...
-    Returns False → redirected to #/ or #/login (session expired)
-    """
-    print("[*] Checking saved session...")
-    driver.get(URL_HOME)
-    # Give Angular time to redirect if session is invalid
-    time.sleep(4)
-    current = driver.url.rstrip("/")
-    print(f"    Current URL: {current}")
-
-    # Landed on home = session valid
-    if "/home/" in current:
-        set_zoom(driver)
-        print("[+] Session is valid — skipping login.")
-        return True
-
-    # Any logged-out URL = session expired
-    print("[!] Session expired or not found — will re-login.")
-    return False
-
-
 def clear_session(driver: ChromiumPage) -> None:
-    """Clear cookies and localStorage so a stale session doesn't block re-login."""
+    """Clear cookies and localStorage before each login attempt.
+
+    Called before every attempt_login() call to ensure no leftover state
+    from a previous failed attempt confuses the reCAPTCHA widget.
+    """
     try:
         driver.get(LOGIN_URL)
         time.sleep(1)
@@ -262,7 +233,7 @@ def clear_session(driver: ChromiumPage) -> None:
             "    + '=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/';"
             "});"
         )
-        print("[+] Cleared expired session data.")
+        print("[+] Cleared session data.")
     except Exception as e:
         print(f"[!] Could not clear session (non-fatal): {e}")
 
@@ -404,19 +375,70 @@ def solve_captcha_with_timeout(solver: RecaptchaSolver) -> bool:
 
 
 def _is_captcha_already_checked(driver: ChromiumPage) -> bool:
-    """Return True when the reCAPTCHA checkbox is already ticked (saved session)."""
+    """Return True when the reCAPTCHA checkbox is already ticked (autofill or prior solve).
+
+    Three independent DOM signals are tested — if ANY one passes, the checkbox
+    is considered checked.  This guards against iframe-piercing failures where
+    inner_ele() silently returns None even when the element exists.
+
+    Checked-state DOM differences (from live inspection):
+      Signal 1 — aria-checked="true"  on #recaptcha-anchor
+      Signal 2 — class contains "recaptcha-checkbox-checked"
+                 (replaces "recaptcha-checkbox-unchecked" when ticked)
+      Signal 3 — #recaptcha-accessible-status div contains "You are verified"
+                 (absent entirely when unchecked)
+    """
     try:
-        # The reCAPTCHA widget lives inside an iframe; DrissionPage lets us
-        # query the inner document directly via a nested selector.
-        frame = driver.ele('xpath://iframe[contains(@src,"recaptcha") and contains(@src,"anchor")]', timeout=5)
+        frame = driver.ele(
+            'xpath://iframe[contains(@src,"recaptcha") and contains(@src,"anchor")]',
+            timeout=5,
+        )
         if frame is None:
             return False
-        # Inside the anchor frame the checked state is carried by
-        # #recaptcha-anchor[aria-checked="true"]
-        checked = frame.inner_ele('xpath://*[@id="recaptcha-anchor" and @aria-checked="true"]', timeout=3)
-        return checked is not None
+
+        # Signal 1: aria-checked="true" on the anchor element
+        try:
+            if frame.inner_ele(
+                'xpath://*[@id="recaptcha-anchor" and @aria-checked="true"]',
+                timeout=2,
+            ) is not None:
+                return True
+        except Exception:
+            pass
+
+        # Signal 2: span class switches to "recaptcha-checkbox-checked" when ticked
+        try:
+            if frame.inner_ele(
+                'xpath://span[contains(@class,"recaptcha-checkbox-checked")]',
+                timeout=2,
+            ) is not None:
+                return True
+        except Exception:
+            pass
+
+        # Signal 3: "You are verified" status div — only present when checked
+        try:
+            if frame.inner_ele(
+                'xpath://*[@id="recaptcha-accessible-status" and contains(.,"verified")]',
+                timeout=2,
+            ) is not None:
+                return True
+        except Exception:
+            pass
+
+        return False
     except Exception:
         return False
+
+
+def _wait_for_captcha_checked(driver: ChromiumPage, timeout: int = 10) -> bool:
+    """Poll until reCAPTCHA is checked or timeout expires.  Returns True if checked."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if _is_captcha_already_checked(driver):
+            return True
+        time.sleep(0.5)
+    return False
 
 
 def attempt_login(driver: ChromiumPage) -> bool:
@@ -426,35 +448,49 @@ def attempt_login(driver: ChromiumPage) -> bool:
     print("[*] Opening login page...")
     driver.get(LOGIN_URL)
 
-    # 2. Fill username
-    print("[*] Filling username...")
-    driver.ele('xpath://input[@formcontrolname="username"]', timeout=15).input(USERNAME, clear=True)
+    # 2. Wait for the username field — confirms Angular has rendered the form
+    driver.ele('xpath://input[@formcontrolname="username"]', timeout=15)
 
-    # 3. Fill password
-    print("[*] Filling password...")
-    driver.ele('xpath://input[@formcontrolname="password"]', timeout=10).input(PASSWORD, clear=True)
-
-    # 4. Solve reCAPTCHA — skip if the checkbox is already ticked by the saved session
-    time.sleep(2)   # let the reCAPTCHA widget settle after page load
-    if _is_captcha_already_checked(driver):
-        print("[+] reCAPTCHA already checked (saved session) — skipping solver.")
+    # 3. Check immediately if autofill already ticked reCAPTCHA
+    #    (browser password manager fills everything before we interact)
+    print("[*] Checking for autofill / pre-checked reCAPTCHA...")
+    if _wait_for_captcha_checked(driver, timeout=10):
+        print("[+] reCAPTCHA already checked (autofill) — skipping credential fill and solver.")
+        # Ensure username/password fields are filled (autofill should have done this,
+        # but force-fill in case the autofill only populated the reCAPTCHA token)
+        _username_field = driver.ele('xpath://input[@formcontrolname="username"]', timeout=5)
+        if _username_field and not str(_username_field.value or "").strip():
+            _username_field.input(USERNAME, clear=True)
+        _password_field = driver.ele('xpath://input[@formcontrolname="password"]', timeout=5)
+        if _password_field and not str(_password_field.value or "").strip():
+            _password_field.input(PASSWORD, clear=True)
+        print("[*] Clicking Login now (autofill path)...")
+        driver.ele('xpath://button[@type="submit" and contains(.,"Login")]', timeout=10).click()
+        print("[+] Login submitted.")
     else:
+        # 4. No autofill — fill credentials manually then solve reCAPTCHA
+        print("[*] Filling username...")
+        driver.ele('xpath://input[@formcontrolname="username"]', timeout=10).input(USERNAME, clear=True)
+
+        print("[*] Filling password...")
+        driver.ele('xpath://input[@formcontrolname="password"]', timeout=10).input(PASSWORD, clear=True)
+
+        # Let the reCAPTCHA widget fully settle after typing
+        time.sleep(2)
+
         print("[*] Solving reCAPTCHA...")
         t0 = time.time()
         if not solve_captcha_with_timeout(solver):
             return False   # caller will restart Chrome
         print(f"[+] reCAPTCHA solved in {time.time() - t0:.2f}s")
 
-    # 5. Wait 5s then click Login
-    for remaining in range(5, 0, -1):
-        print(f"    Clicking Login in {remaining}s...", end="\r")
+        # Brief pause to let the solved token register before submitting
         time.sleep(1)
-    print("[*] Clicking Login now...            ")
+        print("[*] Clicking Login now...")
+        driver.ele('xpath://button[@type="submit" and contains(.,"Login")]', timeout=10).click()
+        print("[+] Login submitted.")
 
-    driver.ele('xpath://button[@type="submit" and contains(.,"Login")]', timeout=10).click()
-    print("[+] Login submitted.")
-
-    # 6. Wait for Angular to redirect away from login page
+    # 5. Wait for Angular to redirect away from login page
     print("[*] Waiting for home page...")
     driver.wait.url_change(LOGIN_URL, timeout=20)
     time.sleep(3)
@@ -561,6 +597,11 @@ def run_work_steps(driver: ChromiumPage) -> None:
     set_zoom(driver)
     print(f"[+] Arrived at: {driver.url}")
 
+    # 11. Re-apply CDP download directory immediately before triggering the download.
+    #     Navigating between pages can silently reset the Browser.setDownloadBehavior
+    #     setting, so we re-send it here to guarantee no Save-As dialog appears.
+    _set_download_dir(driver, EXTRACT_DC_DIR)
+
     # 11. Click the Excel download button
     print("[*] Clicking Excel download button...")
     driver.ele(
@@ -600,7 +641,8 @@ def run_work_steps(driver: ChromiumPage) -> None:
         driver.quit()
     except Exception:
         # Fallback: if quit() isn't available on this DrissionPage version, use
-        # close() and then kill any lingering Chrome PID on the session profile.
+        # close() and then force-kill any remaining Chrome process launched by
+        # this driver (identified by the process address stored by DrissionPage).
         try:
             driver.close()
         except Exception:
@@ -609,17 +651,10 @@ def run_work_steps(driver: ChromiumPage) -> None:
         time.sleep(1)
         try:
             import psutil as _ps
-            session = SESSION_DIR
-            for _proc in _ps.process_iter(["name", "cmdline"]):
+            for _proc in _ps.process_iter(["name", "pid"]):
                 try:
-                    if "chrome" not in (_proc.info["name"] or "").lower():
-                        continue
-                    for _arg in (_proc.info["cmdline"] or []):
-                        if "--user-data-dir=" in _arg and os.path.normcase(
-                            os.path.normpath(_arg.split("=", 1)[1])
-                        ) == os.path.normcase(os.path.normpath(session)):
-                            _proc.kill()
-                            break
+                    if "chrome" in (_proc.info["name"] or "").lower():
+                        _proc.kill()
                 except Exception:
                     pass
         except ImportError:
@@ -628,8 +663,6 @@ def run_work_steps(driver: ChromiumPage) -> None:
 
 
 # ── Graceful shutdown on Ctrl+C ────────────────────────────────────────────────
-# Closes Chrome without touching the session/ directory so the next run
-# can reuse the saved session.
 _driver_ref: ChromiumPage | None = None
 
 def _shutdown(signum=None, frame=None) -> None:
@@ -650,56 +683,42 @@ if _threading.current_thread() is _threading.main_thread():
     signal.signal(signal.SIGTERM, _shutdown)   # kill / task-manager
 
 # ── Main entry point ───────────────────────────────────────────────────────────
-driver  = make_driver()
-_driver_ref = driver      # give the shutdown handler access
+# No saved-session check — always start with a clean login so no stale
+# Chrome profile state can interfere with the reCAPTCHA solver.
+driver  = None
+_driver_ref = None
 success = False
 
 try:
-    # ── Step A: Try saved session first ───────────────────────────────────────
-    if is_session_valid(driver):
+    for attempt in range(1, MAX_RETRIES + 1):
+        print(f"\n{'='*50}")
+        print(f"[*] Login attempt {attempt}/{MAX_RETRIES}")
+        print(f"{'='*50}")
+
+        if driver is None:
+            driver = make_driver()
+            _driver_ref = driver
+
+        clear_session(driver)
+
         try:
-            run_work_steps(driver)
-            success = True
+            if attempt_login(driver):
+                success = True
+                break
+            else:
+                print("[!] Captcha timed out — restarting Chrome...")
         except Exception as e:
-            print(f"[!] Work steps failed on saved session: {e}")
-            try:
-                driver.close()
-            except Exception:
-                pass
-            driver = None
-            _driver_ref = None
+            print(f"[!] Attempt {attempt} failed: {e}")
 
-    # ── Step B: Re-login if session was invalid or work steps failed ──────────
-    if not success:
-        for attempt in range(1, MAX_RETRIES + 1):
-            print(f"\n{'='*50}")
-            print(f"[*] Login attempt {attempt}/{MAX_RETRIES}")
-            print(f"{'='*50}")
-
-            if driver is None:
-                driver = make_driver()
-                _driver_ref = driver
-
-            clear_session(driver)
-
-            try:
-                if attempt_login(driver):
-                    success = True
-                    break
-                else:
-                    print("[!] Captcha timed out — restarting Chrome...")
-            except Exception as e:
-                print(f"[!] Attempt {attempt} failed: {e}")
-
-            try:
-                driver.close()
-            except Exception:
-                pass
-            driver = None
-            _driver_ref = None
-            if attempt < MAX_RETRIES:
-                print("[*] Retrying in 3 seconds...")
-                time.sleep(3)
+        try:
+            driver.close()
+        except Exception:
+            pass
+        driver = None
+        _driver_ref = None
+        if attempt < MAX_RETRIES:
+            print("[*] Retrying in 3 seconds...")
+            time.sleep(3)
 
 except KeyboardInterrupt:
     _shutdown()

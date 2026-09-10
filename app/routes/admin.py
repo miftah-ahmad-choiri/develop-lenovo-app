@@ -156,59 +156,134 @@ def api_dashboard_return_reminder():
     Response keys:
       - pending_dc_total     : int  — total rows with return_status = 'PENDING FOR DC GENERATION'
       - pending_partner_total: int  — total rows with return_status = 'PENDING WITH PARTNER'
-      - by_week              : [{week_key, week_label, pending_dc, pending_partner}] sorted desc
+      - by_week              : [{week_key, week_label, pending_dc, pending_partner,
+                                 flag_yes, flag_no, flag_empty}] sorted asc
+        flag_yes/no/empty use priority: return_flag_resolv → return_flag_msd → return_flag (Y/N)
     """
     conn = get_db()
 
     totals = conn.execute("""
         SELECT
-            SUM(CASE WHEN return_status = 'PENDING FOR DC GENERATION' THEN 1 ELSE 0 END) AS pending_dc_total,
-            SUM(CASE WHEN return_status = 'PENDING WITH PARTNER'      THEN 1 ELSE 0 END) AS pending_partner_total
-        FROM wo_product_detail
-        WHERE return_status IN ('PENDING FOR DC GENERATION', 'PENDING WITH PARTNER')
+            SUM(CASE WHEN p.return_status = 'PENDING FOR DC GENERATION' THEN 1 ELSE 0 END) AS pending_dc_total,
+            SUM(CASE WHEN p.return_status = 'PENDING WITH PARTNER'      THEN 1 ELSE 0 END) AS pending_partner_total,
+            /* Partner flag counts */
+            SUM(CASE WHEN p.return_status = 'PENDING WITH PARTNER' AND
+                  CASE WHEN TRIM(COALESCE(p.return_flag_resolv,''))!='' THEN UPPER(TRIM(p.return_flag_resolv))
+                       WHEN TRIM(COALESCE(p.return_flag_msd,''))!=''    THEN UPPER(TRIM(p.return_flag_msd))
+                       WHEN UPPER(TRIM(COALESCE(p.return_flag,''))) IN ('Y','YES') THEN 'YES'
+                       WHEN UPPER(TRIM(COALESCE(p.return_flag,''))) IN ('N','NO')  THEN 'NO'
+                       ELSE '' END IN ('YES','Y') THEN 1 ELSE 0 END) AS prt_flag_yes,
+            SUM(CASE WHEN p.return_status = 'PENDING WITH PARTNER' AND
+                  CASE WHEN TRIM(COALESCE(p.return_flag_resolv,''))!='' THEN UPPER(TRIM(p.return_flag_resolv))
+                       WHEN TRIM(COALESCE(p.return_flag_msd,''))!=''    THEN UPPER(TRIM(p.return_flag_msd))
+                       WHEN UPPER(TRIM(COALESCE(p.return_flag,''))) IN ('Y','YES') THEN 'YES'
+                       WHEN UPPER(TRIM(COALESCE(p.return_flag,''))) IN ('N','NO')  THEN 'NO'
+                       ELSE '' END IN ('NO','N') THEN 1 ELSE 0 END) AS prt_flag_no,
+            SUM(CASE WHEN p.return_status = 'PENDING WITH PARTNER' AND
+                  CASE WHEN TRIM(COALESCE(p.return_flag_resolv,''))!='' THEN UPPER(TRIM(p.return_flag_resolv))
+                       WHEN TRIM(COALESCE(p.return_flag_msd,''))!=''    THEN UPPER(TRIM(p.return_flag_msd))
+                       WHEN UPPER(TRIM(COALESCE(p.return_flag,''))) IN ('Y','YES') THEN 'YES'
+                       WHEN UPPER(TRIM(COALESCE(p.return_flag,''))) IN ('N','NO')  THEN 'NO'
+                       ELSE '' END NOT IN ('YES','Y','NO','N') THEN 1 ELSE 0 END) AS prt_flag_empty,
+            /* DC flag counts */
+            SUM(CASE WHEN p.return_status = 'PENDING FOR DC GENERATION' AND
+                  CASE WHEN TRIM(COALESCE(p.return_flag_resolv,''))!='' THEN UPPER(TRIM(p.return_flag_resolv))
+                       WHEN TRIM(COALESCE(p.return_flag_msd,''))!=''    THEN UPPER(TRIM(p.return_flag_msd))
+                       WHEN UPPER(TRIM(COALESCE(p.return_flag,''))) IN ('Y','YES') THEN 'YES'
+                       WHEN UPPER(TRIM(COALESCE(p.return_flag,''))) IN ('N','NO')  THEN 'NO'
+                       ELSE '' END IN ('YES','Y') THEN 1 ELSE 0 END) AS dc_flag_yes,
+            SUM(CASE WHEN p.return_status = 'PENDING FOR DC GENERATION' AND
+                  CASE WHEN TRIM(COALESCE(p.return_flag_resolv,''))!='' THEN UPPER(TRIM(p.return_flag_resolv))
+                       WHEN TRIM(COALESCE(p.return_flag_msd,''))!=''    THEN UPPER(TRIM(p.return_flag_msd))
+                       WHEN UPPER(TRIM(COALESCE(p.return_flag,''))) IN ('Y','YES') THEN 'YES'
+                       WHEN UPPER(TRIM(COALESCE(p.return_flag,''))) IN ('N','NO')  THEN 'NO'
+                       ELSE '' END IN ('NO','N') THEN 1 ELSE 0 END) AS dc_flag_no,
+            SUM(CASE WHEN p.return_status = 'PENDING FOR DC GENERATION' AND
+                  CASE WHEN TRIM(COALESCE(p.return_flag_resolv,''))!='' THEN UPPER(TRIM(p.return_flag_resolv))
+                       WHEN TRIM(COALESCE(p.return_flag_msd,''))!=''    THEN UPPER(TRIM(p.return_flag_msd))
+                       WHEN UPPER(TRIM(COALESCE(p.return_flag,''))) IN ('Y','YES') THEN 'YES'
+                       WHEN UPPER(TRIM(COALESCE(p.return_flag,''))) IN ('N','NO')  THEN 'NO'
+                       ELSE '' END NOT IN ('YES','Y','NO','N') THEN 1 ELSE 0 END) AS dc_flag_empty
+        FROM wo_product_detail p
+        JOIN wo_summary s USING (work_order_id)
+        WHERE p.return_status IN ('PENDING FOR DC GENERATION', 'PENDING WITH PARTNER')
+          AND LOWER(s.work_order_status) IN (
+                'closed','completed','rma in progress',
+                'unit returned to customer /awaiting for parts rma',
+                'repair completed','ready for pickup'
+              )
     """).fetchone()
 
-    by_week_rows = conn.execute("""
-        SELECT
-            strftime('%Y-W%W', d.completion_date) AS week_key,
-            MIN(DATE(d.completion_date, 'weekday 1', '-7 days')) AS week_start,
-            SUM(CASE WHEN p.return_status = 'PENDING FOR DC GENERATION' THEN 1 ELSE 0 END) AS pending_dc,
-            SUM(CASE WHEN p.return_status = 'PENDING WITH PARTNER'      THEN 1 ELSE 0 END) AS pending_partner
-        FROM wo_product_detail p
-        LEFT JOIN wo_details d USING (work_order_id)
-        WHERE p.return_status IN ('PENDING FOR DC GENERATION', 'PENDING WITH PARTNER')
-          AND d.completion_date IS NOT NULL
-        GROUP BY week_key
-        ORDER BY week_key ASC
-    """).fetchall()
+    # Reusable flag-resolution CASE expression
+    _FLAG_EXPR = """
+        CASE
+          WHEN TRIM(COALESCE(p.return_flag_resolv,'')) != ''
+            THEN UPPER(TRIM(p.return_flag_resolv))
+          WHEN TRIM(COALESCE(p.return_flag_msd,'')) != ''
+            THEN UPPER(TRIM(p.return_flag_msd))
+          WHEN UPPER(TRIM(COALESCE(p.return_flag,''))) IN ('Y','YES') THEN 'YES'
+          WHEN UPPER(TRIM(COALESCE(p.return_flag,''))) IN ('N','NO')  THEN 'NO'
+          ELSE ''
+        END
+    """
+
+    def _fetch_by_status(status):
+        rows = conn.execute(f"""
+            SELECT
+                strftime('%Y-W%W', d.completion_date) AS week_key,
+                MIN(DATE(d.completion_date, 'weekday 1', '-7 days')) AS week_start,
+                SUM(CASE WHEN ({_FLAG_EXPR}) IN ('YES','Y') THEN 1 ELSE 0 END) AS flag_yes,
+                SUM(CASE WHEN ({_FLAG_EXPR}) IN ('NO','N')  THEN 1 ELSE 0 END) AS flag_no,
+                SUM(CASE WHEN ({_FLAG_EXPR}) NOT IN ('YES','Y','NO','N') THEN 1 ELSE 0 END) AS flag_empty
+            FROM wo_product_detail p
+            LEFT JOIN wo_details d USING (work_order_id)
+            WHERE p.return_status = ?
+              AND d.completion_date IS NOT NULL
+            GROUP BY week_key
+            ORDER BY week_key ASC
+        """, (status,)).fetchall()
+        return rows
 
     import datetime as _dt
-    by_week = []
-    for r in by_week_rows:
-        ws = r["week_start"] or ""
-        try:
-            d_start    = _dt.date.fromisoformat(ws)
-            d_end      = d_start + _dt.timedelta(days=6)
-            label      = "W" + str(d_start.isocalendar()[1])
-            if d_start.month == d_end.month:
-                week_range = d_start.strftime("%b %d") + " – " + d_end.strftime("%d")
-            else:
-                week_range = d_start.strftime("%b %d") + " – " + d_end.strftime("%b %d")
-        except Exception:
-            label      = r["week_key"] or ""
-            week_range = label
-        by_week.append({
-            "week_key":        r["week_key"],
-            "week_label":      label,
-            "week_range":      week_range,
-            "pending_dc":      r["pending_dc"]      or 0,
-            "pending_partner": r["pending_partner"] or 0,
-        })
+
+    def _build_weeks(rows):
+        result = []
+        for r in rows:
+            ws = r["week_start"] or ""
+            try:
+                d_start    = _dt.date.fromisoformat(ws)
+                d_end      = d_start + _dt.timedelta(days=6)
+                label      = "W" + str(d_start.isocalendar()[1])
+                week_range = (d_start.strftime("%b %d") + " – " +
+                              (d_end.strftime("%d") if d_start.month == d_end.month
+                               else d_end.strftime("%b %d")))
+            except Exception:
+                label      = r["week_key"] or ""
+                week_range = label
+            result.append({
+                "week_key":   r["week_key"],
+                "week_label": label,
+                "week_range": week_range,
+                "flag_yes":   r["flag_yes"]   or 0,
+                "flag_no":    r["flag_no"]    or 0,
+                "flag_empty": r["flag_empty"] or 0,
+            })
+        return result
+
+    by_week_partner = _build_weeks(_fetch_by_status("PENDING WITH PARTNER"))
+    by_week_dc      = _build_weeks(_fetch_by_status("PENDING FOR DC GENERATION"))
 
     return jsonify({
         "pending_dc_total":      totals["pending_dc_total"]      or 0,
         "pending_partner_total": totals["pending_partner_total"] or 0,
-        "by_week":               by_week,
+        "prt_flag_yes":          totals["prt_flag_yes"]          or 0,
+        "prt_flag_no":           totals["prt_flag_no"]           or 0,
+        "prt_flag_empty":        totals["prt_flag_empty"]        or 0,
+        "dc_flag_yes":           totals["dc_flag_yes"]           or 0,
+        "dc_flag_no":            totals["dc_flag_no"]            or 0,
+        "dc_flag_empty":         totals["dc_flag_empty"]         or 0,
+        "by_week_partner":       by_week_partner,
+        "by_week_dc":            by_week_dc,
     })
 
 
@@ -421,6 +496,7 @@ def api_dashboard_closing_codes():
             matched_case_ids = {r["case_num_str"] for r in wo_rows if r["case_num_str"]}
 
             # All Monday items created in the last 30 days
+            # All Monday items created in the last 30 days
             all_monday = edb.execute("""
                 SELECT
                     monday_item_id,
@@ -521,6 +597,30 @@ def api_dashboard_closing_codes():
                 v = str(val or "").strip()
                 return bool(v and _re.match(r'^40\d{8,}', v))
 
+            # ── Build a serial → latest WO map for auto-fill (mirrors monday_data latest_wo_id) ──
+            # Fetches the most recently created WO for every serial that has at least one
+            # Monday escalation row but no wo_case_id (or an unresolvable one).
+            _serials_needing_autofill = {
+                str(dict(mr).get("serial_number") or "").strip().lower()
+                for mr in all_monday
+                if str(dict(mr).get("serial_number") or "").strip()
+                and not str(dict(mr).get("wo_case_id") or "").strip()
+            }
+            _latest_wo_by_serial: dict = {}
+            if _serials_needing_autofill:
+                _sn_ph = ",".join("?" * len(_serials_needing_autofill))
+                _latest_rows = conn.execute(f"""
+                    SELECT LOWER(TRIM(s.serial_number)) AS sn_key,
+                           CAST(s.work_order_id AS TEXT) AS wo_id
+                    FROM wo_summary s
+                    WHERE LOWER(TRIM(s.serial_number)) IN ({_sn_ph})
+                    ORDER BY s.created_on DESC
+                """, list(_serials_needing_autofill)).fetchall()
+                for _lr in _latest_rows:
+                    _lr = dict(_lr)
+                    if _lr["sn_key"] not in _latest_wo_by_serial:
+                        _latest_wo_by_serial[_lr["sn_key"]] = _lr["wo_id"]
+
             # ── Pre-pass: collect all WO-like Monday keys not already in all_closed_wo_by_id,
             #    then fetch their status/type in a single batch query (covers open/in-transit WOs
             #    that have no completion_date within the last 30 days).
@@ -559,14 +659,46 @@ def api_dashboard_closing_codes():
             for mrow in all_monday:
                 mrow = dict(mrow)
                 raw_key = str(mrow["wo_case_id"] or "").strip()
-                if not raw_key:
-                    continue
 
                 item_id = mrow["monday_item_id"]
                 if item_id in seen_monday_item_ids:
                     continue
 
-                if _looks_like_wo(raw_key):
+                def _monday_only_row(key):
+                    """Build a Monday-only row with no matched WO data."""
+                    _sn_lo = str(mrow.get("serial_number") or "").strip().lower()
+                    _auto_wo = _latest_wo_by_serial.get(_sn_lo) if _sn_lo else None
+                    return {
+                        "work_order_id":         None,
+                        "serial_number":         mrow.get("serial_number") or None,
+                        "product_serial_number": mrow.get("serial_number") or None,
+                        "work_order_type":       mrow.get("work_order_type") or None,
+                        "work_order_status":     None,
+                        "customer":              None,
+                        "contact_name":          None,
+                        "product_description":   None,
+                        "city":                  None,
+                        "completion_date":       None,
+                        "closing_date":          None,
+                        "closing_code":          None,
+                        "case_number":           None,
+                        "esc_statuses":          mrow["status"],
+                        "esc_created_at":        mrow["item_created_at"],
+                        "esc_item_id":           item_id,
+                        "esc_item_name":         mrow["item_name"],
+                        "esc_board_id":          mrow["board_id"],
+                        "esc_disc_count":        _disc_count_for(item_id),
+                        "wo_case_id":            key,
+                        "wo_case_match":         None,
+                        "row_source":            "monday_only",
+                        "latest_wo_id":          _auto_wo,
+                    }
+
+                if not raw_key:
+                    # No wo_case_id at all — show as Monday-only row
+                    seen_monday_item_ids.add(item_id)
+                    monday_extra_rows.append(_monday_only_row(""))
+                elif _looks_like_wo(raw_key):
                     # WO-type key — check if it is already covered by a closing-code row
                     if raw_key in matched_wo_ids:
                         # already shown via the closing-code row; skip
@@ -575,10 +707,11 @@ def api_dashboard_closing_codes():
                     # Look up WO data: prefer recently-closed WOs, fall back to open/in-transit
                     closed_wo = all_closed_wo_by_id.get(raw_key) or _open_wo_by_id.get(raw_key)
                     disc = _disc_count_for(item_id)
+                    _sn_lo2 = str(mrow.get("serial_number") or "").strip().lower()
                     extra = {
-                        "work_order_id":          closed_wo["wo_id_str"] if closed_wo else raw_key,
-                        "serial_number":          closed_wo["serial_number"] if closed_wo else None,
-                        "product_serial_number":  closed_wo["product_serial_number"] if closed_wo else None,
+                        "work_order_id":          closed_wo["wo_id_str"] if closed_wo else None,
+                        "serial_number":          closed_wo["serial_number"] if closed_wo else (mrow.get("serial_number") or None),
+                        "product_serial_number":  closed_wo["product_serial_number"] if closed_wo else (mrow.get("serial_number") or None),
                         "work_order_type":        closed_wo["work_order_type"] if closed_wo else (mrow.get("work_order_type") or None),
                         "work_order_status":      closed_wo["work_order_status"] if closed_wo else None,
                         "customer":               closed_wo["customer"] if closed_wo else None,
@@ -596,8 +729,10 @@ def api_dashboard_closing_codes():
                         "esc_board_id":           mrow["board_id"],
                         "esc_disc_count":         disc,
                         "wo_case_id":             raw_key,
-                        "wo_case_match":          "wo",
+                        "wo_case_match":          "wo" if closed_wo else None,
                         "row_source":             "monday_wo" if closed_wo else "monday_only",
+                        # auto-fill only needed when WO key didn't resolve (closed_wo is None)
+                        "latest_wo_id":           None if closed_wo else _latest_wo_by_serial.get(_sn_lo2),
                     }
                     monday_extra_rows.append(extra)
                 else:
@@ -607,38 +742,49 @@ def api_dashboard_closing_codes():
                         continue
                     esc_date_str = (mrow["item_created_at"] or "")[:10]
                     if not esc_date_str:
+                        seen_monday_item_ids.add(item_id)
+                        monday_extra_rows.append(_monday_only_row(raw_key))
                         continue
                     try:
                         _esc_dt = _dt.date.fromisoformat(esc_date_str)
                     except ValueError:
+                        seen_monday_item_ids.add(item_id)
+                        monday_extra_rows.append(_monday_only_row(raw_key))
                         continue
 
-                    # Find any matching closed WO for this case within the date window
+                    # Find any matching closed WO for this case within the date window.
+                    # Check both completion_date and closing_date independently so that a
+                    # WO is not missed when only one of the two dates falls inside the window.
                     matched_wo = None
                     for cwo in closed_by_case.get(raw_key, []):
-                        ref_date_str = (cwo.get("closing_date") or cwo.get("completion_date") or "")[:10]
-                        if not ref_date_str:
-                            continue
-                        try:
-                            _ref_dt = _dt.date.fromisoformat(ref_date_str)
-                        except ValueError:
-                            continue
-                        delta = (_esc_dt - _ref_dt).days
-                        if -4 <= delta <= 7:
-                            matched_wo = cwo
+                        _ref_dates = [
+                            (cwo.get("completion_date") or "")[:10],
+                            (cwo.get("closing_date")    or "")[:10],
+                        ]
+                        for _rd in _ref_dates:
+                            if not _rd:
+                                continue
+                            try:
+                                _ref_dt = _dt.date.fromisoformat(_rd)
+                            except ValueError:
+                                continue
+                            if -4 <= (_esc_dt - _ref_dt).days <= 7:
+                                matched_wo = cwo
+                                break
+                        if matched_wo:
                             break
 
                     # Fall back: check if this case_number matches a WO with NO closing_date
-                    # (open / still in-progress WOs that haven't been closed yet).
                     no_close_wo = None
                     if not matched_wo:
                         candidates_nc = no_close_by_case.get(raw_key, [])
                         if candidates_nc:
-                            # Prefer the candidate whose case_number matches the Monday key;
-                            # if multiple WOs share the same case number take the first one.
                             no_close_wo = candidates_nc[0]
 
                     if not matched_wo and not no_close_wo:
+                        # No WO match at all — show as Monday-only row with empty WO columns
+                        seen_monday_item_ids.add(item_id)
+                        monday_extra_rows.append(_monday_only_row(raw_key))
                         continue
 
                     seen_monday_item_ids.add(item_id)
@@ -890,11 +1036,21 @@ def api_sn_monday_escalation(serial_number: str):
                     LEFT JOIN item_update_replies r2 ON u2.update_id = r2.update_id
                     WHERE u2.monday_item_id = te.monday_item_id
                 ) AS disc_count,
-                (
-                    SELECT wd.case_number
-                    FROM main_db.wo_details wd
-                    WHERE CAST(wd.work_order_id AS TEXT) = TRIM(te.wo_case_id)
-                    LIMIT 1
+                -- When wo_case_id is a WO number → resolve to its case_number.
+                -- When wo_case_id is already a case number → confirm/return it from wo_details.
+                COALESCE(
+                    (
+                        SELECT wd.case_number
+                        FROM main_db.wo_details wd
+                        WHERE CAST(wd.work_order_id AS TEXT) = TRIM(te.wo_case_id)
+                        LIMIT 1
+                    ),
+                    (
+                        SELECT wd.case_number
+                        FROM main_db.wo_details wd
+                        WHERE TRIM(wd.case_number) = TRIM(te.wo_case_id)
+                        LIMIT 1
+                    )
                 ) AS case_number
             FROM technical_escalation te
             WHERE LOWER(TRIM(te.serial_number)) = LOWER(?)

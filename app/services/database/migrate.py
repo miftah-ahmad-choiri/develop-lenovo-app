@@ -44,6 +44,10 @@ def run_migrations(app: Flask) -> None:
         _migrate_wo_product_detail_add_is_exist_excel(conn)
         _migrate_wo_product_detail_add_dc_generate_date(conn)
         _migrate_wo_product_detail_reorder_dc_generate_date(conn)
+        _migrate_wo_product_detail_add_return_flag_msd(conn)
+        _migrate_wo_product_detail_reorder_return_flag_msd(conn)
+        _migrate_wo_product_detail_add_return_flag_resolv(conn)
+        _migrate_wo_product_detail_reorder_return_flag_resolv(conn)
         _migrate_create_asp_details(conn)
         _migrate_create_admin_users(conn)
         _migrate_create_asp_users(conn)
@@ -202,7 +206,10 @@ def _migrate_wo_product_detail_reorder_awb_resolv(conn: sqlite3.Connection) -> N
 
     SQLite does not support ALTER TABLE … AFTER …, so we use the standard
     rename-create-copy-drop pattern.  The migration is a no-op when awb_resolv
-    is already at position 21 (immediately after dc_number at position 20).
+    is already at position 22 (immediately after dc_number at position 21).
+
+    NOTE: position 22 (not 21) because return_flag_msd was later inserted at
+    position 14, shifting every subsequent column by one.
 
     The INSERT/SELECT list is built dynamically from the columns that actually
     exist in the old table, so this migration is safe to run regardless of
@@ -212,8 +219,10 @@ def _migrate_wo_product_detail_reorder_awb_resolv(conn: sqlite3.Connection) -> N
     # Build {name: cid} map
     col_pos = {row[1]: row[0] for row in cols}
 
-    # Already in the correct position — nothing to do
-    if col_pos.get("awb_resolv") == 21:
+    # Already in the correct position — nothing to do.
+    # awb_resolv lives at position 22 (not 21) because return_flag_msd was
+    # inserted at position 14, shifting every subsequent column by one.
+    if col_pos.get("awb_resolv") == 22:
         return
 
     # awb_resolv must exist before we can reorder
@@ -228,10 +237,13 @@ def _migrate_wo_product_detail_reorder_awb_resolv(conn: sqlite3.Connection) -> N
         "created_on", "product", "description",
         "acceptance_date", "shipment_date", "delivery_date", "wo_product_status",
         "order_date", "ship_pn", "ship_pn_desc", "return_flag",
+        "return_flag_msd",
         "ship_pickup_time", "ship_pou_pod_time", "awb", "sla", "target",
         "eta_parthold_backlog", "dc_number",
         "awb_resolv",
-        "return_status", "dc_lenovo",
+        "return_status",
+        "dc_generate_date",
+        "dc_lenovo",
         "awb_return", "lenovo_return_status", "awb_notes",
         "modify_date_dc_lenovo", "is_exist_excel",
     ]
@@ -269,6 +281,7 @@ def _migrate_wo_product_detail_reorder_awb_resolv(conn: sqlite3.Connection) -> N
             ship_pn             TEXT,
             ship_pn_desc        TEXT,
             return_flag         TEXT,
+            return_flag_msd     TEXT,
             ship_pickup_time    TEXT,
             ship_pou_pod_time   TEXT,
             awb                 TEXT,
@@ -278,6 +291,7 @@ def _migrate_wo_product_detail_reorder_awb_resolv(conn: sqlite3.Connection) -> N
             dc_number            TEXT,
             awb_resolv           TEXT,
             return_status        TEXT,
+            dc_generate_date     TEXT,
             dc_lenovo            TEXT,
 
             -- POU Unreturn columns
@@ -1080,8 +1094,10 @@ def _migrate_wo_product_detail_reorder_dc_generate_date(conn: sqlite3.Connection
     # Build {name: cid} map
     col_pos = {row[1]: row[0] for row in cols}
 
-    # Already in the correct position — nothing to do
-    if col_pos.get("dc_generate_date") == 23:
+    # Already in the correct position — nothing to do.
+    # dc_generate_date lives at position 24 (not 23) because return_flag_msd
+    # was inserted at position 14, shifting every subsequent column by one.
+    if col_pos.get("dc_generate_date") == 24:
         return
 
     # dc_generate_date must exist before we can reorder
@@ -1093,6 +1109,7 @@ def _migrate_wo_product_detail_reorder_dc_generate_date(conn: sqlite3.Connection
         "created_on", "product", "description",
         "acceptance_date", "shipment_date", "delivery_date", "wo_product_status",
         "order_date", "ship_pn", "ship_pn_desc", "return_flag",
+        "return_flag_msd",
         "ship_pickup_time", "ship_pou_pod_time", "awb", "sla", "target",
         "eta_parthold_backlog", "dc_number",
         "awb_resolv", "return_status",
@@ -1135,6 +1152,7 @@ def _migrate_wo_product_detail_reorder_dc_generate_date(conn: sqlite3.Connection
             ship_pn             TEXT,
             ship_pn_desc        TEXT,
             return_flag         TEXT,
+            return_flag_msd     TEXT,
             ship_pickup_time    TEXT,
             ship_pou_pod_time   TEXT,
             awb                 TEXT,
@@ -1166,3 +1184,263 @@ def _migrate_wo_product_detail_reorder_dc_generate_date(conn: sqlite3.Connection
         PRAGMA foreign_keys = ON;
         """
     )
+
+
+def _migrate_wo_product_detail_add_return_flag_msd(conn: sqlite3.Connection) -> None:
+    """Add return_flag_msd column to wo_product_detail if it does not exist yet.
+
+    Stores the raw 'Returnable Indicator' value (Yes / No / empty) from the
+    MSD Work Order Product Advanced Find View Excel, placed immediately after
+    the existing return_flag (Y / N) shipment column.
+    """
+    existing = {
+        row[1]
+        for row in conn.execute("PRAGMA table_info(wo_product_detail)").fetchall()
+    }
+    if "return_flag_msd" not in existing:
+        conn.execute(
+            "ALTER TABLE wo_product_detail ADD COLUMN return_flag_msd TEXT"
+        )
+    conn.commit()
+
+
+def _migrate_wo_product_detail_reorder_return_flag_msd(conn: sqlite3.Connection) -> None:
+    """Move return_flag_msd to sit immediately after return_flag (position 14).
+
+    SQLite does not support ALTER TABLE … AFTER …, so we use the standard
+    rename-create-copy-drop pattern.  The migration is a no-op when
+    return_flag_msd is already at position 14.
+    """
+    cols = conn.execute("PRAGMA table_info(wo_product_detail)").fetchall()
+    col_pos = {row[1]: row[0] for row in cols}
+
+    # Already in the correct position — nothing to do
+    if col_pos.get("return_flag_msd") == 14:
+        return
+
+    # Column must exist before we can reorder
+    if "return_flag_msd" not in col_pos:
+        return
+
+    desired_order = [
+        "soid", "work_order_id", "line_order",
+        "created_on", "product", "description",
+        "acceptance_date", "shipment_date", "delivery_date", "wo_product_status",
+        "order_date", "ship_pn", "ship_pn_desc",
+        "return_flag",
+        "return_flag_msd",
+        "ship_pickup_time", "ship_pou_pod_time", "awb", "sla", "target",
+        "eta_parthold_backlog", "dc_number",
+        "awb_resolv", "return_status",
+        "dc_generate_date",
+        "dc_lenovo",
+        "awb_return", "lenovo_return_status", "awb_notes",
+        "modify_date_dc_lenovo", "is_exist_excel",
+        "unreturn_submitted_date",
+    ]
+    existing_cols = set(col_pos.keys())
+    copy_cols = [c for c in desired_order if c in existing_cols]
+    # Append any columns not covered by desired_order (future additions)
+    for c in sorted(existing_cols - set(copy_cols), key=lambda x: col_pos[x]):
+        copy_cols.append(c)
+    col_list = ", ".join(copy_cols)
+
+    conn.executescript(
+        f"""
+        PRAGMA foreign_keys = OFF;
+
+        BEGIN;
+
+        ALTER TABLE wo_product_detail RENAME TO _wo_product_detail_old;
+
+        CREATE TABLE wo_product_detail (
+            -- Key
+            soid                INTEGER PRIMARY KEY,
+            work_order_id       INTEGER
+                                    REFERENCES wo_summary(work_order_id)
+                                    ON DELETE CASCADE,
+            line_order          INTEGER,
+
+            -- MSD columns
+            created_on          TEXT,
+            product             TEXT,
+            description         TEXT,
+            acceptance_date     TEXT,
+            shipment_date       TEXT,
+            delivery_date       TEXT,
+            wo_product_status   TEXT,
+
+            -- Shipment columns
+            order_date          TEXT,
+            ship_pn             TEXT,
+            ship_pn_desc        TEXT,
+            return_flag         TEXT,
+            return_flag_msd     TEXT,
+            ship_pickup_time    TEXT,
+            ship_pou_pod_time   TEXT,
+            awb                 TEXT,
+            sla                 TEXT,
+            target              TEXT,
+            eta_parthold_backlog TEXT,
+            dc_number            TEXT,
+            awb_resolv           TEXT,
+            return_status        TEXT,
+            dc_generate_date     TEXT,
+            dc_lenovo            TEXT,
+
+            -- POU Unreturn columns
+            awb_return               TEXT,
+            lenovo_return_status     TEXT,
+            awb_notes                TEXT,
+            modify_date_dc_lenovo    TEXT,
+            is_exist_excel           TEXT,
+            unreturn_submitted_date  TEXT
+        );
+
+        INSERT INTO wo_product_detail ({col_list})
+        SELECT {col_list}
+        FROM _wo_product_detail_old;
+
+        DROP TABLE _wo_product_detail_old;
+
+        COMMIT;
+
+        PRAGMA foreign_keys = ON;
+        """
+    )
+
+    # Recreate the index that was dropped with the old table
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_wo_product_detail_work_order_id "
+        "ON wo_product_detail(work_order_id)"
+    )
+    conn.commit()
+
+
+def _migrate_wo_product_detail_add_return_flag_resolv(conn: sqlite3.Connection) -> None:
+    """Add return_flag_resolv column to wo_product_detail if it does not exist yet.
+
+    Stores the raw 'Return Flag' value (Yes / No / NA) from the GTAAP DC
+    Extract Report downloaded via the Resolve auto-download script.
+    Written by upsert_dc_from_gtaap() on every GTAAP upload.
+    """
+    existing = {
+        row[1]
+        for row in conn.execute("PRAGMA table_info(wo_product_detail)").fetchall()
+    }
+    if "return_flag_resolv" not in existing:
+        conn.execute(
+            "ALTER TABLE wo_product_detail ADD COLUMN return_flag_resolv TEXT"
+        )
+    conn.commit()
+
+
+def _migrate_wo_product_detail_reorder_return_flag_resolv(conn: sqlite3.Connection) -> None:
+    """Move return_flag_resolv to sit immediately after return_flag_msd.
+
+    SQLite does not support ALTER TABLE … AFTER …, so we use the standard
+    rename-create-copy-drop pattern.  The migration is a no-op when
+    return_flag_resolv is already at the correct position.
+    """
+    cols = conn.execute("PRAGMA table_info(wo_product_detail)").fetchall()
+    col_pos = {row[1]: row[0] for row in cols}
+
+    # Column must exist before we can reorder
+    if "return_flag_resolv" not in col_pos:
+        return
+
+    desired_order = [
+        "soid", "work_order_id", "line_order",
+        "created_on", "product", "description",
+        "acceptance_date", "shipment_date", "delivery_date", "wo_product_status",
+        "order_date", "ship_pn", "ship_pn_desc",
+        "return_flag",
+        "return_flag_msd",
+        "return_flag_resolv",
+        "ship_pickup_time", "ship_pou_pod_time", "awb", "sla", "target",
+        "eta_parthold_backlog", "dc_number",
+        "awb_resolv", "return_status",
+        "dc_generate_date",
+        "dc_lenovo",
+        "awb_return", "lenovo_return_status", "awb_notes",
+        "modify_date_dc_lenovo", "is_exist_excel",
+        "unreturn_submitted_date",
+    ]
+    existing_cols = set(col_pos.keys())
+    copy_cols = [c for c in desired_order if c in existing_cols]
+    # Append any columns not covered by desired_order (future additions)
+    for c in sorted(existing_cols - set(copy_cols), key=lambda x: col_pos[x]):
+        copy_cols.append(c)
+    col_list = ", ".join(copy_cols)
+
+    conn.executescript(
+        f"""
+        PRAGMA foreign_keys = OFF;
+
+        BEGIN;
+
+        ALTER TABLE wo_product_detail RENAME TO _wo_product_detail_old;
+
+        CREATE TABLE wo_product_detail (
+            -- Key
+            soid                INTEGER PRIMARY KEY,
+            work_order_id       INTEGER
+                                    REFERENCES wo_summary(work_order_id)
+                                    ON DELETE CASCADE,
+            line_order          INTEGER,
+
+            -- MSD columns
+            created_on          TEXT,
+            product             TEXT,
+            description         TEXT,
+            acceptance_date     TEXT,
+            shipment_date       TEXT,
+            delivery_date       TEXT,
+            wo_product_status   TEXT,
+
+            -- Shipment columns
+            order_date          TEXT,
+            ship_pn             TEXT,
+            ship_pn_desc        TEXT,
+            return_flag         TEXT,
+            return_flag_msd     TEXT,
+            return_flag_resolv   TEXT,
+            ship_pickup_time    TEXT,
+            ship_pou_pod_time   TEXT,
+            awb                 TEXT,
+            sla                 TEXT,
+            target              TEXT,
+            eta_parthold_backlog TEXT,
+            dc_number            TEXT,
+            awb_resolv           TEXT,
+            return_status        TEXT,
+            dc_generate_date     TEXT,
+            dc_lenovo            TEXT,
+
+            -- POU Unreturn columns
+            awb_return               TEXT,
+            lenovo_return_status     TEXT,
+            awb_notes                TEXT,
+            modify_date_dc_lenovo    TEXT,
+            is_exist_excel           TEXT,
+            unreturn_submitted_date  TEXT
+        );
+
+        INSERT INTO wo_product_detail ({col_list})
+        SELECT {col_list}
+        FROM _wo_product_detail_old;
+
+        DROP TABLE _wo_product_detail_old;
+
+        COMMIT;
+
+        PRAGMA foreign_keys = ON;
+        """
+    )
+
+    # Recreate the index that was dropped with the old table
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_wo_product_detail_work_order_id "
+        "ON wo_product_detail(work_order_id)"
+    )
+    conn.commit()

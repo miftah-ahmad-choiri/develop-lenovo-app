@@ -85,6 +85,7 @@
   .subtab-sep { color: #d1d5db; font-size: 13px; margin: 0 2px; }
   /* CCI toolbar — merged into subtab-bar row */
   .subtab-bar { justify-content: space-between; }
+  .table-toolbar.subtab-bar { justify-content: space-between; }
   .subtab-bar-left { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   .subtab-bar-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
   .cci-toolbar { display: none; }
@@ -651,6 +652,10 @@
     🔔 Return Reminder
     <span class="tab-badge" id="tab-return-reminder-badge" style="display:none"></span>
   </button>
+  <button class="tab-btn" data-tab="tab-esc-inprogress" style="display:none">
+    ⚡ Escalation Center
+    <span class="tab-badge" id="tab-esc-inprogress-badge" style="display:none"></span>
+  </button>
   <button class="tab-btn" data-tab="tab-completed-30d" style="display:none">
     ✅ Complete Last 30Days
   </button>
@@ -877,6 +882,12 @@
         </button>
       </div>
       <div class="subtab-bar-right">
+        <select class="filter-select" id="filter-rr-flag" title="Filter by Return Flag">
+          <option value="">All Flag</option>
+          <option value="yes" selected>Return YES</option>
+          <option value="no">Return NO</option>
+          <option value="empty">Empty</option>
+        </select>
         <button class="btn-export-xlsx" id="btn-export-return-reminder" title="Export all rows to Excel">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           Export Excel
@@ -893,8 +904,8 @@
           <thead><tr>
             <th style="width:40px;text-align:center">#</th>
             <th>Created On</th><th>SOID</th><th>WO Number</th>
-            <th>WO Type</th><th>Return Status</th><th>WO Complete Date</th>
-            <th>WO Status</th><th>Contact Name</th>
+            <th>WO Type</th><th>Return Flag</th><th>Return Status</th><th>WO Complete Date</th>
+            <th>WO Status</th>
           </tr></thead>
           <tbody id="tbody-rr-partner"><tr><td colspan="9" class="loading-state">Loading…</td></tr></tbody>
         </table>
@@ -910,8 +921,8 @@
           <thead><tr>
             <th style="width:40px;text-align:center">#</th>
             <th>Created On</th><th>SOID</th><th>WO Number</th>
-            <th>WO Type</th><th>Return Status</th><th>WO Complete Date</th>
-            <th>WO Status</th><th>Contact Name</th>
+            <th>WO Type</th><th>Return Flag</th><th>Return Status</th><th>WO Complete Date</th>
+            <th>WO Status</th>
           </tr></thead>
           <tbody id="tbody-rr-dc"><tr><td colspan="9" class="loading-state">Loading…</td></tr></tbody>
         </table>
@@ -921,6 +932,44 @@
     </div>
   </div>
 </div>
+
+
+<!-- ── TAB: Escalation Center (In-Progress) ──────────────────────────────── -->
+<div class="tab-panel" id="tab-esc-inprogress">
+  <div class="table-card">
+    <div style="padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #e5e7eb;flex-wrap:wrap;">
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <select class="filter-select" id="filter-esc-wotype" style="font-size:12px">
+          <option value="">All Type</option>
+          <option value="ONS">ONS</option>
+          <option value="CCI">CCI</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+        <input type="search" id="search-esc-inprogress" placeholder="Search item, WO, serial, status…" autocomplete="off" style="padding:7px 11px;border:1px solid #d0d7de;border-radius:6px;font-size:13px;width:260px;font-family:inherit;" />
+        <span class="toolbar-count" id="count-esc-inprogress"></span>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr>
+          <th style="width:40px;text-align:center">#</th>
+          <th style="min-width:260px">Task / Item Name</th>
+          <th style="width:160px;white-space:nowrap">Status</th>
+          <th style="width:105px;white-space:nowrap">Date</th>
+          <th style="width:115px">WO / Case ID</th>
+          <th style="width:95px">Serial No.</th>
+          <th style="width:75px">WO Type</th>
+          <th style="width:88px;text-align:center">Discussion</th>
+        </tr></thead>
+        <tbody id="tbody-esc-inprogress"><tr><td colspan="8" class="loading-state">Loading…</td></tr></tbody>
+      </table>
+    </div>
+    <div id="empty-esc-inprogress" class="empty-state" style="display:none">No in-progress escalations found.</div>
+    <div class="pagination" id="pg-esc-inprogress"></div>
+  </div>
+</div>
+
 
 <!-- ── TAB: Completed Last 30 Days ──────────────────────────────────────── -->
 <div class="tab-panel" id="tab-completed-30d">
@@ -3887,6 +3936,36 @@ function _rrCols() {
         : '<span style="color:#8c959f">—</span>' },
     { key: 'work_order_id',    render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
     { key: 'work_order_type',  render: r => esc(r.work_order_type || '—') },
+    { key: 'return_flag_resolv', render: r => {
+        /* Priority: return_flag_resolv → return_flag_msd → return_flag (Y/N) */
+        const resolv = (r.return_flag_resolv || '').trim();
+        const msd    = (r.return_flag_msd    || '').trim();
+        const raw    = (r.return_flag        || '').trim().toUpperCase();
+        let label = '';
+        if (resolv) {
+          label = resolv;
+        } else if (msd) {
+          label = msd;
+        } else if (raw === 'Y') {
+          label = 'Yes';
+        } else if (raw === 'N') {
+          label = 'No';
+        }
+        /* Category badge */
+        if (!label) {
+          return `<span style="display:inline-block;font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;background:#f9fafb;color:#8c959f;border:1px solid #d1d5db;white-space:nowrap">Empty</span>`;
+        }
+        const upper = label.toUpperCase();
+        if (upper === 'YES' || upper === 'Y') {
+          return `<span style="display:inline-block;font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;white-space:nowrap">Yes</span>`;
+        }
+        if (upper === 'NO' || upper === 'N') {
+          return `<span style="display:inline-block;font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;background:#fff1f2;color:#be123c;border:1px solid #fecdd3;white-space:nowrap">No</span>`;
+        }
+        /* Any other non-empty value — show as-is in a neutral badge */
+        return `<span style="display:inline-block;font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;background:#f9fafb;color:#374151;border:1px solid #d1d5db;white-space:nowrap">${esc(label)}</span>`;
+      }
+    },
     { key: 'return_status',    render: r => {
         const v = (r.return_status || '').trim().toUpperCase();
         if (v === 'PENDING WITH PARTNER') {
@@ -3904,7 +3983,6 @@ function _rrCols() {
       }
     },
     { key: 'work_order_status', render: r => statusBadge(r.work_order_status) },
-    { key: 'contact_name',      render: r => esc(r.contact_name || '—') },
   ];
 }
 
@@ -3954,10 +4032,18 @@ let _rrActiveFilter   = 'PENDING WITH PARTNER';
 let _rrPartnerLoaded  = false;
 let _rrDcLoaded       = false;
 
-function _rrLoadActive() {
-  const q = document.getElementById('search-return-reminder').value.trim();
+function _rrParams() {
+  /* Build shared params object for all RR API calls */
+  const q    = document.getElementById('search-return-reminder').value.trim();
+  const flag = document.getElementById('filter-rr-flag').value;
   const p = { return_status: _rrActiveFilter };
-  if (q) p.q = q;
+  if (q)    p.q               = q;
+  if (flag) p.return_flag_filter = flag;
+  return p;
+}
+
+function _rrLoadActive() {
+  const p = _rrParams();
   if (_rrActiveFilter === 'PENDING WITH PARTNER') {
     rrPartnerTable.load(p);
     _rrPartnerLoaded = true;
@@ -3979,31 +4065,28 @@ document.querySelectorAll('#tab-return-reminder [data-rrfilter]').forEach(btn =>
       btn.classList.add('sactive-partner');
       document.getElementById('rr-pane-partner').style.display = '';
       document.getElementById('rr-pane-dc').style.display      = 'none';
-      if (!_rrPartnerLoaded) _rrLoadActive();
+      _rrLoadActive();
     } else {
       btn.classList.add('sactive-dc-gen');
       document.getElementById('rr-pane-partner').style.display = 'none';
       document.getElementById('rr-pane-dc').style.display      = '';
-      if (!_rrDcLoaded) _rrLoadActive();
+      _rrLoadActive();
     }
   });
 });
 
 function _returnReminderLoad() {
-  /* Load both sub-panes on first activation; reload active pane on search */
-  const q = document.getElementById('search-return-reminder').value.trim();
-  if (!_rrPartnerLoaded || q !== undefined) {
-    const p = { return_status: 'PENDING WITH PARTNER' };
-    if (q) p.q = q;
-    rrPartnerTable.load(p);
-    _rrPartnerLoaded = true;
-  }
-  if (!_rrDcLoaded || q !== undefined) {
-    const p = { return_status: 'PENDING FOR DC GENERATION' };
-    if (q) p.q = q;
-    rrDcTable.load(p);
-    _rrDcLoaded = true;
-  }
+  /* Load both sub-panes on first activation; reload on search/filter change */
+  const q    = document.getElementById('search-return-reminder').value.trim();
+  const flag = document.getElementById('filter-rr-flag').value;
+  const pPartner = { return_status: 'PENDING WITH PARTNER' };
+  const pDc      = { return_status: 'PENDING FOR DC GENERATION' };
+  if (q)    { pPartner.q = q;    pDc.q = q; }
+  if (flag) { pPartner.return_flag_filter = flag; pDc.return_flag_filter = flag; }
+  rrPartnerTable.load(pPartner);
+  rrDcTable.load(pDc);
+  _rrPartnerLoaded = true;
+  _rrDcLoaded      = true;
 }
 
 let returnReminderTimer = null;
@@ -4016,13 +4099,21 @@ document.getElementById('search-return-reminder').addEventListener('input', () =
   }, 350);
 });
 
+document.getElementById('filter-rr-flag').addEventListener('change', () => {
+  _rrPartnerLoaded = false;
+  _rrDcLoaded      = false;
+  _returnReminderLoad();
+});
+
 document.getElementById('btn-export-return-reminder').addEventListener('click', function () {
   this.disabled = true;
   this.innerHTML = '⏳ Exporting…';
-  const q   = document.getElementById('search-return-reminder').value.trim();
-  const rs  = _rrActiveFilter;
+  const q    = document.getElementById('search-return-reminder').value.trim();
+  const flag = document.getElementById('filter-rr-flag').value;
+  const rs   = _rrActiveFilter;
   let url = `/asp/api/return-reminder/export?return_status=${encodeURIComponent(rs)}`;
-  if (q) url += `&q=${encodeURIComponent(q)}`;
+  if (q)    url += `&q=${encodeURIComponent(q)}`;
+  if (flag) url += `&return_flag_filter=${encodeURIComponent(flag)}`;
   fetch(url)
     .then(r => r.blob())
     .then(blob => {
@@ -4036,6 +4127,135 @@ document.getElementById('btn-export-return-reminder').addEventListener('click', 
       this.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Export Excel';
     });
 });
+
+/* ═══════════════════════════════════════════════════════════════
+   TAB: Escalation Center — In-Progress
+═══════════════════════════════════════════════════════════════ */
+
+function _escStatusBadge(status) {
+  const v = (status || '').toLowerCase();
+  let bg = '#f3f4f6', color = '#374151', border = '#d1d5db';
+  if (v.includes('technical escalation') || v.includes('technical')) {
+    bg = '#fef3c7'; color = '#92400e'; border = '#fde68a';
+  } else if (v.includes('approved')) {
+    bg = '#eff6ff'; color = '#1d4ed8'; border = '#bfdbfe';
+  } else if (v.includes('reject')) {
+    bg = '#fef2f2'; color = '#dc2626'; border = '#fecaca';
+  } else if (v.includes('progress') || v.includes('running') || v.includes('pending') || v === 'qa result') {
+    bg = '#eff6ff'; color = '#1d4ed8'; border = '#bfdbfe';
+  }
+  return `<span style="display:inline-block;font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;background:${bg};color:${color};border:1px solid ${border};white-space:nowrap">${esc(status || '—')}</span>`;
+}
+
+function _escWoCell(r) {
+  const wo = (r.wo_case_id || '').trim();
+  if (!wo) return `<span style="color:#8c959f">—</span>`;
+  /* Red font when has_wo = 0 (no matching WO in the DB), same as monday_data.html */
+  const noMatch = r.has_wo === 0;
+  const style = noMatch
+    ? 'font-family:ui-monospace,monospace;font-size:12px;font-weight:700;color:#dc2626'
+    : 'font-family:ui-monospace,monospace;font-size:12px;font-weight:700;color:#1f2328';
+  return `<span style="${style}" title="${noMatch ? 'No matching WO found in database' : ''}">${esc(wo)}</span>`;
+}
+
+let _escPage = 1;
+const _escPerPage = 25;
+let _escTotal = 0;
+let _escSearchTimer = null;
+
+function _escInProgressLoad(resetPage) {
+  if (resetPage) _escPage = 1;
+  const q       = (document.getElementById('search-esc-inprogress') || {}).value || '';
+  const woType  = (document.getElementById('filter-esc-wotype') || {}).value || '';
+  const tbody   = document.getElementById('tbody-esc-inprogress');
+  const empty   = document.getElementById('empty-esc-inprogress');
+  const cntEl   = document.getElementById('count-esc-inprogress');
+  const badge   = document.getElementById('tab-esc-inprogress-badge');
+
+  tbody.innerHTML = `<tr><td colspan="8" class="loading-state">Loading…</td></tr>`;
+  if (empty) empty.style.display = 'none';
+
+  const params = new URLSearchParams({ page: _escPage, per_page: _escPerPage });
+  if (q)      params.set('q',       q);
+  if (woType) params.set('wo_type', woType);
+
+  fetch('/asp/api/escalation-inprogress?' + params.toString())
+    .then(r => r.json())
+    .then(data => {
+      const rows  = data.rows || [];
+      _escTotal   = data.total || 0;
+
+      /* Update badge */
+      if (badge) {
+        badge.textContent   = _escTotal;
+        badge.style.display = _escTotal > 0 ? 'inline-block' : 'none';
+      }
+      if (cntEl) cntEl.textContent = _escTotal + ' record' + (_escTotal !== 1 ? 's' : '');
+
+      if (!rows.length) {
+        tbody.innerHTML = '';
+        if (empty) empty.style.display = '';
+        _escRenderPagination(data);
+        return;
+      }
+
+      const offset = (_escPage - 1) * _escPerPage;
+      tbody.innerHTML = rows.map((r, i) => {
+        const discBtn = r.disc_count > 0
+          ? `<button class="btn-disc" onclick="openMondayDisc('${esc(String(r.monday_item_id))}','${esc(r.item_name||'')}','${esc(String(r.board_id||''))}')" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:6px;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;cursor:pointer;white-space:nowrap">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              ${r.disc_count}
+            </button>`
+          : `<span style="color:#8c959f;font-size:12px">—</span>`;
+
+        const fmtDate = d => {
+          if (!d) return '<span style="color:#8c959f">—</span>';
+          try {
+            const dt = new Date(String(d).replace(' ','T'));
+            if (isNaN(dt)) return esc(String(d).slice(0,10));
+            return dt.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+          } catch(e) { return esc(String(d).slice(0,10)); }
+        };
+
+        return `<tr>
+          <td style="text-align:center;color:#8c959f;font-size:12px">${offset + i + 1}</td>
+          <td style="max-width:320px;white-space:normal;line-height:1.4;font-size:13px">${esc(r.item_name || '—')}</td>
+          <td>${_escStatusBadge(r.status)}</td>
+          <td style="font-size:12px;white-space:nowrap">${fmtDate(r.item_created_at)}</td>
+          <td>${_escWoCell(r)}</td>
+          <td style="font-family:ui-monospace,monospace;font-size:12px">${r.serial_number ? esc(r.serial_number) : '<span style="color:#8c959f">—</span>'}</td>
+          <td style="font-size:12px">${r.work_order_type ? esc(r.work_order_type) : '<span style="color:#8c959f">—</span>'}</td>
+          <td style="text-align:center">${discBtn}</td>
+        </tr>`;
+      }).join('');
+
+      _escRenderPagination(data);
+    })
+    .catch(() => {
+      tbody.innerHTML = `<tr><td colspan="8" class="loading-state" style="color:#dc2626">Failed to load escalations.</td></tr>`;
+    });
+}
+
+function _escRenderPagination(data) {
+  const pgEl = document.getElementById('pg-esc-inprogress');
+  if (!pgEl) return;
+  const pages = data.pages || 1;
+  if (pages <= 1) { pgEl.innerHTML = ''; return; }
+  let html = '';
+  if (_escPage > 1)    html += `<button class="pg-btn" onclick="_escGoPage(${_escPage-1})">‹ Prev</button>`;
+  html += `<span class="pg-info">Page ${_escPage} / ${pages}</span>`;
+  if (_escPage < pages) html += `<button class="pg-btn" onclick="_escGoPage(${_escPage+1})">Next ›</button>`;
+  pgEl.innerHTML = html;
+}
+
+function _escGoPage(p) { _escPage = p; _escInProgressLoad(false); }
+
+document.getElementById('search-esc-inprogress').addEventListener('input', () => {
+  clearTimeout(_escSearchTimer);
+  _escSearchTimer = setTimeout(() => _escInProgressLoad(true), 350);
+});
+document.getElementById('filter-esc-wotype').addEventListener('change', () => _escInProgressLoad(true));
+
 
 /* ═══════════════════════════════════════════════════════════════
    TAB: Completed Last 30 Days
@@ -4249,6 +4469,7 @@ const tabLoaded = {
   'tab-cci-followup': false, 'tab-ons-followup': false,
   'tab-return-part': false,
   'tab-return-reminder': false,
+  'tab-esc-inprogress': false,
   'tab-completed-30d': false,
 };
 const tabLoaders = {
@@ -4258,6 +4479,7 @@ const tabLoaders = {
   'tab-ons-followup':     () => _onsFollowUpLoad(),
   'tab-return-part':      () => _returnPartLoad(),
   'tab-return-reminder':  () => _returnReminderLoad(),
+  'tab-esc-inprogress':   () => _escInProgressLoad(true),
   'tab-completed-30d':    () => _completed30dLoad(),
 };
 
@@ -4354,6 +4576,7 @@ document.querySelectorAll('[data-goto]').forEach(c => c.addEventListener('click'
     'ons-followup':'tab-ons-followup',
     'return-part':'tab-return-part',
     'return-reminder':'tab-return-reminder',
+    'escalation':'tab-esc-inprogress',
     'completed-30days':'tab-completed-30d',
   };
   const p   = new URLSearchParams(location.search).get('tab');

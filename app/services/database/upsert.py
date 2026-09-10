@@ -326,11 +326,30 @@ def upsert_wo_product_from_msd(df: pd.DataFrame, conn: sqlite3.Connection) -> in
         INSERT OR IGNORE INTO wo_product_detail (
             soid, work_order_id, line_order,
             created_on, product, description,
-            acceptance_date, shipment_date, delivery_date, wo_product_status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            acceptance_date, shipment_date, delivery_date, wo_product_status,
+            return_flag_msd
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
 
-    update_sql = """
+    # Two variants of UPDATE: one that also writes return_flag_msd (when the
+    # incoming value is non-empty), and one that leaves it untouched (when the
+    # Excel cell is blank) so a previously-upserted value is never wiped out.
+    update_sql_with_flag = """
+        UPDATE wo_product_detail SET
+            work_order_id    = ?,
+            line_order       = ?,
+            created_on       = ?,
+            product          = ?,
+            description      = ?,
+            acceptance_date  = ?,
+            shipment_date    = ?,
+            delivery_date    = ?,
+            wo_product_status= ?,
+            return_flag_msd  = ?
+        WHERE soid = ?
+    """
+
+    update_sql_no_flag = """
         UPDATE wo_product_detail SET
             work_order_id    = ?,
             line_order       = ?,
@@ -345,7 +364,8 @@ def upsert_wo_product_from_msd(df: pd.DataFrame, conn: sqlite3.Connection) -> in
     """
 
     insert_rows: list[tuple] = []
-    update_rows: list[tuple] = []
+    update_rows_with_flag: list[tuple] = []
+    update_rows_no_flag: list[tuple] = []
 
     for _, r in df.iterrows():
         wo_id   = _safe_int(r.get("Work Order"))
@@ -357,7 +377,8 @@ def upsert_wo_product_from_msd(df: pd.DataFrame, conn: sqlite3.Connection) -> in
         if wo_id not in valid_wo_ids:
             continue
 
-        msd_vals = (
+        ret_flag_msd = _safe_str(r.get("Returnable Indicator"))
+        base_vals = (
             wo_id,
             line_no,
             _to_iso(r.get("Created On")),
@@ -368,11 +389,15 @@ def upsert_wo_product_from_msd(df: pd.DataFrame, conn: sqlite3.Connection) -> in
             _to_iso(r.get("Delivery Date")),
             _safe_str(r.get("Work Order Product Status")),
         )
-        insert_rows.append((soid,) + msd_vals)
-        update_rows.append(msd_vals + (soid,))
+        insert_rows.append((soid,) + base_vals + (ret_flag_msd,))
+        if ret_flag_msd:
+            update_rows_with_flag.append(base_vals + (ret_flag_msd, soid))
+        else:
+            update_rows_no_flag.append(base_vals + (soid,))
 
     conn.executemany(insert_sql, insert_rows)
-    conn.executemany(update_sql, update_rows)
+    conn.executemany(update_sql_with_flag, update_rows_with_flag)
+    conn.executemany(update_sql_no_flag,   update_rows_no_flag)
     conn.commit()
     return len(insert_rows)
 
@@ -631,11 +656,11 @@ def upsert_dc_from_gtaap(df: pd.DataFrame, conn: sqlite3.Connection) -> tuple[in
             pass
         return str(dc_val).strip()
 
-    # Fetch current dc_number, return_status, and work_order_id for all rows
+    # Fetch current dc_number, return_status, return_flag_resolv, and work_order_id for all rows
     db_rows = {
-        r[0]: {"dc_number": r[1], "return_status": r[2], "work_order_id": r[3]}
+        r[0]: {"dc_number": r[1], "return_status": r[2], "work_order_id": r[3], "return_flag_resolv": r[4]}
         for r in conn.execute(
-            "SELECT soid, dc_number, return_status, work_order_id FROM wo_product_detail"
+            "SELECT soid, dc_number, return_status, work_order_id, return_flag_resolv FROM wo_product_detail"
         ).fetchall()
     }
     db_dc = {soid: v["dc_number"] for soid, v in db_rows.items()}
@@ -649,6 +674,19 @@ def upsert_dc_from_gtaap(df: pd.DataFrame, conn: sqlite3.Connection) -> tuple[in
 
     dc_updates: list[tuple] = []
     status_updates: list[tuple] = []
+    flag_resolv_updates: list[tuple] = []
+
+    def _normalise_return_flag(v) -> str | None:
+        """Normalise Return Flag cell: 'Yes'→'Yes', 'No'→'No', 'NA'→'NA', else None."""
+        if v is None:
+            return None
+        import math as _math2
+        if isinstance(v, float) and _math2.isnan(v):
+            return None
+        s = str(v).strip()
+        if s.lower() in ("", "nan", "nat", "none", "null"):
+            return None
+        return s
 
     # ── Pass 1: write real DC# values from Excel ─────────────────────────────
     for _, r in df.iterrows():
@@ -690,6 +728,19 @@ def upsert_dc_from_gtaap(df: pd.DataFrame, conn: sqlite3.Connection) -> tuple[in
         if _gtaap_status_eligible(db_status, excel_status):
             status_updates.append((excel_status, soid))
 
+    # ── Pass 3b: write return_flag_resolv from "Return Flag" column ──────────
+    # Always overwrites any existing value so the latest GTAAP report wins.
+    # Blocked SOIDs (return_status = DC GENERATED) are also updated here
+    # because the flag value is independent of the DC generation workflow.
+    for _, r in df.iterrows():
+        soid = _safe_int(r.get("SOID"))
+        if soid is None or soid not in db_rows:
+            continue
+        flag_val = _normalise_return_flag(r.get("Return Flag"))
+        if flag_val is None:
+            continue
+        flag_resolv_updates.append((flag_val, soid))
+
     # ── Pass 4: absent rows — set to UNKNOWN ─────────────────────────────────
     # DB rows with return_status PENDING FOR DC GENERATION or PENDING WITH PARTNER
     # that have no matching SOID *and* no matching work_order_id in the Excel file
@@ -725,6 +776,7 @@ def upsert_dc_from_gtaap(df: pd.DataFrame, conn: sqlite3.Connection) -> tuple[in
 
     conn.executemany("UPDATE wo_product_detail SET dc_number = ? WHERE soid = ?", dc_updates)
     conn.executemany("UPDATE wo_product_detail SET return_status = ? WHERE soid = ?", status_updates)
+    conn.executemany("UPDATE wo_product_detail SET return_flag_resolv = ? WHERE soid = ?", flag_resolv_updates)
 
     # ── Pass 5a: promote any row that already has a real dc_number ────────────
     # Catches rows whose dc_number was set in a previous import but whose

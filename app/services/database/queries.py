@@ -1017,6 +1017,7 @@ def get_wo_no_awb_by_asp(customer: str, current_wo_id: int | None = None) -> lis
 def get_return_reminder_page(
     search: str = "",
     return_status: str = "",
+    return_flag_filter: str = "",
     page: int = 1,
     page_size: int = 25,
     vendor_filter: str | None = None,
@@ -1061,6 +1062,28 @@ def get_return_reminder_page(
         )""")
         params.extend([term, term, term, term, term])
 
+    # Return Flag filter — return_flag_msd (Yes/No from MSD) takes priority;
+    # return_flag (Y/N from shipment) is used as a fallback when return_flag_msd
+    # is not populated.  For "yes": match either source independently because
+    # PENDING rows never carry return_flag='Y' from the shipment file, so the
+    # old guard (COALESCE(return_flag_msd,'')='') would never fire.
+    rf = return_flag_filter.lower().strip()
+    if rf == "yes":
+        wheres.append("""(
+            UPPER(TRIM(COALESCE(p.return_flag_msd,''))) = 'YES'
+            OR UPPER(TRIM(COALESCE(p.return_flag,''))) = 'Y'
+        )""")
+    elif rf == "no":
+        wheres.append("""(
+            (UPPER(TRIM(COALESCE(p.return_flag_msd,''))) = 'NO')
+            OR (COALESCE(p.return_flag_msd,'') = '' AND UPPER(TRIM(COALESCE(p.return_flag,''))) = 'N')
+        )""")
+    elif rf == "empty":
+        wheres.append("""(
+            COALESCE(p.return_flag_msd,'') = ''
+            AND COALESCE(p.return_flag,'') NOT IN ('Y','N','y','n')
+        )""")
+
     if tech_id_filter:
         wheres.append("d.tech_id = ?")
         params.append(tech_id_filter)
@@ -1082,6 +1105,8 @@ def get_return_reminder_page(
             p.product,
             p.description,
             p.wo_product_status,
+            p.return_flag,
+            p.return_flag_msd,
             s.created_on,
             s.work_order_type,
             s.work_order_status,
