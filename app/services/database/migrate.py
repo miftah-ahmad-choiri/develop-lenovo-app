@@ -58,6 +58,7 @@ def run_migrations(app: Flask) -> None:
         _migrate_asp_users_drop_asp_username(conn)
         _migrate_wo_details_technician_id_to_tech_id(conn)
         _migrate_create_asp_master_accounts(conn)
+        _migrate_wo_summary_add_status_category(conn)
     finally:
         conn.close()
 
@@ -1443,4 +1444,81 @@ def _migrate_wo_product_detail_reorder_return_flag_resolv(conn: sqlite3.Connecti
         "CREATE INDEX IF NOT EXISTS idx_wo_product_detail_work_order_id "
         "ON wo_product_detail(work_order_id)"
     )
+    conn.commit()
+
+
+def _migrate_wo_summary_add_status_category(conn: sqlite3.Connection) -> None:
+    """Add wo_status_category column to wo_summary and backfill all existing rows.
+
+    The column is a computed TEXT label derived from work_order_status:
+        'cancelled'             — Cancelled / Canceled / Cancelled by Lenovo / …Cancelled…
+        'closed'                — Repair Completed, RMA In Progress, Closed, Completed, …
+        'open_part_received'    — In Repair, Customer Hold, Technician Assigned/Enroute/Onsite, …
+        'open_part_not_received'— Order Accepted, Parts Requested, Parts in Transit, …
+
+    The migration is idempotent: if the column already exists it only runs the
+    backfill UPDATE so that any rows whose category is still NULL get classified.
+    New rows are categorised in upsert_wo_summary_and_details().
+    """
+    existing = {
+        row[1]
+        for row in conn.execute("PRAGMA table_info(wo_summary)").fetchall()
+    }
+    if "wo_status_category" not in existing:
+        conn.execute(
+            "ALTER TABLE wo_summary ADD COLUMN wo_status_category TEXT"
+        )
+        conn.commit()
+
+    # Backfill all rows that have no category yet using a single UPDATE with
+    # a CASE expression so the entire table is classified in one pass.
+    conn.execute("""
+        UPDATE wo_summary
+        SET wo_status_category = CASE
+            -- ── CANCELLED ─────────────────────────────────────────────────────
+            WHEN LOWER(TRIM(COALESCE(work_order_status,''))) LIKE '%cancel%'
+                THEN 'cancelled'
+
+            -- ── CLOSED ────────────────────────────────────────────────────────
+            WHEN LOWER(TRIM(COALESCE(work_order_status,''))) IN (
+                'closed',
+                'completed',
+                'repair completed',
+                'repair complete - issue remains',
+                'repair complete - new fault found',
+                'ready for pickup',
+                'rma in progress',
+                'rma in transit',
+                'unit returned to customer /awaiting for parts rma',
+                'unit returned to customer/awaiting for parts rma',
+                'repaired unit delivered to customer/awaiting for parts rma',
+                'repaired unit in transit to customer',
+                'repaired unit delivered to access point',
+                'repaired unit returned to depot',
+                'awaiting for quotation return'
+            )
+                THEN 'closed'
+
+            -- ── OPEN — PART RECEIVED ──────────────────────────────────────────
+            WHEN LOWER(TRIM(COALESCE(work_order_status,''))) IN (
+                'in repair',
+                'in testing',
+                'customer hold',
+                'engineering hold',
+                'repair technician assigned',
+                'repair technician enroute',
+                'repair technician en route',
+                'technician onsite',
+                'repair technician onsite',
+                'parts delivered & awaiting tech assignment',
+                'part delivered/part delivered & awaiting return',
+                'part deivered/part delivered & awaiting return'
+            )
+                THEN 'open_part_received'
+
+            -- ── OPEN — PART NOT YET RECEIVED (catch-all for remaining open) ──
+            ELSE 'open_part_not_received'
+        END
+        WHERE wo_status_category IS NULL
+    """)
     conn.commit()

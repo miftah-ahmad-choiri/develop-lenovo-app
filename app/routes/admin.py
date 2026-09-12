@@ -71,6 +71,7 @@ def api_wo_summary():
         q        - free-text search (WO ID, serial, contact, customer, case)
         status   - status filter keyword
         wo_type  - work_order_type filter
+        vendor   - exact ASP name filter (customer column)
         page     - 1-based page number (default 1)
         per_page - rows per page (default 25, max 100)
     """
@@ -81,10 +82,118 @@ def api_wo_summary():
         status_filter       = request.args.get("status", "").strip(),
         type_filter         = request.args.get("wo_type", "").strip(),
         case_status_filter  = request.args.get("case_status", "").strip(),
+        vendor_filter       = request.args.get("vendor", "").strip(),
+        vendor_id_filter    = request.args.get("vendor_id", "").strip(),
         page                = max(1, int(request.args.get("page", 1))),
         page_size           = per_page,
     )
     return jsonify(result)
+
+
+# ── API: Part On-Hold (In-Prepare sub-tab) ───────────────────────────────────
+
+@admin_bp.route("/admin/api/part-on-hold", methods=["GET"])
+def api_admin_part_on_hold():
+    """
+    Admin view of in-prepare WOs — mirrors /asp/api/in-prepare but without
+    vendor/tech filters.  Supports prepare_filter, wo_type, q, page, per_page.
+    """
+    from app.services.database.queries import get_asp_in_prepare_page
+    per_page = min(int(request.args.get("per_page", 25)), 100)
+    return jsonify(get_asp_in_prepare_page(
+        search         = request.args.get("q", "").strip(),
+        page           = max(1, int(request.args.get("page", 1))),
+        page_size      = per_page,
+        prepare_filter = request.args.get("prepare_filter", "").strip(),
+        wo_type_filter = request.args.get("wo_type", "").strip(),
+    ))
+
+
+@admin_bp.route("/admin/api/part-on-hold/export", methods=["GET"])
+def api_admin_part_on_hold_export():
+    """Export Part On-Hold / In-Prepare rows — all matching rows as .xlsx."""
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from app.services.database.queries import get_asp_in_prepare_page
+
+    result = get_asp_in_prepare_page(
+        search         = request.args.get("q", "").strip(),
+        prepare_filter = request.args.get("prepare_filter", "").strip(),
+        wo_type_filter = request.args.get("wo_type", "").strip(),
+        page           = 1,
+        page_size      = 9999,
+    )
+    wo_rows = result.get("rows", [])
+
+    def _fd(val):
+        if not val: return ""
+        s = str(val).strip()
+        return s[:16] if len(s) > 16 else s
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Part On-Hold"
+
+    headers = [
+        "No.", "WO Number", "Created On", "WO Type",
+        "WO Status", "Parts On Hold", "Total Parts",
+        "Parts Received", "Contact Name", "ASP",
+    ]
+    col_keys = [
+        None,
+        "work_order_id", "created_on", "work_order_type",
+        "work_order_status", "part_on_hold_count", "part_total_order_count",
+        "part_received_count", "contact_name", "customer",
+    ]
+    col_widths = [6, 16, 18, 14, 28, 14, 14, 16, 24, 32]
+
+    hdr_fill  = PatternFill("solid", fgColor="1F2328")
+    hdr_font  = Font(bold=True, color="FFFFFF", size=11)
+    hdr_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    thin_side = Side(style="thin", color="E5E7EB")
+    thin_bdr  = Border(left=thin_side, right=thin_side, bottom=thin_side, top=thin_side)
+
+    for ci, (h, w) in enumerate(zip(headers, col_widths), start=1):
+        cell = ws.cell(row=1, column=ci, value=h)
+        cell.fill = hdr_fill; cell.font = hdr_font
+        cell.alignment = hdr_align; cell.border = thin_bdr
+        ws.column_dimensions[cell.column_letter].width = w
+    ws.row_dimensions[1].height = 22
+
+    even_fill  = PatternFill("solid", fgColor="F7F8FA")
+    data_font  = Font(size=11)
+    data_align = Alignment(vertical="center")
+
+    for ri, r in enumerate(wo_rows, start=2):
+        fill = even_fill if ri % 2 == 0 else PatternFill()
+        for ci, key in enumerate(col_keys, start=1):
+            if key is None:
+                value = ri - 1
+            elif key == "created_on":
+                value = _fd(r.get(key))
+            else:
+                raw = r.get(key)
+                value = raw if raw is not None else ""
+            cell = ws.cell(row=ri, column=ci, value=value)
+            cell.font = data_font; cell.alignment = data_align; cell.border = thin_bdr
+            if fill.fill_type: cell.fill = fill
+        ws.row_dimensions[ri].height = 18
+
+    ws.freeze_panes = "A2"
+
+    report_dir = current_app.config["REPORT_DIR"]
+    os.makedirs(report_dir, exist_ok=True)
+    ts       = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"PartOnHold_{ts}.xlsx"
+    filepath = os.path.join(report_dir, filename)
+    wb.save(filepath)
+
+    return send_file(
+        filepath,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
 
 # ── API: Dashboard overview stats ────────────────────────────────────────────
@@ -1072,7 +1181,22 @@ def api_sn_monday_escalation(serial_number: str):
 @admin_bp.route("/admin/tickets", methods=["GET"])
 def tickets():
     return render_template("admin/ticket_management.html",
-                           portal="admin", active_page="admin_tickets")
+                           portal="admin", active_page="admin_tickets",
+                           active_group="ticket_management")
+
+
+@admin_bp.route("/admin/tickets/part-on-hold", methods=["GET"])
+def tickets_part_on_hold():
+    return render_template("admin/ticket_management/part_on_hold_update.html",
+                           portal="admin", active_page="part_on_hold_update",
+                           active_group="ticket_management")
+
+
+@admin_bp.route("/admin/tickets/handover-asp", methods=["GET"])
+def tickets_handover_asp():
+    return render_template("admin/ticket_management/handover_asp.html",
+                           portal="admin", active_page="handover_asp",
+                           active_group="ticket_management")
 
 
 # ── Data Import / Export ─────────────────────────────────────────────────────
@@ -4334,6 +4458,37 @@ def asp_directory_create():
     finally:
         conn.close()
     return redirect(url_for("admin.asp_directory"))
+
+
+# ── ASP List JSON (for handover page) ───────────────────────────────────────
+
+@admin_bp.route("/admin/api/asp-list", methods=["GET"])
+def api_asp_list():
+    """Return ASPs with their active WO count for the handover WO page."""
+    db_path = current_app.config["DATABASE_PATH"]
+    conn = open_db(db_path)
+    rows = conn.execute("""
+        SELECT
+            a.id,
+            a.service_provider,
+            a.customer_partner,
+            a.vendor_code,
+            a.labor_vendor_related,
+            a.kota,
+            a.office_type,
+            a.operational_status,
+            COUNT(w.work_order_id) AS active_wo_count
+        FROM asp_details a
+        LEFT JOIN wo_details d
+            ON  d.labor_vendor_related = a.labor_vendor_related
+        LEFT JOIN wo_summary w
+            ON  w.work_order_id = d.work_order_id
+            AND w.wo_status_category IN ('open_part_not_received', 'open_part_received')
+        GROUP BY a.id
+        ORDER BY a.service_provider
+    """).fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
 
 
 # ── ASP Users (admin read) ───────────────────────────────────────────────────

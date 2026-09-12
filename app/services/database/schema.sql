@@ -25,7 +25,8 @@ CREATE TABLE IF NOT EXISTS wo_summary (
     contact_name                TEXT,
     customer                    TEXT,                 -- ASP partner name
     work_order_status           TEXT,
-    case_status                 TEXT                  -- "Case Status (Case) (Case)"
+    case_status                 TEXT,                 -- "Case Status (Case) (Case)"
+    wo_status_category          TEXT                  -- computed: cancelled | open_part_not_received | open_part_received | closed
 );
 
 -- ------------------------------------------------------------

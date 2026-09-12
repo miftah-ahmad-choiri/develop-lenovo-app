@@ -40,6 +40,65 @@ from app.services.database.seed import _to_iso, _safe_int, _safe_str, _build_soi
 _DB_CATEGORIES = {"WOID", "SOID", "SHIPMENT", "PARTONHOLD", "GTAAP", "UNRETURN"}
 
 
+# ── WO status category classifier ────────────────────────────────────────────
+# Kept as a module-level constant so it is defined once and shared between
+# upsert_wo_summary_and_details() and any future callers.
+
+_CLOSED_STATUSES = frozenset({
+    "closed",
+    "completed",
+    "repair completed",
+    "repair complete - issue remains",
+    "repair complete - new fault found",
+    "ready for pickup",
+    "rma in progress",
+    "rma in transit",
+    "unit returned to customer /awaiting for parts rma",
+    "unit returned to customer/awaiting for parts rma",
+    "repaired unit delivered to customer/awaiting for parts rma",
+    "repaired unit in transit to customer",
+    "repaired unit delivered to access point",
+    "repaired unit returned to depot",
+    "awaiting for quotation return",
+})
+
+_OPEN_PART_RECEIVED_STATUSES = frozenset({
+    "in repair",
+    "in testing",
+    "customer hold",
+    "engineering hold",
+    "repair technician assigned",
+    "repair technician enroute",
+    "repair technician en route",
+    "technician onsite",
+    "repair technician onsite",
+    "parts delivered & awaiting tech assignment",
+    "part delivered/part delivered & awaiting return",
+    "part deivered/part delivered & awaiting return",
+})
+
+
+def classify_wo_status_category(work_order_status: str | None) -> str:
+    """Return the wo_status_category label for a given work_order_status string.
+
+    Categories (stored verbatim in the DB column):
+        'cancelled'              — any status containing "cancel" (case-insensitive)
+        'closed'                 — explicitly-named closed/completed/RMA statuses
+        'open_part_received'     — WO open and part already at the ASP
+        'open_part_not_received' — WO open but part not yet received (catch-all)
+    """
+    sl = (work_order_status or "").strip().lower()
+    if not sl:
+        return "open_part_not_received"
+    if "cancel" in sl:
+        return "cancelled"
+    if sl in _CLOSED_STATUSES:
+        return "closed"
+    if sl in _OPEN_PART_RECEIVED_STATUSES:
+        return "open_part_received"
+    return "open_part_not_received"
+
+
 # ── upsert helpers ────────────────────────────────────────────────────────────
 
 def upsert_wo_summary_and_details(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
@@ -173,8 +232,9 @@ def upsert_wo_summary_and_details(df: pd.DataFrame, conn: sqlite3.Connection) ->
             work_order_id, serial_number, created_on,
             committed_delivery_date, actual_committed_onsite_date,
             case_desc, work_order_type, contact_name,
-            customer, work_order_status, case_status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            customer, work_order_status, case_status,
+            wo_status_category
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
 
     details_sql = """
@@ -212,6 +272,7 @@ def upsert_wo_summary_and_details(df: pd.DataFrame, conn: sqlite3.Connection) ->
         if wo_id not in db_summary or wo_id not in db_details:
             new_wo_ids.add(wo_id)
 
+        wo_status = _safe_str(r.get("Work Order Status"))
         summary_rows.append((
             wo_id,
             _safe_str(r.get("Serial Number")),
@@ -222,8 +283,9 @@ def upsert_wo_summary_and_details(df: pd.DataFrame, conn: sqlite3.Connection) ->
             _safe_str(r.get("Work Order Type")),
             _safe_str(r.get(" Contact Name (Contact) (Contact)")),
             _safe_str(r.get("Customer (Labor Vendor Related) (Partner Function)")),
-            _safe_str(r.get("Work Order Status")),
+            wo_status,
             _safe_str(r.get("Case Status (Case) (Case)")),
+            classify_wo_status_category(wo_status),
         ))
 
         details_rows.append((

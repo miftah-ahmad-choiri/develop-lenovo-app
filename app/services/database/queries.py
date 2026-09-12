@@ -19,28 +19,21 @@ def isSentinel_py(s) -> bool:
     return bool(s) and str(s)[:4] >= "2099"
 
 # ── Shared status-group SQL fragments ────────────────────────────────────────
-# "Closed" group: Closed, Completed, RMA In Progress,
-#                 Unit Returned to Customer /Awaiting for Parts RMA,
-#                 Repair Completed, Ready for Pickup
-_CLOSED_WHERE = (
-    "LOWER(work_order_status) IN ("
-    "'closed','completed','rma in progress',"
-    "'unit returned to customer /awaiting for parts rma',"
-    "'repair completed','ready for pickup'"
-    ")"
-)
+# These now use the pre-computed wo_status_category column (populated on every
+# upsert and backfilled by the migration) for fast, index-friendly filtering.
+# The old LOWER(work_order_status) string comparisons are kept as fallback
+# comments but are no longer used in the primary WHERE clauses.
 
-# "Open" group: everything that is NOT closed AND NOT cancelled
-_OPEN_WHERE = (
-    "LOWER(work_order_status) NOT IN ("
-    "'closed','completed','cancelled','canceled',"
-    "'rma in progress',"
-    "'unit returned to customer /awaiting for parts rma',"
-    "'repair completed','ready for pickup'"
-    ")"
-)
+# "Closed" group
+_CLOSED_WHERE = "wo_status_category = 'closed'"
+
+# "Open" group: not closed AND not cancelled
+_OPEN_WHERE = "wo_status_category IN ('open_part_not_received', 'open_part_received')"
 
 # "Active" group: Open but excluding Part On Hold and Parts in Transit
+# Part Hold / Parts in Transit are still identified by status string because
+# they are sub-groups within open_part_not_received and we have no separate
+# category for them.
 _ACTIVE_WHERE = (
     _OPEN_WHERE
     + " AND LOWER(work_order_status) NOT LIKE '%part%hold%'"
@@ -74,6 +67,8 @@ def get_wo_summary_page(
     status_filter: str = "",
     type_filter: str = "",
     case_status_filter: str = "",
+    vendor_filter: str = "",
+    vendor_id_filter: str = "",
     page: int = 1,
     page_size: int = 25,
 ) -> dict:
@@ -83,63 +78,81 @@ def get_wo_summary_page(
 
     All filtering is pushed to SQLite so only one page of rows is
     ever transferred to Python / the browser.
+
+    vendor_id_filter — filter by labor_vendor_related (joins wo_details).
+    vendor_filter    — filter by customer name in wo_summary (legacy).
     """
     conn   = get_db()
     params: list = []
     wheres: list[str] = []
 
+    # When filtering by vendor ID we need to join wo_details
+    need_details_join = bool(vendor_id_filter)
+    from_clause = (
+        "FROM wo_summary s JOIN wo_details d USING (work_order_id)"
+        if need_details_join else
+        "FROM wo_summary s"
+    )
+    # Column prefix for wo_summary columns depends on whether we alias the table
+    col_prefix = "s." if need_details_join else ""
+
     if search:
         term = f"%{search.lower()}%"
-        wheres.append("""(
-            CAST(work_order_id AS TEXT) LIKE ?
-            OR LOWER(serial_number)     LIKE ?
-            OR LOWER(contact_name)      LIKE ?
-            OR LOWER(customer)          LIKE ?
-            OR LOWER(case_desc)         LIKE ?
+        wheres.append(f"""(
+            CAST({col_prefix}work_order_id AS TEXT) LIKE ?
+            OR LOWER({col_prefix}serial_number)     LIKE ?
+            OR LOWER({col_prefix}contact_name)      LIKE ?
+            OR LOWER({col_prefix}customer)          LIKE ?
+            OR LOWER({col_prefix}case_desc)         LIKE ?
         )""")
         params.extend([term, term, term, term, term])
 
+    if vendor_id_filter:
+        wheres.append("d.labor_vendor_related = ?")
+        params.append(vendor_id_filter)
+    elif vendor_filter:
+        wheres.append(f"LOWER({col_prefix}customer) = ?")
+        params.append(vendor_filter.lower())
+
     if status_filter:
         sl = status_filter.lower()
-        if sl == "active":
-            wheres.append(_ACTIVE_WHERE)
-        elif sl == "open":
-            wheres.append(_OPEN_WHERE)
+        if sl in ("active", "open"):
+            wheres.append(f"{col_prefix}wo_status_category IN ('open_part_not_received', 'open_part_received')")
         elif sl == "closed":
-            wheres.append(_CLOSED_WHERE)
+            wheres.append(f"{col_prefix}wo_status_category = 'closed'")
         elif sl == "part_hold":
-            wheres.append("LOWER(work_order_status) LIKE '%part%hold%'")
+            wheres.append(f"LOWER({col_prefix}work_order_status) LIKE '%part%hold%'")
         elif sl == "transit":
-            wheres.append("LOWER(work_order_status) LIKE '%transit%'")
+            wheres.append(f"LOWER({col_prefix}work_order_status) LIKE '%transit%'")
         else:
-            wheres.append("LOWER(work_order_status) LIKE ?")
+            wheres.append(f"LOWER({col_prefix}work_order_status) LIKE ?")
             params.append(f"%{sl}%")
 
     if type_filter:
-        wheres.append("LOWER(work_order_type) LIKE ?")
+        wheres.append(f"LOWER({col_prefix}work_order_type) LIKE ?")
         params.append(f"%{type_filter.lower()}%")
 
     if case_status_filter:
-        wheres.append("LOWER(case_status) = ?")
+        wheres.append(f"LOWER({col_prefix}case_status) = ?")
         params.append(case_status_filter.lower())
 
     where_sql = ("WHERE " + " AND ".join(wheres)) if wheres else ""
 
     total = conn.execute(
-        f"SELECT COUNT(*) FROM wo_summary {where_sql}", params
+        f"SELECT COUNT(*) {from_clause} {where_sql}", params
     ).fetchone()[0]
 
     pages  = max(1, -(-total // page_size))   # ceiling division
     offset = (max(1, page) - 1) * page_size
 
     rows = conn.execute(f"""
-        SELECT work_order_id, serial_number, created_on,
-               committed_delivery_date, actual_committed_onsite_date,
-               case_desc, work_order_type, contact_name,
-               customer, work_order_status, case_status
-        FROM wo_summary
+        SELECT {col_prefix}work_order_id, {col_prefix}serial_number, {col_prefix}created_on,
+               {col_prefix}committed_delivery_date, {col_prefix}actual_committed_onsite_date,
+               {col_prefix}case_desc, {col_prefix}work_order_type, {col_prefix}contact_name,
+               {col_prefix}customer, {col_prefix}work_order_status, {col_prefix}case_status
+        {from_clause}
         {where_sql}
-        ORDER BY created_on DESC
+        ORDER BY {col_prefix}created_on DESC
         LIMIT ? OFFSET ?
     """, params + [page_size, offset]).fetchall()
 
@@ -268,35 +281,130 @@ def get_wo_summary_stats(
     cached = _stats_cache.get(cache_key)
     if cached and (now - cached[0]) < _STATS_TTL:
         return cached[1]
-    # Reuse the existing page queries — they already contain all the state
-    # computation logic. Fetching page 1 with size 1 is cheap; we only need
-    # the `total` field they return.
-    in_prepare_total      = get_asp_in_prepare_page(
-        page_size=1, vendor_filter=vendor_filter, tech_id_filter=tech_id_filter
-    )["total"]
-    cci_followup_total    = get_asp_cci_followup_page(
-        page_size=1, vendor_filter=vendor_filter, tech_id_filter=tech_id_filter
-    )["total"]
-    cci_in_transit_total  = get_asp_cci_followup_page(
-        page_size=1, vendor_filter=vendor_filter, tech_id_filter=tech_id_filter, followup_state="in_transit"
-    )["total"]
-    cci_in_repair_total   = get_asp_cci_followup_page(
-        page_size=1, vendor_filter=vendor_filter, tech_id_filter=tech_id_filter, followup_state="in_repair"
-    )["total"]
-    onsite_followup_total = get_asp_onsite_followup_page(
-        page_size=1, vendor_filter=vendor_filter, tech_id_filter=tech_id_filter
-    )["total"]
-    ons_in_transit_total  = get_asp_onsite_followup_page(
-        page_size=1, vendor_filter=vendor_filter, tech_id_filter=tech_id_filter, followup_state="wo_reschedule"
-    )["total"]
-    ons_in_repair_total   = get_asp_onsite_followup_page(
-        page_size=1, vendor_filter=vendor_filter, tech_id_filter=tech_id_filter, followup_state="wo_sla"
-    )["total"]
-    return_part_total     = get_asp_part_return_page(
-        page_size=1, vendor_filter=vendor_filter, tech_id_filter=tech_id_filter, followup_state="need_to_return"
-    )["total"]
 
     conn = get_db()
+
+    # ── Vendor / tech filter fragments ───────────────────────────────────────
+    _vt_join  = "LEFT JOIN wo_details d USING (work_order_id) "
+    _vt_where = ""
+    _vt_params: list = []
+    if tech_id_filter:
+        _vt_where = "AND d.tech_id = ? "
+        _vt_params = [tech_id_filter]
+    elif vendor_filter:
+        _vt_where = "AND d.labor_vendor_related = ? "
+        _vt_params = [vendor_filter]
+
+    # When no vendor/tech filter is needed the join can be skipped for speed
+    _need_join = bool(tech_id_filter or vendor_filter)
+    _join_sql  = _vt_join if _need_join else ""
+
+    def _cnt(where_extra: str, params: list | None = None) -> int:
+        p = list(_vt_params) + (params or [])
+        sql = (
+            f"SELECT COUNT(*) FROM wo_summary s {_join_sql}"
+            f"WHERE {where_extra} {_vt_where}"
+        )
+        return conn.execute(sql, p).fetchone()[0]
+
+    # ── In-Prepare: open WOs not yet shipped (PATH A) + no part lines (PATH B) ─
+    # PATH A: has a non-cancelled, unshipped, un-POD'd part line
+    in_prepare_a = conn.execute(
+        f"SELECT COUNT(DISTINCT s.work_order_id) FROM wo_summary s "
+        f"{_join_sql}"
+        f"JOIN wo_product_detail p ON p.work_order_id = s.work_order_id "
+        f"WHERE s.wo_status_category IN ('open_part_not_received', 'open_part_received') "
+        f"  AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%' "
+        f"  AND TRIM(COALESCE(p.ship_pickup_time,''))  = '' "
+        f"  AND TRIM(COALESCE(p.shipment_date,''))     = '' "
+        f"  AND TRIM(COALESCE(p.ship_pou_pod_time,'')) = '' "
+        f"  AND TRIM(COALESCE(p.delivery_date,''))     = '' "
+        f"  {_vt_where}",
+        _vt_params,
+    ).fetchone()[0]
+    # PATH B: open WOs with no part lines at all
+    in_prepare_b = conn.execute(
+        f"SELECT COUNT(*) FROM wo_summary s "
+        f"{_join_sql}"
+        f"WHERE s.wo_status_category IN ('open_part_not_received', 'open_part_received') "
+        f"  AND NOT EXISTS (SELECT 1 FROM wo_product_detail p2 "
+        f"                  WHERE p2.work_order_id = s.work_order_id) "
+        f"  {_vt_where}",
+        _vt_params,
+    ).fetchone()[0]
+    in_prepare_total = in_prepare_a + in_prepare_b
+
+    # ── CCI Follow-Up: Carry-In WOs with an active part order (any state) ───
+    cci_followup_total = conn.execute(
+        f"SELECT COUNT(DISTINCT s.work_order_id) FROM wo_summary s "
+        f"{_join_sql}"
+        f"JOIN wo_product_detail p ON p.work_order_id = s.work_order_id "
+        f"WHERE (LOWER(s.work_order_type) LIKE '%carry%' OR LOWER(s.work_order_type) LIKE '%cci%') "
+        f"  AND LOWER(COALESCE(s.work_order_status,'')) NOT LIKE '%cancel%' "
+        f"  AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%' "
+        f"  AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != '' "
+        f"  {_vt_where}",
+        _vt_params,
+    ).fetchone()[0]
+    # Sub-state counts — approximations used only by mobile badges
+    cci_in_transit_total = conn.execute(
+        f"SELECT COUNT(DISTINCT s.work_order_id) FROM wo_summary s "
+        f"{_join_sql}"
+        f"JOIN wo_product_detail p ON p.work_order_id = s.work_order_id "
+        f"WHERE (LOWER(s.work_order_type) LIKE '%carry%' OR LOWER(s.work_order_type) LIKE '%cci%') "
+        f"  AND LOWER(COALESCE(s.work_order_status,'')) NOT LIKE '%cancel%' "
+        f"  AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%' "
+        f"  AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != '' "
+        f"  AND TRIM(COALESCE(p.ship_pou_pod_time,'')) = '' "
+        f"  AND TRIM(COALESCE(p.delivery_date,''))     = '' "
+        f"  {_vt_where}",
+        _vt_params,
+    ).fetchone()[0]
+    cci_in_repair_total = max(0, cci_followup_total - cci_in_transit_total)
+
+    # ── ONS Follow-Up: Onsite WOs with an active shipped part ───────────────
+    onsite_followup_total = conn.execute(
+        f"SELECT COUNT(DISTINCT s.work_order_id) FROM wo_summary s "
+        f"{_join_sql}"
+        f"JOIN wo_product_detail p ON p.work_order_id = s.work_order_id "
+        f"WHERE LOWER(s.work_order_type) LIKE '%onsite%' "
+        f"  AND LOWER(COALESCE(s.work_order_status,'')) NOT LIKE '%cancel%' "
+        f"  AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%' "
+        f"  AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != '' "
+        f"  AND (TRIM(COALESCE(p.ship_pickup_time,'')) != '' "
+        f"       OR TRIM(COALESCE(p.shipment_date,'')) != '') "
+        f"  {_vt_where}",
+        _vt_params,
+    ).fetchone()[0]
+    ons_in_transit_total = conn.execute(
+        f"SELECT COUNT(DISTINCT s.work_order_id) FROM wo_summary s "
+        f"{_join_sql}"
+        f"JOIN wo_product_detail p ON p.work_order_id = s.work_order_id "
+        f"WHERE LOWER(s.work_order_type) LIKE '%onsite%' "
+        f"  AND LOWER(COALESCE(s.work_order_status,'')) NOT LIKE '%cancel%' "
+        f"  AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%' "
+        f"  AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != '' "
+        f"  AND (TRIM(COALESCE(p.ship_pickup_time,'')) != '' "
+        f"       OR TRIM(COALESCE(p.shipment_date,''))  != '') "
+        f"  AND TRIM(COALESCE(p.ship_pou_pod_time,'')) = '' "
+        f"  AND TRIM(COALESCE(p.delivery_date,''))     = '' "
+        f"  {_vt_where}",
+        _vt_params,
+    ).fetchone()[0]
+    ons_in_repair_total = max(0, onsite_followup_total - ons_in_transit_total)
+
+    # ── Return Part: WOs with a pending return (is_exist_excel = 'yes') ─────
+    return_part_total = conn.execute(
+        f"SELECT COUNT(DISTINCT s.work_order_id) FROM wo_summary s "
+        f"{_join_sql}"
+        f"JOIN wo_product_detail p ON p.work_order_id = s.work_order_id "
+        f"WHERE p.is_exist_excel = 'yes' "
+        f"  AND (UPPER(COALESCE(p.return_status,'')) IN "
+        f"       ('PENDING WITH PARTNER','PENDING FOR DC GENERATION','UNKNOWN') "
+        f"       OR TRIM(COALESCE(p.return_status,'')) = '') "
+        f"  {_vt_where}",
+        _vt_params,
+    ).fetchone()[0]
 
     if tech_id_filter:
         tf_safe = tech_id_filter.replace("'", "''")
@@ -527,6 +635,7 @@ def get_asp_part_received_page(
 _CCI_FOLLOWUP_COLS = """
     s.work_order_id, s.serial_number, s.created_on,
     s.committed_delivery_date, s.actual_committed_onsite_date,
+    s.wo_status_category,
     s.case_desc, s.work_order_type, s.contact_name,
     s.customer, s.work_order_status, s.case_status,
     d.completion_date, d.closing_date, d.customer_defer_date,
@@ -582,6 +691,20 @@ _CCI_FOLLOWUP_COLS = """
              OR TRIM(COALESCE(p.delivery_date,'')) != ''
            )
      )) AS part_pod,
+    (SELECT MAX(pod_time)
+     FROM (
+       SELECT NULLIF(TRIM(p.ship_pou_pod_time),'') AS pod_time
+       FROM wo_product_detail p
+       WHERE p.work_order_id = s.work_order_id
+         AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
+         AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != ''
+       UNION ALL
+       SELECT NULLIF(TRIM(p.delivery_date),'') AS pod_time
+       FROM wo_product_detail p
+       WHERE p.work_order_id = s.work_order_id
+         AND LOWER(COALESCE(p.wo_product_status,'')) NOT LIKE '%cancel%'
+         AND TRIM(COALESCE(p.order_date, p.acceptance_date,'')) != ''
+     )) AS latest_part_pod_time,
     (SELECT (p.dc_number IS NOT NULL AND TRIM(COALESCE(p.dc_number,'')) != '')
      FROM wo_product_detail p
      WHERE p.work_order_id = s.work_order_id
@@ -632,7 +755,7 @@ def get_asp_cci_followup_page(
     params: list = []
     wheres: list[str] = [
         "(LOWER(s.work_order_type) LIKE '%carry%' OR LOWER(s.work_order_type) LIKE '%cci%')",
-        "LOWER(COALESCE(s.work_order_status,'')) NOT LIKE '%cancel%'",
+        "s.wo_status_category IN ('open_part_not_received', 'open_part_received')",
     ]
 
     if search:
@@ -672,8 +795,13 @@ def get_asp_cci_followup_page(
         # AWB filled on any part line for this WO
         part_awb     = bool(r.get("part_awb"))
 
-        # part shipped but NOT yet POD'd
-        if part_shipped and not part_pod:
+        # part shipped but NOT yet POD'd on the LATEST part line.
+        # This covers two cases:
+        #   (a) no part has been POD'd at all (part_pod=0)
+        #   (b) an older line was already delivered, but the newest replacement line
+        #       is still in transit — latest_has_pod is False even though part_pod=1.
+        # In both cases the WO belongs in the In-Transit sub-tab.
+        if part_shipped and not latest_has_pod:
             # part_sla when:
             #   - part_eta is filled (target date exists)
             #   - we are strictly past ETA (date has already passed — not same day)
@@ -685,9 +813,8 @@ def get_asp_cci_followup_page(
                 and part_eta_raw < today      # overdue only when ETA date is in the past
             )
             return "part_sla" if is_sla_breach else "confirm_receipt"
-        # part received at ASP (POD filled) and WO still open — only treat as CCI follow-up
-        # when there is no newer unshipped part stage that should keep the WO in In-Prepare.
-        if part_pod and not is_closed and not (part_shipped and not latest_has_pod):
+        # part received at ASP (POD filled on latest line) and WO still open.
+        if part_pod and not is_closed and latest_has_pod:
             elapsed_h = 0
             if pod_raw and not isSentinel_py(pod_raw):
                 try:
@@ -1205,7 +1332,7 @@ def get_asp_onsite_followup_page(
     params: list = []
     wheres: list[str] = [
         "LOWER(s.work_order_type) LIKE '%onsite%'",
-        "LOWER(COALESCE(s.work_order_status,'')) NOT LIKE '%cancel%'",
+        "s.wo_status_category IN ('open_part_not_received', 'open_part_received')",
     ]
 
     if search:
@@ -1269,45 +1396,37 @@ def get_asp_onsite_followup_page(
         return ""
 
     def _ons_sort_key(row: dict):
-        """Sort by ETA asc (oldest first), no-ETA rows last sorted by ship_pickup_time asc.
-        For wo_sla/report_problem rows sort by base+4days Target Fix asc (oldest first)."""
+        """Sort by the displayed ETA Part; fall back to the latest of Actual Onsite Date / Defer Date."""
+        eta = (row.get("part_eta") or "").strip()[:10]
         state = row.get("followup_state", "")
-        if state in ("wo_sla", "report_problem"):
-            base = (row.get("customer_defer_date") or row.get("part_pod_time")
-                    or row.get("actual_committed_onsite_date") or "").strip()[:16]
-            if base:
-                try:
-                    base_dt = datetime.datetime.fromisoformat(base.replace(" ", "T"))
-                    thresh  = base_dt + datetime.timedelta(days=4)
-                    return (0, thresh.isoformat()[:16], "")
-                except (ValueError, TypeError):
-                    pass
-            return (1, "", "")
-        eta = (row.get("part_eta") or "")[:10].strip()
-        pickup = (row.get("ship_pickup_time") or row.get("created_on") or "")[:16].strip()
-        if eta:
-            return (0, eta, pickup)
-        return (1, "", pickup)
+        delivered = int(row.get("part_delivered_count") or 0)
+        ordered = int(row.get("part_qty") or 0)
+        all_received = ordered + delivered > 0 and delivered >= ordered + delivered
+        eta_visible = state in ("wo_reschedule", "part_sla") and eta and not isSentinel_py(eta) and not all_received
+        if eta_visible:
+            return (0, eta, "")
+        # Use the latest valid date between actual_committed_onsite_date and customer_defer_date
+        # — mirrors the green-cell logic: the later of the two is what the user sees highlighted.
+        actual_onsite = (row.get("actual_committed_onsite_date") or "").strip()[:16]
+        defer_date    = (row.get("customer_defer_date") or "").strip()[:16]
+        actual_valid  = bool(actual_onsite and not isSentinel_py(actual_onsite))
+        defer_valid   = bool(defer_date  and not isSentinel_py(defer_date))
+        if actual_valid and defer_valid:
+            sort_dt = actual_onsite if actual_onsite >= defer_date else defer_date
+        elif actual_valid:
+            sort_dt = actual_onsite
+        elif defer_valid:
+            sort_dt = defer_date
+        else:
+            sort_dt = ""
+        if row.get("wo_status_category") == "open_part_received" and sort_dt:
+            return (0, sort_dt[:10], sort_dt)
+        return (1, "", "")
 
-    def _ons_all_sort_key(row: dict) -> str:
-        """All ONS Follow-Up sort: wo_sla/report_problem by base+4days exact datetime,
-        wo_reschedule/part_sla by part_eta padded to T23:59 so in-repair rows on the
-        same calendar day always sort above in-transit arriving-today rows."""
-        state = row.get("followup_state", "")
-        if state in ("wo_sla", "report_problem"):
-            base = (row.get("customer_defer_date") or row.get("part_pod_time")
-                    or row.get("actual_committed_onsite_date") or "").strip()[:16]
-            if base:
-                try:
-                    base_dt = datetime.datetime.fromisoformat(base.replace(" ", "T"))
-                    thresh  = base_dt + datetime.timedelta(days=4)
-                    return thresh.isoformat()[:16]
-                except (ValueError, TypeError):
-                    pass
-        if state in ("wo_reschedule", "part_sla"):
-            eta = (row.get("part_eta") or "")[:10].strip()
-            return f"{eta}T23:59" if eta else "9999"
-        return "9999"
+    def _ons_all_sort_key(row: dict):
+        """Sort by the displayed ETA Part; fall back to Actual Onsite Date."""
+        key = _ons_sort_key(row)
+        return (f"0:{key[1]}:{key[2]}" if key[0] == 0 else "1:")
 
     if followup_state:
         all_rows = conn.execute(f"""
@@ -1320,8 +1439,8 @@ def get_asp_onsite_followup_page(
         """, params).fetchall()
 
         # wo_reschedule sub-tab also includes part_sla rows (ETA-overdue variant)
-        # wo_sla sub-tab also includes report_problem rows (elapsed > 3.75 days)
-        # so both appear together under the same In-Repair filter
+        # wo_sla sub-tab (ONS Scheduler) also includes report_problem rows (elapsed > 3.75 days)
+        # and ALL open_part_received rows regardless of computed state
         if followup_state == "wo_reschedule":
             filter_states = {"wo_reschedule", "part_sla"}
         elif followup_state == "wo_sla":
@@ -1334,6 +1453,9 @@ def get_asp_onsite_followup_page(
             state = _followup_state(row)
             if state in filter_states:
                 row["followup_state"] = state
+                filtered.append(row)
+            elif followup_state == "wo_sla" and row.get("wo_status_category") == "open_part_received" and state not in filter_states:
+                row["followup_state"] = state or "wo_reschedule"
                 filtered.append(row)
 
         filtered.sort(key=_ons_sort_key)
@@ -1389,6 +1511,7 @@ _IN_PREPARE_COLS = """
     s.case_desc, s.work_order_type, s.contact_name,
     s.customer, s.work_order_status, s.case_status,
     d.completion_date, d.closing_date,
+    d.mobile_phone, d.primary_email,
     u.full_name AS tech_name,
     p.product                AS part_product,
     p.description            AS part_description,
@@ -1433,6 +1556,7 @@ _IN_PREPARE_COLS_NO_PART = """
     s.case_desc, s.work_order_type, s.contact_name,
     s.customer, s.work_order_status, s.case_status,
     d.completion_date, d.closing_date,
+    d.mobile_phone, d.primary_email,
     u.full_name AS tech_name,
     NULL AS part_product,
     NULL AS part_description,
@@ -1455,6 +1579,7 @@ def get_asp_in_prepare_page(
     vendor_filter: str | None = None,
     tech_id_filter: str | None = None,
     prepare_filter: str = "",
+    wo_type_filter: str = "",
 ) -> dict:
     """
     In-Prepare Follow-Up — two paths combined via UNION ALL:
@@ -1482,12 +1607,7 @@ def get_asp_in_prepare_page(
 
     # ── shared open-WO guard ─────────────────────────────────────────────────
     _open_guard = """
-        LOWER(COALESCE(s.work_order_status,'')) NOT LIKE '%cancel%'
-        AND LOWER(COALESCE(s.work_order_status,'')) NOT IN (
-            'closed','completed','rma in progress',
-            'unit returned to customer /awaiting for parts rma',
-            'repair completed','ready for pickup'
-        )
+        s.wo_status_category IN ('open_part_not_received', 'open_part_received')
         AND COALESCE(d.completion_date,'') = ''
         AND COALESCE(d.closing_date,'')    = ''
     """
@@ -1550,6 +1670,13 @@ def get_asp_in_prepare_page(
         params.append(vendor_filter)
         return " AND d.labor_vendor_related = ?"
 
+    # ── wo_type filter clause (applied to both paths) ────────────────────────
+    _wo_type_clause = ""
+    if wo_type_filter.lower() == "carry-in":
+        _wo_type_clause = " AND (LOWER(COALESCE(s.work_order_type,'')) LIKE '%carry%' OR LOWER(COALESCE(s.work_order_type,'')) LIKE '%cci%')"
+    elif wo_type_filter.lower() == "onsite":
+        _wo_type_clause = " AND LOWER(COALESCE(s.work_order_type,'')) LIKE '%onsite%'"
+
     # ── sub-tab filter clauses ────────────────────────────────────────────────
     # Extra WHERE appended to PATH A or PATH B depending on the filter.
     # path_a_extra / path_b_extra are appended after search+vendor clauses.
@@ -1572,6 +1699,13 @@ def get_asp_in_prepare_page(
     else:
         path_a_extra = ""
         path_b_extra = ""
+
+    # append wo_type clause to both active paths
+    if _wo_type_clause:
+        if path_a_extra is not None:
+            path_a_extra += _wo_type_clause
+        if path_b_extra is not None:
+            path_b_extra += _wo_type_clause
 
     def _union(col_a: str, col_b: str) -> str:
         """Build the UNION ALL SQL for count or rows, respecting active paths."""

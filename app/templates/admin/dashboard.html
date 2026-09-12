@@ -460,6 +460,7 @@
             <option value="">All Type</option>
             <option value="Onsite">ONS</option>
             <option value="Carry-In">CCI</option>
+            <option value="no-type">No Type</option>
           </select>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
@@ -773,9 +774,21 @@ window.ccApplyFilters = function() {
   // Monday status grouping
   const COMPLETE_VALS = new Set(['complete', 'completed', 'reject', 'approved to order']);
 
+  /* Normalise raw DB/Monday work_order_type to the canonical display value */
+  const _normType = v => {
+    const s = (v || '').trim();
+    if (s === 'ONS'  || s === 'Onsite')   return 'Onsite';
+    if (s === 'CCI'  || s === 'Carry-In') return 'Carry-In';
+    return '';   /* null / empty / unknown → "no type" */
+  };
+
   const filtered = _ccAllRows.filter(r => {
-    // WO Type filter — typeVal is "Onsite" or "Carry-In" matching DB values directly
-    if (typeVal && (r.work_order_type || '') !== typeVal) return false;
+    // WO Type filter — normalise both short codes (ONS/CCI) and long names (Onsite/Carry-In)
+    if (typeVal) {
+      const norm = _normType(r.work_order_type);
+      if (typeVal === 'no-type') { if (norm !== '') return false; }
+      else                       { if (norm !== typeVal) return false; }
+    }
     // Monday Status filter
     if (statusVal) {
       const statuses = (r.esc_statuses || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);

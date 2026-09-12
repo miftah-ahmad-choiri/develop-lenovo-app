@@ -339,5 +339,17 @@
     "new_awb": 0,
     "status": "success",
     "upsert_date": "2026-09-10"
+  },
+  "GTAAP_Report_export_1789220218892_1789220213.xlsx": {
+    "new_dc": 129,
+    "new_status": 236,
+    "status": "success",
+    "upsert_date": "2026-09-12"
+  },
+  "Generated_DCs_20260912_203649.xlsx": {
+    "new_dc": 14,
+    "new_awb": 129,
+    "status": "success",
+    "upsert_date": "2026-09-12"
   }
 }

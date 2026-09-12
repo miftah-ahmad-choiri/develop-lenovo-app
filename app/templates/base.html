@@ -179,6 +179,7 @@
     }
     .sidebar-toggle:hover { background: rgba(255,255,255,0.07); color: #fff; }
     .sidebar-toggle svg { flex-shrink: 0; transition: transform 0.22s; }
+    .sidebar.collapsed .sidebar-toggle { justify-content: center; padding: 0; }
     .sidebar.collapsed .sidebar-toggle svg { transform: rotate(180deg); }
     .sidebar-toggle-label {
       font-size: 12px;
@@ -188,7 +189,7 @@
       overflow: hidden;
       transition: opacity 0.15s, width 0.22s;
     }
-    .sidebar.collapsed .sidebar-toggle-label { opacity: 0; width: 0; }
+    .sidebar.collapsed .sidebar-toggle-label { display: none; }
 
     /* Nav sections */
     .sidebar-nav { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 0; }
@@ -231,7 +232,7 @@
     .nav-item.active .nav-icon { color: #6fb3f5; }
     .nav-icon { flex-shrink: 0; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; }
     .nav-label { transition: opacity 0.15s; }
-    .sidebar.collapsed .nav-label { opacity: 0; width: 0; overflow: hidden; }
+    .sidebar.collapsed .nav-label { display: none; }
 
     /* Expandable group */
     .nav-group-header {
@@ -298,8 +299,12 @@
     .sidebar.collapsed .nav-item,
     .sidebar.collapsed .nav-group-header {
       justify-content: center;
-      padding: 8px;
+      padding: 8px 0;
       margin: 2px 6px;
+    }
+    .sidebar.collapsed .nav-chevron,
+    .sidebar.collapsed .nav-dev-badge {
+      display: none !important;
     }
 
     /* Logout slot at bottom of sidebar */
@@ -331,8 +336,8 @@
     .sidebar-profile-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
     .sidebar-profile-btn.active { background: rgba(59,130,212,0.25); color: #6fb3f5; }
     .sidebar-profile-label { transition: opacity 0.15s; }
-    .sidebar.collapsed .sidebar-profile-label { opacity: 0; width: 0; overflow: hidden; }
-    .sidebar.collapsed .sidebar-profile-btn { justify-content: center; padding: 8px; }
+    .sidebar.collapsed .sidebar-profile-label { display: none; }
+    .sidebar.collapsed .sidebar-profile-btn { justify-content: center; padding: 8px 0; }
     /* ── Branch switcher flyout ───────────────────────────────────────────── */
     .branch-switcher { }
     .sidebar-branch-btn {
@@ -357,15 +362,15 @@
     .sidebar-branch-btn:hover,
     .sidebar-branch-btn.open { background: rgba(124,92,216,0.2); color: #c4b5fd; }
     .sidebar-branch-label { transition: opacity 0.15s; flex: 1; }
-    .sidebar.collapsed .sidebar-branch-label { opacity: 0; width: 0; overflow: hidden; }
-    .sidebar.collapsed .sidebar-branch-btn { justify-content: center; padding: 8px; }
+    .sidebar.collapsed .sidebar-branch-label { display: none; }
+    .sidebar.collapsed .sidebar-branch-btn { justify-content: center; padding: 8px 0; }
     .branch-chevron {
       flex-shrink: 0;
       color: rgba(255,255,255,0.3);
       transition: transform 0.2s, opacity 0.15s;
     }
     .sidebar-branch-btn.open .branch-chevron { transform: rotate(180deg); color: #c4b5fd; }
-    .sidebar.collapsed .branch-chevron { opacity: 0; width: 0; }
+    .sidebar.collapsed .branch-chevron { display: none !important; }
 
     /* The flyout panel — fixed to viewport so it escapes sidebar overflow:hidden */
     .branch-flyout {
@@ -450,8 +455,8 @@
     }
     .sidebar-logout-btn:hover { background: rgba(220,38,38,0.18); color: #f87171; }
     .sidebar-logout-btn .sidebar-logout-label { transition: opacity 0.15s; }
-    .sidebar.collapsed .sidebar-logout-label { opacity: 0; width: 0; overflow: hidden; }
-    .sidebar.collapsed .sidebar-logout-btn { justify-content: center; padding: 8px; }
+    .sidebar.collapsed .sidebar-logout-label { display: none; }
+    .sidebar.collapsed .sidebar-logout-btn { justify-content: center; padding: 8px 0; }
 
     /* ── Page header ─────────────────────────────────────────────────────── */
     .page-header { margin-bottom: 24px; }
@@ -718,14 +723,18 @@
         <span class="nav-label">Dashboard</span>
       </a>
 
-      <!-- Ticket Management — under development -->
-      <span class="nav-item nav-dev">
+      <div class="nav-group-header {% if active_group == 'ticket_management' %}open{% endif %}" data-group="grp-ticket-management">
         <span class="nav-icon">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
         </span>
         <span class="nav-label">Ticket Management</span>
-        <span class="nav-dev-badge">Dev</span>
-      </span>
+        <svg class="nav-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <div class="nav-sub {% if active_group == 'ticket_management' %}open{% endif %}" id="grp-ticket-management">
+        <a href="/admin/tickets" class="nav-sub-item {% if active_page == 'admin_tickets' %}active{% endif %}"><span class="nav-sub-dot"></span>Overview</a>
+        <a href="/admin/tickets/part-on-hold" class="nav-sub-item {% if active_page == 'part_on_hold_update' %}active{% endif %}"><span class="nav-sub-dot"></span>Part On-Hold Update</a>
+        <a href="/admin/tickets/handover-asp" class="nav-sub-item {% if active_page == 'handover_asp' %}active{% endif %}"><span class="nav-sub-dot"></span>Handover ASP</a>
+      </div>
 
       <div class="nav-group-header {% if active_group == 'data_import_export' %}open{% endif %}" data-group="grp-data-import-export">
         <span class="nav-icon">

@@ -30,10 +30,14 @@
   .fu-confirm        { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
   .fu-confirm-today  { background: #ccfbf1; color: #0f766e; border: 1px solid #5eead4; }
   .fu-part-sla       { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
-  .fu-wo-sla         { background: #fef3c7; color: #92400e; border: 1px solid #d97706; }
+  .fu-wo-sla         { background: #dc2626; color: #ffffff; border: 1px solid #b91c1c; }
   .fu-input-dc       { background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; }
-  .fu-reschedule     { background: #f0fdfa; color: #0f766e; border: 1px solid #99f6e4; }
-  .fu-set-schedule   { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+  .fu-reschedule     { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+  .fu-set-schedule   { background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; }
+  #tbl-cci-followup th.cci-state-header { width:170px; min-width:170px; max-width:170px; background: #dbeafe; color: #1e3a8a; }
+  #tbl-cci-followup td.cci-state-cell { width:170px; min-width:170px; max-width:170px; background: #dbeafe !important; border-left: 2px solid #93c5fd; border-right: 2px solid #93c5fd; }
+  #tbl-ons-followup th.ons-schedule-header { background: #dbeafe; color: #1e3a8a; }
+  #tbl-ons-followup td.ons-schedule-cell { background: #dbeafe !important; border-left: 2px solid #93c5fd; border-right: 2px solid #93c5fd; }
   .fu-report-problem { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
   .fu-cancelled      { background: #f3f4f6; color: #6b7280; border: 1px solid #e5e7eb; }
   .fu-in-prepare     { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
@@ -41,30 +45,29 @@
   .fu-in-repair      { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
   .fu-return-part    { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
   .fu-escalate       { background: #f3f4f6; color: #1f2328; border: 1px solid #d1d5db; }
-  /* ONS Follow-Up: hide Delivered On(col6), Shipped On(col12), POD/Received On(col13), Case(col14) on All sub-tab */
-  #tbl-ons-followup.ons-hide-extra th:nth-child(6),
+  #tbl-ons-followup td.ons-date-green { background: #dcfce7 !important; color: #15803d !important; border-bottom-color: transparent !important; }
+  #tbl-ons-followup td.ons-date-gray  { background: #e5e7eb !important; color: #9ca3af !important; border-bottom-color: transparent !important; }
+  #tbl-ons-followup td.ons-date-red   { background: #fee2e2 !important; color: #b91c1c !important; border-bottom-color: transparent !important; }
+  /* ONS Follow-Up: hide Shipped On(col12), POD/Received On(col13), Case(col14) on All sub-tab */
   #tbl-ons-followup.ons-hide-extra th:nth-child(12),
   #tbl-ons-followup.ons-hide-extra th:nth-child(13),
   #tbl-ons-followup.ons-hide-extra th:nth-child(14),
-  #tbl-ons-followup.ons-hide-extra td:nth-child(6),
   #tbl-ons-followup.ons-hide-extra td:nth-child(12),
   #tbl-ons-followup.ons-hide-extra td:nth-child(13),
   #tbl-ons-followup.ons-hide-extra td:nth-child(14) { display: none; }
-  /* ONS In-Transit sub-tab: hide Delivered On(col6), Escalation Action(col5), Defer Date(col8), POD/Received On(col13) */
-  #tbl-ons-followup.ons-hide-transit th:nth-child(5),
-  #tbl-ons-followup.ons-hide-transit th:nth-child(6),
-  #tbl-ons-followup.ons-hide-transit th:nth-child(8),
+  /* ONS In-Transit sub-tab: hide Target SLA Repair(col9), Escalation Action(col10), POD/Received On(col13) */
+  #tbl-ons-followup.ons-hide-transit th:nth-child(9),
+  #tbl-ons-followup.ons-hide-transit th:nth-child(10),
   #tbl-ons-followup.ons-hide-transit th:nth-child(13),
-  #tbl-ons-followup.ons-hide-transit td:nth-child(5),
-  #tbl-ons-followup.ons-hide-transit td:nth-child(6),
-  #tbl-ons-followup.ons-hide-transit td:nth-child(8),
+  #tbl-ons-followup.ons-hide-transit td:nth-child(9),
+  #tbl-ons-followup.ons-hide-transit td:nth-child(10),
   #tbl-ons-followup.ons-hide-transit td:nth-child(13) { display: none; }
-  /* ONS In-Repair sub-tab: hide Total In-Transit(col7), Shipped On(col12), POD/Received On(col13), Case(col14) */
-  #tbl-ons-followup.ons-hide-inrepair th:nth-child(7),
+  /* ONS In-Repair sub-tab: hide ETA Part(col6), Shipped On(col12), POD/Received On(col13), Case(col14) */
+  #tbl-ons-followup.ons-hide-inrepair th:nth-child(6),
   #tbl-ons-followup.ons-hide-inrepair th:nth-child(12),
   #tbl-ons-followup.ons-hide-inrepair th:nth-child(13),
   #tbl-ons-followup.ons-hide-inrepair th:nth-child(14),
-  #tbl-ons-followup.ons-hide-inrepair td:nth-child(7),
+  #tbl-ons-followup.ons-hide-inrepair td:nth-child(6),
   #tbl-ons-followup.ons-hide-inrepair td:nth-child(12),
   #tbl-ons-followup.ons-hide-inrepair td:nth-child(13),
   #tbl-ons-followup.ons-hide-inrepair td:nth-child(14) { display: none; }
@@ -107,7 +110,7 @@
   .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .data-table thead { background: #f7f8fa; }
-  .data-table th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 700; color: #57606a; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+  .data-table th { padding: 10px 12px; text-align: center; font-size: 11px; font-weight: 700; color: #57606a; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
   .data-table td { padding: 9px 12px; border-bottom: 1px solid #f0f2f5; vertical-align: middle; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .data-table tr:last-child td { border-bottom: none; }
   .data-table tbody tr:hover { background: #f7f8fa; }
@@ -115,6 +118,55 @@
   .wo-link:hover { color: #1d4ed8; }
   .empty-state  { padding: 44px; text-align: center; color: #57606a; font-size: 13px; }
   .loading-state{ padding: 32px; text-align: center; color: #57606a; font-size: 13px; }
+
+  /* ── Under Escalation / Closing-code widget table ────────────────────────── */
+  .cc-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+  .cc-filter-wrap { position: relative; display: inline-flex; align-items: center; }
+  .cc-filter-wrap svg { position: absolute; right: 7px; pointer-events: none; color: #57606a; }
+  .cc-filter-select { appearance: none; -webkit-appearance: none; padding: 4px 24px 4px 9px; border: 1px solid #d0d7de; border-radius: 6px; background: #fff; font-size: 11.5px; font-family: inherit; color: #1f2328; cursor: pointer; }
+  .cc-filter-select:focus { outline: none; border-color: #3b82d4; box-shadow: 0 0 0 3px rgba(59,130,212,.1); }
+  .cc-filter-select.has-filter { border-color: #3b82d4; background: #eff6ff; color: #1d4ed8; font-weight: 600; }
+  .cc-table-wrap { overflow-y: auto; height: calc(100vh - 365px); min-height: 380px; margin-top: 4px; }
+  .cc-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .cc-table thead th { position: sticky; top: 0; background: #f7f8fa; padding: 7px 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #57606a; border-bottom: 1px solid #e5e7eb; white-space: nowrap; z-index: 1; text-align: center; }
+  .cc-table thead th.cc-col-wo   { background: #d1fae5; color: #065f46; }
+  .cc-table thead th.cc-col-esc  { background: #dde3ff; color: #3730a3; }
+  .cc-table tbody td { padding: 7px 10px; border-bottom: 1px solid #f0f2f5; vertical-align: middle; white-space: nowrap; text-align: center; }
+  .cc-table tbody td.cc-col-wo   { background: #ecfdf5; }
+  .cc-table tbody td.cc-col-esc  { background: #eef0ff; }
+  .cc-table tbody tr:last-child td { border-bottom: none; }
+  .cc-table tbody tr:hover td.cc-col-wo  { background: #d1fae5; }
+  .cc-table tbody tr:hover td.cc-col-esc { background: #dde3ff; }
+  .cc-table tbody tr:hover td:not(.cc-col-wo):not(.cc-col-esc):not(.cc-col-esc-src) { background: #f7f8fa; }
+  /* WO/Case ID Monday cell: colored by Monday status */
+  .cc-col-esc-src               { background: #eef0ff; }  /* no status — default blue  */
+  .cc-col-esc-src.src-st-green  { background: #d1fae5; }  /* Approved to Order / Complete */
+  .cc-col-esc-src.src-st-red    { background: #fee2e2; }  /* Reject */
+  .cc-col-esc-src.src-st-yellow { background: #fef9c3; }  /* all other statuses */
+  .cc-table tbody tr:hover .cc-col-esc-src.src-st-green  { background: #a7f3d0; }
+  .cc-table tbody tr:hover .cc-col-esc-src.src-st-red    { background: #fecaca; }
+  .cc-table tbody tr:hover .cc-col-esc-src.src-st-yellow { background: #fef08a; }
+  .cc-wocaseid                { font-weight: 700; font-size: 12px; font-family: ui-monospace, SFMono-Regular, monospace; }
+  .cc-wocaseid.match          { color: #2563eb; }
+  .cc-wocaseid.nomatch        { color: #7c3aed; }
+  .cc-wocaseid.no-match       { color: #dc2626; }
+  .cc-wocaseid-autofill       { color: #16a34a; border-bottom: 1px dashed #86efac; }
+  .cc-wocaseid-autofill:hover { color: #15803d; border-bottom-color: #4ade80; }
+  .cc-wocaseid.clickable      { cursor: pointer; border-bottom: 1px dashed currentColor; }
+  .cc-wocaseid.clickable:hover{ opacity: .8; }
+  .cc-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; background: #fef3c7; color: #92400e; white-space: normal; word-break: break-word; vertical-align: middle; }
+  .cc-badge.cid  { background: #ffe4e6; color: #be123c; }
+  .cc-badge.done { background: #dcfce7; color: #15803d; }
+  .cc-wo-btn { color: #3b82d4; font-weight: 600; cursor: pointer; background: none; border: none; font-family: inherit; font-size: inherit; padding: 0; text-decoration: underline; text-underline-offset: 2px; white-space: nowrap; }
+  .cc-wo-btn:hover { color: #1d4ed8; }
+  .ov-refresh-btn { display: inline-flex; align-items: center; justify-content: center; color: #57606a; border: 1px solid #d0d7de; border-radius: 5px; padding: 3px 5px; background: none; cursor: pointer; flex-shrink: 0; transition: background .12s, color .12s, border-color .12s; }
+  .ov-refresh-btn:hover { background: #eff6ff; color: #3b82d4; border-color: #93c5fd; }
+  .ov-refresh-btn svg { flex-shrink: 0; display: block; }
+  .ov-refresh-btn.spinning svg { animation: ov-spin .6s linear infinite; }
+  @keyframes ov-spin { to { transform: rotate(360deg); } }
+  .ov-goto-btn { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: #3b82d4; text-decoration: none; border: 1px solid #bfdbfe; border-radius: 5px; padding: 3px 8px; white-space: nowrap; flex-shrink: 0; transition: background .12s, color .12s; }
+  .ov-goto-btn:hover { background: #eff6ff; color: #1d4ed8; border-color: #93c5fd; }
+  .ov-goto-btn svg { flex-shrink: 0; }
 
   /* ── Badges ─────────────────────────────────────────────────────── */
   .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 13px; font-weight: 600; white-space: nowrap; }
@@ -578,6 +630,52 @@
     .detail-field.span-2, .detail-field.span-3 { grid-column: span 1; }
     .part-card-body { grid-template-columns: repeat(2, 1fr); }
   }
+
+  /* ── In-Prepare: ETA Tiba di YCH column ───────────────────────── */
+  .eta-cell { display:inline-flex; align-items:center; gap:6px; }
+  .eta-val { font-size:12px; font-weight:600; color:#92400e; background:#fef3c7; border:1px solid #fde68a; border-radius:10px; padding:1px 8px; white-space:nowrap; }
+  .eta-val.overdue { color:#9f1239; background:#ffe4e6; border-color:#fecdd3; }
+  /* ── In-Prepare: Contact popover ──────────────────────────────── */
+  .btn-contact { background:none; border:none; cursor:pointer; color:#3b82d4; font-weight:400; font-family:inherit; font-size:inherit; padding:0; text-decoration:underline; text-underline-offset:2px; white-space:nowrap; }
+  .btn-contact:hover { color:#1d4ed8; }
+  .contact-popover { position:fixed; z-index:500; background:#fff; border:1px solid #e5e7eb; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.13); padding:16px 18px 14px; min-width:240px; max-width:300px; }
+  .contact-popover-name { font-size:14px; font-weight:700; color:#1f2328; margin-bottom:12px; word-break:break-word; }
+  .contact-popover-row { display:flex; align-items:flex-start; gap:8px; margin-bottom:8px; font-size:12px; color:#1f2328; }
+  .contact-popover-row:last-child { margin-bottom:0; }
+  .contact-popover-lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#8c959f; white-space:nowrap; min-width:40px; margin-top:1px; }
+  .contact-popover-val { word-break:break-all; }
+  .contact-popover-val.muted { color:#8c959f; font-style:italic; }
+  .contact-popover-close { position:absolute; top:8px; right:10px; background:none; border:none; cursor:pointer; color:#8c959f; font-size:16px; line-height:1; padding:2px 5px; border-radius:4px; }
+  .contact-popover-close:hover { background:#f3f4f6; color:#1f2328; }
+  /* ── ETA Tiba di YCH history button & sidebar ─────────────────── */
+  .btn-eta-hist { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; padding:0; border:1px solid #d0d7de; background:#f7f8fa; color:#57606a; border-radius:4px; cursor:pointer; font-family:inherit; transition:border-color .12s,background .12s,color .12s; flex-shrink:0; }
+  .btn-eta-hist:hover { border-color:#7c5cd8; background:#f5f0ff; color:#7c5cd8; }
+  .eta-hist-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.3); z-index:600; }
+  .eta-hist-overlay.open { display:block; }
+  .eta-hist-drawer { position:fixed; top:0; right:-440px; width:400px; max-width:96vw; height:100vh; background:#fff; box-shadow:-4px 0 24px rgba(0,0,0,.14); z-index:601; display:flex; flex-direction:column; overflow:hidden; transition:right .25s cubic-bezier(.4,0,.2,1); }
+  .eta-hist-drawer.open { right:0; }
+  .eta-hist-head { padding:14px 16px; border-bottom:1px solid #e5e7eb; display:flex; align-items:flex-start; gap:10px; flex-shrink:0; }
+  .eta-hist-title { flex:1; min-width:0; }
+  .eta-hist-title h3 { font-size:13px; font-weight:700; margin:0 0 2px; color:#1f2328; }
+  .eta-hist-title p { font-size:12px; color:#57606a; margin:0; }
+  .eta-hist-close { border:none; background:none; cursor:pointer; color:#57606a; padding:4px; border-radius:4px; flex-shrink:0; }
+  .eta-hist-close:hover { background:#f3f4f6; color:#1f2328; }
+  .eta-hist-body { flex:1 1 0; min-height:0; overflow-y:auto; padding:16px; }
+  .eta-hist-empty { text-align:center; padding:32px 16px; color:#9ca3af; font-size:13px; }
+  .eta-hist-loading { text-align:center; padding:32px 16px; color:#9ca3af; font-size:13px; }
+  .eta-tl { display:flex; flex-direction:column; gap:0; }
+  .eta-tl-item { display:flex; gap:12px; padding-bottom:18px; position:relative; }
+  .eta-tl-item:last-child { padding-bottom:0; }
+  .eta-tl-line { display:flex; flex-direction:column; align-items:center; flex-shrink:0; width:20px; }
+  .eta-tl-dot { width:10px; height:10px; border-radius:50%; background:#7c5cd8; border:2px solid #ddd6fe; flex-shrink:0; margin-top:3px; }
+  .eta-tl-item:first-child .eta-tl-dot { background:#d97706; border-color:#fde68a; }
+  .eta-tl-connector { flex:1; width:2px; background:#e5e7eb; margin-top:4px; }
+  .eta-tl-item:last-child .eta-tl-connector { display:none; }
+  .eta-tl-content { flex:1; min-width:0; padding-top:1px; }
+  .eta-tl-date { font-size:13px; font-weight:700; color:#1f2328; }
+  .eta-tl-date.latest { color:#d97706; }
+  .eta-tl-meta { font-size:11px; color:#8c959f; margin-top:2px; }
+  .eta-tl-badge { display:inline-block; font-size:10px; font-weight:700; border-radius:8px; padding:1px 7px; margin-left:6px; background:#fef3c7; color:#92400e; border:1px solid #fde68a; }
 {% endblock %}
 
 {% block content %}
@@ -652,6 +750,10 @@
     🔔 Return Reminder
     <span class="tab-badge" id="tab-return-reminder-badge" style="display:none"></span>
   </button>
+  <button class="tab-btn" data-tab="tab-under-escalation">
+    ⚡ Under Escalation
+    <span class="tab-badge" id="tab-under-escalation-badge" style="display:none"></span>
+  </button>
   <button class="tab-btn" data-tab="tab-esc-inprogress" style="display:none">
     ⚡ Escalation Center
     <span class="tab-badge" id="tab-esc-inprogress-badge" style="display:none"></span>
@@ -699,11 +801,10 @@
         <thead><tr>
           <th style="width:40px;text-align:center">#</th>
           <th>Created On</th><th>WO Number</th>
-          <th>WO Type</th><th>Case</th><th>WO Status</th><th>Case Status</th>
-          <th>Committed Delivery</th><th>Actual Committed</th>
+          <th>WO Type</th><th>Case</th><th>WO Status</th>
           <th>Contact Name</th><th>ASP</th>
         </tr></thead>
-        <tbody id="tbody-all"><tr><td colspan="11" class="loading-state">Loading…</td></tr></tbody>
+        <tbody id="tbody-all"><tr><td colspan="8" class="loading-state">Loading…</td></tr></tbody>
       </table>
     </div>
     <div id="empty-all" class="empty-state" style="display:none">No records found.</div>
@@ -718,11 +819,17 @@
     <div style="padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #e5e7eb;flex-wrap:wrap;">
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;" id="in-prepare-filter-pills">
         <button class="subtab-pill active" data-prepfilter="">All WO In-Prepare</button>
+        <span style="color:#d0d7de;font-size:14px;font-weight:300;padding:0 2px">|</span>
         <button class="subtab-pill" data-prepfilter="part_on_hold">🔒 Part on Hold</button>
         <button class="subtab-pill" data-prepfilter="no_part">🛒 Waiting Part Order</button>
         <button class="subtab-pill" data-prepfilter="waiting_pickup">📦 Waiting for Pickup</button>
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+        <select id="select-inprep-wotype" style="padding:6px 10px;border:1px solid #d0d7de;border-radius:6px;font-size:13px;font-family:inherit;color:#1f2328;background:#fff;cursor:pointer;">
+          <option value="">All Type</option>
+          <option value="carry-in">Carry-In</option>
+          <option value="onsite">Onsite</option>
+        </select>
         <button class="btn-export-xlsx" id="btn-export-in-prepare" title="Export all rows to Excel">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           Export Excel
@@ -736,11 +843,14 @@
         <thead><tr>
           <th style="width:40px;text-align:center">#</th>
           <th>Created On</th><th>WO Number</th>
-          <th>WO Type</th><th>WO Status</th>
-          <th id="th-in-prepare-part">Part</th>
-          <th id="th-in-prepare-eta" style="display:none">ETA tiba di YCH</th>
+          <th>WO Type</th>
+          <th>Total Diterima</th>
+          <th id="th-inprep-eta" style="display:none">ETA Tiba di YCH</th>
+          <th id="th-inprep-contact" style="display:none">Contact</th>
+          <th>Notes</th>
+          <th style="text-align:center">WO Status</th>
         </tr></thead>
-        <tbody id="tbody-in-prepare"><tr><td colspan="10" class="loading-state">Loading…</td></tr></tbody>
+        <tbody id="tbody-in-prepare"><tr><td colspan="8" class="loading-state">Loading…</td></tr></tbody>
       </table>
     </div>
     <div id="empty-in-prepare" class="empty-state" style="display:none">No in-prepare WOs found.</div>
@@ -754,6 +864,7 @@
     <div style="padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #e5e7eb;flex-wrap:wrap;">
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;" id="cci-followup-filter-pills">
         <button class="subtab-pill active" data-fufilter="">All CCI Follow-Up</button>
+        <span style="color:#d0d7de;font-size:14px;font-weight:300;padding:0 2px">|</span>
         <button class="subtab-pill" data-fufilter="in_transit">🚚 CCI In-Transit</button>
         <button class="subtab-pill" data-fufilter="in_repair">🔧 CCI In-Repair</button>
       </div>
@@ -767,19 +878,20 @@
       </div>
     </div>
     <div class="table-scroll">
-      <table class="data-table">
+      <table class="data-table" id="tbl-cci-followup">
         <thead><tr>
           <th style="width:40px;text-align:center">#</th>
           <th>Created On</th><th>WO Number</th>
-          <th style="min-width:200px">Follow-Up State</th>
-          <th>Total In-Transit</th>
-          <th style="min-width:210px" id="th-cci-target">Target Fix/Sampai</th>
-          <th>AWB</th>
-          <th>WO Status</th>
+          <th class="cci-state-header" style="width:170px;min-width:170px;max-width:170px">Follow-Up State</th>
+          <th>Total Diterima</th>
           <th id="th-cci-shipped">Shipped On</th>
+          <th id="th-cci-eta" style="min-width:130px">ETA Part</th>
+          <th style="min-width:210px">Target SLA Repair</th>
+          <th>WO Status</th>
+          <th>AWB</th>
           <th>Case</th>
         </tr></thead>
-        <tbody id="tbody-cci-followup"><tr><td colspan="9" class="loading-state">Loading…</td></tr></tbody>
+        <tbody id="tbody-cci-followup"><tr><td colspan="11" class="loading-state">Loading…</td></tr></tbody>
       </table>
     </div>
     <div id="empty-cci-followup" class="empty-state" style="display:none">No CCI in-repair WOs found.</div>
@@ -793,10 +905,12 @@
     <div style="padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #e5e7eb;flex-wrap:wrap;">
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;" id="ons-followup-filter-pills">
         <button class="subtab-pill active" data-onsfilter="">All ONS Follow-Up</button>
-        <button class="subtab-pill" data-onsfilter="wo_reschedule">📅 ONS In-Transit</button>
-        <button class="subtab-pill" data-onsfilter="wo_sla">🔧 ONS In-Repair</button>
+        <span style="color:#d0d7de;font-size:14px;font-weight:300;padding:0 2px">|</span>
+        <button class="subtab-pill" data-onsfilter="wo_sla">🔧 ONS Scheduler</button>
+        <span style="color:#d0d7de;font-size:14px;font-weight:300;padding:0 2px">|</span>
+        <button class="subtab-pill" data-onsfilter="closed_not_fixed">⚠️ Closed Not Fixed</button>
       </div>
-      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+      <div id="ons-default-toolbar-controls" style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
         <button class="btn-export-xlsx" id="btn-export-ons-followup" title="Export all rows to Excel">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           Export Excel
@@ -804,27 +918,74 @@
         <input type="search" id="search-ons-followup" placeholder="Search WO, serial, contact, customer…" autocomplete="off" style="padding:7px 11px;border:1px solid #d0d7de;border-radius:6px;font-size:13px;width:240px;font-family:inherit;" />
         <span class="toolbar-count" id="count-ons-followup"></span>
       </div>
+      <div id="ons-cnf-toolbar-controls" style="display:none;align-items:center;gap:6px;flex-wrap:wrap;flex-shrink:0;margin-left:auto;">
+        <span style="font-size:11px;color:#8c959f;flex-shrink:0" id="ons-cnf-sub">Loading…</span>
+        <div class="cc-filter-wrap">
+          <select class="cc-filter-select" id="ons-cnf-filter-status" onchange="onsCnfApplyFilters()">
+            <option value="" selected>All Monday Status</option>
+            <option value="in-progress">In-Progress</option>
+            <option value="complete">Complete</option>
+            <option value="no-status">No Escalation</option>
+          </select>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <input type="search" id="ons-cnf-search" placeholder="Search WO, serial, closing code…" autocomplete="off" oninput="onsCnfApplyFilters()" style="padding:5px 10px;border:1px solid #d0d7de;border-radius:6px;font-size:12px;width:210px;font-family:inherit;height:28px;box-sizing:border-box;" />
+        <button class="btn-export-xlsx" id="btn-export-ons-cnf" title="Export Closed Not Fixed view to Excel">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Export Excel
+        </button>
+        <button class="ov-refresh-btn" id="ons-cnf-refresh-btn" title="Refresh">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </button>
+      </div>
     </div>
-    <div class="table-scroll">
-      <table class="data-table" id="tbl-ons-followup">
-        <thead><tr>
-          <th style="width:40px;text-align:center">#</th>
-          <th>Created On</th><th>WO Number</th>
-          <th>Schedule Action</th><th>Escalation Action</th>
-          <th id="th-ons-pod">Delivered On</th>
-          <th>Total In-Transit</th>
-          <th>Defer Date</th>
-          <th style="min-width:210px" id="th-ons-target">Target Fix/Sampai</th>
-          <th>AWB</th>
-          <th>WO Status</th>
-          <th>Shipped On</th><th>POD / Received On</th>
-          <th>Case</th>
-        </tr></thead>
-        <tbody id="tbody-ons-followup"><tr><td colspan="14" class="loading-state">Loading…</td></tr></tbody>
-      </table>
+    <!-- Default ONS View Table -->
+    <div id="ons-default-view">
+      <div class="table-scroll">
+        <table class="data-table" id="tbl-ons-followup">
+          <thead><tr>
+            <th style="width:40px;text-align:center">#</th>
+            <th>Created On</th><th>WO Number</th>
+            <th class="ons-schedule-header">Schedule Action</th>
+            <th>Total Diterima</th>
+            <th style="min-width:130px">ETA Part</th>
+            <th style="width:150px;min-width:150px">Actual Onsite Date</th>
+            <th style="width:150px;min-width:150px">Defer Date</th>
+            <th style="min-width:210px" id="th-ons-target">Target SLA Repair</th>
+            <th>Self-Reminder</th>
+            <th>WO Status</th>
+            <th>Shipped On</th><th>POD / Received On</th>
+            <th>Case</th>
+          </tr></thead>
+          <tbody id="tbody-ons-followup"><tr><td colspan="14" class="loading-state">Loading…</td></tr></tbody>
+        </table>
+      </div>
+      <div id="empty-ons-followup" class="empty-state" style="display:none">No ONS follow-up WOs found.</div>
+      <div class="pagination" id="pg-ons-followup"></div>
     </div>
-    <div id="empty-ons-followup" class="empty-state" style="display:none">No ONS follow-up WOs found.</div>
-    <div class="pagination" id="pg-ons-followup"></div>
+    <!-- Closed Not Fixed View Table (mapped identical to Under Escalation) -->
+    <div id="ons-cnf-view" style="display:none;">
+      <div class="cc-table-wrap">
+        <table class="cc-table">
+          <thead>
+            <tr>
+              <th style="text-align:center;width:36px">#</th>
+              <th class="cc-col-wo">WO ID</th>
+              <th class="cc-col-wo">Completed</th>
+              <th class="cc-col-wo">Type</th>
+              <th class="cc-col-wo">Closing Code / WO Status</th>
+              <th class="cc-col-esc">WO/Case ID Monday</th>
+              <th class="cc-col-esc">Escalation Date</th>
+              <th class="cc-col-esc">Monday Status</th>
+              <th class="cc-col-esc" style="text-align:center;width:90px">Discussion</th>
+            </tr>
+          </thead>
+          <tbody id="ons-cnf-tbody">
+            <tr><td colspan="9" style="text-align:center;padding:20px;color:#8c959f;font-style:italic">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -926,6 +1087,65 @@
       </div>
       <div id="empty-rr-dc" class="empty-state" style="display:none">No Pending DC Generation parts found.</div>
       <div class="pagination" id="pg-rr-dc"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── TAB: Under Escalation ─────────────────────────────────────────────── -->
+<div class="tab-panel" id="tab-under-escalation">
+  <div class="table-card">
+    <div style="padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #e5e7eb;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:11px;color:#8c959f;flex-shrink:0" id="cc-sub">Loading…</span>
+      </div>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex-shrink:0">
+        <div class="cc-filter-wrap">
+          <select class="cc-filter-select" id="cc-filter-type" onchange="ccApplyFilters()">
+            <option value="">All Type</option>
+            <option value="Onsite">ONS</option>
+            <option value="Carry-In">CCI</option>
+            <option value="no-type">No Type</option>
+          </select>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="cc-filter-wrap">
+          <select class="cc-filter-select" id="cc-filter-status" onchange="ccApplyFilters()">
+            <option value="">All Monday Status</option>
+            <option value="in-progress" selected>In-Progress</option>
+            <option value="complete">Complete</option>
+            <option value="no-status">No Escalation</option>
+          </select>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <input type="search" id="cc-search" placeholder="Search WO, serial, type…" autocomplete="off" oninput="ccApplyFilters()" style="padding:5px 10px;border:1px solid #d0d7de;border-radius:6px;font-size:12px;width:210px;font-family:inherit;height:28px;box-sizing:border-box;" />
+        <button class="btn-export-xlsx" id="btn-export-under-escalation" title="Export current view to Excel">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Export Excel
+        </button>
+        <button class="ov-refresh-btn" id="cc-refresh-btn" title="Refresh">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="cc-table-wrap">
+      <table class="cc-table">
+        <thead>
+          <tr>
+            <th style="text-align:center;width:36px">#</th>
+            <th class="cc-col-wo">WO ID</th>
+            <th class="cc-col-wo">Completed</th>
+            <th class="cc-col-wo">Type</th>
+            <th class="cc-col-wo">Closing Code / WO Status</th>
+            <th class="cc-col-esc">WO/Case ID Monday</th>
+            <th class="cc-col-esc">Escalation Date</th>
+            <th class="cc-col-esc">Monday Status</th>
+            <th class="cc-col-esc" style="text-align:center;width:90px">Discussion</th>
+          </tr>
+        </thead>
+        <tbody id="cc-tbody">
+          <tr><td colspan="9" style="text-align:center;padding:20px;color:#8c959f;font-style:italic">Loading…</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -1216,6 +1436,10 @@
               <div class="dd-option" data-value="Customer sakit" data-by="Customer Defer">Customer sakit</div>
               <div class="dd-option" data-value="Unit masih digunakan oleh customer" data-by="Customer Defer">Unit masih digunakan oleh customer</div>
               <div class="dd-option" data-value="Unit customer belum sampai (tersedia)" data-by="Customer Defer">Unit customer belum sampai (tersedia)</div>
+              <div class="dd-group-label">Courier Defer</div>
+              <div class="dd-option" data-value="Kurir Terlambat Mengantar" data-by="Courier Defer">Kurir Terlambat Mengantar</div>
+              <div class="dd-option" data-value="Part Hilang oleh Kurir" data-by="Courier Defer">Part Hilang oleh Kurir</div>
+              <div class="dd-option" data-value="Kurir Terkendala saat Pengiriman" data-by="Courier Defer">Kurir Terkendala saat Pengiriman</div>
             </div>
           </div>
           <input type="hidden" id="or-by-value" value="" />
@@ -2049,6 +2273,88 @@
   </div>
 </div>
 
+<!-- Serial History Modal (All Problem History) -->
+<style>
+.cc-hist-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2200;align-items:center;justify-content:center;padding:20px}
+.cc-hist-overlay.open{display:flex}
+.cc-hist-modal{position:relative;width:860px;max-width:100%;max-height:90vh;background:#fff;border-radius:14px;box-shadow:0 12px 48px rgba(0,0,0,.28);z-index:2201;display:flex;flex-direction:column;animation:dbHistIn 0.2s cubic-bezier(.4,0,.2,1)}
+@keyframes dbHistIn{from{opacity:0;transform:scale(.97) translateY(10px)}to{opacity:1;transform:none}}
+.cc-hist-head{padding:18px 22px 14px;border-bottom:1px solid #e5e7eb;display:flex;align-items:flex-start;gap:12px;flex-shrink:0;border-radius:14px 14px 0 0;background:#fff}
+.cc-hist-head-title{flex:1;min-width:0}
+.cc-hist-eyebrow{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8b95a1;margin-bottom:3px}
+.cc-hist-head-title h3{font-size:15px;font-weight:700;margin:0;color:#1f2328}
+.cc-hist-close{border:none;background:none;cursor:pointer;color:#57606a;padding:6px;border-radius:6px;flex-shrink:0}
+.cc-hist-close:hover{background:#f3f4f6;color:#1f2328}
+.cc-hist-body{overflow-y:auto;padding:20px 22px;background:#f0f4f8;border-radius:0 0 14px 14px;max-height:calc(90vh - 76px)}
+.cc-hist-body::-webkit-scrollbar{width:6px}
+.cc-hist-body::-webkit-scrollbar-thumb{background:#b0bac5;border-radius:3px}
+.cc-hist-sn-label{font-size:12px;color:#57606a;margin-bottom:10px}
+.cc-hist-sn-label strong{font-family:ui-monospace,SFMono-Regular,monospace;color:#1f2328}
+.cc-hist-wo-count{font-size:11px;color:#8b95a1;margin-bottom:8px}
+.cc-hist-table-wrap{background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:clip}
+.cc-hist-table{width:100%;border-collapse:collapse;font-size:13px}
+.cc-hist-table thead tr{background:#f7f8fa}
+.cc-hist-table th{padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:#57606a;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e5e7eb;white-space:nowrap}
+.cc-hist-table td{padding:9px 10px;border-bottom:1px solid #f0f2f5;vertical-align:top}
+.cc-hist-table tr:last-child td{border-bottom:none}
+.cc-hist-ticket-cell{font-family:ui-monospace,SFMono-Regular,monospace;font-size:12px;font-weight:600;color:#3b82d4;white-space:nowrap;border-right:2px solid #bfdbfe!important;background:#eff6ff!important}
+.cc-hist-wo-btn{font-family:ui-monospace,SFMono-Regular,monospace;font-size:12.5px;font-weight:700;color:#2563eb;background:none;border:none;cursor:pointer;padding:0;text-decoration:underline}
+.cc-hist-wo-btn:hover{color:#1d4ed8}
+.cc-hist-empty{text-align:center;padding:48px 20px;color:#9ca3af;font-size:13px}
+.cc-hist-loading{text-align:center;padding:48px 20px;color:#9ca3af;font-size:13px}
+</style>
+<div class="cc-hist-overlay" id="cc-hist-overlay" onclick="ccCloseSnHistory()">
+  <div class="cc-hist-modal" onclick="event.stopPropagation()">
+    <div class="cc-hist-head">
+      <div class="cc-hist-head-title">
+        <div class="cc-hist-eyebrow">All Problem History</div>
+        <h3 id="cc-hist-title"></h3>
+      </div>
+      <button class="cc-hist-close" onclick="ccCloseSnHistory()" title="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="cc-hist-body" id="cc-hist-body">
+      <div class="cc-hist-loading">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Contact Popover (In-Prepare: Part on Hold) -->
+<div id="asp-contact-popover" class="contact-popover" style="display:none" role="tooltip">
+  <button class="contact-popover-close" id="btn-asp-contact-popover-close" title="Close">×</button>
+  <div class="contact-popover-name" id="asp-cp-name"></div>
+  <div class="contact-popover-row">
+    <span class="contact-popover-lbl">ASP</span>
+    <span class="contact-popover-val" id="asp-cp-customer"></span>
+  </div>
+  <div class="contact-popover-row">
+    <span class="contact-popover-lbl">Phone</span>
+    <span class="contact-popover-val" id="asp-cp-phone"></span>
+  </div>
+  <div class="contact-popover-row">
+    <span class="contact-popover-lbl">Email</span>
+    <span class="contact-popover-val" id="asp-cp-email"></span>
+  </div>
+</div>
+
+<!-- ETA Tiba di YCH History Sidebar (In-Prepare: Part on Hold) -->
+<div class="eta-hist-overlay" id="asp-eta-hist-overlay"></div>
+<div class="eta-hist-drawer" id="asp-eta-hist-drawer">
+  <div class="eta-hist-head">
+    <div class="eta-hist-title">
+      <h3 id="asp-eta-hist-title">ETA Tiba di YCH History</h3>
+      <p id="asp-eta-hist-sub"></p>
+    </div>
+    <button class="eta-hist-close" id="btn-asp-eta-hist-close" title="Close">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="eta-hist-body" id="asp-eta-hist-body">
+    <div class="eta-hist-loading">Loading…</div>
+  </div>
+</div>
+
 <div class="toast-wrap" id="toast-wrap"></div>
 {% endif %}{# end has_tech_id #}
 {% endblock %}
@@ -2064,7 +2370,25 @@ function esc(s) {
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 function isSentinel(s) { return s && String(s).slice(0, 4) === '2099'; }
-function fmt(s) { return (s && !isSentinel(s)) ? String(s).slice(0,16).replace('T',' ') : '—'; }
+function fmt(s) {
+  if (!s || isSentinel(s)) return '—';
+  const str = String(s).slice(0, 16).replace('T', ' ');
+  /* str is now "YYYY-MM-DD HH:MM" */
+  const [datePart, timePart] = str.split(' ');
+  if (!datePart || !timePart) return str;
+  const [, mm, dd] = datePart.split('-');
+  const _mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${dd} ${_mon[parseInt(mm, 10) - 1]} - ${timePart}`;
+}
+function fmtEta(raw) {
+  if (!raw) return '—';
+  const s = String(raw).trim().replace('T', ' ');
+  const datePart = s.slice(0, 10);
+  const [y, m, d] = datePart.split('-');
+  if (!y || !m || !d) return s;
+  const _mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${parseInt(d,10)} ${_mon[parseInt(m,10)-1]} ${y}`;
+}
 function fmtFixBy(ms) {
   const d = new Date(ms);
   const YYYY = d.getFullYear();
@@ -2093,6 +2417,31 @@ function slaCountdown(baseRaw, offsetMs) {
   const emoji      = overdue ? '❌' : (urgent ? '⚠️' : '⏱');
   const color      = overdue ? '#b91c1c' : (urgent ? '#d97706' : '#57606a');
   return `<span style="display:block;font-size:11px;font-weight:700;color:${color};white-space:nowrap;margin-top:3px">${emoji} ${hh}:${mm}</span>`;
+}
+
+function etaReceivedLabel(row) {
+  const receivedOn = row.latest_part_pod_time || row.part_pod_time || '';
+  if (!receivedOn || isSentinel(receivedOn)) return '<span style="color:#9ca3af;font-style:italic">—</span>';
+  return `<span style="color:#9ca3af;font-style:italic">tiba ${fmt(receivedOn)}</span>`;
+}
+
+function onsDateCell(value, row, isActual) {
+  if (row.wo_status_category !== 'open_part_received') return '';
+  return !value || isSentinel(value) ? '—' : fmt(value);
+}
+
+function onsDateCellClass(row, isActual) {
+  if (row.wo_status_category !== 'open_part_received') return '';
+  const actual = String(row.actual_committed_onsite_date || '').trim();
+  const defer  = String(row.customer_defer_date || '').trim();
+  const value  = isActual ? actual : defer;
+  const actualValid = actual && !isSentinel(actual);
+  const deferValid  = defer && !isSentinel(defer);
+  if (!value || isSentinel(value)) return 'ons-date-red';
+  if (actualValid && !deferValid) return isActual ? 'ons-date-green' : 'ons-date-red';
+  if (!actualValid || !deferValid) return 'ons-date-gray';
+  const actualIsLatest = actual.slice(0, 16) >= defer.slice(0, 16);
+  return (isActual ? actualIsLatest : !actualIsLatest) ? 'ons-date-green' : 'ons-date-gray';
 }
 
 function statusBadge(s) {
@@ -2142,7 +2491,7 @@ function toast(msg, type='ok') {
    GENERIC PAGINATED TABLE FACTORY
    Each tab gets its own independent instance.
 ═══════════════════════════════════════════════════════════════ */
-function makeTabTable({ apiUrl, tbodyId, emptyId, pgId, cntId, colsFn, actionsFn, onBind }) {
+function makeTabTable({ apiUrl, tbodyId, emptyId, pgId, cntId, colsFn, actionsFn, onBind, rowStyleFn }) {
   let state = { page: 1, timer: null };
 
   function params(extra) {
@@ -2195,10 +2544,13 @@ function makeTabTable({ apiUrl, tbodyId, emptyId, pgId, cntId, colsFn, actionsFn
       const idx = `<td style="text-align:center;color:#8c959f;font-size:12px;width:40px">${offset + i + 1}</td>`;
       let cells = cols.map(c => {
         const v = c.render ? c.render(r) : esc(r[c.key] || '—');
-        return `<td title="${esc(String(r[c.key]||''))}">${v}</td>`;
+        const tdStyle = typeof c.tdStyle === 'function' ? c.tdStyle(r) : c.tdStyle;
+        const tdClass = typeof c.tdClass === 'function' ? c.tdClass(r) : c.tdClass;
+        return `<td class="${tdClass || ''}" title="${esc(String(r[c.key]||''))}"${tdStyle ? ` style="${tdStyle}"` : ''}>${v}</td>`;
       }).join('');
       if (actionsFn) cells += `<td><div class="btn-group">${actionsFn(r)}</div></td>`;
-      return `<tr>${idx}${cells}</tr>`;
+      const trStyle = rowStyleFn ? rowStyleFn(r) : '';
+      return `<tr${trStyle ? ` style="${trStyle}"` : ''}>${idx}${cells}</tr>`;
     }).join('');
 
     if (onBind) onBind(data.rows);
@@ -3292,7 +3644,7 @@ function initCollapsibles() {
     }
     document.getElementById('md-disc-drawer').classList.add('open');
     document.getElementById('md-disc-overlay').classList.add('open');
-    fetch('/admin/monday-data/discussion/' + encodeURIComponent(itemId))
+    fetch('/asp/api/monday-discussion/' + encodeURIComponent(itemId))
       .then(r => r.json())
       .then(data => _renderDiscDrawer(data))
       .catch(() => {
@@ -3326,14 +3678,11 @@ const allWoTable = makeTabTable({
   apiUrl: '/asp/api/all-wo',
   tbodyId: 'tbody-all', emptyId: 'empty-all', pgId: 'pg-all', cntId: 'count-all',
   colsFn: () => [
-    { key: 'created_on',     render: r => fmt(r.created_on) },
-    { key: 'work_order_id', render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
-    { key: 'work_order_type',render: r => esc(r.work_order_type||'—') },
+    { key: 'created_on',     tdStyle: 'text-align:center', render: r => fmt(r.created_on) },
+    { key: 'work_order_id',  tdStyle: 'text-align:center', render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
+    { key: 'work_order_type',tdStyle: 'text-align:center', render: r => esc(r.work_order_type||'—') },
     { key: 'case_desc',      render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
     { key: 'work_order_status', render: r => statusBadge(r.work_order_status) },
-    { key: 'case_status',    render: r => esc(r.case_status||'—') },
-    { key: 'committed_delivery_date',       render: r => fmt(r.committed_delivery_date) },
-    { key: 'actual_committed_onsite_date',  render: r => fmt(r.actual_committed_onsite_date) },
     { key: 'contact_name',   render: r => esc(r.contact_name||'—') },
     { key: 'customer',       render: r => esc(r.customer||'—') },
   ],
@@ -3383,78 +3732,51 @@ const inPrepareTable = makeTabTable({
     const isNoPart  = inPrepareFilter === 'no_part';
     const isPickup  = inPrepareFilter === 'waiting_pickup';
     const base = [
-      { key: 'created_on',        render: r => fmt(r.created_on) },
-      { key: 'work_order_id',     render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
-      { key: 'work_order_type',   render: r => esc(r.work_order_type||'—') },
-      { key: 'work_order_status', render: r => statusBadge(r.work_order_status) },
+      { key: 'created_on',        tdStyle: 'text-align:center', render: r => fmt(r.created_on) },
+      { key: 'work_order_id',     tdStyle: 'text-align:center', render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
+      { key: 'work_order_type',   tdStyle: 'text-align:center', render: r => esc(r.work_order_type||'—') },
     ];
+    /* Total Diterima — then WO Status */
+    base.push(
+      { key: 'part_received_count', tdStyle: 'text-align:center', render: r => {
+          if (r.no_part_lines) return '<span style="color:#8c959f;font-style:italic">No Part Order</span>';
+          const recv  = r.part_received_count  || 0;
+          const total = r.part_total_order_count || 0;
+          if (!total) return '<span style="color:#8c959f;font-style:italic">No Part Order</span>';
+          const onHold = (r.part_on_hold_count || 0) > 0;
+          const color = onHold ? '#b91c1c' : recv > 0 && recv >= total ? '#ffffff' : recv > 0 ? '#92400e' : '#1f2328';
+          const bg    = onHold ? '#fee2e2' : recv > 0 && recv >= total ? '#16a34a' : recv > 0 ? '#fef3c7' : '#ffffff';
+          const border= onHold ? '#fca5a5' : recv > 0 && recv >= total ? '#15803d' : recv > 0 ? '#fcd34d' : '#1f2328';
+          return `<button data-action="total-part-recv" data-wo="${esc(r.work_order_id)}" data-wo-type="${esc(r.work_order_type||'')}" data-wo-status="${esc(r.work_order_status||'')}" style="cursor:pointer;border:1px solid ${border};background:${bg};color:${color};border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;white-space:nowrap">${recv}/${total} Parts</button>`;
+        }
+      }
+    );
     if (showEta) {
-      base.push(
-        { key: 'part_on_hold_count', render: r => {
-            const n    = r.part_on_hold_count || 0;
-            const recv = r.part_received_count || 0;
-            const recvSuffix = recv > 0
-              ? ` <span style="display:inline-block;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap">🤝${recv} diterima</span>`
-              : '';
-            if (!n) return `<span style="color:#8c959f">—</span>${recvSuffix}`;
-            return `<button class="inprep-part-pill" data-action="inprep-part-history" data-wo="${esc(r.work_order_id)}" data-wo-type="${esc(r.work_order_type||'')}" data-wo-status="${esc(r.work_order_status||'')}" style="cursor:pointer;border:none;background:#fee2e2;color:#b91c1c;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;white-space:nowrap">🔒 ${n} ${n === 1 ? 'Part' : 'Parts'}</button>${recvSuffix}`;
-          }
-        },
-        { key: 'part_eta_wh',       render: r => {
-            if (r.no_part_lines || !r.part_eta_wh || isSentinel(r.part_eta_wh)) return '—';
-            const etaDate = r.part_eta_wh.slice(0,10);
-            const today   = new Date().toISOString().slice(0,10);
-            const overdue = etaDate < today;
-            return `<span style="font-weight:700;color:${overdue?'#b91c1c':'#92400e'}">${esc(r.part_eta_wh.slice(0,10))}</span>${overdue?' <span style="font-size:10px;font-weight:700;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:1px 6px">OVERDUE</span>':''}`;
-          }
+      /* ETA Tiba di YCH — amber pill, red when overdue, with history button */
+      const _ASP_CLOCK_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+      base.push({ key: 'part_eta_wh', tdStyle: 'text-align:center', render: r => {
+          const raw = (r.part_eta_wh || '').trim();
+          if (!raw) return '<span style="color:#8c959f">—</span>';
+          const etaDate = new Date(raw.slice(0, 10));
+          const today   = new Date(); today.setHours(0, 0, 0, 0);
+          const overdue = !isNaN(etaDate) && etaDate < today;
+          const cls     = overdue ? 'eta-val overdue' : 'eta-val';
+          const histBtn = `<button class="btn-eta-hist" data-wo="${esc(r.work_order_id)}" title="ETA history">${_ASP_CLOCK_SVG}</button>`;
+          return `<span class="eta-cell"><span class="${cls}">${esc(fmtEta(raw))}</span>${histBtn}</span>`;
         }
-      );
-    } else if (showAll) {
-      base.push(
-        { key: 'part_waiting_pickup_count', render: r => {
-            if (r.no_part_lines)
-              return `<span class="fu-badge fu-wo-sla" style="font-size:11px;gap:4px">⏳ No Part Data</span>`;
-            const n    = r.part_waiting_pickup_count || 0;
-            const recv = r.part_received_count || 0;
-            const recvSuffix = recv > 0
-              ? ` <span style="display:inline-block;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap">🤝${recv} diterima</span>`
-              : '';
-            if (!n) return `<span style="color:#8c959f;font-style:italic">—</span>${recvSuffix}`;
-            if (r.part_on_hold_count > 0)
-              return `<button class="inprep-part-pill" data-action="inprep-part-history" data-wo="${esc(r.work_order_id)}" data-wo-type="${esc(r.work_order_type||'')}" data-wo-status="${esc(r.work_order_status||'')}" style="cursor:pointer;border:none;background:#fee2e2;color:#b91c1c;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;white-space:nowrap">🔒 ${n} ${n === 1 ? 'Part' : 'Parts'}</button>${recvSuffix}`;
-            return `<button class="inprep-part-pill" data-action="inprep-part-history" data-wo="${esc(r.work_order_id)}" data-wo-type="${esc(r.work_order_type||'')}" data-wo-status="${esc(r.work_order_status||'')}" style="cursor:pointer;border:none;background:#dbeafe;color:#1e40af;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;white-space:nowrap">📦 ${n} ${n === 1 ? 'Part' : 'Parts'}</button>${recvSuffix}`;
-          }
-        }
-      );
-    } else if (isNoPart) {
-      base.push(
-        { key: 'part_total_order_count', render: r => {
-            const n = r.part_total_order_count || 0;
-            if (!n) return `<span class="fu-badge fu-wo-sla" style="font-size:11px;gap:4px">⏳ No Part Data</span>`;
-            return `<span style="display:inline-block;background:#dbeafe;color:#1e40af;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;white-space:nowrap">${n} ${n === 1 ? 'Part' : 'Parts'}</span>`;
-          }
-        }
-      );
-    } else if (isPickup) {
-      base.push(
-        { key: 'part_waiting_pickup_count', render: r => {
-            const n    = r.part_waiting_pickup_count || 0;
-            const recv = r.part_received_count || 0;
-            const recvSuffix = recv > 0
-              ? ` <span style="display:inline-block;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap">🤝${recv} diterima</span>`
-              : '';
-            if (!n) return `<span style="color:#8c959f;font-style:italic">—</span>${recvSuffix}`;
-            return `<button class="inprep-part-pill" data-action="inprep-part-history" data-wo="${esc(r.work_order_id)}" data-wo-type="${esc(r.work_order_type||'')}" data-wo-status="${esc(r.work_order_status||'')}" style="cursor:pointer;border:none;background:#dbeafe;color:#1e40af;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;white-space:nowrap">📦 ${n} ${n === 1 ? 'Part' : 'Parts'}</button>${recvSuffix}`;
-          }
-        }
-      );
-    } else {
-      base.push(
-        { key: 'part_product',      render: r => r.no_part_lines
-            ? `<span class="fu-badge fu-wo-sla" style="font-size:11px;gap:4px">⏳ No Part Data</span>`
-            : `<span title="${esc(r.part_description||'')}" style="font-size:11px;color:#57606a">${esc(r.part_product||'—')}</span>` }
-      );
+      });
+      /* Contact — clickable popover */
+      base.push({ key: 'contact_name', tdStyle: 'text-align:center', render: r =>
+        r.contact_name
+          ? `<button class="btn-contact" data-wo="${esc(r.work_order_id)}" data-name="${esc(r.contact_name)}" data-customer="${esc(r.customer||'')}" data-phone="${esc(r.mobile_phone||'')}" data-email="${esc(r.primary_email||'')}">${esc(r.contact_name)}</button>`
+          : '<span style="color:#8c959f">—</span>'
+      });
     }
+    base.push({ key: '_notes', tdStyle: 'text-align:center', render: () => '<span style="color:#8c959f">—</span>' });
+    base.push({ key: 'work_order_status', tdStyle: 'text-align:center', render: r => statusBadge(r.work_order_status) });
+    /* toggle extra <th> headers */
+    document.getElementById('th-inprep-eta').style.display     = showEta ? '' : 'none';
+    document.getElementById('th-inprep-contact').style.display = showEta ? '' : 'none';
     return base;
   },
   onBind: rows => {
@@ -3467,17 +3789,25 @@ const inPrepareTable = makeTabTable({
       b.addEventListener('click', () => openDetail(b.dataset.wo)));
     document.getElementById('tbody-in-prepare').querySelectorAll('[data-action="inprep-part-history"]').forEach(b =>
       b.addEventListener('click', () => openPartHistory(b.dataset.wo, b.dataset.woType, b.dataset.woStatus)));
+    document.getElementById('tbody-in-prepare').querySelectorAll('[data-action="total-part-recv"]').forEach(b =>
+      b.addEventListener('click', () => openPartHistory(b.dataset.wo, b.dataset.woType, b.dataset.woStatus)));
+    document.getElementById('tbody-in-prepare').querySelectorAll('.btn-contact').forEach(b =>
+      b.addEventListener('click', () => openContactPopover(b)));
+    document.getElementById('tbody-in-prepare').querySelectorAll('.btn-eta-hist').forEach(b =>
+      b.addEventListener('click', () => aspOpenEtaHistorySidebar(b.dataset.wo)));
   },
 });
 
 let inPrepareTimer    = null;
 let inPrepareFilter   = '';   /* '' | 'part_on_hold' | 'no_part' | 'waiting_pickup' */
+let inPrepareWoType   = '';   /* '' | 'carry-in' | 'onsite' */
 let inPrepareTotalAll = 0;    /* cached total for the unfiltered view — keeps badge stable */
 
 function _inPrepareLoad() {
   const q      = document.getElementById('search-in-prepare').value.trim();
   const params = q ? { q } : {};
   if (inPrepareFilter) params.prepare_filter = inPrepareFilter;
+  if (inPrepareWoType) params.wo_type = inPrepareWoType;
   inPrepareTable.load(params);
 }
 
@@ -3486,24 +3816,18 @@ document.getElementById('search-in-prepare').addEventListener('input', () => {
   inPrepareTimer = setTimeout(_inPrepareLoad, 350);
 });
 
-function _inPrepareToggleEta() {
-  const isHold   = inPrepareFilter === 'part_on_hold';
-  const isAll    = inPrepareFilter === '';
-  const isNoPart = inPrepareFilter === 'no_part';
-  const isPickup = inPrepareFilter === 'waiting_pickup';
-  document.getElementById('th-in-prepare-eta').style.display        = isHold ? '' : 'none';
-  document.getElementById('th-in-prepare-part').textContent         =
-    isHold ? 'Total On-Hold' : isPickup ? 'Total Waiting Pickup' : isAll ? 'Total In-Prepare' : isNoPart ? 'Total Order' : 'Part';
-}
-
 document.querySelectorAll('#in-prepare-filter-pills [data-prepfilter]').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('#in-prepare-filter-pills [data-prepfilter]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     inPrepareFilter = btn.dataset.prepfilter;
-    _inPrepareToggleEta();
     _inPrepareLoad();
   });
+});
+
+document.getElementById('select-inprep-wotype').addEventListener('change', function () {
+  inPrepareWoType = this.value;
+  _inPrepareLoad();
 });
 
 /* ═══════════════════════════════════════════════════════════════
@@ -3547,89 +3871,106 @@ const cciFollowUpTable = makeTabTable({
   apiUrl:  '/asp/api/cci-followup',
   tbodyId: 'tbody-cci-followup', emptyId: 'empty-cci-followup',
   pgId: 'pg-cci-followup', cntId: 'count-cci-followup',
-  colsFn: () => [
-    { key: 'created_on',        render: r => fmt(r.created_on) },
-    { key: 'work_order_id',     render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
-    { key: '_followup_state',   render: r => cciFuStateBadge(r) },
-    { key: 'part_qty',          render: r => {
-        const delivered = r.part_delivered_count || 0;
-        const delivSuffix = delivered > 0
-          ? ` <span style="display:inline-block;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap">🤝${delivered} diterima</span>`
-          : '';
-        if (!r.part_qty || r.part_qty < 1)
-          return `<button data-action="part-history-pill" data-wo="${esc(r.work_order_id)}" data-wo-type="${esc(r.work_order_type||'')}" data-wo-status="${esc(r.work_order_status||'')}" style="cursor:pointer;border:none;display:inline-flex;align-items:center;background:#ccfbf1;color:#0f766e;border-radius:10px;font-size:11px;font-weight:700;padding:2px 8px;white-space:nowrap">🤝${delivered} diterima</button>`;
-        const palettes = [
-          null,                                        /* 0 — unused */
-          { bg: '#dbeafe', color: '#1e40af' },         /* 1 — blue   */
-          { bg: '#dcfce7', color: '#15803d' },         /* 2 — green  */
-          { bg: '#fef3c7', color: '#92400e' },         /* 3 — amber  */
-          { bg: '#ede9fe', color: '#6d28d9' },         /* 4 — purple */
-          { bg: '#fee2e2', color: '#b91c1c' },         /* 5 — red    */
-          { bg: '#ffedd5', color: '#c2410c' },         /* 6 — orange */
-          { bg: '#f0fdfa', color: '#0f766e' },         /* 7 — teal   */
-          { bg: '#fdf4ff', color: '#86198f' },         /* 8 — pink   */
-        ];
-        const p = palettes[Math.min(r.part_qty, palettes.length - 1)] || { bg: '#f3f4f6', color: '#374151' };
-        return `<button data-action="part-history-pill" data-wo="${esc(r.work_order_id)}" data-wo-type="${esc(r.work_order_type||'')}" data-wo-status="${esc(r.work_order_status||'')}" style="cursor:pointer;border:none;display:inline-flex;align-items:center;background:${p.bg};color:${p.color};border-radius:10px;font-size:11px;font-weight:700;padding:2px 8px;white-space:nowrap">🚚 ${r.part_qty} ${r.part_qty === 1 ? 'Part' : 'Parts'}</button>${delivSuffix}`;
+  colsFn: () => {
+    const inRepair = cciFollowUpFilter === 'in_repair';
+    const cols = [
+    { key: 'created_on',        tdStyle: 'text-align:center', render: r => fmt(r.created_on) },
+    { key: 'work_order_id',     tdStyle: 'text-align:center', render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
+    { key: '_followup_state',   tdStyle: 'text-align:center', tdClass: 'cci-state-cell', render: r => cciFuStateBadge(r) },
+    { key: 'part_delivered_count', tdStyle: 'text-align:center', render: r => {
+        const recv  = r.part_delivered_count || 0;
+        const total = (r.part_qty || 0) + recv;
+        if (!total) return '<span style="color:#8c959f;font-style:italic">No Part Order</span>';
+        const onHold = (r.work_order_status || '').toLowerCase().includes('part') && (r.work_order_status || '').toLowerCase().includes('hold');
+        const color = onHold ? '#b91c1c' : recv > 0 && recv >= total ? '#ffffff' : recv > 0 ? '#92400e' : '#1f2328';
+        const bg    = onHold ? '#fee2e2' : recv > 0 && recv >= total ? '#16a34a' : recv > 0 ? '#fef3c7' : '#ffffff';
+        const border= onHold ? '#fca5a5' : recv > 0 && recv >= total ? '#15803d' : recv > 0 ? '#fcd34d' : '#1f2328';
+        return `<button data-action="total-part-recv" data-wo="${esc(r.work_order_id)}" data-wo-type="${esc(r.work_order_type||'')}" data-wo-status="${esc(r.work_order_status||'')}" style="cursor:pointer;border:1px solid ${border};background:${bg};color:${color};border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;white-space:nowrap">${recv}/${total} Parts</button>`;
       }
     },
-    { key: 'part_eta',          render: r => {
+    { key: 'ship_pickup_time',  tdStyle: 'text-align:center', render: r => {
+        const recv  = r.part_delivered_count || 0;
+        const total = (r.part_qty || 0) + recv;
+        if (total > 0 && recv >= total)
+          return '<span style="color:#8c959f;font-style:italic">Semua Parts Diterima</span>';
         const state = r.followup_state || '';
-        /* Confirm AWB / Part SLA Overdue → show ETA date only (YYYY-MM-DD) + arriving pills */
-        if (state === 'confirm_receipt' || state === 'part_sla') {
-          if (!r.part_eta || isSentinel(r.part_eta))
-            return '<span style="color:#8c959f;font-style:italic">—</span>';
-          const etaStr  = r.part_eta.slice(0, 10);
-          const etaDate = esc(etaStr);
-          /* Use WIB (UTC+7) for today/tomorrow — same timezone the server uses.
-             toISOString() is UTC and would show "Arriving Today" until 07:00 WIB. */
-          const _wibOffsetMs = 7 * 3600000;
-          const _wibNow  = new Date(Date.now() + _wibOffsetMs);
-          const today    = _wibNow.toISOString().slice(0, 10);
-          const _tmrDt   = new Date(_wibNow.getTime() + 86400000);
-          const tomorrow = _tmrDt.toISOString().slice(0, 10);
-          if (etaStr < today)
-            return `<span style="font-weight:700;color:#b91c1c">${etaDate}</span>`
-                 + `<span style="margin-left:5px;font-size:10px;font-weight:700;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:1px 6px">OVERDUE</span>`;
-          if (etaStr === today)
-            return `<span style="font-weight:700;color:#0f766e">${etaDate}</span>`
-                 + `<span style="margin-left:5px;font-size:10px;font-weight:700;background:#ccfbf1;color:#0f766e;border:1px solid #99f6e4;border-radius:8px;padding:1px 6px">Arriving Today</span>`;
-          if (etaStr === tomorrow)
-            return `<span style="font-weight:700;color:#374151">${etaDate}</span>`
-                 + `<span style="margin-left:5px;font-size:10px;font-weight:700;background:#f3f4f6;color:#374151;border:1px solid #9ca3af;border-radius:8px;padding:1px 6px">Tomorrow</span>`;
-          return `<span style="font-weight:700;color:#374151">${etaDate}</span>`;
-        }
-        /* Escalate WO / WO SLA Follow-Up → show part_pod_time + 1 day in WIB (UTC+7) */
-        if (state === 'wo_sla' || state === 'report_problem') {
-          if (!r.part_pod_time || isSentinel(r.part_pod_time))
-            return '<span style="color:#8c959f;font-style:italic">—</span>';
-          /* DB strings are already in WIB — parse as local time (no Z), add 1 day */
-          const podDt    = new Date(String(r.part_pod_time).slice(0, 16).replace(' ', 'T'));
-          if (isNaN(podDt)) return '<span style="color:#8c959f;font-style:italic">—</span>';
-          const threshDt = new Date(podDt.getTime() + 86400000);   /* +1 day */
-          const pad      = n => String(n).padStart(2, '0');
-          const tDate    = `${threshDt.getFullYear()}-${pad(threshDt.getMonth()+1)}-${pad(threshDt.getDate())}`;
-          const tTime    = `${pad(threshDt.getHours())}:${pad(threshDt.getMinutes())}`;
-          const label    = `${tDate} ${tTime}`;
-          if (threshDt < new Date())
-            return `<span style="font-weight:700;color:#b91c1c">${label}</span>`
-                 + `<span style="margin-left:5px;font-size:10px;font-weight:700;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:1px 6px">OVERDUE</span>`;
-          return `<span style="font-weight:700;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:2px 6px">${label}</span>`;
-        }
-        return '<span style="color:#8c959f;font-style:italic">—</span>';
+        const val   = (state === 'wo_sla' || state === 'report_problem') ? r.part_pod_time : r.ship_pickup_time;
+        if (!val || isSentinel(val))
+          return '<span style="color:#8c959f;font-style:italic">Part belum dikirim</span>';
+        return fmt(val);
       }
     },
-    { key: 'part_awb',          render: r => r.part_awb ? `<span style="font-family:monospace;font-size:11px;color:#0f766e;font-weight:700;background:#ccfbf1;border:1px solid #5eead4;border-radius:6px;padding:2px 6px">${esc(r.part_awb)}</span>` : '<span style="color:#8c959f;font-style:italic">—</span>' },
+
+    ...(!inRepair ? [{ key: 'part_eta', tdStyle: 'text-align:center', render: r => {
+        /* ETA Part — only shown for in-transit states (confirm_receipt / part_sla). */
+        const state = r.followup_state || '';
+        const recv  = r.part_delivered_count || 0;
+        const total = (r.part_qty || 0) + recv;
+        const allReceived = total > 0 && recv >= total;
+        if (allReceived) return etaReceivedLabel(r);
+        if (state !== 'confirm_receipt' && state !== 'part_sla')
+          return '<span style="color:#8c959f;font-style:italic">Menunggu Update YCH</span>';
+        if (!r.part_eta || isSentinel(r.part_eta))
+          return '<span style="color:#8c959f;font-style:italic">Menunggu Update YCH</span>';
+        const etaStr  = r.part_eta.slice(0, 10);
+        const etaDate = esc(etaStr);
+        /* Use WIB (UTC+7) for today/tomorrow — same timezone the server uses. */
+        const _wibOffsetMs = 7 * 3600000;
+        const _wibNow  = new Date(Date.now() + _wibOffsetMs);
+        const today    = _wibNow.toISOString().slice(0, 10);
+        const _tmrDt   = new Date(_wibNow.getTime() + 86400000);
+        const tomorrow = _tmrDt.toISOString().slice(0, 10);
+        if (etaStr < today)
+          return `<span style="white-space:nowrap"><span style="font-weight:700;color:#b91c1c">${etaDate}</span>`
+               + `<span style="margin-left:5px;font-size:10px;font-weight:700;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:1px 6px">OVERDUE</span></span>`;
+        if (etaStr === today)
+          return `<span style="white-space:nowrap"><span style="font-weight:700;color:#0f766e">${etaDate}</span> <span style="font-size:10px;font-weight:700;background:#ccfbf1;color:#0f766e;border:1px solid #99f6e4;border-radius:8px;padding:1px 6px">Part tiba Hari ini</span></span>`;
+        if (etaStr === tomorrow)
+          return `<span style="white-space:nowrap"><span style="font-weight:700;color:#374151">${etaDate}</span> <span style="font-size:10px;font-weight:700;background:#f3f4f6;color:#374151;border:1px solid #9ca3af;border-radius:8px;padding:1px 6px">Part tiba Besok</span></span>`;
+        return `<span style="white-space:nowrap"><span style="font-weight:700;color:#374151">${etaDate}</span> <span style="font-size:10px;font-weight:700;color:#8c959f;font-style:italic">Part In-Transit</span></span>`;
+      }
+    }] : []),
+    { key: 'part_pod_time',     tdStyle: 'text-align:center', render: r => {
+        /* Target SLA — only shown for in-repair states (part_pod_time + 1 day CCI SLA) */
+        const state = r.followup_state || '';
+        /* For in-transit states: show Arriving Today / Tomorrow pill if ETA matches,
+           otherwise fall back to Part Belum Sampai */
+        if (state !== 'wo_sla' && state !== 'report_problem') {
+          if (r.part_eta && !isSentinel(r.part_eta)) {
+            const _etaStr = r.part_eta.slice(0, 10);
+            const _wibNow = new Date(Date.now() + 7 * 3600000);
+            const _today  = _wibNow.toISOString().slice(0, 10);
+            const _tmrStr = new Date(_wibNow.getTime() + 86400000).toISOString().slice(0, 10);
+            if (_etaStr === _today)
+              return `<span style="white-space:nowrap;font-size:10px;font-weight:700;background:#ccfbf1;color:#0f766e;border:1px solid #99f6e4;border-radius:8px;padding:1px 6px">Part tiba Hari ini</span>`;
+            if (_etaStr === _tmrStr)
+              return `<span style="white-space:nowrap;font-size:10px;font-weight:700;background:#f3f4f6;color:#374151;border:1px solid #9ca3af;border-radius:8px;padding:1px 6px">Part tiba Besok</span>`;
+            return '';
+          }
+          return '';
+        }
+        if (!r.part_pod_time || isSentinel(r.part_pod_time))
+          return '';
+        const podDt    = new Date(String(r.part_pod_time).slice(0, 16).replace(' ', 'T'));
+        if (isNaN(podDt)) return '<span style="color:#8c959f;font-style:italic">—</span>';
+        const threshDt = new Date(podDt.getTime() + 86400000);   /* POD + 1 day */
+        const pad      = n => String(n).padStart(2, '0');
+        const _mon     = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const tDate    = `${pad(threshDt.getDate())} ${_mon[threshDt.getMonth()]}`;
+        const tTime    = `${pad(threshDt.getHours())}:${pad(threshDt.getMinutes())}`;
+        const label    = `${tDate} - ${tTime}`;
+        if (threshDt < new Date())
+          return `<span style="white-space:nowrap"><span style="font-weight:700;color:#b91c1c">${label}</span>`
+               + `<span style="margin-left:5px;font-size:10px;font-weight:700;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:1px 6px">OVERDUE</span></span>`;
+        return `<span style="white-space:nowrap;font-weight:700;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:2px 6px">${label}</span>`;
+      }
+    },
     { key: 'work_order_status', render: r => statusBadge(r.work_order_status) },
-    { key: 'ship_pickup_time',  render: r => {
-        const state = r.followup_state || '';
-        if (state === 'wo_sla' || state === 'report_problem')
-          return fmt(r.part_pod_time);
-        return fmt(r.ship_pickup_time);
-      }
-    },
+    { key: 'part_awb',          tdStyle: 'text-align:center', render: r => r.part_awb ? `<span style="font-family:monospace;font-size:11px;color:#0f766e;font-weight:700;background:#ccfbf1;border:1px solid #5eead4;border-radius:6px;padding:2px 6px">${esc(r.part_awb)}</span>` : '<span style="color:#8c959f;font-style:italic">AWB Kosong</span>' },
     { key: 'case_desc',         render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
-  ],
+    ];
+    return cols;
+  },
   onBind: rows => {
     const badge = document.getElementById('tab-cci-followup-badge');
     const cnt   = parseInt(document.getElementById('count-cci-followup').textContent, 10) || rows.length;
@@ -3640,6 +3981,8 @@ const cciFollowUpTable = makeTabTable({
     tbody.querySelectorAll('.wo-link').forEach(b =>
       b.addEventListener('click', () => openDetail(b.dataset.wo)));
     tbody.querySelectorAll('[data-action="part-history-pill"]').forEach(b =>
+      b.addEventListener('click', () => openPartHistory(b.dataset.wo, b.dataset.woType, b.dataset.woStatus)));
+    tbody.querySelectorAll('[data-action="total-part-recv"]').forEach(b =>
       b.addEventListener('click', () => openPartHistory(b.dataset.wo, b.dataset.woType, b.dataset.woStatus)));
     /* Stage 1 — in-delivery actions */
     tbody.querySelectorAll('[data-action="cci-fu-recv"]').forEach(b =>
@@ -3652,6 +3995,7 @@ const cciFollowUpTable = makeTabTable({
     tbody.querySelectorAll('[data-action="cci-fu-escalate"]').forEach(b =>
       b.addEventListener('click', () => openEscalateWo(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, b.dataset.pod, b.dataset.deferDate)));
   },
+  rowStyleFn: r => r.followup_state === 'report_problem' ? 'background:#fed7aa' : '',
 });
 
 let cciFollowUpTimer  = null;
@@ -3675,10 +4019,9 @@ document.querySelectorAll('#cci-followup-filter-pills [data-fufilter]').forEach(
     document.querySelectorAll('#cci-followup-filter-pills [data-fufilter]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     cciFollowUpFilter = btn.dataset.fufilter;
-    const _thLabel    = { '': 'Target Fix/Sampai', 'in_transit': 'Target Sampai', 'in_repair': 'Target Fix' };
     const _shipLabel  = { '': 'Shipped On', 'in_transit': 'Shipped On', 'in_repair': 'Delivered On' };
-    document.getElementById('th-cci-target').textContent = _thLabel[cciFollowUpFilter]   ?? 'Target Fix/Sampai';
     document.getElementById('th-cci-shipped').textContent = _shipLabel[cciFollowUpFilter] ?? 'Shipped On';
+    document.getElementById('th-cci-eta').style.display = cciFollowUpFilter === 'in_repair' ? 'none' : '';
     _cciFollowUpLoad();
   });
 });
@@ -3691,9 +4034,9 @@ const onsFollowUpTable = makeTabTable({
   tbodyId: 'tbody-ons-followup', emptyId: 'empty-ons-followup',
   pgId: 'pg-ons-followup', cntId: 'count-ons-followup',
   colsFn: () => [
-    { key: 'created_on',        render: r => fmt(r.created_on) },
-    { key: 'work_order_id',     render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
-    { key: '_schedule_action',  render: r => {
+    { key: 'created_on',        tdStyle: 'text-align:center', render: r => fmt(r.created_on) },
+    { key: 'work_order_id',     tdStyle: 'text-align:center', render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
+    { key: '_schedule_action',  tdStyle: 'text-align:center', tdClass: 'ons-schedule-cell', render: r => {
         const state         = r.followup_state || '';
         /* Show for in-transit (wo_reschedule/part_sla) AND in-repair (wo_sla/report_problem) */
         if (!['wo_reschedule', 'part_sla', 'wo_sla', 'report_problem'].includes(state))
@@ -3706,22 +4049,71 @@ const onsFollowUpTable = makeTabTable({
         const actOnsiteEsc  = esc(r.actual_committed_onsite_date || '');
         const podEsc        = esc(r.part_pod_time || '');
         if (deferDate)
-          return `<button class="fu-badge fu-reschedule fu-badge-btn" data-action="ons-followup-schedule" data-wo="${wo}" data-wo-type="${woType}" data-status="${status}" data-asp="${asp}" data-defer-date="${deferDate}" data-actual-onsite="${actOnsiteEsc}" data-pod="${podEsc}">📅 Reschedule ONS</button>`;
-        return `<button class="fu-badge fu-set-schedule fu-badge-btn" data-action="ons-followup-schedule" data-wo="${wo}" data-wo-type="${woType}" data-status="${status}" data-asp="${asp}" data-defer-date="${deferDate}" data-actual-onsite="${actOnsiteEsc}" data-pod="${podEsc}">📅 Set ONS Schedule</button>`;
+          return `<button class="fu-badge fu-reschedule fu-badge-btn" data-action="ons-followup-schedule" data-wo="${wo}" data-wo-type="${woType}" data-status="${status}" data-asp="${asp}" data-defer-date="${deferDate}" data-actual-onsite="${actOnsiteEsc}" data-pod="${podEsc || deferDate}">📅 Re-Schedule ONS</button>`;
+        return `<button class="fu-badge fu-set-schedule fu-badge-btn" data-action="ons-followup-schedule" data-wo="${wo}" data-wo-type="${woType}" data-status="${status}" data-asp="${asp}" data-defer-date="${deferDate}" data-actual-onsite="${actOnsiteEsc}" data-pod="${podEsc}">📅 Set Schedule ONS</button>`;
       }
     },
-    { key: '_escalation_action', render: r => {
+    { key: 'part_delivered_count', tdStyle: 'text-align:center', render: r => {
+        const recv  = r.part_delivered_count || 0;
+        const total = (r.part_qty || 0) + recv;
+        if (!total) return '<span style="color:#8c959f;font-style:italic">No Part Order</span>';
+        const onHold = (r.work_order_status || '').toLowerCase().includes('part') && (r.work_order_status || '').toLowerCase().includes('hold');
+        const color = onHold ? '#b91c1c' : recv > 0 && recv >= total ? '#ffffff' : recv > 0 ? '#92400e' : '#1f2328';
+        const bg    = onHold ? '#fee2e2' : recv > 0 && recv >= total ? '#16a34a' : recv > 0 ? '#fef3c7' : '#ffffff';
+        const border= onHold ? '#fca5a5' : recv > 0 && recv >= total ? '#15803d' : recv > 0 ? '#fcd34d' : '#1f2328';
+        return `<button data-action="total-part-recv" data-wo="${esc(r.work_order_id)}" data-wo-type="${esc(r.work_order_type||'')}" data-wo-status="${esc(r.work_order_status||'')}" style="cursor:pointer;border:1px solid ${border};background:${bg};color:${color};border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;white-space:nowrap">${recv}/${total} Parts</button>`;
+      }
+    },
+    { key: 'part_eta',          tdStyle: 'text-align:center', render: r => {
+        const recv  = Number(r.part_delivered_count) || 0;
+        const total = (Number(r.part_qty) || 0) + recv;
+        /* All parts received: show the latest POD timestamp instead of an ETA. */
+        if (recv > 0 && recv >= total) return etaReceivedLabel(r);
+        const state = r.followup_state || '';
+        if (state !== 'wo_reschedule' && state !== 'part_sla') return '<span style="color:#8c959f;font-style:italic">Menunggu Update YCH</span>';
+        if (!r.part_eta || isSentinel(r.part_eta)) return '<span style="color:#8c959f;font-style:italic">Menunggu Update YCH</span>';
+        const etaDate    = r.part_eta.slice(0, 10);
+        const _now       = new Date();
+        const today      = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`;
+        const _tomorrowDt = new Date(_now); _tomorrowDt.setDate(_tomorrowDt.getDate() + 1);
+        const tomorrow   = `${_tomorrowDt.getFullYear()}-${String(_tomorrowDt.getMonth()+1).padStart(2,'0')}-${String(_tomorrowDt.getDate()).padStart(2,'0')}`;
+        if (etaDate < today)
+          return `<span style="font-weight:700;color:#b91c1c">${esc(etaDate)}</span><span style="margin-left:5px;font-size:10px;font-weight:700;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:1px 6px">OVERDUE</span>`;
+        if (etaDate === today)
+          return `<span style="font-weight:700;color:#0f766e">${esc(etaDate)}</span><span style="margin-left:5px;font-size:10px;font-weight:700;background:#ccfbf1;color:#0f766e;border:1px solid #99f6e4;border-radius:8px;padding:1px 6px">Arriving Today</span>`;
+        if (etaDate === tomorrow)
+          return `<span style="font-weight:700;color:#374151">${esc(etaDate)}</span><span style="margin-left:5px;font-size:10px;font-weight:700;background:#f3f4f6;color:#4b5563;border:1px solid #9ca3af;border-radius:8px;padding:1px 6px">Tomorrow</span>`;
+        return `<span style="font-weight:700;color:#374151">${esc(etaDate)}</span>`;
+      }
+    },
+    { key: 'actual_committed_onsite_date', tdStyle: 'width:150px;min-width:150px;text-align:center;font-weight:700;border:none', tdClass: r => onsDateCellClass(r, true), render: r => onsDateCell(r.actual_committed_onsite_date, r, true) },
+    { key: 'customer_defer_date', tdStyle: 'width:150px;min-width:150px;text-align:center;font-weight:700;border:none', tdClass: r => onsDateCellClass(r, false), render: r => onsDateCell(r.customer_defer_date, r, false) },
+    { key: 'part_pod_time',   tdStyle: 'text-align:center', render: r => {
+        const state = r.followup_state || '';
+        if (state !== 'wo_sla' && state !== 'report_problem') return '';
+        const base = r.customer_defer_date || r.part_pod_time || r.actual_committed_onsite_date || '';
+        if (!base || isSentinel(base)) return '';
+        const baseStr = String(base).slice(0, 16).replace(' ', 'T');
+        const baseDt = new Date(baseStr.length === 10 ? baseStr + 'T00:00' : baseStr);
+        if (isNaN(baseDt)) return '';
+        const threshDt = new Date(baseDt.getTime() + 4 * 86400000);
+        const pad = n => String(n).padStart(2, '0');
+        const _mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const label = `${pad(threshDt.getDate())} ${_mon[threshDt.getMonth()]} - ${pad(threshDt.getHours())}:${pad(threshDt.getMinutes())}`;
+        if (threshDt < new Date())
+          return `<span style="font-weight:700;color:#b91c1c">${label}</span><span style="margin-left:5px;font-size:10px;font-weight:700;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:1px 6px">OVERDUE</span>`;
+        return `<span style="font-weight:700;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:2px 6px">${label}</span>`;
+      }
+    },
+    { key: '_escalation_action', tdStyle: 'text-align:center', render: r => {
         const state     = r.followup_state || '';
-        if (state !== 'wo_sla' && state !== 'report_problem') return '<span style="color:#8c959f;font-style:italic">—</span>';
+        if (state !== 'wo_sla' && state !== 'report_problem') return '';
         const wo        = esc(r.work_order_id);
         const woType    = esc(r.work_order_type || '');
         const status    = esc(r.work_order_status || '');
         const asp       = esc(r.customer || '');
         const pod       = esc(r.actual_committed_onsite_date || '');
         const deferDate = esc(r.customer_defer_date || '');
-        /* Button is driven solely by whether the 4-day Target Fix threshold has passed,
-           not by the server-side elapsed-hour state (wo_sla vs report_problem).
-           Show "Escalate WO" while target is still upcoming; "WO SLA Follow-Up" once overdue. */
         const base = r.customer_defer_date || r.part_pod_time || r.actual_committed_onsite_date || '';
         let targetOverdue = false;
         if (base && !isSentinel(base)) {
@@ -3729,83 +4121,47 @@ const onsFollowUpTable = makeTabTable({
           const baseDt  = new Date(baseStr.length === 10 ? baseStr + 'T00:00' : baseStr);
           if (!isNaN(baseDt)) targetOverdue = new Date(baseDt.getTime() + 4 * 86400000) < new Date();
         }
-        if (!targetOverdue)
-          return `<button class="fu-badge fu-escalate fu-badge-btn" data-action="ons-followup-escalate" data-wo="${wo}" data-wo-type="${woType}" data-pod="${pod}" data-defer-date="${deferDate}" data-status="${status}" data-asp="${asp}">📞 Escalate WO</button>`;
-        return `<button class="fu-badge fu-wo-sla fu-badge-btn" data-action="ons-followup-wo-sla" data-wo="${wo}" data-wo-type="${woType}" data-pod="${pod}" data-defer-date="${deferDate}" data-status="${status}" data-asp="${asp}">🔔 WO SLA Follow-Up</button>`;
+        if (targetOverdue)
+          return `<button class="fu-badge fu-wo-sla fu-badge-btn" data-action="ons-followup-wo-sla" data-wo="${wo}" data-wo-type="${woType}" data-pod="${pod}" data-defer-date="${deferDate}" data-status="${status}" data-asp="${asp}">🔔 WO SLA Follow-Up</button>`;
+
+        /* Not yet overdue — show contextual info label */
+        const _wibNow = new Date(Date.now() + 7 * 3600000);  /* WIB UTC+7 */
+        const _today  = _wibNow.toISOString().slice(0, 10);
+        const _tmr    = new Date(_wibNow.getTime() + 86400000).toISOString().slice(0, 10);
+
+        /* 2. ETA Part check */
+        const etaStr = (r.part_eta || '').slice(0, 10);
+        if (etaStr === _today)
+          return `<span style="font-size:11px;font-weight:700;color:#0f766e;white-space:nowrap">📦 Part tiba Hari Ini</span>`;
+        if (etaStr === _tmr)
+          return `<span style="font-size:11px;font-weight:700;color:#374151;white-space:nowrap">📦 Part tiba Besok</span>`;
+
+        /* 4. Defer date not yet set — prompt to schedule */
+        const defer      = String(r.customer_defer_date || '').trim();
+        const deferValid = defer && !isSentinel(defer);
+        if (!deferValid)
+          return `<span style="font-size:11px;font-weight:700;color:#dc2626;white-space:nowrap">⚠️ Segera Jadwalkan Onsite</span>`;
+
+        /* 5. Green onsite date check — mirrors onsDateCellClass: latest valid of actual vs defer */
+        const actual      = String(r.actual_committed_onsite_date || '').trim();
+        const actualValid = actual && !isSentinel(actual);
+        let greenDate = '';
+        if (actualValid && !deferValid)       greenDate = actual;
+        else if (actualValid && deferValid)   greenDate = actual.slice(0, 16) >= defer.slice(0, 16) ? actual : defer;
+        const greenDateStr = greenDate ? greenDate.slice(0, 10) : '';
+        if (greenDateStr && greenDateStr < _today)
+          return `<span style="font-size:11px;font-weight:700;color:#d97706;white-space:nowrap">📅 Jadwal Onsite Kemarin</span>`;
+        if (greenDateStr === _today)
+          return `<span style="font-size:11px;font-weight:700;color:#0f766e;white-space:nowrap">📅 Jadwal Onsite Hari Ini</span>`;
+        if (greenDateStr === _tmr)
+          return `<span style="font-size:11px;font-weight:700;color:#374151;white-space:nowrap">📅 Jadwal Onsite Besok</span>`;
+
+        return '';
       }
     },
-    { key: '_pod_delivered',    render: r => fmt(r.part_pod_time) },
-    { key: 'part_qty',          render: r => {
-        const delivered = r.part_delivered_count || 0;
-        const delivSuffix = delivered > 0
-          ? ` <span style="display:inline-block;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap">🤝${delivered} diterima</span>`
-          : '';
-        if (!r.part_qty || r.part_qty < 1)
-          return `<button data-action="part-history-pill" data-wo="${esc(r.work_order_id)}" data-wo-type="${esc(r.work_order_type||'')}" data-wo-status="${esc(r.work_order_status||'')}" style="cursor:pointer;border:none;display:inline-flex;align-items:center;background:#ccfbf1;color:#0f766e;border-radius:10px;font-size:11px;font-weight:700;padding:2px 8px;white-space:nowrap">🤝${delivered} diterima</button>`;
-        const palettes = [
-          null,
-          { bg: '#dbeafe', color: '#1e40af' },
-          { bg: '#dcfce7', color: '#15803d' },
-          { bg: '#fef3c7', color: '#92400e' },
-          { bg: '#ede9fe', color: '#6d28d9' },
-          { bg: '#fee2e2', color: '#b91c1c' },
-          { bg: '#ffedd5', color: '#c2410c' },
-          { bg: '#f0fdfa', color: '#0f766e' },
-          { bg: '#fdf4ff', color: '#86198f' },
-        ];
-        const p = palettes[Math.min(r.part_qty, palettes.length - 1)] || { bg: '#f3f4f6', color: '#374151' };
-        return `<button data-action="part-history-pill" data-wo="${esc(r.work_order_id)}" data-wo-type="${esc(r.work_order_type||'')}" data-wo-status="${esc(r.work_order_status||'')}" style="cursor:pointer;border:none;display:inline-flex;align-items:center;background:${p.bg};color:${p.color};border-radius:10px;font-size:11px;font-weight:700;padding:2px 8px;white-space:nowrap">🚚 ${r.part_qty} ${r.part_qty === 1 ? 'Part' : 'Parts'}</button>${delivSuffix}`;
-      }
-    },
-    { key: 'customer_defer_date', render: r => {
-        if (!r.customer_defer_date || isSentinel(r.customer_defer_date)) return '<span style="color:#8c959f;font-style:italic">—</span>';
-        return `<span style="font-weight:600;color:#0f766e">${fmt(r.customer_defer_date)}</span>`;
-      }
-    },
-    { key: 'part_eta',          render: r => {
-        const state = r.followup_state || '';
-        /* wo_sla / report_problem → hide ETA, show threshold = base + 4 days (WIB) */
-        if (state === 'wo_sla' || state === 'report_problem') {
-          const base = r.customer_defer_date || r.part_pod_time || r.actual_committed_onsite_date || '';
-          if (!base || isSentinel(base)) return '<span style="color:#8c959f;font-style:italic">—</span>';
-          /* DB strings are WIB. Date-only strings (no time part) must get T00:00 appended
-             so the browser parses them as local midnight, not UTC midnight. */
-          const baseStr  = String(base).slice(0, 16).replace(' ', 'T');
-          const baseDt   = new Date(baseStr.length === 10 ? baseStr + 'T00:00' : baseStr);
-          if (isNaN(baseDt)) return '<span style="color:#8c959f;font-style:italic">—</span>';
-          const threshDt = new Date(baseDt.getTime() + 4 * 86400000);   /* +4 days, WIB strings parsed as local */
-          const pad      = n => String(n).padStart(2, '0');
-          const tDate    = `${threshDt.getFullYear()}-${pad(threshDt.getMonth()+1)}-${pad(threshDt.getDate())}`;
-          const tTime    = `${pad(threshDt.getHours())}:${pad(threshDt.getMinutes())}`;
-          const label    = `${tDate} ${tTime}`;
-          if (threshDt < new Date())
-            return `<span style="font-weight:700;color:#b91c1c">${label}</span>`
-                 + `<span style="margin-left:5px;font-size:10px;font-weight:700;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:1px 6px">OVERDUE</span>`;
-          return `<span style="font-weight:700;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:2px 6px">${label}</span>`;
-        }
-        /* All other states → show part_eta as before */
-        if (!r.part_eta || isSentinel(r.part_eta)) return '<span style="color:#8c959f;font-style:italic">—</span>';
-        const etaDate    = r.part_eta.slice(0, 10);
-        const _now       = new Date();
-        const today      = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`;
-        const _tomorrowDt = new Date(_now); _tomorrowDt.setDate(_tomorrowDt.getDate() + 1);
-        const tomorrow   = `${_tomorrowDt.getFullYear()}-${String(_tomorrowDt.getMonth()+1).padStart(2,'0')}-${String(_tomorrowDt.getDate()).padStart(2,'0')}`;
-        if (etaDate < today)
-          return `<span style="font-weight:700;color:#b91c1c">${esc(etaDate)}</span>`
-               + `<span style="margin-left:5px;font-size:10px;font-weight:700;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:1px 6px">OVERDUE</span>`;
-        if (etaDate === today)
-          return `<span style="font-weight:700;color:#0f766e">${esc(etaDate)}</span>`
-               + `<span style="margin-left:5px;font-size:10px;font-weight:700;background:#ccfbf1;color:#0f766e;border:1px solid #99f6e4;border-radius:8px;padding:1px 6px">Arriving Today</span>`;
-        if (etaDate === tomorrow)
-          return `<span style="font-weight:700;color:#374151">${esc(etaDate)}</span>`
-               + `<span style="margin-left:5px;font-size:10px;font-weight:700;background:#f3f4f6;color:#4b5563;border:1px solid #9ca3af;border-radius:8px;padding:1px 6px">Tomorrow</span>`;
-        return `<span style="font-weight:700;color:#374151">${esc(etaDate)}</span>`;
-      }
-    },
-    { key: 'part_awb',          render: r => r.part_awb ? `<span style="font-family:monospace;font-size:11px;color:#0f766e;font-weight:700;background:#ccfbf1;border:1px solid #5eead4;border-radius:6px;padding:2px 6px">${esc(r.part_awb)}</span>` : '<span style="color:#8c959f;font-style:italic">—</span>' },
     { key: 'work_order_status', render: r => statusBadge(r.work_order_status) },
-    { key: 'ship_pickup_time',  render: r => fmt(r.ship_pickup_time) },
-    { key: 'part_pod_time',     render: r => fmt(r.part_pod_time) },
+    { key: 'ship_pickup_time',  tdStyle: 'text-align:center', render: r => fmt(r.ship_pickup_time) },
+    { key: 'part_pod_time',     tdStyle: 'text-align:center', render: r => fmt(r.part_pod_time) },
     { key: 'case_desc',         render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
   ],
   onBind: rows => {
@@ -3819,12 +4175,24 @@ const onsFollowUpTable = makeTabTable({
       b.addEventListener('click', () => openDetail(b.dataset.wo)));
     tbody.querySelectorAll('[data-action="part-history-pill"]').forEach(b =>
       b.addEventListener('click', () => openPartHistory(b.dataset.wo, b.dataset.woType, b.dataset.woStatus)));
+    tbody.querySelectorAll('[data-action="total-part-recv"]').forEach(b =>
+      b.addEventListener('click', () => openPartHistory(b.dataset.wo, b.dataset.woType, b.dataset.woStatus)));
     tbody.querySelectorAll('[data-action="ons-followup-schedule"]').forEach(b =>
       b.addEventListener('click', () => openOnsiteRecv(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, b.dataset.deferDate, b.dataset.actualOnsite, b.dataset.pod)));
     tbody.querySelectorAll('[data-action="ons-followup-wo-sla"]').forEach(b =>
       b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, 'onsite', b.dataset.pod, b.dataset.deferDate)));
     tbody.querySelectorAll('[data-action="ons-followup-escalate"]').forEach(b =>
       b.addEventListener('click', () => openEscalateWo(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, b.dataset.pod, b.dataset.deferDate)));
+  },
+  rowStyleFn: r => {
+    const state = r.followup_state || '';
+    if (state !== 'wo_sla' && state !== 'report_problem') return '';
+    const base = r.customer_defer_date || r.part_pod_time || r.actual_committed_onsite_date || '';
+    if (!base || isSentinel(base)) return '';
+    const baseStr = String(base).slice(0, 16).replace(' ', 'T');
+    const baseDt  = new Date(baseStr.length === 10 ? baseStr + 'T00:00' : baseStr);
+    if (isNaN(baseDt)) return '';
+    return new Date(baseDt.getTime() + 4 * 86400000) < new Date() ? 'background:#fed7aa' : '';
   },
 });
 
@@ -3849,8 +4217,8 @@ function _onsToggleExtraCols() {
   tbl.classList.toggle('ons-hide-extra',     onsFollowUpFilter === '');
   tbl.classList.toggle('ons-hide-transit',   onsFollowUpFilter === 'wo_reschedule');
   tbl.classList.toggle('ons-hide-inrepair',  onsFollowUpFilter === 'wo_sla');
-  const _onsThLabel = { '': 'Target Fix/Sampai', 'wo_reschedule': 'Target Sampai', 'wo_sla': 'Target Fix' };
-  document.getElementById('th-ons-target').textContent = _onsThLabel[onsFollowUpFilter] ?? 'Target Fix/Sampai';
+  const _onsThLabel = { '': 'Target SLA Repair', 'wo_reschedule': 'Target SLA Repair', 'wo_sla': 'Target SLA Repair' };
+  document.getElementById('th-ons-target').textContent = _onsThLabel[onsFollowUpFilter] ?? 'Target SLA Repair';
 }
 
 document.querySelectorAll('#ons-followup-filter-pills [data-onsfilter]').forEach(btn => {
@@ -3858,10 +4226,126 @@ document.querySelectorAll('#ons-followup-filter-pills [data-onsfilter]').forEach
     document.querySelectorAll('#ons-followup-filter-pills [data-onsfilter]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     onsFollowUpFilter = btn.dataset.onsfilter;
-    _onsToggleExtraCols();
-    _onsFollowUpLoad();
+    if (onsFollowUpFilter === 'closed_not_fixed') {
+      document.getElementById('ons-default-toolbar-controls').style.display = 'none';
+      document.getElementById('ons-cnf-toolbar-controls').style.display = 'flex';
+      document.getElementById('ons-default-view').style.display = 'none';
+      document.getElementById('ons-cnf-view').style.display = '';
+      loadOnsCnfTable();
+    } else {
+      document.getElementById('ons-default-toolbar-controls').style.display = 'flex';
+      document.getElementById('ons-cnf-toolbar-controls').style.display = 'none';
+      document.getElementById('ons-default-view').style.display = '';
+      document.getElementById('ons-cnf-view').style.display = 'none';
+      _onsToggleExtraCols();
+      _onsFollowUpLoad();
+    }
   });
 });
+
+/* ═══════════════════════════════════════════════════════════════
+   ONS: Closed Not Fixed Sub-tab Table Logic
+═══════════════════════════════════════════════════════════════ */
+let _onsCnfAllRows = [];
+
+window.onsCnfApplyFilters = function() {
+  const statusVal = (document.getElementById('ons-cnf-filter-status') || {}).value || '';
+  const searchVal = ((document.getElementById('ons-cnf-search')       || {}).value || '').trim().toLowerCase();
+
+  const selStatus = document.getElementById('ons-cnf-filter-status');
+  if (selStatus) selStatus.classList.toggle('has-filter', !!statusVal);
+
+  const COMPLETE_VALS = new Set(['complete', 'completed', 'reject', 'approved to order']);
+
+  const filtered = _onsCnfAllRows.filter(r => {
+    if (statusVal) {
+      const statuses = (r.esc_statuses || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+      if (statusVal === 'in-progress') {
+        if (!statuses.some(s => s && !COMPLETE_VALS.has(s))) return false;
+      } else if (statusVal === 'complete') {
+        if (!statuses.some(s => COMPLETE_VALS.has(s))) return false;
+      } else if (statusVal === 'no-status') {
+        if (statuses.length > 0) return false;
+      }
+    }
+    if (searchVal) {
+      const haystack = [
+        r.work_order_id, r.work_order_type, r.closing_code,
+        r.work_order_status, r.esc_statuses, r.wo_case_id
+      ].map(v => (v || '').toString().toLowerCase()).join(' ');
+      if (!haystack.includes(searchVal)) return false;
+    }
+    return true;
+  });
+
+  const tbody     = document.getElementById('ons-cnf-tbody');
+  const sub       = document.getElementById('ons-cnf-sub');
+  const badge     = document.getElementById('tab-ons-followup-badge');
+  const hasFilter = statusVal || searchVal;
+  if (sub) sub.innerHTML = hasFilter
+    ? `<strong>${filtered.length.toLocaleString()}</strong> of <strong>${_onsCnfAllRows.length.toLocaleString()}</strong> WOs in the last 30 days`
+    : `<strong>${_onsCnfAllRows.length.toLocaleString()}</strong> WOs in the last 30 days`;
+
+  if (onsFollowUpFilter === 'closed_not_fixed' && badge) {
+    badge.textContent = filtered.length.toLocaleString();
+    badge.style.display = filtered.length > 0 ? 'inline-block' : 'none';
+  }
+
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#8c959f;font-style:italic">No records match the selected filters.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.map((r, i) => _ccRowHtml(r, i + 1)).join('');
+  tbody.querySelectorAll('.cc-wo-btn').forEach(btn =>
+    btn.addEventListener('click', () => openDetail(btn.dataset.wo))
+  );
+  tbody.querySelectorAll('.btn-md-disc:not([disabled])').forEach(btn =>
+    btn.addEventListener('click', () => openMondayDisc(btn.dataset.item, btn.dataset.name, btn.dataset.board))
+  );
+};
+
+function renderOnsCnfTable(data) {
+  const rows = data.rows || [];
+  const _normType = v => {
+    const s = (v || '').trim();
+    if (s === 'ONS' || s === 'Onsite') return 'Onsite';
+    if (s === 'CCI' || s === 'Carry-In') return 'Carry-In';
+    return '';
+  };
+  _onsCnfAllRows = rows.filter(r => _normType(r.work_order_type) === 'Onsite');
+  /* Sort by completion date descending (latest to oldest) */
+  _onsCnfAllRows.sort((a, b) => {
+    const da = (a.completion_date || a.closing_date || '').toString().trim();
+    const db = (b.completion_date || b.closing_date || '').toString().trim();
+    return db.localeCompare(da);
+  });
+
+  const sub = document.getElementById('ons-cnf-sub');
+  if (sub) sub.innerHTML = `<strong>${_onsCnfAllRows.length.toLocaleString()}</strong> WOs in the last 30 days`;
+  const selStatus = document.getElementById('ons-cnf-filter-status');
+  if (selStatus) { selStatus.value = ''; selStatus.classList.remove('has-filter'); }
+  onsCnfApplyFilters();
+}
+
+function loadOnsCnfTable() {
+  const btn = document.getElementById('ons-cnf-refresh-btn');
+  if (btn) btn.classList.add('spinning');
+  const sub = document.getElementById('ons-cnf-sub');
+  if (sub) sub.textContent = 'Loading…';
+  const tbody = document.getElementById('ons-cnf-tbody');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#8c959f;font-style:italic">Loading…</td></tr>';
+  fetch('/asp/api/dashboard-closing-codes')
+    .then(r => r.json())
+    .then(data => renderOnsCnfTable(data))
+    .catch(() => {
+      if (tbody) tbody.innerHTML =
+        '<tr><td colspan="9" style="text-align:center;padding:20px;color:#dc2626">Failed to load.</td></tr>';
+      if (sub) sub.textContent = '';
+    })
+    .finally(() => { if (btn) btn.classList.remove('spinning'); });
+}
+
+document.getElementById('ons-cnf-refresh-btn')?.addEventListener('click', () => loadOnsCnfTable());
 
 /* ═══════════════════════════════════════════════════════════════
    TAB: Return Part Follow-Up
@@ -3871,11 +4355,11 @@ const returnPartTable = makeTabTable({
   tbodyId: 'tbody-return-part', emptyId: 'empty-return-part',
   pgId: 'pg-return-part', cntId: 'count-return-part',
   colsFn: () => [
-    { key: 'created_on',                  render: r => fmt(r.created_on) },
-    { key: 'work_order_id',               render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
-    { key: 'followup_state',              render: r => r.has_pending_return ? `<button class="fu-badge fu-input-dc fu-badge-btn" data-action="return-dc" data-wo="${esc(r.work_order_id)}" data-wo-type="${esc(r.work_order_type||'')}" data-asp="${esc(r.customer||'')}">🔢 Input DC Number</button>` : '' },
-    { key: 'work_order_type',             render: r => esc(r.work_order_type||'—') },
-    { key: 'dc_number', render: r => {
+    { key: 'created_on',                  tdStyle: 'text-align:center', render: r => fmt(r.created_on) },
+    { key: 'work_order_id',               tdStyle: 'text-align:center', render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
+    { key: 'followup_state',              tdStyle: 'text-align:center', render: r => r.has_pending_return ? `<button class="fu-badge fu-input-dc fu-badge-btn" data-action="return-dc" data-wo="${esc(r.work_order_id)}" data-wo-type="${esc(r.work_order_type||'')}" data-asp="${esc(r.customer||'')}">🔢 Input DC Number</button>` : '' },
+    { key: 'work_order_type',             tdStyle: 'text-align:center', render: r => esc(r.work_order_type||'—') },
+    { key: 'dc_number', tdStyle: 'text-align:center', render: r => {
         const dc = (r.dc_number != null ? String(r.dc_number).trim() : '');
         const dcLenovo = (r.dc_lenovo != null ? String(r.dc_lenovo).trim() : '');
         const display = (dc && dc !== '0') ? dc : ((dcLenovo && dcLenovo !== '0') ? dcLenovo : '');
@@ -3883,13 +4367,13 @@ const returnPartTable = makeTabTable({
         return `<span style="font-family:ui-monospace,monospace;font-size:12px;font-weight:700;color:#1f2328">${esc(display)}</span>`;
       }
     },
-    { key: 'awb_return', render: r => {
+    { key: 'awb_return', tdStyle: 'text-align:center', render: r => {
         const v = (r.awb_return != null ? String(r.awb_return).trim() : '');
         if (!v) return '<span style="color:#8c959f">—</span>';
         return `<span style="font-family:ui-monospace,monospace;font-size:12px;font-weight:700;color:#0f766e">${esc(v)}</span>`;
       }
     },
-    { key: 'return_status', render: r => {
+    { key: 'return_status', tdStyle: 'text-align:center', render: r => {
         const s = r.return_status || '';
         if (!s) return '<span style="color:#8c959f">—</span>';
         const su = s.toUpperCase().trim();
@@ -3951,13 +4435,13 @@ document.getElementById('search-return-part').addEventListener('input', () => {
 /* Shared column definitions for both sub-panes */
 function _rrCols() {
   return [
-    { key: 'created_on',       render: r => fmt(r.created_on) },
-    { key: 'soid',             render: r => r.soid
+    { key: 'created_on',       tdStyle: 'text-align:center', render: r => fmt(r.created_on) },
+    { key: 'soid',             tdStyle: 'text-align:center', render: r => r.soid
         ? `<span style="font-family:ui-monospace,monospace;font-size:12px;font-weight:700;color:#1f2328">${esc(String(r.soid))}</span>`
         : '<span style="color:#8c959f">—</span>' },
-    { key: 'work_order_id',    render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
-    { key: 'work_order_type',  render: r => esc(r.work_order_type || '—') },
-    { key: 'return_flag_resolv', render: r => {
+    { key: 'work_order_id',    tdStyle: 'text-align:center', render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
+    { key: 'work_order_type',  tdStyle: 'text-align:center', render: r => esc(r.work_order_type || '—') },
+    { key: 'return_flag_resolv', tdStyle: 'text-align:center', render: r => {
         /* Priority: return_flag_resolv → return_flag_msd → return_flag (Y/N) */
         const resolv = (r.return_flag_resolv || '').trim();
         const msd    = (r.return_flag_msd    || '').trim();
@@ -3987,7 +4471,7 @@ function _rrCols() {
         return `<span style="display:inline-block;font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;background:#f9fafb;color:#374151;border:1px solid #d1d5db;white-space:nowrap">${esc(label)}</span>`;
       }
     },
-    { key: 'return_status',    render: r => {
+    { key: 'return_status',    tdStyle: 'text-align:center', render: r => {
         const v = (r.return_status || '').trim().toUpperCase();
         if (v === 'PENDING WITH PARTNER') {
           return `<span style="display:inline-block;font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;white-space:nowrap">Pending With Partner</span>`;
@@ -3998,7 +4482,7 @@ function _rrCols() {
                  : '<span style="color:#8c959f">—</span>';
       }
     },
-    { key: 'completion_date',  render: r => {
+    { key: 'completion_date',  tdStyle: 'text-align:center', render: r => {
         const v = r.completion_date ? String(r.completion_date).trim() : '';
         return v ? fmt(v) : '<span style="color:#8c959f">—</span>';
       }
@@ -4286,19 +4770,19 @@ const completed30dTable = makeTabTable({
   tbodyId: 'tbody-completed-30d', emptyId: 'empty-completed-30d',
   pgId: 'pg-completed-30d', cntId: 'count-completed-30d',
   colsFn: () => [
-    { key: 'completion_date', render: r => {
+    { key: 'completion_date', tdStyle: 'text-align:center', render: r => {
         if (!r.completion_date) return '—';
         const d = r.completion_date.slice(0, 10);
         return `<span style="font-weight:700;color:#15803d">${esc(d)}</span>`;
       }
     },
-    { key: 'created_on',          render: r => fmt(r.created_on) },
-    { key: 'work_order_id',       render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
-    { key: 'work_order_type',     render: r => esc(r.work_order_type || '—') },
+    { key: 'created_on',          tdStyle: 'text-align:center', render: r => fmt(r.created_on) },
+    { key: 'work_order_id',       tdStyle: 'text-align:center', render: r => `<button class="wo-link" data-wo="${esc(r.work_order_id)}">${esc(r.work_order_id)}</button>` },
+    { key: 'work_order_type',     tdStyle: 'text-align:center', render: r => esc(r.work_order_type || '—') },
     { key: 'case_desc',           render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
     { key: 'work_order_status',   render: r => statusBadge(r.work_order_status) },
-    { key: 'case_status',         render: r => esc(r.case_status || '—') },
-    { key: 'awb_list', render: r => {
+    { key: 'case_status',         tdStyle: 'text-align:center', render: r => esc(r.case_status || '—') },
+    { key: 'awb_list', tdStyle: 'text-align:center', render: r => {
         const cnt     = r.awb_count        || 0;
         const missing = r.awb_missing_count || 0;
         const list    = r.awb_list         || '';
@@ -4480,6 +4964,502 @@ document.getElementById('btn-export-ons-followup').addEventListener('click', fun
       btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Export Excel';
     });
 });
+/* ─── Export: ONS Closed Not Fixed ───────────────────────────────────── */
+document.getElementById('btn-export-ons-cnf')?.addEventListener('click', function () {
+  const btn = this;
+  btn.disabled = true;
+  btn.textContent = 'Exporting…';
+  const params = new URLSearchParams();
+  params.set('wo_type', 'Onsite');
+  params.set('sort_by', 'completion_date');
+  const statusVal = (document.getElementById('ons-cnf-filter-status') || {}).value || '';
+  const searchVal = ((document.getElementById('ons-cnf-search')       || {}).value || '').trim();
+  if (statusVal) params.set('status', statusVal);
+  if (searchVal) params.set('q',      searchVal);
+  const url = '/asp/api/under-escalation/export' + (params.toString() ? '?' + params.toString() : '');
+  fetch(url)
+    .then(res => {
+      if (!res.ok) throw new Error('Export failed');
+      const cd    = res.headers.get('Content-Disposition') || '';
+      const match = cd.match(/filename[^;=\n]*=(?:(['"])(.+?)\1|([^;\n]*))/);
+      const name  = (match && (match[2] || match[3])) || 'ONS_Closed_Not_Fixed.xlsx';
+      return res.blob().then(blob => ({ blob, name }));
+    })
+    .then(({ blob, name }) => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    })
+    .catch(() => toast('Export failed. Please try again.', 'err'))
+    .finally(() => {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Export Excel';
+    });
+});
+/* ─── Export: Under Escalation ───────────────────────────────────────── */
+document.getElementById('btn-export-under-escalation').addEventListener('click', function () {
+  const btn = this;
+  btn.disabled = true;
+  btn.textContent = 'Exporting…';
+  const params = new URLSearchParams();
+  const typeVal   = (document.getElementById('cc-filter-type')   || {}).value || '';
+  const statusVal = (document.getElementById('cc-filter-status') || {}).value || '';
+  const searchVal = ((document.getElementById('cc-search')       || {}).value || '').trim();
+  if (typeVal)   params.set('wo_type', typeVal);
+  if (statusVal) params.set('status',  statusVal);
+  if (searchVal) params.set('q',       searchVal);
+  const url = '/asp/api/under-escalation/export' + (params.toString() ? '?' + params.toString() : '');
+  fetch(url)
+    .then(res => {
+      if (!res.ok) throw new Error('Export failed');
+      const cd    = res.headers.get('Content-Disposition') || '';
+      const match = cd.match(/filename[^;=\n]*=(?:(['"])(.+?)\1|([^;\n]*))/);
+      const name  = (match && (match[2] || match[3])) || 'Under_Escalation.xlsx';
+      return res.blob().then(blob => ({ blob, name }));
+    })
+    .then(({ blob, name }) => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    })
+    .catch(() => toast('Export failed. Please try again.', 'err'))
+    .finally(() => {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Export Excel';
+    });
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   TAB: Under Escalation (Closing Code Follow-ups)
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Closing-code badge CSS class helper ─── */
+function ccBadgeClass(code) {
+  const c = (code || '').toLowerCase();
+  if (c.includes('customer induced')) return 'cc-badge cid';
+  if (c === 'parts replaced')         return 'cc-badge done';
+  return 'cc-badge';
+}
+
+/* ── Monday escalation status badge helper ─── */
+function escStatusBadge(status) {
+  const v = (status || '').toLowerCase().trim();
+  let bg = '#f3f4f6', color = '#374151', border = '#d1d5db';
+  if (v === 'technical escalation')  { bg = '#fef3c7'; color = '#92400e'; border = '#fde68a'; }
+  else if (v === 'progress')         { bg = '#eff6ff'; color = '#1d4ed8'; border = '#bfdbfe'; }
+  else if (v === 'qa result')        { bg = '#f5f3ff'; color = '#6d28d9'; border = '#ddd6fe'; }
+  else if (v === 'complete')         { bg = '#dcfce7'; color = '#15803d'; border = '#86efac'; }
+  else if (v === 'approved to order'){ bg = '#dbeafe'; color = '#1e40af'; border = '#93c5fd'; }
+  else if (v === 'reject')           { bg = '#fee2e2'; color = '#b91c1c'; border = '#fca5a5'; }
+  else if (v === '' || v === '—')    { bg = '#f7f8fa'; color = '#8c959f'; border = '#e5e7eb'; }
+  return `<span style="display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600;background:${bg};color:${color};border:1px solid ${border};white-space:nowrap;margin:1px 2px 1px 0">${esc(status || '—')}</span>`;
+}
+
+/* ── Render escalation cell from pipe-separated statuses ─── */
+function escStatusCell(escStatuses) {
+  if (!escStatuses) return '<span style="color:#d0d7de;font-size:11px">—</span>';
+  const parts = escStatuses.split(',').map(s => s.trim()).filter(Boolean);
+  if (!parts.length) return '<span style="color:#d0d7de;font-size:11px">—</span>';
+  return `<div style="display:flex;flex-wrap:wrap;gap:2px">${parts.map(escStatusBadge).join('')}</div>`;
+}
+
+/* ── All loaded rows (cache for client-side filtering) ─── */
+let _ccAllRows = [];
+
+/* ── Monday-status CSS class for the WO/Case ID Monday cell ─── */
+function _ccEscSrcClass(escStatuses) {
+  if (!escStatuses) return '';
+  const COMPLETE_VALS = new Set(['complete', 'completed', 'approved to order']);
+  const parts = escStatuses.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  if (!parts.length) return '';
+  if (parts.some(s => s === 'reject'))               return 'src-st-red';
+  if (parts.some(s => COMPLETE_VALS.has(s)))         return 'src-st-green';
+  return 'src-st-yellow';
+}
+
+/* ── Build one table row HTML ─── */
+function _ccRowHtml(r, displayIdx) {
+  const _discSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+  const completed  = (r.completion_date || '').slice(0, 10) || '—';
+  const escDate    = r.esc_created_at ? r.esc_created_at.slice(0, 10) : '—';
+  const discCount  = r.esc_disc_count || 0;
+  const hasDisc    = discCount > 0 && r.esc_item_id;
+  const discBtn    = r.esc_item_id
+    ? (hasDisc
+        ? `<button class="btn-md-disc has-disc" data-item="${esc(r.esc_item_id)}" data-name="${esc(r.esc_item_name || '')}" data-board="${esc(r.esc_board_id || '')}">${_discSvg}<span class="md-disc-cnt">${discCount}</span></button>`
+        : `<button class="btn-md-disc" data-item="${esc(r.esc_item_id)}" data-name="${esc(r.esc_item_name || '')}" data-board="${esc(r.esc_board_id || '')}">${_discSvg}</button>`)
+    : `<button class="btn-md-disc" disabled style="opacity:.35;cursor:default">${_discSvg}</button>`;
+  const woCaseId   = r.wo_case_id || null;
+  const latestWoId = r.latest_wo_id ? String(r.latest_wo_id) : null;
+  const _wcMatchCls = r.wo_case_match === 'wo' || r.wo_case_match === 'case'
+    ? 'match'
+    : r.wo_case_match === null || r.wo_case_match === undefined
+      ? 'no-match'
+      : 'nomatch';
+  const snForHist  = r.product_serial_number || r.serial_number || null;
+  const currentWoId  = String(r.work_order_id || '');
+  const _isCaseNum = woCaseId && !/^40\d{8}/.test(woCaseId.toString().trim());
+  const currentCaseN = String(r.case_number || (_isCaseNum ? woCaseId : '') || '');
+  let woCaseHtml;
+  if (woCaseId && snForHist) {
+    woCaseHtml = `<span class="cc-wocaseid ${_wcMatchCls} clickable" data-serial="${esc(snForHist)}" onclick="ccOpenSnHistory('${esc(snForHist)}','${esc(currentWoId)}','${esc(currentCaseN)}')" title="View all problem history for SN: ${esc(snForHist)}">${esc(woCaseId)}</span>`;
+  } else if (woCaseId) {
+    woCaseHtml = `<span class="cc-wocaseid ${_wcMatchCls}">${esc(woCaseId)}</span>`;
+  } else if (latestWoId && snForHist) {
+    woCaseHtml = `<span class="cc-wocaseid cc-wocaseid-autofill clickable" data-serial="${esc(snForHist)}" onclick="ccOpenSnHistory('${esc(snForHist)}','${esc(latestWoId)}','')" title="Auto-filled: latest WO for serial ${esc(snForHist)}">${esc(latestWoId)}</span>`;
+  } else {
+    woCaseHtml = `<span style="color:#d0d7de">—</span>`;
+  }
+
+  const source      = r.row_source || 'closing_code';
+  const srcClass    = _ccEscSrcClass(r.esc_statuses);
+  const woId        = r.work_order_id;
+  const woIsNumeric = woId && /^\d+$/.test(String(woId));
+  const woBtn       = woIsNumeric
+    ? `<button class="cc-wo-btn" data-wo="${esc(woId)}">${esc(woId)}</button>`
+    : (source === 'monday_only' || !woId)
+      ? `<span style="color:#d0d7de">—</span>`
+      : `<span style="font-family:ui-monospace,monospace;font-size:12px;color:#57606a">${esc(String(woId))}</span>`;
+
+  let closingCell;
+  if (source === 'closing_code') {
+    closingCell = `<span class="${ccBadgeClass(r.closing_code)}" title="${esc(r.closing_code || '')}">${esc(r.closing_code || '—')}</span>`;
+  } else if (r.closing_code) {
+    closingCell = `<span class="cc-badge done" title="${esc(r.closing_code)}">${esc(r.closing_code)}</span>`;
+  } else if (r.work_order_status) {
+    closingCell = statusBadge(r.work_order_status);
+  } else {
+    closingCell = `<span style="color:#d0d7de">—</span>`;
+  }
+
+  const noWo = !woIsNumeric && (source === 'monday_only' || !r.work_order_id);
+  const noWoBg = noWo ? 'background:rgba(220,38,38,.15);' : '';
+  return `<tr>
+    <td style="text-align:center;color:#8c959f;font-size:12px;width:36px">${displayIdx}</td>
+    <td class="cc-col-wo" style="${noWoBg}">${woBtn}</td>
+    <td class="cc-col-wo" style="min-width:82px;color:#57606a;${noWoBg}">${esc(completed)}</td>
+    <td class="cc-col-wo" style="${noWoBg}">${esc(r.work_order_type === 'CCI' ? 'Carry-In' : r.work_order_type === 'ONS' ? 'Onsite' : r.work_order_type || '—')}</td>
+    <td class="cc-col-wo" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${noWoBg}" title="${esc(r.closing_code || r.work_order_status || '')}">${closingCell}</td>
+    <td class="cc-col-esc-src ${srcClass}">${woCaseHtml}</td>
+    <td class="cc-col-esc" style="color:#57606a;min-width:82px">${esc(escDate)}</td>
+    <td class="cc-col-esc">${escStatusCell(r.esc_statuses)}</td>
+    <td class="cc-col-esc" style="text-align:center">${discBtn}</td>
+  </tr>`;
+}
+
+/* ── Apply WO Type + Monday Status + Source filters and re-render ─── */
+window.ccApplyFilters = function() {
+  const typeVal   = (document.getElementById('cc-filter-type')   || {}).value || '';
+  const statusVal = (document.getElementById('cc-filter-status') || {}).value || '';
+  const searchVal = ((document.getElementById('cc-search')       || {}).value || '').trim().toLowerCase();
+
+  const selType   = document.getElementById('cc-filter-type');
+  const selStatus = document.getElementById('cc-filter-status');
+  if (selType)   selType.classList.toggle('has-filter',   !!typeVal);
+  if (selStatus) selStatus.classList.toggle('has-filter', !!statusVal);
+
+  const COMPLETE_VALS = new Set(['complete', 'completed', 'reject', 'approved to order']);
+
+  /* Normalise raw DB/Monday work_order_type to the canonical display value */
+  const _normType = v => {
+    const s = (v || '').trim();
+    if (s === 'ONS'  || s === 'Onsite')   return 'Onsite';
+    if (s === 'CCI'  || s === 'Carry-In') return 'Carry-In';
+    return '';   /* null / empty / unknown → "no type" */
+  };
+
+  const filtered = _ccAllRows.filter(r => {
+    if (typeVal) {
+      const norm = _normType(r.work_order_type);
+      if (typeVal === 'no-type') { if (norm !== '') return false; }
+      else                       { if (norm !== typeVal) return false; }
+    }
+    if (statusVal) {
+      const statuses = (r.esc_statuses || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+      if (statusVal === 'in-progress') {
+        if (!statuses.some(s => s && !COMPLETE_VALS.has(s))) return false;
+      } else if (statusVal === 'complete') {
+        if (!statuses.some(s => COMPLETE_VALS.has(s))) return false;
+      } else if (statusVal === 'no-status') {
+        if (statuses.length > 0) return false;
+      }
+    }
+    if (searchVal) {
+      const haystack = [
+        r.work_order_id, r.work_order_type, r.closing_code,
+        r.work_order_status, r.esc_statuses, r.wo_case_id
+      ].map(v => (v || '').toString().toLowerCase()).join(' ');
+      if (!haystack.includes(searchVal)) return false;
+    }
+    return true;
+  });
+
+  const tbody    = document.getElementById('cc-tbody');
+  const sub      = document.getElementById('cc-sub');
+  const escBadge = document.getElementById('tab-under-escalation-badge');
+  const hasFilter = typeVal || statusVal || searchVal;
+  if (sub) sub.innerHTML = hasFilter
+    ? `<strong>${filtered.length.toLocaleString()}</strong> of <strong>${_ccAllRows.length.toLocaleString()}</strong> WOs in the last 30 days`
+    : `<strong>${_ccAllRows.length.toLocaleString()}</strong> WOs in the last 30 days`;
+  if (escBadge) {
+    escBadge.textContent   = filtered.length.toLocaleString();
+    escBadge.style.display = filtered.length > 0 ? 'inline-block' : 'none';
+  }
+
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#8c959f;font-style:italic">No records match the selected filters.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.map((r, i) => _ccRowHtml(r, i + 1)).join('');
+  tbody.querySelectorAll('.cc-wo-btn').forEach(btn =>
+    btn.addEventListener('click', () => openDetail(btn.dataset.wo))
+  );
+  tbody.querySelectorAll('.btn-md-disc:not([disabled])').forEach(btn =>
+    btn.addEventListener('click', () => openMondayDisc(btn.dataset.item, btn.dataset.name, btn.dataset.board))
+  );
+};
+
+/* ── Initial load ─── */
+function renderClosingCodeTable(data) {
+  _ccAllRows = data.rows || [];
+  const sub = document.getElementById('cc-sub');
+  if (sub) sub.innerHTML = `<strong>${_ccAllRows.length.toLocaleString()}</strong> WOs in the last 30 days`;
+  const escBadge = document.getElementById('tab-under-escalation-badge');
+  if (escBadge) {
+    escBadge.textContent   = _ccAllRows.length;
+    escBadge.style.display = _ccAllRows.length > 0 ? 'inline-block' : 'none';
+  }
+  const selType   = document.getElementById('cc-filter-type');
+  const selStatus = document.getElementById('cc-filter-status');
+  if (selType)   { selType.value = '';            selType.classList.remove('has-filter');  }
+  if (selStatus) { selStatus.value = 'in-progress'; selStatus.classList.add('has-filter'); }
+  ccApplyFilters();
+}
+
+function loadClosingCodeTable() {
+  const btn = document.getElementById('cc-refresh-btn');
+  if (btn) btn.classList.add('spinning');
+  const sub = document.getElementById('cc-sub');
+  if (sub) sub.textContent = 'Loading…';
+  const tbody = document.getElementById('cc-tbody');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#8c959f;font-style:italic">Loading…</td></tr>';
+  fetch('/asp/api/dashboard-closing-codes')
+    .then(r => r.json())
+    .then(data => renderClosingCodeTable(data))
+    .catch(() => {
+      if (tbody) tbody.innerHTML =
+        '<tr><td colspan="9" style="text-align:center;padding:20px;color:#dc2626">Failed to load.</td></tr>';
+      if (sub) sub.textContent = '';
+    })
+    .finally(() => { if (btn) btn.classList.remove('spinning'); });
+}
+
+document.getElementById('cc-refresh-btn')?.addEventListener('click', () => loadClosingCodeTable());
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SERIAL HISTORY MODAL — All Problem History
+═══════════════════════════════════════════════════════════════════════════ */
+window.ccOpenSnHistory = function(serial, currentWoId, currentCaseN) {
+  if (!serial) return;
+  document.getElementById('cc-hist-title').textContent = 'All Problem History (SN: ' + serial + ')';
+  document.getElementById('cc-hist-body').innerHTML = '<div class="cc-hist-loading">Loading…</div>';
+  document.getElementById('cc-hist-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  Promise.all([
+    fetch('/asp/api/sn-history/' + encodeURIComponent(serial)).then(r => r.json()),
+    fetch('/asp/api/sn-monday-escalation/' + encodeURIComponent(serial)).then(r => r.json()),
+  ])
+    .then(([woData, escData]) => {
+      document.getElementById('cc-hist-body').innerHTML =
+        ccRenderSnHistory(woData.serial_number, woData.rows, currentWoId || '', currentCaseN || '') +
+        ccRenderMondayEscalation(escData.serial_number, escData.rows, currentWoId || '', currentCaseN || '');
+    })
+    .catch(() => { document.getElementById('cc-hist-body').innerHTML = '<div class="cc-hist-empty">Failed to load history. Please try again.</div>'; });
+};
+
+window.ccCloseSnHistory = function() {
+  document.getElementById('cc-hist-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+};
+
+function ccStatusBadge(s) {
+  if (!s) return '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:#f0f2f5;color:#57606a;white-space:nowrap">—</span>';
+  const sl = s.toLowerCase();
+  let bg='#f0f2f5',color='#57606a',border='#d1d5db';
+  if (sl==='closed'||sl==='completed'||sl==='repair completed'||sl==='ready for pickup'||sl.includes('unit returned')) { bg='#bbf7d0';color='#166534'; }
+  else if (sl.includes('transit'))                         { bg='#ede9fe';color='#6d28d9'; }
+  else if (sl.includes('part')&&sl.includes('hold'))       { bg='#fce7f3';color='#9d174d'; }
+  else if (sl.includes('part')&&sl.includes('request'))    { bg='#fef3c7';color='#92400e'; }
+  else if (sl.includes('part')&&sl.includes('deliver'))    { bg='#dcfce7';color='#15803d'; }
+  else if (sl==='customer hold')                           { bg='#ffe4e6';color='#be123c'; }
+  else if (sl==='in repair')                               { bg='#dbeafe';color='#1d4ed8'; }
+  else if (sl.includes('technician assigned'))             { bg='#fef3c7';color='#b45309'; }
+  else if (sl==='order accepted')                          { bg='#ecfccb';color='#4d7c0f'; }
+  else if (sl.includes('pick')&&sl.includes('pack'))       { bg='#ffedd5';color='#c2410c'; }
+  else if (sl.includes('cancel'))                          { bg='#f3f4f6';color='#6b7280'; }
+  return `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:${bg};color:${color};border:1px solid ${border};white-space:nowrap">${esc(s)}</span>`;
+}
+
+function ccRenderSnHistory(sn, rows, currentWoId, currentCaseN) {
+  const snLabel = `<div class="cc-hist-sn-label">Laptop Device SN: <strong>${esc(sn || '—')}</strong></div>`;
+  if (!rows || !rows.length) {
+    return snLabel + `<div class="cc-hist-empty">No work orders found for this serial number in the WO database.</div>`;
+  }
+  const woCount = `<div class="cc-hist-wo-count">${rows.length} WO${rows.length !== 1 ? 's' : ''} found for this serial number</div>`;
+  const groups = {}, order = [];
+  rows.forEach(r => {
+    const key = r.case_number ? String(r.case_number) : '__none__';
+    if (!groups[key]) { groups[key] = []; order.push(key); }
+    groups[key].push(r);
+  });
+  const thS = 'padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:#57606a;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e5e7eb;white-space:nowrap';
+  const _currentTag = `<span style="margin-left:6px;font-size:10px;font-weight:700;color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:1px 7px;vertical-align:middle">current</span>`;
+  let globalIdx = 0, tbody = '';
+  order.forEach((key, gIdx) => {
+    const wos = groups[key]; const ticket = key === '__none__' ? '—' : key;
+    const isCurrCase = currentCaseN && key !== '__none__' && key === currentCaseN;
+    wos.forEach((r, i) => {
+      globalIdx++;
+      const isCurrWo  = currentWoId && String(r.work_order_id) === currentWoId;
+      const rowBg     = isCurrWo ? 'background:#fffbeb;' : '';
+      const groupTop  = i === 0 && gIdx > 0 ? 'border-top:2px solid #e5e7eb;' : '';
+      const ticketLabel = isCurrCase && i === 0
+        ? `${esc(ticket)}${_currentTag}`
+        : esc(ticket);
+      const ticketCell = i === 0
+        ? `<td class="cc-hist-ticket-cell" rowspan="${wos.length}" style="padding:9px 10px;vertical-align:top${gIdx>0?';border-top:2px solid #e5e7eb':''}">${ticketLabel}</td>`
+        : '';
+      const woLabel = isCurrWo
+        ? `<span style="font-family:ui-monospace,SFMono-Regular,monospace;font-size:12.5px;font-weight:700;color:#1f2328">${esc(r.work_order_id)}</span>${_currentTag}`
+        : `<button class="cc-hist-wo-btn" onclick="openDetail(${esc(r.work_order_id)})">${esc(r.work_order_id)}</button>`;
+      tbody += `<tr style="${rowBg}${groupTop}">
+        <td style="text-align:center;color:#8b95a1;font-size:12px;width:32px;padding:9px 10px">${globalIdx}</td>
+        ${ticketCell}
+        <td style="padding:9px 10px">${woLabel}</td>
+        <td style="padding:8px 10px">${ccStatusBadge(r.work_order_status)}</td>
+        <td style="font-size:12px;padding:9px 10px">${esc(r.work_order_type || '—')}</td>
+        <td style="font-size:12px;white-space:nowrap;padding:9px 10px">${esc(r.created_on ? r.created_on.slice(0,10) : '—')}</td>
+        <td style="font-size:12px;white-space:nowrap;padding:9px 10px">${esc(r.completion_date ? r.completion_date.slice(0,10) : '—')}</td>
+        <td style="font-size:12px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:9px 10px" title="${esc(r.case_desc||'')}">${esc(r.case_desc || '—')}</td>
+      </tr>`;
+    });
+  });
+  const table = `<div class="cc-hist-table-wrap"><table class="cc-hist-table">
+    <thead><tr>
+      <th style="${thS};text-align:center;width:32px">#</th>
+      <th style="${thS}">Ticket (Case #)</th>
+      <th style="${thS}">WO Number</th>
+      <th style="${thS}">WO Status</th>
+      <th style="${thS}">Type</th>
+      <th style="${thS}">Created</th>
+      <th style="${thS}">Completed</th>
+      <th style="${thS};white-space:normal">Case Description</th>
+    </tr></thead>
+    <tbody>${tbody}</tbody>
+  </table></div>`;
+  return snLabel + woCount + table;
+}
+
+function ccEscStatusBadge(status) {
+  const v = (status || '').toLowerCase().trim();
+  let bg = '#f3f4f6', color = '#374151', border = '#d1d5db';
+  if (v === 'technical escalation')   { bg='#fef3c7'; color='#92400e'; border='#fde68a'; }
+  else if (v === 'progress')          { bg='#eff6ff'; color='#1d4ed8'; border='#bfdbfe'; }
+  else if (v === 'qa result')         { bg='#f5f3ff'; color='#6d28d9'; border='#ddd6fe'; }
+  else if (v === 'complete'||v === 'completed') { bg='#dcfce7'; color='#15803d'; border='#86efac'; }
+  else if (v === 'approved to order') { bg='#dbeafe'; color='#1e40af'; border='#93c5fd'; }
+  else if (v === 'reject')            { bg='#fee2e2'; color='#b91c1c'; border='#fca5a5'; }
+  return `<span style="display:inline-block;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:600;background:${bg};color:${color};border:1px solid ${border};white-space:nowrap">${esc(status || '—')}</span>`;
+}
+
+function ccRenderMondayEscalation(sn, rows, currentWoId, currentCaseN) {
+  if (!rows || !rows.length) return '';
+  const _discSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+  const thS = 'padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:#57606a;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e5e7eb;white-space:nowrap';
+  const _currentTag = `<span style="margin-left:6px;font-size:10px;font-weight:700;color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:1px 7px;vertical-align:middle">current</span>`;
+
+  function _extractWO(raw) {
+    if (!raw) return '';
+    const str = raw.toString().trim();
+    const parts = str.split(/[\/,;\|\s]+/).map(p => p.trim()).filter(Boolean);
+    const wo = parts.find(p => /^40\d{8,}/.test(p));
+    if (wo) return wo;
+    if (/^40\d/.test(str.slice(0,10))) return str.slice(0,10);
+    if (/^40\d/.test(str.slice(-10))) return str.slice(-10);
+    return '';
+  }
+
+  function _isCaseKey(raw) {
+    if (!raw) return false;
+    return !_extractWO(raw) && !!raw.toString().trim();
+  }
+
+  const snLabel  = `<div class="cc-hist-sn-label" style="margin-top:4px">Laptop Device SN: <strong>${esc(sn || '—')}</strong></div>`;
+  const recCount = `<div class="cc-hist-wo-count">${rows.length} escalation record${rows.length !== 1 ? 's' : ''} found for this serial number</div>`;
+
+  let tbody = '';
+  rows.forEach((r, i) => {
+    const rawKey     = (r.wo_case_id || '').toString().trim();
+    const woNum      = _extractWO(rawKey);
+    const caseKey    = _isCaseKey(rawKey) ? rawKey : null;
+
+    const isCurrRow  = (currentWoId && woNum && woNum === currentWoId) ||
+                       (currentCaseN && caseKey && caseKey === currentCaseN);
+
+    const displayCase = r.case_number || caseKey || null;
+    const isCurrCase  = currentCaseN && displayCase && String(displayCase) === String(currentCaseN);
+    const ticketCell  = displayCase
+      ? `<span style="font-family:ui-monospace,SFMono-Regular,monospace;font-size:12px;font-weight:600;color:#3b82d4">${esc(displayCase)}</span>${isCurrCase ? _currentTag : ''}`
+      : `<span style="color:#c9d0d8">—</span>`;
+
+    const woCell = woNum
+      ? ((currentWoId && woNum === currentWoId)
+          ? `<span style="font-family:ui-monospace,SFMono-Regular,monospace;font-size:12.5px;font-weight:700;color:#1f2328">${esc(woNum)}</span>${_currentTag}`
+          : `<button class="cc-hist-wo-btn" onclick="openDetail(${esc(woNum)})" style="font-family:ui-monospace,SFMono-Regular,monospace">${esc(woNum)}</button>`)
+      : `<span style="color:#c9d0d8">—</span>`;
+    const discCount  = r.disc_count || 0;
+    const discBtn    = r.monday_item_id
+      ? (discCount > 0
+          ? `<button style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid #3b82d4;border-radius:5px;background:rgba(59,130,212,.06);color:#1d4ed8;font-size:11.5px;cursor:pointer;font-family:inherit" onclick="openMondayDisc('${esc(r.monday_item_id)}','${esc(r.item_name||'')}','${esc(r.board_id||'')}' )">${_discSvg}<span style="font-size:10px;background:#3b82d4;color:#fff;border-radius:9px;padding:0 5px;min-width:16px;text-align:center;line-height:16px">${discCount}</span></button>`
+          : `<button style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid #d0d7de;border-radius:5px;background:#fff;color:#374151;font-size:11.5px;cursor:pointer;font-family:inherit" onclick="openMondayDisc('${esc(r.monday_item_id)}','${esc(r.item_name||'')}','${esc(r.board_id||'')}' )">${_discSvg}</button>`)
+      : `<button style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid #d0d7de;border-radius:5px;background:#fff;color:#374151;font-size:11.5px;opacity:.35;cursor:default;font-family:inherit" disabled>${_discSvg}</button>`;
+    const escDate = r.item_created_at ? r.item_created_at.slice(0, 10) : '—';
+    const rowBg   = isCurrRow ? 'background:#fffbeb;' : '';
+    tbody += `<tr style="${rowBg}${i > 0 ? 'border-top:1px solid #f0f2f5' : ''}">
+      <td style="text-align:center;color:#8b95a1;font-size:12px;width:32px;padding:9px 10px">${i + 1}</td>
+      <td style="padding:9px 10px;border-right:2px solid #bfdbfe;background:#eff6ff;white-space:nowrap">${ticketCell}</td>
+      <td style="padding:9px 10px;white-space:nowrap">${woCell}</td>
+      <td style="padding:9px 10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.item_name||'')}">${esc(r.item_name || '—')}</td>
+      <td style="padding:8px 10px">${ccEscStatusBadge(r.status)}</td>
+      <td style="font-size:12px;color:#57606a;white-space:nowrap;padding:9px 10px">${esc(escDate)}</td>
+      <td style="padding:8px 10px;text-align:center">${discBtn}</td>
+    </tr>`;
+  });
+
+  const table = `<div class="cc-hist-table-wrap"><table class="cc-hist-table">
+    <thead><tr>
+      <th style="${thS};text-align:center;width:32px">#</th>
+      <th style="${thS};background:#eff6ff;border-right:2px solid #bfdbfe;color:#3730a3">Ticket (Case#)</th>
+      <th style="${thS}">WO Number</th>
+      <th style="${thS}">Task / Item Name</th>
+      <th style="${thS}">Status</th>
+      <th style="${thS}">Escalation Date</th>
+      <th style="${thS};text-align:center;width:90px">Discussion</th>
+    </tr></thead>
+    <tbody>${tbody}</tbody>
+  </table></div>`;
+
+  const sectionHeader = `<div style="display:flex;align-items:center;gap:8px;margin-top:20px;margin-bottom:10px;padding-top:16px;border-top:2px solid #e5e7eb">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3730a3" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+    <span style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#3730a3">All Escalation Monday (SN: ${esc(sn || '—')})</span>
+  </div>`;
+
+  return sectionHeader + snLabel + recCount + table;
+}
 
 /* ═══════════════════════════════════════════════════════════════
    TAB SWITCHING — load data lazily on first activation
@@ -4490,6 +5470,7 @@ const tabLoaded = {
   'tab-cci-followup': false, 'tab-ons-followup': false,
   'tab-return-part': false,
   'tab-return-reminder': false,
+  'tab-under-escalation': false,
   'tab-esc-inprogress': false,
   'tab-completed-30d': false,
 };
@@ -4500,6 +5481,7 @@ const tabLoaders = {
   'tab-ons-followup':     () => _onsFollowUpLoad(),
   'tab-return-part':      () => _returnPartLoad(),
   'tab-return-reminder':  () => _returnReminderLoad(),
+  'tab-under-escalation': () => loadClosingCodeTable(),
   'tab-esc-inprogress':   () => _escInProgressLoad(true),
   'tab-completed-30d':    () => _completed30dLoad(),
 };
@@ -4531,6 +5513,10 @@ function switchTab(id) {
     onsFollowUpFilter = '';
     document.querySelectorAll('#ons-followup-filter-pills [data-onsfilter]').forEach(b =>
       b.classList.toggle('active', b.dataset.onsfilter === ''));
+    document.getElementById('ons-default-toolbar-controls').style.display = 'flex';
+    document.getElementById('ons-cnf-toolbar-controls').style.display = 'none';
+    document.getElementById('ons-default-view').style.display = '';
+    document.getElementById('ons-cnf-view').style.display = 'none';
     document.getElementById('th-ons-target').textContent = 'Target Fix/Sampai';
     _onsToggleExtraCols();
     if (!tabLoaded[id]) { tabLoaded[id] = true; }
@@ -4541,7 +5527,6 @@ function switchTab(id) {
     cciFollowUpFilter = '';
     document.querySelectorAll('#cci-followup-filter-pills [data-fufilter]').forEach(b =>
       b.classList.toggle('active', b.dataset.fufilter === ''));
-    document.getElementById('th-cci-target').textContent  = 'Target Fix/Sampai';
     document.getElementById('th-cci-shipped').textContent = 'Shipped On';
     if (!tabLoaded[id]) { tabLoaded[id] = true; }
     _cciFollowUpLoad();
@@ -4550,10 +5535,11 @@ function switchTab(id) {
   /* Reset In-Prepare filter whenever the tab is (re-)activated */
   if (id === 'tab-in-prepare') {
     inPrepareFilter = '';
+    inPrepareWoType = '';
     document.querySelectorAll('#in-prepare-filter-pills [data-prepfilter]').forEach(b =>
       b.classList.toggle('active', b.dataset.prepfilter === ''));
+    document.getElementById('select-inprep-wotype').value = '';
     if (!tabLoaded[id]) { tabLoaded[id] = true; }
-    _inPrepareToggleEta();
     _inPrepareLoad();
     return;
   }
@@ -4597,6 +5583,7 @@ document.querySelectorAll('[data-goto]').forEach(c => c.addEventListener('click'
     'ons-followup':'tab-ons-followup',
     'return-part':'tab-return-part',
     'return-reminder':'tab-return-reminder',
+    'under-escalation':'tab-under-escalation',
     'escalation':'tab-esc-inprogress',
     'completed-30days':'tab-completed-30d',
   };
@@ -4976,7 +5963,8 @@ function openOnsiteRecv(woId, woType, woStatus, aspName, deferDate, actualOnsite
   activeOnsiteRecvWo      = woId;
   activeOnsiteRecvContact = '';
   activeOnsiteRecvStatus  = woStatus || '';
-  activeOnsiteRecvHasPod  = !!(podDate && String(podDate).trim() && !isSentinel(String(podDate).trim()));
+  activeOnsiteRecvHasPod  = !!(podDate && String(podDate).trim() && !isSentinel(String(podDate).trim()))
+                         || !!(actualOnsite && String(actualOnsite).trim() && !isSentinel(String(actualOnsite).trim()));
   document.getElementById('onsite-recv-wo-num').textContent        = woId;
   document.getElementById('onsite-recv-wo-type').textContent       = woType  || '';
   document.getElementById('onsite-recv-asp').textContent           = aspName || '—';
@@ -5707,6 +6695,40 @@ let activePslaSource   = '';
 let activePslaPickup   = '';
 let activePslaPod      = '';
 
+/* ── Contact popover (In-Prepare: Part on Hold) ───────────────────────── */
+function openContactPopover(btn) {
+  const pop = document.getElementById('asp-contact-popover');
+  const name     = btn.dataset.name     || '';
+  const customer = btn.dataset.customer || '';
+  const phone    = btn.dataset.phone    || '';
+  const email    = btn.dataset.email    || '';
+  document.getElementById('asp-cp-name').textContent     = name;
+  const custEl  = document.getElementById('asp-cp-customer');
+  const phoneEl = document.getElementById('asp-cp-phone');
+  const emailEl = document.getElementById('asp-cp-email');
+  custEl.textContent  = customer || '—'; custEl.className  = 'contact-popover-val' + (customer ? '' : ' muted');
+  phoneEl.textContent = phone    || '—'; phoneEl.className = 'contact-popover-val' + (phone    ? '' : ' muted');
+  emailEl.textContent = email    || '—'; emailEl.className = 'contact-popover-val' + (email    ? '' : ' muted');
+  /* position near button */
+  pop.style.display = 'block';
+  const rect = btn.getBoundingClientRect();
+  const pw = pop.offsetWidth, ph2 = pop.offsetHeight;
+  let left = rect.left, top = rect.bottom + 6;
+  if (left + pw > window.innerWidth - 8)  left = window.innerWidth - pw - 8;
+  if (top  + ph2 > window.innerHeight - 8) top = rect.top - ph2 - 6;
+  pop.style.left = left + 'px';
+  pop.style.top  = top  + 'px';
+}
+function _closeAspContactPopover() {
+  document.getElementById('asp-contact-popover').style.display = 'none';
+}
+document.getElementById('btn-asp-contact-popover-close').addEventListener('click', _closeAspContactPopover);
+document.addEventListener('click', e => {
+  const pop = document.getElementById('asp-contact-popover');
+  if (pop.style.display === 'none') return;
+  if (!pop.contains(e.target) && !e.target.closest('.btn-contact')) _closeAspContactPopover();
+});
+
 /* ── Part Order History — read-only popup ─────────────────────────────── */
 function openPartHistory(woId, woType, woStatus) {
   document.getElementById('ph-wo-num').textContent = woId || '—';
@@ -6194,6 +7216,69 @@ document.getElementById('btn-confirm-reschedule').addEventListener('click', () =
   toast(`WO ${activeRsWo} — rescheduled (${by}: ${reason}) to ${dt.replace('T',' ')} ✓`, 'ok');
   closeModal('modal-reschedule');
 });
+
+/* ── ETA Tiba di YCH History Sidebar (In-Prepare: Part on Hold) ─────────── */
+const _aspEtaOverlay = document.getElementById('asp-eta-hist-overlay');
+const _aspEtaDrawer  = document.getElementById('asp-eta-hist-drawer');
+
+function _aspCloseEtaHistSidebar() {
+  _aspEtaOverlay.classList.remove('open');
+  _aspEtaDrawer.classList.remove('open');
+}
+
+function aspOpenEtaHistorySidebar(woId) {
+  document.getElementById('asp-eta-hist-title').textContent = `ETA Tiba di YCH — WO ${woId}`;
+  document.getElementById('asp-eta-hist-sub').textContent   = 'History of ETA changes per part order line';
+  document.getElementById('asp-eta-hist-body').innerHTML    = '<div class="eta-hist-loading">Loading…</div>';
+  _aspEtaOverlay.classList.add('open');
+  _aspEtaDrawer.classList.add('open');
+
+  fetch(`/asp/api/wo-parts/${woId}`)
+    .then(r => r.json())
+    .then(parts => _aspRenderEtaHistory(woId, parts))
+    .catch(() => {
+      document.getElementById('asp-eta-hist-body').innerHTML =
+        '<div class="eta-hist-empty">Failed to load part data.</div>';
+    });
+}
+
+function _aspRenderEtaHistory(woId, parts) {
+  const body = document.getElementById('asp-eta-hist-body');
+  const etaLines = (parts || [])
+    .filter(p => p.eta_parthold_backlog && String(p.eta_parthold_backlog).trim())
+    .sort((a, b) => (a.soid || 0) - (b.soid || 0));
+
+  if (!etaLines.length) {
+    body.innerHTML = '<div class="eta-hist-empty">No ETA Tiba di YCH data recorded for this WO.</div>';
+    return;
+  }
+
+  const sorted = [...etaLines].reverse();
+  body.innerHTML = `<div class="eta-tl">${sorted.map((p, idx) => {
+    const eta      = esc(fmtEta(p.eta_parthold_backlog));
+    const pn       = p.product     ? esc(p.product)     : '—';
+    const desc     = p.description ? esc(p.description) : '';
+    const status   = p.wo_product_status ? esc(p.wo_product_status) : '';
+    const isLatest = idx === 0;
+    const badge    = isLatest ? '<span class="eta-tl-badge">Latest</span>' : '';
+    return `
+      <div class="eta-tl-item">
+        <div class="eta-tl-line">
+          <div class="eta-tl-dot"></div>
+          <div class="eta-tl-connector"></div>
+        </div>
+        <div class="eta-tl-content">
+          <div class="eta-tl-date${isLatest ? ' latest' : ''}">${eta}${badge}</div>
+          <div class="eta-tl-meta">Part: <strong>${pn}</strong>${desc ? ` — ${desc}` : ''}</div>
+          ${status ? `<div class="eta-tl-meta" style="margin-top:2px">Status: ${status}</div>` : ''}
+          <div class="eta-tl-meta" style="margin-top:2px">SOID: ${p.soid || '—'}</div>
+        </div>
+      </div>`;
+  }).join('')}</div>`;
+}
+
+document.getElementById('btn-asp-eta-hist-close').addEventListener('click', _aspCloseEtaHistSidebar);
+_aspEtaOverlay.addEventListener('click', _aspCloseEtaHistSidebar);
 </script>
 {% endif %}{# end has_tech_id scripts #}
 {% endblock %}

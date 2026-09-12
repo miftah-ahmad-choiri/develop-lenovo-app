@@ -540,6 +540,656 @@ def api_wo_monday_escalation(work_order_id: int):
     return jsonify({"serial_number": sn, "rows": rows})
 
 
+@asp_bp.route("/asp/api/sn-history/<path:serial_number>", methods=["GET"])
+@login_required
+def api_sn_history(serial_number: str):
+    """Return all WOs in wo_summary/wo_details that share the given serial_number."""
+    from app.services.database.queries import get_wo_by_serial
+    rows = get_wo_by_serial(serial_number.strip())
+    return jsonify({"serial_number": serial_number.strip(), "rows": rows})
+
+
+@asp_bp.route("/asp/api/sn-monday-escalation/<path:serial_number>", methods=["GET"])
+@login_required
+def api_sn_monday_escalation(serial_number: str):
+    """Return all Monday technical_escalation rows for a given serial number."""
+    import os as _os
+    sn = serial_number.strip()
+
+    project_root = _os.path.normpath(_os.path.join(_os.path.dirname(__file__), "..", ".."))
+    db_path      = _os.path.join(project_root, "files", "lenovo_asp_escalation.db")
+    main_db_path = _os.path.join(project_root, "files", "lenovo_asp.db")
+    if not _os.path.isfile(db_path):
+        return jsonify({"serial_number": sn, "rows": []})
+
+    from app.services.database.db import open_db
+    edb = open_db(db_path)
+    try:
+        edb.execute(f"ATTACH DATABASE '{main_db_path}' AS main_db")
+    except Exception:
+        pass
+    rows = []
+    try:
+        raw = edb.execute(
+            """
+            SELECT
+                te.monday_item_id,
+                te.board_id,
+                te.asp_board,
+                te.item_name,
+                te.item_created_at,
+                te.status,
+                te.work_order_type,
+                te.wo_case_id,
+                te.serial_number,
+                (
+                    SELECT COUNT(DISTINCT u2.update_id) + COUNT(DISTINCT r2.reply_id)
+                    FROM item_updates u2
+                    LEFT JOIN item_update_replies r2 ON u2.update_id = r2.update_id
+                    WHERE u2.monday_item_id = te.monday_item_id
+                ) AS disc_count,
+                (
+                    SELECT wd.case_number
+                    FROM main_db.wo_details wd
+                    WHERE CAST(wd.work_order_id AS TEXT) = TRIM(te.wo_case_id)
+                       OR CAST(COALESCE(wd.case_number, '') AS TEXT) = TRIM(te.wo_case_id)
+                    LIMIT 1
+                ) AS case_number
+            FROM technical_escalation te
+            WHERE LOWER(TRIM(te.serial_number)) = LOWER(?)
+            ORDER BY te.item_created_at ASC
+            """,
+            (sn,),
+        ).fetchall()
+        rows = [dict(r) for r in raw]
+    except Exception as _e:
+        current_app.logger.error("api_sn_monday_escalation query failed: %s", _e)
+    finally:
+        edb.close()
+
+    return jsonify({"serial_number": sn, "rows": rows})
+
+
+@asp_bp.route("/asp/api/dashboard-closing-codes", methods=["GET"])
+@login_required
+def api_dashboard_closing_codes():
+    """
+    Return WOs whose completion_date falls within the last 30 days (WIB / UTC+7)
+    and whose closing_code is one of the tracked follow-up / special-outcome codes,
+    sorted by completion_date DESC. Exactly identical to Admin Dashboard.
+    """
+    import os as _os
+    import datetime as _dt
+    import re as _re
+    from app.services.database.db import get_db, open_db
+
+    _TRACKED_CODES = (
+        "Need follow up \u2013 New Problem Found",
+        "Needs Follow up - Wrong Part",
+        "Needs Follow up - Dead on Arrival",
+        "Need follow up \u2013 Parts Issue",
+        "Need follow up \u2013 Others",
+        "Need Follow up - Wrong Diagnosis",
+        "Need Follow Up",
+        "Customer Induced Damage",
+        "Cannot recreate problem",
+        "Parts replaced",
+    )
+
+    now_wib = _dt.datetime.utcnow() + _dt.timedelta(hours=7)
+    cutoff  = (now_wib - _dt.timedelta(days=30)).strftime("%Y-%m-%d")
+
+    placeholders = ",".join("?" * len(_TRACKED_CODES))
+    params       = list(_TRACKED_CODES) + [cutoff]
+
+    conn = get_db()
+    project_root = _os.path.normpath(
+        _os.path.join(_os.path.dirname(__file__), "..", "..")
+    )
+    esc_db_path  = _os.path.join(project_root, "files", "lenovo_asp_escalation.db")
+    main_db_path = _os.path.join(project_root, "files", "lenovo_asp.db")
+    edb = open_db(esc_db_path) if _os.path.isfile(esc_db_path) else None
+    if edb:
+        try:
+            edb.execute(f"ATTACH DATABASE '{main_db_path}' AS main_db")
+        except Exception:
+            pass
+
+    wo_rows = conn.execute(f"""
+        SELECT
+            s.work_order_id,
+            s.serial_number,
+            d.serial_number AS product_serial_number,
+            s.work_order_type,
+            s.work_order_status,
+            s.customer,
+            s.contact_name,
+            d.product_description,
+            d.city,
+            d.completion_date,
+            d.closing_date,
+            d.closing_code,
+            d.case_number,
+            CAST(s.work_order_id AS TEXT)   AS wo_id_str,
+            CAST(COALESCE(d.case_number, '') AS TEXT) AS case_num_str
+        FROM wo_summary s
+        LEFT JOIN wo_details d USING (work_order_id)
+        WHERE d.closing_code IN ({placeholders})
+          AND TRIM(COALESCE(d.completion_date, '')) != ''
+          AND SUBSTR(d.completion_date, 1, 10) >= ?
+        ORDER BY d.completion_date DESC
+        LIMIT 200
+    """, params).fetchall()
+
+    wo_rows = [dict(r) for r in wo_rows]
+
+    for r in wo_rows:
+        r["row_source"] = "closing_code"
+
+    monday_extra_rows = []
+
+    if edb:
+        try:
+            disc_by_item: dict = {}
+            esc_by_key: dict   = {}
+            serial_esc: dict   = {}
+
+            if wo_rows:
+                keys = set()
+                for r in wo_rows:
+                    keys.add(r["wo_id_str"])
+                    if r["case_num_str"]:
+                        keys.add(r["case_num_str"])
+                keys.discard("")
+                key_list = list(keys)
+                key_ph   = ",".join("?" * len(key_list))
+
+                esc_agg = edb.execute(f"""
+                    SELECT
+                        TRIM(wo_case_id)                             AS key,
+                        GROUP_CONCAT(DISTINCT COALESCE(status,'—')) AS statuses,
+                        MAX(item_created_at)                         AS latest_created_at,
+                        monday_item_id,
+                        item_name,
+                        board_id
+                    FROM technical_escalation
+                    WHERE TRIM(wo_case_id) IN ({key_ph})
+                    GROUP BY TRIM(wo_case_id)
+                """, key_list).fetchall()
+                esc_by_key = {dict(r)["key"]: dict(r) for r in esc_agg}
+
+                item_ids = [r["monday_item_id"] for r in esc_agg if r["monday_item_id"]]
+                if item_ids:
+                    item_ph    = ",".join("?" * len(item_ids))
+                    _disc_rows = edb.execute(f"""
+                        SELECT u.monday_item_id,
+                               COUNT(DISTINCT u.update_id) + COUNT(DISTINCT r.reply_id) AS cnt
+                        FROM item_updates u
+                        LEFT JOIN item_update_replies r ON r.update_id = u.update_id
+                        WHERE u.monday_item_id IN ({item_ph})
+                        GROUP BY u.monday_item_id
+                    """, item_ids).fetchall()
+                    disc_by_item = {row["monday_item_id"]: row["cnt"] for row in _disc_rows}
+
+                serial_esc = {}
+                for esc_row in edb.execute("""
+                    SELECT
+                        TRIM(serial_number) AS serial_key,
+                        monday_item_id,
+                        item_name,
+                        item_created_at,
+                        status,
+                        wo_case_id,
+                        board_id
+                    FROM technical_escalation
+                    WHERE TRIM(COALESCE(serial_number, '')) != ''
+                """).fetchall():
+                    serial_esc.setdefault(esc_row["serial_key"].lower(), []).append(dict(esc_row))
+
+            for r in wo_rows:
+                wo_esc  = esc_by_key.get(r["wo_id_str"])
+                case_esc = esc_by_key.get(r["case_num_str"])
+                esc = wo_esc or case_esc
+                match_type = "wo" if wo_esc else ("case" if case_esc else None)
+
+                if not esc:
+                    serial_key = (r["product_serial_number"] or r["serial_number"] or "").strip().lower()
+                    completion_date = (r["completion_date"] or "")[:10]
+                    candidates = []
+                    if serial_key and completion_date:
+                        try:
+                            _comp_dt = _dt.date.fromisoformat(completion_date)
+                        except ValueError:
+                            _comp_dt = None
+                        if _comp_dt:
+                            for serial_row in serial_esc.get(serial_key, []):
+                                escalation_date = (serial_row["item_created_at"] or "")[:10]
+                                if escalation_date:
+                                    try:
+                                        _esc_dt = _dt.date.fromisoformat(escalation_date)
+                                    except ValueError:
+                                        continue
+                                    delta = (_esc_dt - _comp_dt).days
+                                    if -4 <= delta <= 7:
+                                        candidates.append(serial_row)
+                    if candidates:
+                        esc = max(candidates, key=lambda item: item["item_created_at"] or "")
+                        esc["statuses"] = ",".join(dict.fromkeys(
+                            item["status"] or "—" for item in candidates
+                        ))
+                        esc["latest_created_at"] = max(
+                            item["item_created_at"] or "" for item in candidates
+                        )
+                        match_type = "serial"
+                if esc:
+                    r["esc_statuses"]   = esc["statuses"]
+                    r["esc_created_at"] = esc["latest_created_at"]
+                    r["esc_item_id"]    = esc["monday_item_id"]
+                    r["esc_item_name"]  = esc["item_name"]
+                    r["esc_board_id"]   = esc["board_id"]
+                    r["esc_disc_count"] = disc_by_item.get(esc["monday_item_id"], 0)
+                    if match_type == "serial" and esc["monday_item_id"]:
+                        disc_rows = edb.execute("""
+                            SELECT COUNT(DISTINCT u.update_id) + COUNT(DISTINCT rep.reply_id) AS cnt
+                            FROM item_updates u
+                            LEFT JOIN item_update_replies rep ON rep.update_id = u.update_id
+                            WHERE u.monday_item_id = ?
+                        """, (esc["monday_item_id"],)).fetchone()
+                        r["esc_disc_count"] = disc_rows["cnt"] if disc_rows else 0
+                    r["wo_case_id"]     = (
+                        esc.get("key") or esc.get("wo_case_id")
+                        if match_type != "serial"
+                        else f"SN: {r['product_serial_number'] or r['serial_number']}"
+                    )
+                    r["wo_case_match"]  = match_type
+                else:
+                    r["esc_statuses"]   = None
+                    r["esc_created_at"] = None
+                    r["esc_item_id"]    = None
+                    r["esc_item_name"]  = None
+                    r["esc_board_id"]   = None
+                    r["esc_disc_count"] = 0
+                    r["wo_case_id"]     = None
+                    r["wo_case_match"]  = None
+
+            matched_wo_ids  = {r["wo_id_str"] for r in wo_rows}
+            matched_case_ids = {r["case_num_str"] for r in wo_rows if r["case_num_str"]}
+
+            all_monday = edb.execute("""
+                SELECT
+                    monday_item_id,
+                    item_name,
+                    item_created_at,
+                    status,
+                    wo_case_id,
+                    serial_number,
+                    board_id,
+                    work_order_type
+                FROM technical_escalation
+                WHERE TRIM(COALESCE(item_created_at, '')) != ''
+                  AND SUBSTR(item_created_at, 1, 10) >= ?
+                ORDER BY item_created_at DESC
+            """, (cutoff,)).fetchall()
+
+            closed_by_case: dict = {}
+            all_closed_wo = conn.execute("""
+                SELECT
+                    CAST(s.work_order_id AS TEXT) AS wo_id_str,
+                    d.completion_date,
+                    d.closing_date,
+                    s.work_order_type,
+                    s.work_order_status,
+                    d.case_number,
+                    d.closing_code,
+                    s.serial_number,
+                    d.serial_number AS product_serial_number,
+                    s.customer,
+                    s.contact_name,
+                    d.product_description,
+                    d.city
+                FROM wo_summary s
+                LEFT JOIN wo_details d USING (work_order_id)
+                WHERE TRIM(COALESCE(d.completion_date, '')) != ''
+                  AND SUBSTR(d.completion_date, 1, 10) >= ?
+            """, (cutoff,)).fetchall()
+            all_closed_wo = [dict(r) for r in all_closed_wo]
+            all_closed_wo_by_id: dict = {r["wo_id_str"]: r for r in all_closed_wo}
+            for r in all_closed_wo:
+                if r["case_number"]:
+                    closed_by_case.setdefault(str(r["case_number"]), []).append(r)
+
+            no_close_by_case: dict = {}
+            _no_close_rows = conn.execute("""
+                SELECT
+                    CAST(s.work_order_id AS TEXT) AS wo_id_str,
+                    d.completion_date,
+                    d.closing_date,
+                    s.work_order_type,
+                    s.work_order_status,
+                    d.case_number,
+                    d.closing_code,
+                    s.serial_number,
+                    d.serial_number AS product_serial_number,
+                    s.customer,
+                    s.contact_name,
+                    d.product_description,
+                    d.city
+                FROM wo_summary s
+                LEFT JOIN wo_details d USING (work_order_id)
+                WHERE d.case_number IS NOT NULL
+                  AND TRIM(COALESCE(d.case_number, '')) != ''
+                  AND TRIM(COALESCE(d.closing_date, '')) = ''
+            """).fetchall()
+            for r in _no_close_rows:
+                r = dict(r)
+                if r["case_number"]:
+                    no_close_by_case.setdefault(str(r["case_number"]), []).append(r)
+
+            def _disc_count_for(item_id):
+                if not item_id:
+                    return 0
+                if item_id in disc_by_item:
+                    return disc_by_item[item_id]
+                row = edb.execute("""
+                    SELECT COUNT(DISTINCT u.update_id) + COUNT(DISTINCT rep.reply_id) AS cnt
+                    FROM item_updates u
+                    LEFT JOIN item_update_replies rep ON rep.update_id = u.update_id
+                    WHERE u.monday_item_id = ?
+                """, (item_id,)).fetchone()
+                cnt = row["cnt"] if row else 0
+                disc_by_item[item_id] = cnt
+                return cnt
+
+            def _looks_like_wo(val):
+                v = str(val or "").strip()
+                return bool(v and _re.match(r'^40\d{8,}', v))
+
+            _serials_needing_autofill = {
+                str(dict(mr).get("serial_number") or "").strip().lower()
+                for mr in all_monday
+                if str(dict(mr).get("serial_number") or "").strip()
+                and not str(dict(mr).get("wo_case_id") or "").strip()
+            }
+            _latest_wo_by_serial: dict = {}
+            if _serials_needing_autofill:
+                _sn_ph = ",".join("?" * len(_serials_needing_autofill))
+                _latest_rows = conn.execute(f"""
+                    SELECT LOWER(TRIM(s.serial_number)) AS sn_key,
+                           CAST(s.work_order_id AS TEXT) AS wo_id
+                    FROM wo_summary s
+                    WHERE LOWER(TRIM(s.serial_number)) IN ({_sn_ph})
+                    ORDER BY s.created_on DESC
+                """, list(_serials_needing_autofill)).fetchall()
+                for _lr in _latest_rows:
+                    _lr = dict(_lr)
+                    if _lr["sn_key"] not in _latest_wo_by_serial:
+                        _latest_wo_by_serial[_lr["sn_key"]] = _lr["wo_id"]
+
+            _unresolved_wo_ids = set()
+            for _mr in all_monday:
+                _rk = str(dict(_mr).get("wo_case_id") or "").strip()
+                if _looks_like_wo(_rk) and _rk not in matched_wo_ids and _rk not in all_closed_wo_by_id:
+                    _unresolved_wo_ids.add(_rk)
+
+            _open_wo_by_id: dict = {}
+            if _unresolved_wo_ids:
+                _uid_ph = ",".join("?" * len(_unresolved_wo_ids))
+                _open_rows = conn.execute(f"""
+                    SELECT
+                        CAST(s.work_order_id AS TEXT) AS wo_id_str,
+                        s.work_order_type,
+                        s.work_order_status,
+                        s.serial_number,
+                        d.serial_number      AS product_serial_number,
+                        s.customer,
+                        s.contact_name,
+                        d.product_description,
+                        d.city,
+                        d.completion_date,
+                        d.closing_date,
+                        d.closing_code,
+                        d.case_number
+                    FROM wo_summary s
+                    LEFT JOIN wo_details d USING (work_order_id)
+                    WHERE CAST(s.work_order_id AS TEXT) IN ({_uid_ph})
+                """, list(_unresolved_wo_ids)).fetchall()
+                _open_wo_by_id = {dict(r)["wo_id_str"]: dict(r) for r in _open_rows}
+
+            seen_monday_item_ids = set()
+
+            for mrow in all_monday:
+                mrow = dict(mrow)
+                raw_key = str(mrow["wo_case_id"] or "").strip()
+
+                item_id = mrow["monday_item_id"]
+                if item_id in seen_monday_item_ids:
+                    continue
+
+                def _monday_only_row(key):
+                    _sn_lo = str(mrow.get("serial_number") or "").strip().lower()
+                    _auto_wo = _latest_wo_by_serial.get(_sn_lo) if _sn_lo else None
+                    return {
+                        "work_order_id":         None,
+                        "serial_number":         mrow.get("serial_number") or None,
+                        "product_serial_number": mrow.get("serial_number") or None,
+                        "work_order_type":       mrow.get("work_order_type") or None,
+                        "work_order_status":     None,
+                        "customer":              None,
+                        "contact_name":          None,
+                        "product_description":   None,
+                        "city":                  None,
+                        "completion_date":       None,
+                        "closing_date":          None,
+                        "closing_code":          None,
+                        "case_number":           None,
+                        "esc_statuses":          mrow["status"],
+                        "esc_created_at":        mrow["item_created_at"],
+                        "esc_item_id":           item_id,
+                        "esc_item_name":         mrow["item_name"],
+                        "esc_board_id":          mrow["board_id"],
+                        "esc_disc_count":        _disc_count_for(item_id),
+                        "wo_case_id":            key,
+                        "wo_case_match":         None,
+                        "row_source":            "monday_only",
+                        "latest_wo_id":          _auto_wo,
+                    }
+
+                if not raw_key:
+                    seen_monday_item_ids.add(item_id)
+                    monday_extra_rows.append(_monday_only_row(""))
+                elif _looks_like_wo(raw_key):
+                    if raw_key in matched_wo_ids:
+                        continue
+                    seen_monday_item_ids.add(item_id)
+                    closed_wo = all_closed_wo_by_id.get(raw_key) or _open_wo_by_id.get(raw_key)
+                    disc = _disc_count_for(item_id)
+                    _sn_lo2 = str(mrow.get("serial_number") or "").strip().lower()
+                    extra = {
+                        "work_order_id":          closed_wo["wo_id_str"] if closed_wo else None,
+                        "serial_number":          closed_wo["serial_number"] if closed_wo else (mrow.get("serial_number") or None),
+                        "product_serial_number":  closed_wo["product_serial_number"] if closed_wo else (mrow.get("serial_number") or None),
+                        "work_order_type":        closed_wo["work_order_type"] if closed_wo else (mrow.get("work_order_type") or None),
+                        "work_order_status":      closed_wo["work_order_status"] if closed_wo else None,
+                        "customer":               closed_wo["customer"] if closed_wo else None,
+                        "contact_name":           closed_wo["contact_name"] if closed_wo else None,
+                        "product_description":    closed_wo["product_description"] if closed_wo else None,
+                        "city":                   closed_wo["city"] if closed_wo else None,
+                        "completion_date":        closed_wo["completion_date"] if closed_wo else None,
+                        "closing_date":           closed_wo["closing_date"] if closed_wo else None,
+                        "closing_code":           closed_wo["closing_code"] if closed_wo else None,
+                        "case_number":            closed_wo["case_number"] if closed_wo else None,
+                        "esc_statuses":           mrow["status"],
+                        "esc_created_at":         mrow["item_created_at"],
+                        "esc_item_id":            item_id,
+                        "esc_item_name":          mrow["item_name"],
+                        "esc_board_id":           mrow["board_id"],
+                        "esc_disc_count":         disc,
+                        "wo_case_id":             raw_key,
+                        "wo_case_match":          "wo" if closed_wo else None,
+                        "row_source":             "monday_wo" if closed_wo else "monday_only",
+                        "latest_wo_id":           None if closed_wo else _latest_wo_by_serial.get(_sn_lo2),
+                    }
+                    monday_extra_rows.append(extra)
+                else:
+                    if raw_key in matched_case_ids:
+                        continue
+                    esc_date_str = (mrow["item_created_at"] or "")[:10]
+                    if not esc_date_str:
+                        seen_monday_item_ids.add(item_id)
+                        monday_extra_rows.append(_monday_only_row(raw_key))
+                        continue
+                    try:
+                        _esc_dt = _dt.date.fromisoformat(esc_date_str)
+                    except ValueError:
+                        seen_monday_item_ids.add(item_id)
+                        monday_extra_rows.append(_monday_only_row(raw_key))
+                        continue
+
+                    matched_wo = None
+                    for cwo in closed_by_case.get(raw_key, []):
+                        _ref_dates = [
+                            (cwo.get("completion_date") or "")[:10],
+                            (cwo.get("closing_date")    or "")[:10],
+                        ]
+                        for _rd in _ref_dates:
+                            if not _rd:
+                                continue
+                            try:
+                                _ref_dt = _dt.date.fromisoformat(_rd)
+                            except ValueError:
+                                continue
+                            if -4 <= (_esc_dt - _ref_dt).days <= 7:
+                                matched_wo = cwo
+                                break
+                        if matched_wo:
+                            break
+
+                    no_close_wo = None
+                    if not matched_wo:
+                        candidates_nc = no_close_by_case.get(raw_key, [])
+                        if candidates_nc:
+                            no_close_wo = candidates_nc[0]
+
+                    if not matched_wo and not no_close_wo:
+                        seen_monday_item_ids.add(item_id)
+                        monday_extra_rows.append(_monday_only_row(raw_key))
+                        continue
+
+                    seen_monday_item_ids.add(item_id)
+                    disc = _disc_count_for(item_id)
+                    src_wo = matched_wo or no_close_wo
+                    extra = {
+                        "work_order_id":          src_wo["wo_id_str"],
+                        "serial_number":          src_wo["serial_number"],
+                        "product_serial_number":  src_wo["product_serial_number"],
+                        "work_order_type":        src_wo["work_order_type"],
+                        "work_order_status":      src_wo["work_order_status"],
+                        "customer":               src_wo["customer"],
+                        "contact_name":           src_wo["contact_name"],
+                        "product_description":    src_wo["product_description"],
+                        "city":                   src_wo["city"],
+                        "completion_date":        src_wo["completion_date"],
+                        "closing_date":           src_wo["closing_date"],
+                        "closing_code":           src_wo["closing_code"],
+                        "case_number":            src_wo["case_number"],
+                        "esc_statuses":           mrow["status"],
+                        "esc_created_at":         mrow["item_created_at"],
+                        "esc_item_id":            item_id,
+                        "esc_item_name":          mrow["item_name"],
+                        "esc_board_id":          mrow["board_id"],
+                        "esc_disc_count":         disc,
+                        "wo_case_id":             raw_key,
+                        "wo_case_match":          "case",
+                        "row_source":             "monday_case",
+                        "no_close_date":          no_close_wo is not None,
+                    }
+                    monday_extra_rows.append(extra)
+
+        except Exception as _e:
+            current_app.logger.error("api_dashboard_closing_codes error: %s", _e)
+            for r in wo_rows:
+                r["esc_statuses"]   = None
+                r["esc_created_at"] = None
+                r["esc_item_id"]    = None
+                r["esc_item_name"]  = None
+                r["esc_board_id"]   = None
+                r["esc_disc_count"] = 0
+                r["wo_case_id"]     = None
+                r["wo_case_match"]  = None
+        finally:
+            edb.close()
+    else:
+        for r in wo_rows:
+            r["esc_statuses"]   = None
+            r["esc_created_at"] = None
+            r["esc_item_id"]    = None
+            r["esc_item_name"]  = None
+            r["esc_board_id"]   = None
+            r["esc_disc_count"] = 0
+            r["wo_case_id"]     = None
+            r["wo_case_match"]  = None
+
+    combined = wo_rows + monday_extra_rows
+    combined.sort(
+        key=lambda r: (r.get("esc_created_at") or ""),
+        reverse=True,
+    )
+
+    rows = []
+    for r in combined:
+        r.pop("wo_id_str",    None)
+        r.pop("case_num_str", None)
+        rows.append(r)
+
+    return jsonify({"rows": [dict(r) for r in rows], "cutoff": cutoff})
+
+
+@asp_bp.route("/asp/api/monday-discussion/<item_id>", methods=["GET"])
+@login_required
+def api_monday_discussion(item_id: str):
+    """Return discussion updates and replies for a Monday item."""
+    import os as _os
+    from app.services.database.db import open_db
+    project_root = _os.path.normpath(_os.path.join(_os.path.dirname(__file__), "..", ".."))
+    esc_db_path  = _os.path.join(project_root, "files", "lenovo_asp_escalation.db")
+    result = {"updates": []}
+    if not _os.path.isfile(esc_db_path):
+        return jsonify(result)
+
+    edb = open_db(esc_db_path)
+    try:
+        updates = edb.execute("""
+            SELECT u.update_id, u.body_text, u.created_at, u.updated_at,
+                   u.creator_id, c.creator_name
+            FROM item_updates u
+            LEFT JOIN creators c ON u.creator_id = c.creator_id
+            WHERE u.monday_item_id = ?
+            ORDER BY u.created_at ASC
+        """, (item_id,)).fetchall()
+
+        updates_out = []
+        for upd in updates:
+            upd_dict = dict(upd)
+            replies = edb.execute("""
+                SELECT r.reply_id, r.body_text, r.created_at,
+                       r.creator_id, c.creator_name
+                FROM item_update_replies r
+                LEFT JOIN creators c ON r.creator_id = c.creator_id
+                WHERE r.update_id = ?
+                ORDER BY r.created_at ASC
+            """, (upd_dict["update_id"],)).fetchall()
+            upd_dict["replies"] = [dict(r) for r in replies]
+            updates_out.append(upd_dict)
+
+        result["updates"] = updates_out
+    except Exception as _e:
+        current_app.logger.error("api_monday_discussion error: %s", _e)
+    finally:
+        edb.close()
+
+    return jsonify(result)
+
+
 @asp_bp.route("/asp/api/escalation-inprogress", methods=["GET"])
 @login_required
 def api_escalation_inprogress():
@@ -1000,6 +1650,7 @@ def api_in_prepare():
         vendor_filter   = _vendor_filter(),
         tech_id_filter  = _tech_id_filter(),
         prepare_filter  = request.args.get("prepare_filter", "").strip(),
+        wo_type_filter  = request.args.get("wo_type", "").strip(),
     ))
 
 
@@ -1561,6 +2212,138 @@ def api_onsite_followup_export():
     os.makedirs(report_dir, exist_ok=True)
     ts       = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"ONS_FollowUp_{ts}.xlsx"
+    filepath = os.path.join(report_dir, filename)
+    wb.save(filepath)
+
+    return send_file(
+        filepath,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Under Escalation — Export
+# ═══════════════════════════════════════════════════════════════════════════
+
+@asp_bp.route("/asp/api/under-escalation/export", methods=["GET"])
+@login_required
+def api_under_escalation_export():
+    """Export Under Escalation table — respects wo_type, status, and search filters."""
+    import openpyxl
+    import json as _json
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+    # Re-use the existing data function (same module, same request context).
+    raw_resp = api_dashboard_closing_codes()
+    all_rows = _json.loads(raw_resp.get_data(as_text=True)).get("rows", [])
+
+    # ── Apply the same 3-stage filter the frontend uses ─────────────────────
+    COMPLETE_VALS = {"complete", "completed", "reject", "approved to order"}
+
+    type_val   = request.args.get("wo_type",  "").strip()
+    status_val = request.args.get("status",   "").strip()   # in-progress | complete | no-status
+    search_val = request.args.get("q",        "").strip().lower()
+
+    def _passes(r):
+        # 1. WO Type
+        if type_val and (r.get("work_order_type") or "") != type_val:
+            return False
+        # 2. Monday Status
+        if status_val:
+            statuses = [s.strip().lower() for s in (r.get("esc_statuses") or "").split(",") if s.strip()]
+            if status_val == "in-progress":
+                if not any(s and s not in COMPLETE_VALS for s in statuses):
+                    return False
+            elif status_val == "complete":
+                if not any(s in COMPLETE_VALS for s in statuses):
+                    return False
+            elif status_val == "no-status":
+                if statuses:
+                    return False
+        # 3. Search
+        if search_val:
+            haystack = " ".join(
+                str(r.get(k) or "").lower()
+                for k in ("work_order_id", "work_order_type", "closing_code",
+                          "work_order_status", "esc_statuses", "wo_case_id")
+            )
+            if search_val not in haystack:
+                return False
+        return True
+
+    sort_by = request.args.get("sort_by", "").strip()
+    rows = [r for r in all_rows if _passes(r)]
+    if sort_by == "completion_date":
+        rows.sort(
+            key=lambda r: (r.get("completion_date") or r.get("closing_date") or ""),
+            reverse=True,
+        )
+
+    # ── Build workbook ────────────────────────────────────────────────────────
+    def _fd(val):
+        if not val: return ""
+        s = str(val).strip()
+        return s[:16] if len(s) > 16 else s
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Under Escalation"
+
+    headers = [
+        "No.", "WO ID", "Completed", "Type",
+        "Closing Code / WO Status",
+        "WO/Case ID Monday", "Escalation Date", "Monday Status",
+    ]
+    col_keys = [
+        None,
+        "work_order_id", "completion_date", "work_order_type",
+        "closing_code",
+        "wo_case_id", "esc_created_at", "esc_statuses",
+    ]
+    col_widths = [6, 16, 18, 14, 34, 22, 20, 30]
+
+    hdr_fill  = PatternFill("solid", fgColor="1F2328")
+    hdr_font  = Font(bold=True, color="FFFFFF", size=11)
+    hdr_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    thin_side = Side(style="thin", color="E5E7EB")
+    thin_bdr  = Border(left=thin_side, right=thin_side, bottom=thin_side, top=thin_side)
+
+    for ci, (h, w) in enumerate(zip(headers, col_widths), start=1):
+        cell = ws.cell(row=1, column=ci, value=h)
+        cell.fill = hdr_fill; cell.font = hdr_font
+        cell.alignment = hdr_align; cell.border = thin_bdr
+        ws.column_dimensions[cell.column_letter].width = w
+    ws.row_dimensions[1].height = 22
+
+    even_fill  = PatternFill("solid", fgColor="F7F8FA")
+    data_font  = Font(size=11)
+    data_align = Alignment(vertical="center")
+
+    for ri, r in enumerate(rows, start=2):
+        fill = even_fill if ri % 2 == 0 else PatternFill()
+        for ci, key in enumerate(col_keys, start=1):
+            if key is None:
+                value = ri - 1
+            elif key in ("completion_date", "esc_created_at"):
+                value = _fd(r.get(key))
+            elif key == "work_order_type":
+                raw = r.get(key) or ""
+                value = "Carry-In" if raw == "CCI" else ("Onsite" if raw == "ONS" else raw)
+            else:
+                value = r.get(key) or ""
+            cell = ws.cell(row=ri, column=ci, value=value)
+            cell.font = data_font; cell.alignment = data_align; cell.border = thin_bdr
+            if fill.fill_type: cell.fill = fill
+        ws.row_dimensions[ri].height = 18
+
+    ws.freeze_panes = "A2"
+
+    report_dir = current_app.config["REPORT_DIR"]
+    os.makedirs(report_dir, exist_ok=True)
+    ts       = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"Under_Escalation_{ts}.xlsx"
     filepath = os.path.join(report_dir, filename)
     wb.save(filepath)
 
