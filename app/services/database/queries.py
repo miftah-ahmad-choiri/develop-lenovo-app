@@ -878,6 +878,28 @@ def get_asp_cci_followup_page(
                 row["followup_state"] = state
                 filtered.append(row)
 
+        # Sort: all-parts-received rows first, then oldest→latest by Target SLA.
+        # target SLA threshold = base + 1 day (POD for in-repair, ETA for in-transit).
+        def _target_sort_key(row: dict):
+            recv  = row.get("part_delivered_count") or 0
+            qty   = row.get("part_qty") or 0
+            total = qty + recv
+            all_received = 1 if not (total > 0 and recv >= total) else 0  # 0 = received first
+            s   = row.get("followup_state", "")
+            pod = (row.get("part_pod_time") or "").strip()[:16]
+            eta = (row.get("part_eta")      or "").strip()[:16]
+            base = pod if (s in ("wo_sla", "report_problem") and pod) else eta
+            if base:
+                try:
+                    base_dt = datetime.datetime.fromisoformat(base.replace(" ", "T"))
+                    sla = (base_dt + datetime.timedelta(days=1)).isoformat()[:16]
+                    return (all_received, sla)
+                except (ValueError, TypeError):
+                    pass
+            return (all_received, "9999")
+
+        filtered.sort(key=_target_sort_key)
+
         total  = len(filtered)
         pages  = max(1, -(-total // page_size))
         offset = (max(1, page) - 1) * page_size
@@ -893,29 +915,25 @@ def get_asp_cci_followup_page(
             row["followup_state"] = state
             result_rows_all.append(row)
 
-        # Sort by the computed target datetime oldest-first:
-        #   confirm_receipt / part_sla  → part_eta (YYYY-MM-DD or datetime string)
-        #   wo_sla / report_problem     → part_pod_time + 1 day
-        #   rows with no computable target go last
-        def _target_sort_key(row: dict) -> str:
-            state = row.get("followup_state", "")
-            # wo_sla / report_problem: sort key = part_pod_time + 1 day (exact datetime)
-            # confirm_receipt / part_sla: sort key = part_eta date padded to T23:59
-            #   so that wo_sla/report_problem rows whose threshold falls on the same
-            #   calendar day always appear BEFORE confirm_receipt/part_sla rows.
-            if state in ("wo_sla", "report_problem"):
-                pod = (row.get("part_pod_time") or "").strip()[:16]
-                if pod:
-                    try:
-                        pod_dt = datetime.datetime.fromisoformat(pod.replace(" ", "T"))
-                        thresh = pod_dt + datetime.timedelta(days=1)
-                        return thresh.isoformat()[:16]
-                    except (ValueError, TypeError):
-                        pass
-            if state in ("confirm_receipt", "part_sla"):
-                eta = (row.get("part_eta") or "")[:10].strip()
-                return f"{eta}T23:59" if eta else "9999"
-            return "9999"
+        # Sort: all-parts-received rows first, then oldest→latest by Target SLA.
+        # target SLA threshold = base + 1 day (POD for in-repair, ETA for in-transit).
+        def _target_sort_key(row: dict):
+            recv  = row.get("part_delivered_count") or 0
+            qty   = row.get("part_qty") or 0
+            total = qty + recv
+            all_received = 1 if not (total > 0 and recv >= total) else 0  # 0 = received first
+            s   = row.get("followup_state", "")
+            pod = (row.get("part_pod_time") or "").strip()[:16]
+            eta = (row.get("part_eta")      or "").strip()[:16]
+            base = pod if (s in ("wo_sla", "report_problem") and pod) else eta
+            if base:
+                try:
+                    base_dt = datetime.datetime.fromisoformat(base.replace(" ", "T"))
+                    sla = (base_dt + datetime.timedelta(days=1)).isoformat()[:16]
+                    return (all_received, sla)
+                except (ValueError, TypeError):
+                    pass
+            return (all_received, "9999")
 
         result_rows_all.sort(key=_target_sort_key)
         result_rows = result_rows_all
@@ -1374,11 +1392,10 @@ def get_asp_onsite_followup_page(
         # dc_number filled on the latest active part line
         part_dc_filled = bool(r.get("part_dc_filled"))
 
-        # WO open + part shipped + not yet POD'd:
-        #   ETA already passed → part_sla (shown as alert inside WO Reschedule sub-tab)
-        #   ETA not yet passed → wo_reschedule
+        # WO open + part shipped + not yet POD'd → wo_reschedule
+        # (Part SLA Overdue state is not used for Onsite WO type)
         if part_shipped and not part_pod and not is_closed:
-            return "part_sla" if (eta and eta < today) else "wo_reschedule"
+            return "wo_reschedule"
         # part received (POD filled) and WO still open — check WO completion SLA
         if part_pod and not is_closed:
             if delivery_raw and not isSentinel_py(delivery_raw):
@@ -1395,38 +1412,39 @@ def get_asp_onsite_followup_page(
         # Everything else (no part shipped, WO closed, etc.) — no actionable state
         return ""
 
-    def _ons_sort_key(row: dict):
-        """Sort by the displayed ETA Part; fall back to the latest of Actual Onsite Date / Defer Date."""
-        eta = (row.get("part_eta") or "").strip()[:10]
-        state = row.get("followup_state", "")
-        delivered = int(row.get("part_delivered_count") or 0)
-        ordered = int(row.get("part_qty") or 0)
-        all_received = ordered + delivered > 0 and delivered >= ordered + delivered
-        eta_visible = state in ("wo_reschedule", "part_sla") and eta and not isSentinel_py(eta) and not all_received
-        if eta_visible:
-            return (0, eta, "")
-        # Use the latest valid date between actual_committed_onsite_date and customer_defer_date
-        # — mirrors the green-cell logic: the later of the two is what the user sees highlighted.
-        actual_onsite = (row.get("actual_committed_onsite_date") or "").strip()[:16]
-        defer_date    = (row.get("customer_defer_date") or "").strip()[:16]
-        actual_valid  = bool(actual_onsite and not isSentinel_py(actual_onsite))
-        defer_valid   = bool(defer_date  and not isSentinel_py(defer_date))
-        if actual_valid and defer_valid:
-            sort_dt = actual_onsite if actual_onsite >= defer_date else defer_date
-        elif actual_valid:
-            sort_dt = actual_onsite
-        elif defer_valid:
-            sort_dt = defer_date
+    def _ons_target_sla_dt(row: dict) -> str:
+        """Return the Target SLA Repair datetime string (base + 90 h) used for sorting.
+
+        Mirrors the frontend render logic:
+          base = part_pod_time if filled, else part_eta (date-only treated as midnight)
+          target = base + 3.75 days (90 hours)
+        Returns an ISO-like string 'YYYY-MM-DD HH:MM' so lexicographic sort == chronological.
+        Rows with no base date return '' and are pushed to the bottom.
+        """
+        pod = (row.get("part_pod_time") or "").strip()[:16]
+        eta = (row.get("part_eta")      or "").strip()[:16]
+        if pod and not isSentinel_py(pod):
+            base_str = pod
+        elif eta and not isSentinel_py(eta):
+            # pad to datetime if only a date was stored (length 10)
+            base_str = eta if len(eta) > 10 else eta + " 00:00"
         else:
-            sort_dt = ""
-        if row.get("wo_status_category") == "open_part_received" and sort_dt:
-            return (0, sort_dt[:10], sort_dt)
-        return (1, "", "")
+            return ""
+        try:
+            base_dt  = datetime.datetime.fromisoformat(base_str.replace(" ", "T"))
+            target_dt = base_dt + datetime.timedelta(hours=90)
+            return target_dt.strftime("%Y-%m-%d %H:%M")
+        except (ValueError, TypeError):
+            return ""
+
+    def _ons_sort_key(row: dict):
+        """Sort by Target SLA Repair (oldest → latest); rows with no target go to the bottom."""
+        target = _ons_target_sla_dt(row)
+        return (0, target) if target else (1, "")
 
     def _ons_all_sort_key(row: dict):
-        """Sort by the displayed ETA Part; fall back to Actual Onsite Date."""
-        key = _ons_sort_key(row)
-        return (f"0:{key[1]}:{key[2]}" if key[0] == 0 else "1:")
+        """Same sort key used for the All-ONS view."""
+        return _ons_sort_key(row)
 
     if followup_state:
         all_rows = conn.execute(f"""
@@ -1438,11 +1456,10 @@ def get_asp_onsite_followup_page(
             ORDER BY s.created_on DESC
         """, params).fetchall()
 
-        # wo_reschedule sub-tab also includes part_sla rows (ETA-overdue variant)
         # wo_sla sub-tab (ONS Scheduler) also includes report_problem rows (elapsed > 3.75 days)
         # and ALL open_part_received rows regardless of computed state
         if followup_state == "wo_reschedule":
-            filter_states = {"wo_reschedule", "part_sla"}
+            filter_states = {"wo_reschedule"}
         elif followup_state == "wo_sla":
             filter_states = {"wo_sla", "report_problem"}
         else:

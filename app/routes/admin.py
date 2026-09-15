@@ -421,7 +421,6 @@ def api_dashboard_closing_codes():
         "Need Follow Up",
         "Customer Induced Damage",
         "Cannot recreate problem",
-        "Parts replaced",
     )
 
     now_wib = _dt.datetime.utcnow() + _dt.timedelta(hours=7)
@@ -951,6 +950,12 @@ def api_dashboard_closing_codes():
             r["wo_case_match"]  = None
 
     # Combine closing-code rows + Monday-only extra rows, sort by escalation date DESC
+    _tracked_set = set(_TRACKED_CODES)
+    monday_extra_rows = [
+        r for r in monday_extra_rows
+        if (r.get("closing_code") or "") in _tracked_set
+    ]
+
     combined = wo_rows + monday_extra_rows
     combined.sort(
         key=lambda r: (r.get("esc_created_at") or ""),

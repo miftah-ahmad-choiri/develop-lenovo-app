@@ -614,9 +614,9 @@ def api_sn_monday_escalation(serial_number: str):
 @login_required
 def api_dashboard_closing_codes():
     """
-    Return WOs whose completion_date falls within the last 30 days (WIB / UTC+7)
+    Return WOs whose completion_date falls within the requested period (WIB / UTC+7)
     and whose closing_code is one of the tracked follow-up / special-outcome codes,
-    sorted by completion_date DESC. Exactly identical to Admin Dashboard.
+    sorted by completion_date DESC. Accepts ?days=30|90|365 (default 30).
     """
     import os as _os
     import datetime as _dt
@@ -633,14 +633,34 @@ def api_dashboard_closing_codes():
         "Need Follow Up",
         "Customer Induced Damage",
         "Cannot recreate problem",
-        "Parts replaced",
     )
 
+    _ALLOWED_DAYS = {30, 90, 365}
+    try:
+        _days = int(request.args.get("days", 30))
+    except (ValueError, TypeError):
+        _days = 30
+    if _days not in _ALLOWED_DAYS:
+        _days = 30
+
     now_wib = _dt.datetime.utcnow() + _dt.timedelta(hours=7)
-    cutoff  = (now_wib - _dt.timedelta(days=30)).strftime("%Y-%m-%d")
+    cutoff  = (now_wib - _dt.timedelta(days=_days)).strftime("%Y-%m-%d")
 
     placeholders = ",".join("?" * len(_TRACKED_CODES))
-    params       = list(_TRACKED_CODES) + [cutoff]
+
+    # ── Vendor / tech scope (mirrors api_wo_detail access control) ──────────
+    vf = _vendor_filter()
+    tf = _tech_id_filter()
+    scope_clause  = ""
+    scope_params  = []
+    if vf:
+        scope_clause += " AND d.labor_vendor_related = ?"
+        scope_params.append(vf)
+    if tf:
+        scope_clause += " AND d.tech_id = ?"
+        scope_params.append(tf)
+
+    params = list(_TRACKED_CODES) + [cutoff] + scope_params
 
     conn = get_db()
     project_root = _os.path.normpath(
@@ -677,6 +697,7 @@ def api_dashboard_closing_codes():
         WHERE d.closing_code IN ({placeholders})
           AND TRIM(COALESCE(d.completion_date, '')) != ''
           AND SUBSTR(d.completion_date, 1, 10) >= ?
+          {scope_clause}
         ORDER BY d.completion_date DESC
         LIMIT 200
     """, params).fetchall()
@@ -832,7 +853,7 @@ def api_dashboard_closing_codes():
             """, (cutoff,)).fetchall()
 
             closed_by_case: dict = {}
-            all_closed_wo = conn.execute("""
+            all_closed_wo = conn.execute(f"""
                 SELECT
                     CAST(s.work_order_id AS TEXT) AS wo_id_str,
                     d.completion_date,
@@ -851,7 +872,8 @@ def api_dashboard_closing_codes():
                 LEFT JOIN wo_details d USING (work_order_id)
                 WHERE TRIM(COALESCE(d.completion_date, '')) != ''
                   AND SUBSTR(d.completion_date, 1, 10) >= ?
-            """, (cutoff,)).fetchall()
+                  {scope_clause}
+            """, ([cutoff] + scope_params)).fetchall()
             all_closed_wo = [dict(r) for r in all_closed_wo]
             all_closed_wo_by_id: dict = {r["wo_id_str"]: r for r in all_closed_wo}
             for r in all_closed_wo:
@@ -859,7 +881,7 @@ def api_dashboard_closing_codes():
                     closed_by_case.setdefault(str(r["case_number"]), []).append(r)
 
             no_close_by_case: dict = {}
-            _no_close_rows = conn.execute("""
+            _no_close_rows = conn.execute(f"""
                 SELECT
                     CAST(s.work_order_id AS TEXT) AS wo_id_str,
                     d.completion_date,
@@ -879,7 +901,8 @@ def api_dashboard_closing_codes():
                 WHERE d.case_number IS NOT NULL
                   AND TRIM(COALESCE(d.case_number, '')) != ''
                   AND TRIM(COALESCE(d.closing_date, '')) = ''
-            """).fetchall()
+                  {scope_clause}
+            """, scope_params).fetchall()
             for r in _no_close_rows:
                 r = dict(r)
                 if r["case_number"]:
@@ -952,7 +975,8 @@ def api_dashboard_closing_codes():
                     FROM wo_summary s
                     LEFT JOIN wo_details d USING (work_order_id)
                     WHERE CAST(s.work_order_id AS TEXT) IN ({_uid_ph})
-                """, list(_unresolved_wo_ids)).fetchall()
+                    {scope_clause}
+                """, list(_unresolved_wo_ids) + scope_params).fetchall()
                 _open_wo_by_id = {dict(r)["wo_id_str"]: dict(r) for r in _open_rows}
 
             seen_monday_item_ids = set()
@@ -1128,6 +1152,12 @@ def api_dashboard_closing_codes():
             r["esc_disc_count"] = 0
             r["wo_case_id"]     = None
             r["wo_case_match"]  = None
+
+    _tracked_set = set(_TRACKED_CODES)
+    monday_extra_rows = [
+        r for r in monday_extra_rows
+        if (r.get("closing_code") or "") in _tracked_set
+    ]
 
     combined = wo_rows + monday_extra_rows
     combined.sort(
@@ -2146,7 +2176,6 @@ def api_onsite_followup_export():
 
     _state_labels = {
         "wo_reschedule":  "ONS In-Transit",
-        "part_sla":       "Part SLA Overdue",
         "wo_sla":         "Escalate WO",
         "report_problem": "WO SLA Follow-Up",
     }

@@ -28,14 +28,16 @@
   .fu-badge-btn:hover { filter: brightness(.92); transform: translateY(-1px); }
   .fu-badge-btn:active { transform: translateY(0); filter: brightness(.85); }
   .fu-confirm        { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
-  .fu-confirm-today  { background: #ccfbf1; color: #0f766e; border: 1px solid #5eead4; }
-  .fu-part-sla       { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+  .fu-confirm-today  { background: #0f766e; color: #ffffff; border: 1px solid #0d9488; }
+  .fu-part-sla       { background: #ea580c; color: #ffffff; border: 1px solid #c2410c; }
   .fu-wo-sla         { background: #dc2626; color: #ffffff; border: 1px solid #b91c1c; }
   .fu-input-dc       { background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; }
   .fu-reschedule     { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
   .fu-set-schedule   { background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; }
   #tbl-cci-followup th.cci-state-header { width:170px; min-width:170px; max-width:170px; background: #dbeafe; color: #1e3a8a; }
   #tbl-cci-followup td.cci-state-cell { width:170px; min-width:170px; max-width:170px; background: #dbeafe !important; border-left: 2px solid #93c5fd; border-right: 2px solid #93c5fd; }
+  #tbl-cci-followup.cci-hide-shipped th:nth-child(7),
+  #tbl-cci-followup.cci-hide-shipped td:nth-child(7) { display: none; }
   #tbl-ons-followup th.ons-schedule-header { background: #dbeafe; color: #1e3a8a; }
   #tbl-ons-followup td.ons-schedule-cell { background: #dbeafe !important; border-left: 2px solid #93c5fd; border-right: 2px solid #93c5fd; }
   .fu-report-problem { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
@@ -45,32 +47,17 @@
   .fu-in-repair      { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
   .fu-return-part    { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
   .fu-escalate       { background: #f3f4f6; color: #1f2328; border: 1px solid #d1d5db; }
-  #tbl-ons-followup td.ons-date-green { background: #dcfce7 !important; color: #15803d !important; border-bottom-color: transparent !important; }
-  #tbl-ons-followup td.ons-date-gray  { background: #e5e7eb !important; color: #9ca3af !important; border-bottom-color: transparent !important; }
-  #tbl-ons-followup td.ons-date-red   { background: #fee2e2 !important; color: #b91c1c !important; border-bottom-color: transparent !important; }
-  /* ONS Follow-Up: hide Shipped On(col12), POD/Received On(col13), Case(col14) on All sub-tab */
+  #tbl-ons-followup td.ons-date-green      { background: #dcfce7 !important; color: #15803d !important; border-bottom-color: transparent !important; }
+  #tbl-ons-followup td.ons-date-green-past { background: #dcfce7 !important; color: #d97706 !important; border-bottom-color: transparent !important; }
+  #tbl-ons-followup td.ons-date-gray       { background: #e5e7eb !important; color: #9ca3af !important; border-bottom-color: transparent !important; }
+  #tbl-ons-followup td.ons-date-red        { background: #fee2e2 !important; color: #b91c1c !important; border-bottom-color: transparent !important; }
+  /* ONS Follow-Up: hide Shipped On(col11), POD/Received On(col12), Case(col13) on All sub-tab (1-based index including '#' col1: cols 12, 13, 14) */
   #tbl-ons-followup.ons-hide-extra th:nth-child(12),
   #tbl-ons-followup.ons-hide-extra th:nth-child(13),
   #tbl-ons-followup.ons-hide-extra th:nth-child(14),
   #tbl-ons-followup.ons-hide-extra td:nth-child(12),
   #tbl-ons-followup.ons-hide-extra td:nth-child(13),
   #tbl-ons-followup.ons-hide-extra td:nth-child(14) { display: none; }
-  /* ONS In-Transit sub-tab: hide Target SLA Repair(col9), Escalation Action(col10), POD/Received On(col13) */
-  #tbl-ons-followup.ons-hide-transit th:nth-child(9),
-  #tbl-ons-followup.ons-hide-transit th:nth-child(10),
-  #tbl-ons-followup.ons-hide-transit th:nth-child(13),
-  #tbl-ons-followup.ons-hide-transit td:nth-child(9),
-  #tbl-ons-followup.ons-hide-transit td:nth-child(10),
-  #tbl-ons-followup.ons-hide-transit td:nth-child(13) { display: none; }
-  /* ONS In-Repair sub-tab: hide ETA Part(col6), Shipped On(col12), POD/Received On(col13), Case(col14) */
-  #tbl-ons-followup.ons-hide-inrepair th:nth-child(6),
-  #tbl-ons-followup.ons-hide-inrepair th:nth-child(12),
-  #tbl-ons-followup.ons-hide-inrepair th:nth-child(13),
-  #tbl-ons-followup.ons-hide-inrepair th:nth-child(14),
-  #tbl-ons-followup.ons-hide-inrepair td:nth-child(6),
-  #tbl-ons-followup.ons-hide-inrepair td:nth-child(12),
-  #tbl-ons-followup.ons-hide-inrepair td:nth-child(13),
-  #tbl-ons-followup.ons-hide-inrepair td:nth-child(14) { display: none; }
   /* CCI sub-tab pills */
   .subtab-bar { display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap; }
   .subtab-pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1.5px solid transparent; background: #f7f8fa; color: #57606a; border-color: #e5e7eb; font-family: inherit; transition: background .12s, color .12s; white-space: nowrap; }
@@ -750,7 +737,7 @@
     🔔 Return Reminder
     <span class="tab-badge" id="tab-return-reminder-badge" style="display:none"></span>
   </button>
-  <button class="tab-btn" data-tab="tab-under-escalation">
+  <button class="tab-btn" data-tab="tab-under-escalation" style="display:none">
     ⚡ Under Escalation
     <span class="tab-badge" id="tab-under-escalation-badge" style="display:none"></span>
   </button>
@@ -884,12 +871,12 @@
           <th>Created On</th><th>WO Number</th>
           <th class="cci-state-header" style="width:170px;min-width:170px;max-width:170px">Follow-Up State</th>
           <th>Total Diterima</th>
+          <th>AWB</th>
           <th id="th-cci-shipped">Shipped On</th>
           <th id="th-cci-eta" style="min-width:130px">ETA Part</th>
+          <th style="min-width:160px">Self-Reminder</th>
           <th style="min-width:210px">Target SLA Repair</th>
           <th>WO Status</th>
-          <th>AWB</th>
-          <th>Case</th>
         </tr></thead>
         <tbody id="tbody-cci-followup"><tr><td colspan="11" class="loading-state">Loading…</td></tr></tbody>
       </table>
@@ -906,9 +893,9 @@
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;" id="ons-followup-filter-pills">
         <button class="subtab-pill active" data-onsfilter="">All ONS Follow-Up</button>
         <span style="color:#d0d7de;font-size:14px;font-weight:300;padding:0 2px">|</span>
-        <button class="subtab-pill" data-onsfilter="wo_sla">🔧 ONS Scheduler</button>
-        <span style="color:#d0d7de;font-size:14px;font-weight:300;padding:0 2px">|</span>
-        <button class="subtab-pill" data-onsfilter="closed_not_fixed">⚠️ Closed Not Fixed</button>
+        <button class="subtab-pill" data-onsfilter="wo_sla" style="display:none">🔧 ONS Scheduler</button>
+        <span style="color:#d0d7de;font-size:14px;font-weight:300;padding:0 2px;display:none">|</span>
+        <button class="subtab-pill" data-onsfilter="closed_not_fixed">⚠️ Closed Not Fixed <span class="tab-badge" id="subtab-cnf-badge" style="display:none"></span></button>
       </div>
       <div id="ons-default-toolbar-controls" style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
         <button class="btn-export-xlsx" id="btn-export-ons-followup" title="Export all rows to Excel">
@@ -920,6 +907,14 @@
       </div>
       <div id="ons-cnf-toolbar-controls" style="display:none;align-items:center;gap:6px;flex-wrap:wrap;flex-shrink:0;margin-left:auto;">
         <span style="font-size:11px;color:#8c959f;flex-shrink:0" id="ons-cnf-sub">Loading…</span>
+        <div class="cc-filter-wrap">
+          <select class="cc-filter-select" id="ons-cnf-filter-period" onchange="loadOnsCnfTable()">
+            <option value="30" selected>Last 1 Month</option>
+            <option value="90">Last 3 Months</option>
+            <option value="365">Last 1 Year</option>
+          </select>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
         <div class="cc-filter-wrap">
           <select class="cc-filter-select" id="ons-cnf-filter-status" onchange="onsCnfApplyFilters()">
             <option value="" selected>All Monday Status</option>
@@ -951,13 +946,13 @@
             <th style="min-width:130px">ETA Part</th>
             <th style="width:150px;min-width:150px">Actual Onsite Date</th>
             <th style="width:150px;min-width:150px">Defer Date</th>
-            <th style="min-width:210px" id="th-ons-target">Target SLA Repair</th>
             <th>Self-Reminder</th>
+            <th style="min-width:210px" id="th-ons-target">Target SLA Repair</th>
             <th>WO Status</th>
             <th>Shipped On</th><th>POD / Received On</th>
             <th>Case</th>
           </tr></thead>
-          <tbody id="tbody-ons-followup"><tr><td colspan="14" class="loading-state">Loading…</td></tr></tbody>
+          <tbody id="tbody-ons-followup"><tr><td colspan="13" class="loading-state">Loading…</td></tr></tbody>
         </table>
       </div>
       <div id="empty-ons-followup" class="empty-state" style="display:none">No ONS follow-up WOs found.</div>
@@ -2438,10 +2433,25 @@ function onsDateCellClass(row, isActual) {
   const actualValid = actual && !isSentinel(actual);
   const deferValid  = defer && !isSentinel(defer);
   if (!value || isSentinel(value)) return 'ons-date-red';
-  if (actualValid && !deferValid) return isActual ? 'ons-date-green' : 'ons-date-red';
+  if (actualValid && !deferValid) {
+    if (!isActual) return 'ons-date-red';
+    return _onsGreenOrPast(actual);
+  }
   if (!actualValid || !deferValid) return 'ons-date-gray';
   const actualIsLatest = actual.slice(0, 16) >= defer.slice(0, 16);
-  return (isActual ? actualIsLatest : !actualIsLatest) ? 'ons-date-green' : 'ons-date-gray';
+  const isGreen = isActual ? actualIsLatest : !actualIsLatest;
+  if (!isGreen) return 'ons-date-gray';
+  return _onsGreenOrPast(isActual ? actual : defer);
+}
+
+/* Returns 'ons-date-green-past' when the green date is earlier than today (WIB UTC+7),
+   otherwise 'ons-date-green'. */
+function _onsGreenOrPast(dateStr) {
+  const d = dateStr.slice(0, 10);
+  if (!d) return 'ons-date-green';
+  const _wibNow = new Date(Date.now() + 7 * 3600000);
+  const today   = _wibNow.toISOString().slice(0, 10);
+  return d < today ? 'ons-date-green-past' : 'ons-date-green';
 }
 
 function statusBadge(s) {
@@ -2716,8 +2726,8 @@ function openDetail(woId) {
         b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, 'cci', b.dataset.pod)));
       body.querySelectorAll('[data-action="cci-report-problem"]').forEach(b =>
         b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, 'cci', b.dataset.pod)));
-      body.querySelectorAll('[data-action="onsite-reschedule"]').forEach(b =>
-        b.addEventListener('click', () => openReschedule(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, b.dataset.deferDate, b.dataset.actualOnsite, b.dataset.pod)));
+      body.querySelectorAll('[data-action="ons-followup-schedule"]').forEach(b =>
+        b.addEventListener('click', () => openOnsiteRecv(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, b.dataset.deferDate, b.dataset.actualOnsite, b.dataset.pod)));
       body.querySelectorAll('[data-action="onsite-part-sla"]').forEach(b =>
         b.addEventListener('click', () => openPartSla(b.dataset.wo, b.dataset.woType, b.dataset.eta, b.dataset.pickup, b.dataset.pod, b.dataset.awb, b.dataset.status, b.dataset.asp, 'onsite')));
       body.querySelectorAll('[data-action="onsite-wo-sla"]').forEach(b =>
@@ -2861,10 +2871,9 @@ function _onsiteHeroBtns(d) {
 
   let state;
   if (partShipped && !partPod) {
-    // Part shipped but NOT yet POD'd (regardless of WO open/closed):
-    //   ETA already passed → part_sla; ETA not yet passed → wo_reschedule
-    //   (mirrors _cciHeroBtns — isClosed is not a gate here)
-    state = onsitePartSlaOverdue ? 'part_sla' : 'wo_reschedule';
+    // Part shipped but NOT yet POD'd — for Onsite type, Part SLA Overdue button
+    // is not used; always show wo_reschedule regardless of ETA status.
+    state = 'wo_reschedule';
   } else if (partPod && !isClosed) {
     // part received (POD filled) and WO still open — check WO completion SLA (4 days = 96 h for Onsite)
     const podRaw   = d.part_pod_raw || String(d.ship_pou_pod_time || d.part_delivery_date || '').trim();
@@ -2888,12 +2897,20 @@ function _onsiteHeroBtns(d) {
   const partAwbFilled = !!(d.part_awb && String(d.part_awb).trim());
 
   const btns = [];
-  if (state === 'wo_reschedule')
-    btns.push(`<button class="fu-badge fu-reschedule fu-badge-btn" data-action="onsite-reschedule" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-status="${stEsc}" data-asp="${aspEsc}" data-defer-date="${deferDateEsc}" data-actual-onsite="${actOnsiteEsc}" data-pod="${podEsc}">📅 WO Reschedule</button>`);
-  if (state === 'part_sla')
-    btns.push(`<button class="fu-badge fu-part-sla fu-badge-btn" data-action="onsite-part-sla" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-eta="${etaEsc}" data-pickup="${pickupEsc}" data-pod="${podEsc}" data-awb="${esc(d.part_awb||'')}" data-status="${stEsc}" data-asp="${aspEsc}">⚠️ Part SLA Overdue</button>`);
-  if (state === 'wo_sla' || state === 'report_problem')
-    btns.push(`<button class="fu-badge fu-reschedule fu-badge-btn" data-action="onsite-reschedule" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-status="${stEsc}" data-asp="${aspEsc}" data-defer-date="${deferDateEsc}" data-actual-onsite="${actOnsiteEsc}" data-pod="${podEsc}">📅 WO Reschedule</button>`);
+  if (state === 'wo_reschedule') {
+    // Show Re-Schedule ONS when defer date already exists, Set Schedule ONS when it's empty
+    if (deferDateEsc)
+      btns.push(`<button class="fu-badge fu-reschedule fu-badge-btn" data-action="ons-followup-schedule" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-status="${stEsc}" data-asp="${aspEsc}" data-defer-date="${deferDateEsc}" data-actual-onsite="${actOnsiteEsc}" data-pod="${podEsc || deferDateEsc}">📅 Re-Schedule ONS</button>`);
+    else
+      btns.push(`<button class="fu-badge fu-set-schedule fu-badge-btn" data-action="ons-followup-schedule" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-status="${stEsc}" data-asp="${aspEsc}" data-defer-date="${deferDateEsc}" data-actual-onsite="${actOnsiteEsc}" data-pod="${podEsc}">📅 Set Schedule ONS</button>`);
+  }
+  // Part SLA Overdue button is not shown for Onsite WO type
+  if (state === 'wo_sla' || state === 'report_problem') {
+    if (deferDateEsc)
+      btns.push(`<button class="fu-badge fu-reschedule fu-badge-btn" data-action="ons-followup-schedule" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-status="${stEsc}" data-asp="${aspEsc}" data-defer-date="${deferDateEsc}" data-actual-onsite="${actOnsiteEsc}" data-pod="${podEsc || deferDateEsc}">📅 Re-Schedule ONS</button>`);
+    else
+      btns.push(`<button class="fu-badge fu-set-schedule fu-badge-btn" data-action="ons-followup-schedule" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-status="${stEsc}" data-asp="${aspEsc}" data-defer-date="${deferDateEsc}" data-actual-onsite="${actOnsiteEsc}" data-pod="${podEsc}">📅 Set Schedule ONS</button>`);
+  }
   if (state === 'report_problem')
     btns.push(`<button class="fu-badge fu-wo-sla fu-badge-btn" data-action="onsite-wo-sla" data-wo="${wo}" data-wo-type="${woTypeEsc}" data-pod="${podEsc}" data-defer-date="${deferDateEsc}" data-status="${stEsc}" data-asp="${aspEsc}">🔔 WO SLA Follow-Up</button>`);
   /* Part POD'd but AWB still blank — show receipt button alongside other buttons */
@@ -3029,18 +3046,22 @@ function renderTimeline(d, parts) {
   /* true when the WO is closed/completed — forces onsite nodes to done */
   const isWoClosed = !!(d.completion_date || d.closing_date);
 
-  /* Define timeline nodes in order */
-  const nd = v => (isSentinel(v) ? null : v);
+  /* Define timeline nodes in order.
+     Defer Date is Onsite-only — hidden for Carry-In / CCI WO types. */
+  const nd     = v => (isSentinel(v) ? null : v);
+  const _wt    = (d.work_order_type || '').toLowerCase();
+  const _isCCI = _wt.includes('carry') || _wt.includes('cci');
+
   const nodes = [
-    { label: 'Case\nCreated',        date: nd(d.created_on) },                                     // 0
-    { label: 'Released',             date: nd(d.release_date) },                                    // 1
-    { label: 'Part Order',           date: nd(partOrderDate) },                                     // 2
-    { label: 'Part Pickup',          date: nd(partPickupDate) },                                    // 3
-    { label: 'Part Received\n(POD)', date: nd(partPodDate) },                                       // 4
-    { label: 'Actual\nOnsite',       date: nd(d.actual_committed_onsite_date) },                    // 5
-    { label: 'Defer Date',           date: nd(d.customer_defer_date), optional: true },             // 6
-    { label: 'Completion',           date: nd(d.completion_date) },                                 // 7
-    { label: 'Closed',               date: nd(d.closing_date) },                                    // 8
+    { label: 'Case\nCreated',        date: nd(d.created_on) },
+    { label: 'Released',             date: nd(d.release_date) },
+    { label: 'Part Order',           date: nd(partOrderDate) },
+    { label: 'Part Pickup',          date: nd(partPickupDate) },
+    { label: 'Part Received\n(POD)', date: nd(partPodDate) },
+    { label: _isCCI ? 'Actual\nRepair' : 'Actual\nOnsite', date: nd(d.actual_committed_onsite_date), isActual: true },
+    ...(_isCCI ? [] : [{ label: 'Defer Date', date: nd(d.customer_defer_date), optional: true, isDefer: true }]),
+    { label: 'Completion',           date: nd(d.completion_date) },
+    { label: 'Closed',               date: nd(d.closing_date) },
   ];
 
   /* Determine "progress" — the last node index that has a real date */
@@ -3052,17 +3073,14 @@ function renderTimeline(d, parts) {
     const ts      = hasDate ? new Date(String(n.date).replace(' ', 'T')).getTime() : null;
     const isPast  = ts && ts <= now;
     const isOverdue = !hasDate && i > 0 && i <= lastDoneIdx + 1 && !n.optional;
-    /* Closed WO: Actual Onsite (5) forced done only when it
-       has a date — if empty it stays grey (future). Defer Date (6): forced done
-       if it has a date; forced grey if empty. */
-    const forceDone   = isWoClosed && ((hasDate && i === 5) || (i === 6 && hasDate));
-    const forceGrey   = isWoClosed && i === 6 && !hasDate;
-    /* Open WO: Actual Onsite (5) forced active (blue) when
-       it has a date — the WO is not finished yet so it is not "done".
-       Defer Date (6) forced skipped (amber) when it has a date — it is a deferral,
-       not a completion event. */
-    const forceActive = !isWoClosed && hasDate && i === 5;
-    const forceSkip   = !isWoClosed && hasDate && i === 6;
+    /* Closed WO: Actual Onsite forced done when it has a date.
+       Defer Date: forced done if it has a date; forced grey if empty. */
+    const forceDone   = isWoClosed && ((hasDate && n.isActual) || (n.isDefer && hasDate));
+    const forceGrey   = isWoClosed && n.isDefer && !hasDate;
+    /* Open WO: Actual Onsite forced active (blue) when it has a date.
+       Defer Date forced skipped (amber) when it has a date — it's a deferral. */
+    const forceActive = !isWoClosed && hasDate && n.isActual;
+    const forceSkip   = !isWoClosed && hasDate && n.isDefer;
 
     let state;
     if (forceDone)                   state = 'done';
@@ -3079,7 +3097,7 @@ function renderTimeline(d, parts) {
       ? `tl-connector ${(state === 'done' && i < lastDoneIdx) ? 'done' : ''}` : '';
 
     const dateStr  = fmtShort(n.date);
-    const dateCls  = (i === 6 && hasDate) ? 'active-text' : state === 'done' ? 'done-text' : state === 'active' ? 'active-text' : 'future-text';
+    const dateCls  = (n.isDefer && hasDate) ? 'active-text' : state === 'done' ? 'done-text' : state === 'active' ? 'active-text' : 'future-text';
 
     /* SVG icon inside dot */
     let dotSvg = '';
@@ -3859,9 +3877,9 @@ function cciFuStateBadge(r) {
   if (state === 'confirm_receipt')
     return `<button class="fu-badge ${fuEtaIsToday ? 'fu-confirm-today' : 'fu-confirm'} fu-badge-btn" data-action="cci-fu-recv" data-wo="${wo}" data-wo-type="${woType}" data-status="${status}" data-asp="${asp}">📬 Confirm AWB</button>`;
   if (state === 'part_sla')
-    return `<button class="fu-badge fu-part-sla fu-badge-btn" data-action="cci-fu-part-sla" data-wo="${wo}" data-wo-type="${woType}" data-status="${status}" data-asp="${asp}">⚠️ Part SLA Overdue</button>`;
+    return `<button class="fu-badge fu-part-sla fu-badge-btn" data-action="cci-fu-part-sla" data-wo="${wo}" data-wo-type="${woType}" data-status="${status}" data-asp="${asp}">⚠️ Part ETA Overdue</button>`;
   if (state === 'wo_sla')
-    return `<button class="fu-badge fu-escalate fu-badge-btn" data-action="cci-fu-escalate" data-wo="${wo}" data-wo-type="${woType}" data-pod="${pod}" data-defer-date="${deferDate}" data-status="${status}" data-asp="${asp}">📞 Escalate WO</button>`;
+    return '<span style="font-size:18px">🛠️</span>';
   if (state === 'report_problem')
     return `<button class="fu-badge fu-wo-sla fu-badge-btn" data-action="cci-fu-wo-sla" data-wo="${wo}" data-wo-type="${woType}" data-pod="${pod}" data-defer-date="${deferDate}" data-status="${status}" data-asp="${asp}">🔔 WO SLA Follow-Up</button>`;
   return '<span style="color:#8c959f;font-style:italic">—</span>';
@@ -3888,32 +3906,39 @@ const cciFollowUpTable = makeTabTable({
         return `<button data-action="total-part-recv" data-wo="${esc(r.work_order_id)}" data-wo-type="${esc(r.work_order_type||'')}" data-wo-status="${esc(r.work_order_status||'')}" style="cursor:pointer;border:1px solid ${border};background:${bg};color:${color};border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;white-space:nowrap">${recv}/${total} Parts</button>`;
       }
     },
+    { key: 'part_awb',          tdStyle: 'text-align:center', render: r => r.part_awb ? `<span style="font-family:monospace;font-size:11px;color:#0f766e;font-weight:700;background:#ccfbf1;border:1px solid #5eead4;border-radius:6px;padding:2px 6px">${esc(r.part_awb)}</span>` : '<span style="color:#8c959f;font-style:italic">AWB Kosong</span>' },
     { key: 'ship_pickup_time',  tdStyle: 'text-align:center', render: r => {
         const recv  = r.part_delivered_count || 0;
         const total = (r.part_qty || 0) + recv;
-        if (total > 0 && recv >= total)
-          return '<span style="color:#8c959f;font-style:italic">Semua Parts Diterima</span>';
         const state = r.followup_state || '';
         const val   = (state === 'wo_sla' || state === 'report_problem') ? r.part_pod_time : r.ship_pickup_time;
+        if (total > 0 && recv >= total)
+          return '';
         if (!val || isSentinel(val))
           return '<span style="color:#8c959f;font-style:italic">Part belum dikirim</span>';
         return fmt(val);
       }
     },
 
-    ...(!inRepair ? [{ key: 'part_eta', tdStyle: 'text-align:center', render: r => {
-        /* ETA Part — only shown for in-transit states (confirm_receipt / part_sla). */
+    ...([{ key: 'part_eta', tdStyle: 'text-align:center', render: r => {
+        /* ETA Part — shown for all CCI sub-tabs. */
         const state = r.followup_state || '';
         const recv  = r.part_delivered_count || 0;
         const total = (r.part_qty || 0) + recv;
         const allReceived = total > 0 && recv >= total;
         if (allReceived) return etaReceivedLabel(r);
-        if (state !== 'confirm_receipt' && state !== 'part_sla')
+        if (!['confirm_receipt', 'part_sla', 'wo_sla', 'report_problem'].includes(state))
           return '<span style="color:#8c959f;font-style:italic">Menunggu Update YCH</span>';
         if (!r.part_eta || isSentinel(r.part_eta))
           return '<span style="color:#8c959f;font-style:italic">Menunggu Update YCH</span>';
         const etaStr  = r.part_eta.slice(0, 10);
-        const etaDate = esc(etaStr);
+        /* Format ETA as "14 Sep - 15:00" using the datetime value. */
+        const _etaDt  = new Date(String(r.part_eta).slice(0, 16).replace(' ', 'T'));
+        const _etaMon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const _etaPad = n => String(n).padStart(2, '0');
+        const etaDate = isNaN(_etaDt)
+          ? esc(etaStr)
+          : `${_etaDt.getDate()} ${_etaMon[_etaDt.getMonth()]} - ${_etaPad(_etaDt.getHours())}:${_etaPad(_etaDt.getMinutes())}`;
         /* Use WIB (UTC+7) for today/tomorrow — same timezone the server uses. */
         const _wibOffsetMs = 7 * 3600000;
         const _wibNow  = new Date(Date.now() + _wibOffsetMs);
@@ -3924,36 +3949,42 @@ const cciFollowUpTable = makeTabTable({
           return `<span style="white-space:nowrap"><span style="font-weight:700;color:#b91c1c">${etaDate}</span>`
                + `<span style="margin-left:5px;font-size:10px;font-weight:700;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:1px 6px">OVERDUE</span></span>`;
         if (etaStr === today)
-          return `<span style="white-space:nowrap"><span style="font-weight:700;color:#0f766e">${etaDate}</span> <span style="font-size:10px;font-weight:700;background:#ccfbf1;color:#0f766e;border:1px solid #99f6e4;border-radius:8px;padding:1px 6px">Part tiba Hari ini</span></span>`;
+          return `<span style="white-space:nowrap"><span style="font-weight:700;color:#0f766e">${etaDate}</span> <span style="font-size:10px;font-weight:700;background:#ccfbf1;color:#0f766e;border:1px solid #99f6e4;border-radius:8px;padding:1px 6px">Tiba Hari Ini</span></span>`;
         if (etaStr === tomorrow)
-          return `<span style="white-space:nowrap"><span style="font-weight:700;color:#374151">${etaDate}</span> <span style="font-size:10px;font-weight:700;background:#f3f4f6;color:#374151;border:1px solid #9ca3af;border-radius:8px;padding:1px 6px">Part tiba Besok</span></span>`;
+          return `<span style="white-space:nowrap"><span style="font-weight:700;color:#374151">${etaDate}</span> <span style="font-size:10px;font-weight:700;background:#f3f4f6;color:#374151;border:1px solid #9ca3af;border-radius:8px;padding:1px 6px">Tiba Besok</span></span>`;
         return `<span style="white-space:nowrap"><span style="font-weight:700;color:#374151">${etaDate}</span> <span style="font-size:10px;font-weight:700;color:#8c959f;font-style:italic">Part In-Transit</span></span>`;
       }
-    }] : []),
-    { key: 'part_pod_time',     tdStyle: 'text-align:center', render: r => {
-        /* Target SLA — only shown for in-repair states (part_pod_time + 1 day CCI SLA) */
-        const state = r.followup_state || '';
-        /* For in-transit states: show Arriving Today / Tomorrow pill if ETA matches,
-           otherwise fall back to Part Belum Sampai */
-        if (state !== 'wo_sla' && state !== 'report_problem') {
-          if (r.part_eta && !isSentinel(r.part_eta)) {
-            const _etaStr = r.part_eta.slice(0, 10);
-            const _wibNow = new Date(Date.now() + 7 * 3600000);
-            const _today  = _wibNow.toISOString().slice(0, 10);
-            const _tmrStr = new Date(_wibNow.getTime() + 86400000).toISOString().slice(0, 10);
-            if (_etaStr === _today)
-              return `<span style="white-space:nowrap;font-size:10px;font-weight:700;background:#ccfbf1;color:#0f766e;border:1px solid #99f6e4;border-radius:8px;padding:1px 6px">Part tiba Hari ini</span>`;
-            if (_etaStr === _tmrStr)
-              return `<span style="white-space:nowrap;font-size:10px;font-weight:700;background:#f3f4f6;color:#374151;border:1px solid #9ca3af;border-radius:8px;padding:1px 6px">Part tiba Besok</span>`;
-            return '';
-          }
-          return '';
+    }]),
+    { key: '_self_reminder', tdStyle: 'text-align:center', render: r => {
+        const hasPod = r.part_pod_time && !isSentinel(r.part_pod_time);
+        /* Part arrived → show live countdown from POD to POD+24h */
+        if (hasPod) {
+          const podDt    = new Date(String(r.part_pod_time).slice(0, 16).replace(' ', 'T'));
+          if (isNaN(podDt)) return '';
+          const deadline = podDt.getTime() + 86400000;   /* POD + 24 h */
+          return `<span class="cci-sla-countdown" data-deadline="${deadline}" style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap"></span>`;
         }
-        if (!r.part_pod_time || isSentinel(r.part_pod_time))
-          return '';
-        const podDt    = new Date(String(r.part_pod_time).slice(0, 16).replace(' ', 'T'));
-        if (isNaN(podDt)) return '<span style="color:#8c959f;font-style:italic">—</span>';
-        const threshDt = new Date(podDt.getTime() + 86400000);   /* POD + 1 day */
+        /* Part not yet arrived → show reminder when ETA is today or overdue */
+        if (!r.part_eta || isSentinel(r.part_eta)) return '';
+        const etaStr  = r.part_eta.slice(0, 10);
+        const _wibNow = new Date(Date.now() + 7 * 3600000);
+        const today   = _wibNow.toISOString().slice(0, 10);
+        if (etaStr <= today)
+          return `<span style="font-size:11px;font-weight:700;color:#ea580c;white-space:nowrap">⚠️ Segera Confirm AWB jika part tiba</span>`;
+        return '';
+      }
+    },
+    { key: 'part_pod_time',     tdStyle: 'text-align:center', render: r => {
+        /* Target SLA = base datetime + 1 day (CCI SLA).
+           Base priority: part_pod_time → fallback to part_eta when POD is empty. */
+        const state = r.followup_state || '';
+        const hasPod = r.part_pod_time && !isSentinel(r.part_pod_time);
+        const hasEta = r.part_eta      && !isSentinel(r.part_eta);
+        if (!hasPod && !hasEta) return '';
+        const rawBase  = hasPod ? r.part_pod_time : r.part_eta;
+        const baseDt   = new Date(String(rawBase).slice(0, 16).replace(' ', 'T'));
+        if (isNaN(baseDt)) return '<span style="color:#8c959f;font-style:italic">—</span>';
+        const threshDt = new Date(baseDt.getTime() + 86400000);   /* base + 1 day */
         const pad      = n => String(n).padStart(2, '0');
         const _mon     = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
         const tDate    = `${pad(threshDt.getDate())} ${_mon[threshDt.getMonth()]}`;
@@ -3962,12 +3993,13 @@ const cciFollowUpTable = makeTabTable({
         if (threshDt < new Date())
           return `<span style="white-space:nowrap"><span style="font-weight:700;color:#b91c1c">${label}</span>`
                + `<span style="margin-left:5px;font-size:10px;font-weight:700;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:1px 6px">OVERDUE</span></span>`;
-        return `<span style="white-space:nowrap;font-weight:700;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:2px 6px">${label}</span>`;
+        /* Part arrived (POD filled) → amber/yellow pill; ETA fallback → white/black pill */
+        if (hasPod)
+          return `<span style="white-space:nowrap;font-weight:700;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:2px 6px">${label}</span>`;
+        return `<span style="white-space:nowrap;font-weight:700;color:#1f2328;background:#ffffff;border:1px solid #1f2328;border-radius:6px;padding:2px 6px">${label}</span>`;
       }
     },
     { key: 'work_order_status', render: r => statusBadge(r.work_order_status) },
-    { key: 'part_awb',          tdStyle: 'text-align:center', render: r => r.part_awb ? `<span style="font-family:monospace;font-size:11px;color:#0f766e;font-weight:700;background:#ccfbf1;border:1px solid #5eead4;border-radius:6px;padding:2px 6px">${esc(r.part_awb)}</span>` : '<span style="color:#8c959f;font-style:italic">AWB Kosong</span>' },
-    { key: 'case_desc',         render: r => `<span title="${esc(r.case_desc||'')}">${esc(r.case_desc||'—')}</span>` },
     ];
     return cols;
   },
@@ -3994,8 +4026,32 @@ const cciFollowUpTable = makeTabTable({
       b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, 'cci', b.dataset.pod, b.dataset.deferDate)));
     tbody.querySelectorAll('[data-action="cci-fu-escalate"]').forEach(b =>
       b.addEventListener('click', () => openEscalateWo(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, b.dataset.pod, b.dataset.deferDate)));
+    /* SLA countdown ticker — updates every second while the tab is visible */
+    if (window._cciCountdownTimer) clearInterval(window._cciCountdownTimer);
+    window._cciCountdownTimer = setInterval(() => {
+      document.querySelectorAll('#tbody-cci-followup .cci-sla-countdown').forEach(el => {
+        const deadline = parseInt(el.dataset.deadline, 10);
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) {
+          el.textContent = '⏳ Waktu Habis';
+          el.style.color = '#b91c1c';
+          return;
+        }
+        const totalSec = Math.floor(remaining / 1000);
+        const hh = Math.floor(totalSec / 3600);
+        const mm = Math.floor((totalSec % 3600) / 60);
+        const ss = totalSec % 60;
+        const pad = n => String(n).padStart(2, '0');
+        el.textContent = `⏱ ${pad(hh)}:${pad(mm)}:${pad(ss)}`;
+        el.style.color = hh < 2 ? '#b91c1c' : hh < 6 ? '#d97706' : '#15803d';
+      });
+    }, 1000);
   },
-  rowStyleFn: r => r.followup_state === 'report_problem' ? 'background:#fed7aa' : '',
+  rowStyleFn: r => {
+    if (r.followup_state === 'report_problem') return 'background:#fed7aa';
+    if (r.followup_state === 'part_sla')       return 'background:#fef9c3';
+    return '';
+  },
 });
 
 let cciFollowUpTimer  = null;
@@ -4019,9 +4075,10 @@ document.querySelectorAll('#cci-followup-filter-pills [data-fufilter]').forEach(
     document.querySelectorAll('#cci-followup-filter-pills [data-fufilter]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     cciFollowUpFilter = btn.dataset.fufilter;
-    const _shipLabel  = { '': 'Shipped On', 'in_transit': 'Shipped On', 'in_repair': 'Delivered On' };
+    const _shipLabel  = { '': 'Shipped On', 'in_transit': 'Shipped On', 'in_repair': 'Shipped On' };
     document.getElementById('th-cci-shipped').textContent = _shipLabel[cciFollowUpFilter] ?? 'Shipped On';
-    document.getElementById('th-cci-eta').style.display = cciFollowUpFilter === 'in_repair' ? 'none' : '';
+    document.getElementById('tbl-cci-followup').classList.toggle('cci-hide-shipped', cciFollowUpFilter === 'in_repair');
+    document.getElementById('th-cci-eta').style.display = '';
     _cciFollowUpLoad();
   });
 });
@@ -4072,77 +4129,87 @@ const onsFollowUpTable = makeTabTable({
         const state = r.followup_state || '';
         if (state !== 'wo_reschedule' && state !== 'part_sla') return '<span style="color:#8c959f;font-style:italic">Menunggu Update YCH</span>';
         if (!r.part_eta || isSentinel(r.part_eta)) return '<span style="color:#8c959f;font-style:italic">Menunggu Update YCH</span>';
-        const etaDate    = r.part_eta.slice(0, 10);
-        const _now       = new Date();
-        const today      = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`;
-        const _tomorrowDt = new Date(_now); _tomorrowDt.setDate(_tomorrowDt.getDate() + 1);
-        const tomorrow   = `${_tomorrowDt.getFullYear()}-${String(_tomorrowDt.getMonth()+1).padStart(2,'0')}-${String(_tomorrowDt.getDate()).padStart(2,'0')}`;
+        /* Format ETA as "DD Mon - HH:MM"; use time from string if present, else 00:00 */
+        const _etaStr  = String(r.part_eta).trim();
+        const etaDate  = _etaStr.slice(0, 10);
+        const _etaDt   = new Date((_etaStr.length > 10 ? _etaStr.slice(0, 16) : etaDate + 'T00:00').replace(' ', 'T'));
+        const _mon     = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const _pad     = n => String(n).padStart(2, '0');
+        const etaLabel = isNaN(_etaDt)
+          ? etaDate
+          : `${_pad(_etaDt.getDate())} ${_mon[_etaDt.getMonth()]} - ${_pad(_etaDt.getHours())}:${_pad(_etaDt.getMinutes())}`;
+        const _wibNow    = new Date(Date.now() + 7 * 3600000);
+        const today      = _wibNow.toISOString().slice(0, 10);
+        const _tmrDt     = new Date(_wibNow.getTime() + 86400000);
+        const tomorrow   = _tmrDt.toISOString().slice(0, 10);
         if (etaDate < today)
-          return `<span style="font-weight:700;color:#b91c1c">${esc(etaDate)}</span><span style="margin-left:5px;font-size:10px;font-weight:700;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:1px 6px">OVERDUE</span>`;
+          return `<span style="font-weight:700;color:#b91c1c">${etaLabel}</span><span style="margin-left:5px;font-size:10px;font-weight:700;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:1px 6px">OVERDUE</span>`;
         if (etaDate === today)
-          return `<span style="font-weight:700;color:#0f766e">${esc(etaDate)}</span><span style="margin-left:5px;font-size:10px;font-weight:700;background:#ccfbf1;color:#0f766e;border:1px solid #99f6e4;border-radius:8px;padding:1px 6px">Arriving Today</span>`;
+          return `<span style="font-weight:700;color:#0f766e">${etaLabel}</span><span style="margin-left:5px;font-size:10px;font-weight:700;background:#ccfbf1;color:#0f766e;border:1px solid #99f6e4;border-radius:8px;padding:1px 6px">tiba hari ini</span>`;
         if (etaDate === tomorrow)
-          return `<span style="font-weight:700;color:#374151">${esc(etaDate)}</span><span style="margin-left:5px;font-size:10px;font-weight:700;background:#f3f4f6;color:#4b5563;border:1px solid #9ca3af;border-radius:8px;padding:1px 6px">Tomorrow</span>`;
-        return `<span style="font-weight:700;color:#374151">${esc(etaDate)}</span>`;
+          return `<span style="font-weight:700;color:#374151">${etaLabel}</span><span style="margin-left:5px;font-size:10px;font-weight:700;background:#f3f4f6;color:#4b5563;border:1px solid #9ca3af;border-radius:8px;padding:1px 6px">tiba besok</span>`;
+        return `<span style="font-weight:700;color:#374151">${etaLabel}</span>`;
       }
     },
     { key: 'actual_committed_onsite_date', tdStyle: 'width:150px;min-width:150px;text-align:center;font-weight:700;border:none', tdClass: r => onsDateCellClass(r, true), render: r => onsDateCell(r.actual_committed_onsite_date, r, true) },
     { key: 'customer_defer_date', tdStyle: 'width:150px;min-width:150px;text-align:center;font-weight:700;border:none', tdClass: r => onsDateCellClass(r, false), render: r => onsDateCell(r.customer_defer_date, r, false) },
-    { key: 'part_pod_time',   tdStyle: 'text-align:center', render: r => {
+    { key: '_ons_self_reminder', tdStyle: 'text-align:center', render: r => {
         const state = r.followup_state || '';
-        if (state !== 'wo_sla' && state !== 'report_problem') return '';
-        const base = r.customer_defer_date || r.part_pod_time || r.actual_committed_onsite_date || '';
-        if (!base || isSentinel(base)) return '';
-        const baseStr = String(base).slice(0, 16).replace(' ', 'T');
-        const baseDt = new Date(baseStr.length === 10 ? baseStr + 'T00:00' : baseStr);
-        if (isNaN(baseDt)) return '';
-        const threshDt = new Date(baseDt.getTime() + 4 * 86400000);
-        const pad = n => String(n).padStart(2, '0');
-        const _mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-        const label = `${pad(threshDt.getDate())} ${_mon[threshDt.getMonth()]} - ${pad(threshDt.getHours())}:${pad(threshDt.getMinutes())}`;
-        if (threshDt < new Date())
-          return `<span style="font-weight:700;color:#b91c1c">${label}</span><span style="margin-left:5px;font-size:10px;font-weight:700;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:1px 6px">OVERDUE</span>`;
-        return `<span style="font-weight:700;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:2px 6px">${label}</span>`;
-      }
-    },
-    { key: '_escalation_action', tdStyle: 'text-align:center', render: r => {
-        const state     = r.followup_state || '';
+
+        /* 1. Part arrival status (if not yet arrived) */
+        const _wibNow = new Date(Date.now() + 7 * 3600000);  /* WIB UTC+7 */
+        const _today  = _wibNow.toISOString().slice(0, 10);
+        const _tmr    = new Date(_wibNow.getTime() + 86400000).toISOString().slice(0, 10);
+        const _partArrived = r.part_pod_time && !isSentinel(r.part_pod_time);
+        if (!_partArrived) {
+          const etaStr = (r.part_eta || '').slice(0, 10);
+          if (etaStr === _today)
+            return `<span style="font-size:11px;font-weight:700;color:#0f766e;white-space:nowrap">📦 Part tiba Hari Ini</span>`;
+          if (etaStr === _tmr)
+            return `<span style="font-size:11px;font-weight:700;color:#374151;white-space:nowrap">📦 Part tiba Besok</span>`;
+        }
+
+        /* 2. Remaining reminders only apply to in-repair states */
         if (state !== 'wo_sla' && state !== 'report_problem') return '';
         const wo        = esc(r.work_order_id);
         const woType    = esc(r.work_order_type || '');
         const status    = esc(r.work_order_status || '');
         const asp       = esc(r.customer || '');
-        const pod       = esc(r.actual_committed_onsite_date || '');
+        const pod       = esc(r.part_pod_time || '');
         const deferDate = esc(r.customer_defer_date || '');
-        const base = r.customer_defer_date || r.part_pod_time || r.actual_committed_onsite_date || '';
+
+        /* Target SLA Overdue -> Escalation button */
+        const _podRaw = r.part_pod_time && !isSentinel(r.part_pod_time) ? r.part_pod_time : '';
+        const _etaRaw = r.part_eta      && !isSentinel(r.part_eta)      ? r.part_eta      : '';
+        const _base   = _podRaw || _etaRaw;
         let targetOverdue = false;
-        if (base && !isSentinel(base)) {
-          const baseStr = String(base).slice(0, 16).replace(' ', 'T');
+        let deadline = 0;
+        if (_base) {
+          const baseStr = String(_base).slice(0, 16).replace(' ', 'T');
           const baseDt  = new Date(baseStr.length === 10 ? baseStr + 'T00:00' : baseStr);
-          if (!isNaN(baseDt)) targetOverdue = new Date(baseDt.getTime() + 4 * 86400000) < new Date();
+          if (!isNaN(baseDt)) {
+            deadline = baseDt.getTime() + 90 * 3600000;
+            targetOverdue = deadline < Date.now();
+          }
         }
         if (targetOverdue)
           return `<button class="fu-badge fu-wo-sla fu-badge-btn" data-action="ons-followup-wo-sla" data-wo="${wo}" data-wo-type="${woType}" data-pod="${pod}" data-defer-date="${deferDate}" data-status="${status}" data-asp="${asp}">🔔 WO SLA Follow-Up</button>`;
 
-        /* Not yet overdue — show contextual info label */
-        const _wibNow = new Date(Date.now() + 7 * 3600000);  /* WIB UTC+7 */
-        const _today  = _wibNow.toISOString().slice(0, 10);
-        const _tmr    = new Date(_wibNow.getTime() + 86400000).toISOString().slice(0, 10);
+        /* Countdown within 24h */
+        if (deadline > 0) {
+          const remaining = deadline - Date.now();
+          if (remaining > 0 && remaining <= 24 * 3600000) {
+            return `<span class="ons-sla-countdown" data-deadline="${deadline}" style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap"></span>`;
+          }
+        }
 
-        /* 2. ETA Part check */
-        const etaStr = (r.part_eta || '').slice(0, 10);
-        if (etaStr === _today)
-          return `<span style="font-size:11px;font-weight:700;color:#0f766e;white-space:nowrap">📦 Part tiba Hari Ini</span>`;
-        if (etaStr === _tmr)
-          return `<span style="font-size:11px;font-weight:700;color:#374151;white-space:nowrap">📦 Part tiba Besok</span>`;
-
-        /* 4. Defer date not yet set — prompt to schedule */
+        /* Defer date not yet set — prompt to schedule */
         const defer      = String(r.customer_defer_date || '').trim();
         const deferValid = defer && !isSentinel(defer);
         if (!deferValid)
           return `<span style="font-size:11px;font-weight:700;color:#dc2626;white-space:nowrap">⚠️ Segera Jadwalkan Onsite</span>`;
 
-        /* 5. Green onsite date check — mirrors onsDateCellClass: latest valid of actual vs defer */
+        /* Green onsite date check */
         const actual      = String(r.actual_committed_onsite_date || '').trim();
         const actualValid = actual && !isSentinel(actual);
         let greenDate = '';
@@ -4157,6 +4224,28 @@ const onsFollowUpTable = makeTabTable({
           return `<span style="font-size:11px;font-weight:700;color:#374151;white-space:nowrap">📅 Jadwal Onsite Besok</span>`;
 
         return '';
+      }
+    },
+    { key: 'part_pod_time',   tdStyle: 'text-align:center', render: r => {
+        /* Use part_pod_time if available, otherwise fall back to part_eta (date-only → midnight).
+           Shown for all follow-up states — including in-transit (wo_reschedule/part_sla). */
+        const pod  = r.part_pod_time && !isSentinel(r.part_pod_time) ? r.part_pod_time : '';
+        const eta  = r.part_eta     && !isSentinel(r.part_eta)     ? r.part_eta     : '';
+        const base = pod || eta;
+        if (!base) return '';
+        const baseStr = String(base).slice(0, 16).replace(' ', 'T');
+        const baseDt  = new Date(baseStr.length === 10 ? baseStr + 'T00:00' : baseStr);
+        if (isNaN(baseDt)) return '';
+        const threshDt = new Date(baseDt.getTime() + 90 * 3600000);   /* base + 3.75 days (90 h) */
+        const pad = n => String(n).padStart(2, '0');
+        const _mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const label = `${pad(threshDt.getDate())} ${_mon[threshDt.getMonth()]} - ${pad(threshDt.getHours())}:${pad(threshDt.getMinutes())}`;
+        if (threshDt < new Date())
+          return `<span style="font-weight:700;color:#b91c1c">${label}</span><span style="margin-left:5px;font-size:10px;font-weight:700;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:1px 6px">OVERDUE</span>`;
+        /* open_part_received → amber/yellow pill; open_part_not_received → plain text with black border */
+        if (r.wo_status_category === 'open_part_received')
+          return `<span style="font-weight:700;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:2px 6px">${label}</span>`;
+        return `<span style="font-weight:700;color:#374151;border:1px solid #374151;border-radius:6px;padding:2px 6px">${label}</span>`;
       }
     },
     { key: 'work_order_status', render: r => statusBadge(r.work_order_status) },
@@ -4183,16 +4272,38 @@ const onsFollowUpTable = makeTabTable({
       b.addEventListener('click', () => openWoSla(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, 'onsite', b.dataset.pod, b.dataset.deferDate)));
     tbody.querySelectorAll('[data-action="ons-followup-escalate"]').forEach(b =>
       b.addEventListener('click', () => openEscalateWo(b.dataset.wo, b.dataset.woType, b.dataset.status, b.dataset.asp, b.dataset.pod, b.dataset.deferDate)));
+    /* ONS SLA countdown ticker — ticks every second */
+    if (window._onsCountdownTimer) clearInterval(window._onsCountdownTimer);
+    window._onsCountdownTimer = setInterval(() => {
+      document.querySelectorAll('#tbody-ons-followup .ons-sla-countdown').forEach(el => {
+        const deadline  = parseInt(el.dataset.deadline, 10);
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) {
+          el.textContent = '⏳ Waktu Habis';
+          el.style.color = '#b91c1c';
+          return;
+        }
+        const totalSec = Math.floor(remaining / 1000);
+        const hh = Math.floor(totalSec / 3600);
+        const mm = Math.floor((totalSec % 3600) / 60);
+        const ss = totalSec % 60;
+        const pad = n => String(n).padStart(2, '0');
+        el.textContent = `⏱ ${pad(hh)}:${pad(mm)}:${pad(ss)}`;
+        el.style.color = hh < 2 ? '#b91c1c' : hh < 6 ? '#d97706' : '#15803d';
+      });
+    }, 1000);
   },
   rowStyleFn: r => {
     const state = r.followup_state || '';
     if (state !== 'wo_sla' && state !== 'report_problem') return '';
-    const base = r.customer_defer_date || r.part_pod_time || r.actual_committed_onsite_date || '';
-    if (!base || isSentinel(base)) return '';
+    const pod  = r.part_pod_time && !isSentinel(r.part_pod_time) ? r.part_pod_time : '';
+    const eta  = r.part_eta     && !isSentinel(r.part_eta)     ? r.part_eta     : '';
+    const base = pod || eta;
+    if (!base) return '';
     const baseStr = String(base).slice(0, 16).replace(' ', 'T');
     const baseDt  = new Date(baseStr.length === 10 ? baseStr + 'T00:00' : baseStr);
     if (isNaN(baseDt)) return '';
-    return new Date(baseDt.getTime() + 4 * 86400000) < new Date() ? 'background:#fed7aa' : '';
+    return new Date(baseDt.getTime() + 90 * 3600000) < new Date() ? 'background:#fed7aa' : '';
   },
 });
 
@@ -4215,8 +4326,6 @@ document.getElementById('search-ons-followup').addEventListener('input', () => {
 function _onsToggleExtraCols() {
   const tbl = document.getElementById('tbl-ons-followup');
   tbl.classList.toggle('ons-hide-extra',     onsFollowUpFilter === '');
-  tbl.classList.toggle('ons-hide-transit',   onsFollowUpFilter === 'wo_reschedule');
-  tbl.classList.toggle('ons-hide-inrepair',  onsFollowUpFilter === 'wo_sla');
   const _onsThLabel = { '': 'Target SLA Repair', 'wo_reschedule': 'Target SLA Repair', 'wo_sla': 'Target SLA Repair' };
   document.getElementById('th-ons-target').textContent = _onsThLabel[onsFollowUpFilter] ?? 'Target SLA Repair';
 }
@@ -4233,6 +4342,12 @@ document.querySelectorAll('#ons-followup-filter-pills [data-onsfilter]').forEach
       document.getElementById('ons-cnf-view').style.display = '';
       loadOnsCnfTable();
     } else {
+      /* Immediately restore the ONS tab badge to the All-ONS count */
+      const _onsBadge = document.getElementById('tab-ons-followup-badge');
+      if (_onsBadge) {
+        _onsBadge.textContent   = onsFuTotalAll;
+        _onsBadge.style.display = onsFuTotalAll > 0 ? 'inline-block' : 'none';
+      }
       document.getElementById('ons-default-toolbar-controls').style.display = 'flex';
       document.getElementById('ons-cnf-toolbar-controls').style.display = 'none';
       document.getElementById('ons-default-view').style.display = '';
@@ -4283,12 +4398,19 @@ window.onsCnfApplyFilters = function() {
   const badge     = document.getElementById('tab-ons-followup-badge');
   const hasFilter = statusVal || searchVal;
   if (sub) sub.innerHTML = hasFilter
-    ? `<strong>${filtered.length.toLocaleString()}</strong> of <strong>${_onsCnfAllRows.length.toLocaleString()}</strong> WOs in the last 30 days`
-    : `<strong>${_onsCnfAllRows.length.toLocaleString()}</strong> WOs in the last 30 days`;
+    ? `<strong>${filtered.length.toLocaleString()}</strong> of <strong>${_onsCnfAllRows.length.toLocaleString()}</strong> WOs in the ${_cnfPeriodLabel()}`
+    : `<strong>${_onsCnfAllRows.length.toLocaleString()}</strong> WOs in the ${_cnfPeriodLabel()}`;
 
-  if (onsFollowUpFilter === 'closed_not_fixed' && badge) {
-    badge.textContent = filtered.length.toLocaleString();
-    badge.style.display = filtered.length > 0 ? 'inline-block' : 'none';
+  /* Drive the CNF pill badge — always, regardless of active sub-tab */
+  const cnfBadge = document.getElementById('subtab-cnf-badge');
+  if (cnfBadge) {
+    cnfBadge.textContent   = _onsCnfAllRows.length.toLocaleString();
+    cnfBadge.style.display = _onsCnfAllRows.length > 0 ? 'inline-block' : 'none';
+  }
+  /* Restore the ONS tab badge to the All-ONS count when not on CNF */
+  if (badge && onsFollowUpFilter !== 'closed_not_fixed') {
+    badge.textContent   = onsFuTotalAll;
+    badge.style.display = onsFuTotalAll > 0 ? 'inline-block' : 'none';
   }
 
   if (!filtered.length) {
@@ -4312,7 +4434,21 @@ function renderOnsCnfTable(data) {
     if (s === 'CCI' || s === 'Carry-In') return 'Carry-In';
     return '';
   };
-  _onsCnfAllRows = rows.filter(r => _normType(r.work_order_type) === 'Onsite');
+  const _TRACKED_CODES = new Set([
+    'Need follow up \u2013 New Problem Found',
+    'Needs Follow up - Wrong Part',
+    'Needs Follow up - Dead on Arrival',
+    'Need follow up \u2013 Parts Issue',
+    'Need follow up \u2013 Others',
+    'Need Follow up - Wrong Diagnosis',
+    'Need Follow Up',
+    'Customer Induced Damage',
+    'Cannot recreate problem',
+  ]);
+  _onsCnfAllRows = rows.filter(r =>
+    _normType(r.work_order_type) === 'Onsite' &&
+    _TRACKED_CODES.has((r.closing_code || '').trim())
+  );
   /* Sort by completion date descending (latest to oldest) */
   _onsCnfAllRows.sort((a, b) => {
     const da = (a.completion_date || a.closing_date || '').toString().trim();
@@ -4321,20 +4457,29 @@ function renderOnsCnfTable(data) {
   });
 
   const sub = document.getElementById('ons-cnf-sub');
-  if (sub) sub.innerHTML = `<strong>${_onsCnfAllRows.length.toLocaleString()}</strong> WOs in the last 30 days`;
+  if (sub) sub.innerHTML = `<strong>${_onsCnfAllRows.length.toLocaleString()}</strong> WOs in the ${_cnfPeriodLabel()}`;
   const selStatus = document.getElementById('ons-cnf-filter-status');
   if (selStatus) { selStatus.value = ''; selStatus.classList.remove('has-filter'); }
   onsCnfApplyFilters();
 }
 
+function _cnfPeriodLabel() {
+  const sel = document.getElementById('ons-cnf-filter-period');
+  const v   = sel ? sel.value : '30';
+  if (v === '90')  return 'last 3 months';
+  if (v === '365') return 'last 1 year';
+  return 'last 1 month';
+}
+
 function loadOnsCnfTable() {
-  const btn = document.getElementById('ons-cnf-refresh-btn');
+  const btn  = document.getElementById('ons-cnf-refresh-btn');
   if (btn) btn.classList.add('spinning');
   const sub = document.getElementById('ons-cnf-sub');
   if (sub) sub.textContent = 'Loading…';
   const tbody = document.getElementById('ons-cnf-tbody');
   if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#8c959f;font-style:italic">Loading…</td></tr>';
-  fetch('/asp/api/dashboard-closing-codes')
+  const days = (document.getElementById('ons-cnf-filter-period') || {}).value || '30';
+  fetch(`/asp/api/dashboard-closing-codes?days=${encodeURIComponent(days)}`)
     .then(r => r.json())
     .then(data => renderOnsCnfTable(data))
     .catch(() => {
@@ -4972,8 +5117,10 @@ document.getElementById('btn-export-ons-cnf')?.addEventListener('click', functio
   const params = new URLSearchParams();
   params.set('wo_type', 'Onsite');
   params.set('sort_by', 'completion_date');
+  const days      = (document.getElementById('ons-cnf-filter-period') || {}).value || '30';
   const statusVal = (document.getElementById('ons-cnf-filter-status') || {}).value || '';
   const searchVal = ((document.getElementById('ons-cnf-search')       || {}).value || '').trim();
+  params.set('days', days);
   if (statusVal) params.set('status', statusVal);
   if (searchVal) params.set('q',      searchVal);
   const url = '/asp/api/under-escalation/export' + (params.toString() ? '?' + params.toString() : '');
@@ -5129,7 +5276,7 @@ function _ccRowHtml(r, displayIdx) {
   if (source === 'closing_code') {
     closingCell = `<span class="${ccBadgeClass(r.closing_code)}" title="${esc(r.closing_code || '')}">${esc(r.closing_code || '—')}</span>`;
   } else if (r.closing_code) {
-    closingCell = `<span class="cc-badge done" title="${esc(r.closing_code)}">${esc(r.closing_code)}</span>`;
+    closingCell = `<span class="${ccBadgeClass(r.closing_code)}" title="${esc(r.closing_code)}">${esc(r.closing_code)}</span>`;
   } else if (r.work_order_status) {
     closingCell = statusBadge(r.work_order_status);
   } else {
@@ -5528,6 +5675,7 @@ function switchTab(id) {
     document.querySelectorAll('#cci-followup-filter-pills [data-fufilter]').forEach(b =>
       b.classList.toggle('active', b.dataset.fufilter === ''));
     document.getElementById('th-cci-shipped').textContent = 'Shipped On';
+    document.getElementById('tbl-cci-followup').classList.remove('cci-hide-shipped');
     if (!tabLoaded[id]) { tabLoaded[id] = true; }
     _cciFollowUpLoad();
     return;
@@ -6461,7 +6609,7 @@ function _renderWoSlaTimeline(podRaw, woType, deferRaw, tlId) {
   if (isNaN(podMs)) { tl.style.display = 'none'; return; }
 
   const isOnsite    = (woType || '').toLowerCase().includes('onsite');
-  const thresholdH  = isOnsite ? 96 : 24;
+  const thresholdH  = isOnsite ? 90 : 24;   /* Onsite SLA = 3.75 days (90 h); CCI = 1 day (24 h) */
   const maxRepairMs = podMs + thresholdH * 3600000;
   const nowMs       = Date.now();
   const isOverdue   = nowMs >= maxRepairMs;
@@ -6505,7 +6653,7 @@ function _renderWoSlaTimeline(podRaw, woType, deferRaw, tlId) {
   const _nodeMax = () => `
     <div class="wosla-tl-node">
       <div class="wosla-tl-dot ${isOverdue ? 'red' : 'orange'}">${isOverdue ? _WOSLA_ICON_BANG : _WOSLA_ICON_DOT_O}</div>
-      <div class="wosla-tl-lbl">Max Repair<br>(${isOnsite ? '4 days' : '1 day'})</div>
+      <div class="wosla-tl-lbl">Max Repair<br>(${isOnsite ? '3.75 days' : '1 day'})</div>
       <div class="wosla-tl-date ${isOverdue ? 'red' : 'orange'}">${_woslafmtDate(maxDate)}</div>
     </div>`;
 
@@ -6513,49 +6661,54 @@ function _renderWoSlaTimeline(podRaw, woType, deferRaw, tlId) {
   const _conn = cls => `<div class="wosla-tl-connector ${cls}"></div>`;
 
   /* ── Build the node sequence ──────────────────────────────────────
-     Layout depends on isOnsite (has Defer) and Now position.
-
-     CCI (no Defer):
-       now < maxRepair:  POD ── Now ── MaxRepair
-       now >= maxRepair: POD ── MaxRepair ── Now
-
-     Onsite (has Defer):
-       now < deferMs:              POD ── Now ── Defer ── MaxRepair
-       deferMs <= now < maxRepair: POD ── Defer ── Now ── MaxRepair
-       now >= maxRepair:           POD ── Defer ── MaxRepair ── Now
+     All nodes (POD, Now, Defer?, MaxRepair) are placed in strict
+     chronological order — oldest left, latest right.
+     Connector style: 'done' (green) up to the last past event,
+                      'warn' (yellow) while still within SLA,
+                      'over' (red)  after MaxRepair has passed.
   ── */
   let nodes = '';
 
-  if (!isOverdue) {
-    /* Now is BEFORE Max Repair */
+  if (!isOnsite || !hasDefer) {
+    /* ── CCI / no-defer path: POD · [Now|MaxRepair in order] ── */
     nodes += _nodeGreen('Received<br>(POD)', podDate);
-    if (isOnsite && hasDefer && nowMs >= deferMs) {
-      /* Now is between Defer Date and Max Repair */
+    if (nowMs < maxRepairMs) {
       nodes += _conn('done');
-      nodes += _nodeYellow('Defer Date', deferDate);
-      nodes += _conn('warn');
       nodes += _nodeNow();
+      nodes += _conn('warn');
+      nodes += _nodeMax();
     } else {
       nodes += _conn('done');
+      nodes += _nodeMax();
+      nodes += _conn('over');
       nodes += _nodeNow();
-      if (isOnsite && hasDefer) {
-        nodes += _conn('warn');
-        nodes += _nodeYellow('Defer Date', deferDate);
-      }
     }
-    nodes += _conn('warn');
-    nodes += _nodeMax();
   } else {
-    /* Now is AFTER Max Repair */
+    /* ── Onsite path: insert Defer and Now in chronological order ──
+       Build a list of timed events and sort by timestamp.         */
+    const events = [
+      { ms: deferMs,    render: () => _nodeYellow('Defer Date', deferDate), past: nowMs >= deferMs    },
+      { ms: maxRepairMs,render: () => _nodeMax(),                           past: nowMs >= maxRepairMs },
+      { ms: nowMs,      render: () => _nodeNow(),                           past: true                 },
+    ];
+    events.sort((a, b) => a.ms - b.ms);
+
     nodes += _nodeGreen('Received<br>(POD)', podDate);
-    if (isOnsite && hasDefer) {
-      nodes += _conn('done');
-      nodes += _nodeYellow('Defer Date', deferDate);
+    for (const ev of events) {
+      /* Connector colour: if this event is still in the future use 'warn';
+         if MaxRepair has already passed and this is the Now node use 'over';
+         otherwise 'done'. */
+      let connCls;
+      if (isOverdue && ev.ms === nowMs) {
+        connCls = 'over';
+      } else if (ev.past) {
+        connCls = 'done';
+      } else {
+        connCls = 'warn';
+      }
+      nodes += _conn(connCls);
+      nodes += ev.render();
     }
-    nodes += _conn('done');
-    nodes += _nodeMax();
-    nodes += _conn('over');
-    nodes += _nodeNow();
   }
 
   tl.style.display = '';
