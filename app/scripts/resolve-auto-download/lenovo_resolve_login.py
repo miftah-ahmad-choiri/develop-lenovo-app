@@ -451,44 +451,27 @@ def attempt_login(driver: ChromiumPage) -> bool:
     # 2. Wait for the username field — confirms Angular has rendered the form
     driver.ele('xpath://input[@formcontrolname="username"]', timeout=15)
 
-    # 3. Check immediately if autofill already ticked reCAPTCHA
-    #    (browser password manager fills everything before we interact)
-    print("[*] Checking for autofill / pre-checked reCAPTCHA...")
-    if _wait_for_captcha_checked(driver, timeout=10):
-        print("[+] reCAPTCHA already checked (autofill) — skipping credential fill and solver.")
-        # Ensure username/password fields are filled (autofill should have done this,
-        # but force-fill in case the autofill only populated the reCAPTCHA token)
-        _username_field = driver.ele('xpath://input[@formcontrolname="username"]', timeout=5)
-        if _username_field and not str(_username_field.value or "").strip():
-            _username_field.input(USERNAME, clear=True)
-        _password_field = driver.ele('xpath://input[@formcontrolname="password"]', timeout=5)
-        if _password_field and not str(_password_field.value or "").strip():
-            _password_field.input(PASSWORD, clear=True)
-        print("[*] Clicking Login now (autofill path)...")
-        driver.ele('xpath://button[@type="submit" and contains(.,"Login")]', timeout=10).click()
-        print("[+] Login submitted.")
-    else:
-        # 4. No autofill — fill credentials manually then solve reCAPTCHA
-        print("[*] Filling username...")
-        driver.ele('xpath://input[@formcontrolname="username"]', timeout=10).input(USERNAME, clear=True)
+    # 3. Fill credentials manually then solve reCAPTCHA
+    print("[*] Filling username...")
+    driver.ele('xpath://input[@formcontrolname="username"]', timeout=10).input(USERNAME, clear=True)
 
-        print("[*] Filling password...")
-        driver.ele('xpath://input[@formcontrolname="password"]', timeout=10).input(PASSWORD, clear=True)
+    print("[*] Filling password...")
+    driver.ele('xpath://input[@formcontrolname="password"]', timeout=10).input(PASSWORD, clear=True)
 
-        # Let the reCAPTCHA widget fully settle after typing
-        time.sleep(2)
+    # Let the reCAPTCHA widget fully settle after typing
+    time.sleep(2)
 
-        print("[*] Solving reCAPTCHA...")
-        t0 = time.time()
-        if not solve_captcha_with_timeout(solver):
-            return False   # caller will restart Chrome
-        print(f"[+] reCAPTCHA solved in {time.time() - t0:.2f}s")
+    print("[*] Solving reCAPTCHA...")
+    t0 = time.time()
+    if not solve_captcha_with_timeout(solver):
+        return False   # caller will restart Chrome
+    print(f"[+] reCAPTCHA solved in {time.time() - t0:.2f}s")
 
-        # Brief pause to let the solved token register before submitting
-        time.sleep(1)
-        print("[*] Clicking Login now...")
-        driver.ele('xpath://button[@type="submit" and contains(.,"Login")]', timeout=10).click()
-        print("[+] Login submitted.")
+    # Brief pause to let the solved token register before submitting
+    time.sleep(1)
+    print("[*] Clicking Login now...")
+    driver.ele('xpath://button[@type="submit" and contains(.,"Login")]', timeout=10).click()
+    print("[+] Login submitted.")
 
     # 5. Wait for Angular to redirect away from login page
     print("[*] Waiting for home page...")

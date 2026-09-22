@@ -88,6 +88,7 @@ class RecaptchaSolver:
     TIMEOUT_STANDARD = 10
     TIMEOUT_SHORT = 2
     TIMEOUT_DETECTION = 0.05
+    TIMEOUT_SOLVED = 1  # per-strategy timeout used inside is_solved() poll loop
 
     def __init__(self, driver: ChromiumPage) -> None:
         self.driver = driver
@@ -102,8 +103,14 @@ class RecaptchaSolver:
         iframe_inner.wait.ele_displayed(".rc-anchor-content", timeout=self.TIMEOUT_STANDARD)
         iframe_inner(".rc-anchor-content", timeout=self.TIMEOUT_SHORT).click()
 
-        if self.is_solved():
-            return
+        # Poll up to 3s — the checkmark animation takes ~1-2s after the click.
+        # If it appears here Google trusted us immediately (no challenge needed).
+        print("[captcha] Checking if checkbox solved instantly...")
+        for _ in range(6):
+            time.sleep(0.5)
+            if self.is_solved():
+                print("[captcha] Checkbox checked instantly — no challenge needed ✔")
+                return
 
         # ── 2. Click the audio challenge button ───────────────────────────────
         # Use bframe src to target ONLY the challenge popup, not the checkbox iframe
@@ -159,15 +166,24 @@ class RecaptchaSolver:
                 response_box.clear()
                 response_box.input(text_response.lower())
                 iframe("#recaptcha-verify-button").click()
-                time.sleep(2)
             except Exception as e:
                 last_error = f"Submit failed: {e}"
                 continue
 
-            if self.is_solved():
+            # Poll is_solved() for up to 6s — the popup closes and the checkmark
+            # animates in asynchronously; a single sleep often misses it
+            solved = False
+            for _ in range(12):
+                time.sleep(0.5)
+                if self.is_solved():
+                    solved = True
+                    break
+
+            if solved:
+                print("[captcha] Checkmark confirmed — CAPTCHA solved ✔")
                 return
 
-            # Wrong answer — reload for next attempt
+            # Wrong answer — reload for next attempt (only if popup still open)
             last_error = "Wrong answer after submit"
             try:
                 self._get_challenge_iframe()("#recaptcha-reload-button", timeout=self.TIMEOUT_SHORT).click()
@@ -295,29 +311,52 @@ class RecaptchaSolver:
     def is_solved(self) -> bool:
         """Check if the captcha checkbox is ticked.
 
-        Success:  <div class="recaptcha-checkbox-checkmark" style="">  → style attr present
-        The checkmark div only gets a style attribute when the box is checked.
-        Tries multiple strategies to find the element in case the iframe
-        reference changed after the audio challenge closed.
+        Tries multiple strategies in order of reliability so that a stale
+        iframe reference after the audio challenge closes does not cause a
+        false negative. Uses TIMEOUT_SOLVED (1s) per strategy so DrissionPage
+        has enough time to pierce the iframe.
         """
-        # Strategy 1: look inside @title=reCAPTCHA iframe
-        try:
-            iframe_inner = self.driver("@title=reCAPTCHA", timeout=self.TIMEOUT_SHORT)
-            checkmark = iframe_inner(".recaptcha-checkbox-checkmark", timeout=self.TIMEOUT_SHORT)
-            if checkmark is not None and "style" in checkmark.attrs:
-                return True
-        except Exception:
-            pass
+        T = self.TIMEOUT_SOLVED  # 1s per strategy
 
-        # Strategy 2: search all iframes whose src contains 'api2/anchor'
+        # Strategy 1: aria-checked="true" on #recaptcha-anchor (most reliable signal)
         try:
             anchor_iframe = self.driver(
                 "xpath://iframe[contains(@src,'api2/anchor') or contains(@src,'recaptcha/api2')]",
-                timeout=self.TIMEOUT_SHORT,
+                timeout=T,
             )
-            checkmark = anchor_iframe(".recaptcha-checkbox-checkmark", timeout=self.TIMEOUT_SHORT)
-            if checkmark is not None and "style" in checkmark.attrs:
-                return True
+            if anchor_iframe is not None:
+                checked = anchor_iframe.inner_ele(
+                    'xpath://*[@id="recaptcha-anchor" and @aria-checked="true"]',
+                    timeout=T,
+                )
+                if checked is not None:
+                    return True
+        except Exception:
+            pass
+
+        # Strategy 2: .recaptcha-checkbox-checkmark has style attr when checked
+        try:
+            iframe_inner = self.driver("@title=reCAPTCHA", timeout=T)
+            if iframe_inner is not None:
+                checkmark = iframe_inner(".recaptcha-checkbox-checkmark", timeout=T)
+                if checkmark is not None and "style" in checkmark.attrs:
+                    return True
+        except Exception:
+            pass
+
+        # Strategy 3: span class contains "recaptcha-checkbox-checked"
+        try:
+            anchor_iframe = self.driver(
+                "xpath://iframe[contains(@src,'api2/anchor') or contains(@src,'recaptcha/api2')]",
+                timeout=T,
+            )
+            if anchor_iframe is not None:
+                span = anchor_iframe.inner_ele(
+                    'xpath://span[contains(@class,"recaptcha-checkbox-checked")]',
+                    timeout=T,
+                )
+                if span is not None:
+                    return True
         except Exception:
             pass
 
