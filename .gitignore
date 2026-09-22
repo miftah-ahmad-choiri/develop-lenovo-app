@@ -67,3 +67,5 @@ files/lenovo_asp_broken.db
 # SQLite WAL/SHM sidecar files — created at runtime, closed when all connections exit
 files/*.db-wal
 files/*.db-shm
+files/lenovo_asp.db
+files/lenovo_asp_escalation.db
