@@ -368,12 +368,36 @@
     "new_dc": 0,
     "new_status": 0,
     "status": "success",
-    "upsert_date": "2026-09-20"
+    "upsert_date": "2026-09-21"
   },
   "Generated_DCs_20260920_005454.xlsx": {
     "new_dc": 0,
     "new_awb": 0,
     "status": "success",
-    "upsert_date": "2026-09-20"
+    "upsert_date": "2026-09-21"
+  },
+  "GTAAP_Report_export_1789974065062_1789974061.xlsx": {
+    "new_dc": 0,
+    "new_status": 0,
+    "status": "success",
+    "upsert_date": "2026-09-22"
+  },
+  "Generated_DCs_20260921_140056.xlsx": {
+    "new_dc": 0,
+    "new_awb": 0,
+    "status": "success",
+    "upsert_date": "2026-09-22"
+  },
+  "GTAAP_Report_export_1790053378757_1790053374.xlsx": {
+    "new_dc": 0,
+    "new_status": 0,
+    "status": "success",
+    "upsert_date": "2026-09-22"
+  },
+  "Generated_DCs_20260922_120250.xlsx": {
+    "new_dc": 0,
+    "new_awb": 0,
+    "status": "success",
+    "upsert_date": "2026-09-22"
   }
 }

@@ -1000,12 +1000,257 @@
       "new_users": 0,
       "status": "success",
       "upsert_date": "2026-09-20"
+    },
+    "WO Status - IBM TLS MSD 9-21-2026 11-42-31 AM.xlsx": {
+      "new_wo": 67,
+      "updated_wo": 134,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-21"
+    },
+    "WO Status - IBM TLS MSD 9-21-2026 12-14-19 PM.xlsx": {
+      "new_wo": 10,
+      "updated_wo": 43,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-21"
+    },
+    "WO Status - IBM TLS MSD 9-21-2026 12-46-02 PM.xlsx": {
+      "new_wo": 7,
+      "updated_wo": 28,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-21"
+    },
+    "WO Status - IBM TLS MSD 9-21-2026 1-17-49 PM.xlsx": {
+      "new_wo": 11,
+      "updated_wo": 26,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-21"
+    },
+    "WO Status - IBM TLS MSD 9-21-2026 1-49-36 PM.xlsx": {
+      "new_wo": 16,
+      "updated_wo": 47,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-21"
+    },
+    "WO Status - IBM TLS MSD 9-21-2026 2-21-19 PM.xlsx": {
+      "new_wo": 12,
+      "updated_wo": 112,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-21"
+    },
+    "WO Status - IBM TLS MSD 9-21-2026 2-53-07 PM.xlsx": {
+      "new_wo": 16,
+      "updated_wo": 104,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-21"
+    },
+    "WO Status - IBM TLS MSD 9-21-2026 3-25-08 PM.xlsx": {
+      "new_wo": 11,
+      "updated_wo": 78,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-21"
+    },
+    "WO Status - IBM TLS MSD 9-21-2026 3-56-56 PM.xlsx": {
+      "new_wo": 9,
+      "updated_wo": 75,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-21"
+    },
+    "WO Status - IBM TLS MSD 9-21-2026 4-28-40 PM.xlsx": {
+      "new_wo": 8,
+      "updated_wo": 90,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-21"
+    },
+    "WO Status - IBM TLS MSD 9-21-2026 5-00-38 PM.xlsx": {
+      "new_wo": 8,
+      "updated_wo": 56,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-21"
+    },
+    "WO Status - IBM TLS MSD 9-21-2026 5-32-42 PM.xlsx": {
+      "new_wo": 3,
+      "updated_wo": 90,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-21"
+    },
+    "WO Status - IBM TLS MSD 9-21-2026 6-04-20 PM.xlsx": {
+      "new_wo": 1,
+      "updated_wo": 30,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-21"
+    },
+    "WO Status - IBM TLS MSD 9-21-2026 6-36-01 PM.xlsx": {
+      "new_wo": 0,
+      "updated_wo": 22,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-21"
+    },
+    "WO Status - IBM TLS MSD 9-21-2026 7-07-42 PM.xlsx": {
+      "new_wo": 0,
+      "updated_wo": 24,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-21"
+    },
+    "WO Status - IBM TLS MSD 9-21-2026 7-39-27 PM.xlsx": {
+      "new_wo": 0,
+      "updated_wo": 14,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-21"
+    },
+    "WO Status - IBM TLS MSD 9-22-2026 6-01-55 AM.xlsx": {
+      "new_wo": 0,
+      "updated_wo": 225,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-22"
+    },
+    "WO Status - IBM TLS MSD 9-22-2026 6-33-39 AM.xlsx": {
+      "new_wo": 0,
+      "updated_wo": 0,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-22"
+    },
+    "WO Status - IBM TLS MSD 9-22-2026 7-05-17 AM.xlsx": {
+      "new_wo": 0,
+      "updated_wo": 1,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-22"
+    },
+    "WO Status - IBM TLS MSD 9-22-2026 7-36-59 AM.xlsx": {
+      "new_wo": 0,
+      "updated_wo": 0,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-22"
+    },
+    "WO Status - IBM TLS MSD 9-22-2026 8-08-42 AM.xlsx": {
+      "new_wo": 3,
+      "updated_wo": 5,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-22"
+    },
+    "WO Status - IBM TLS MSD 9-22-2026 8-40-23 AM.xlsx": {
+      "new_wo": 3,
+      "updated_wo": 7,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-22"
+    },
+    "WO Status - IBM TLS MSD 9-22-2026 9-12-13 AM.xlsx": {
+      "new_wo": 3,
+      "updated_wo": 18,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-22"
+    },
+    "WO Status - IBM TLS MSD 9-22-2026 9-44-03 AM.xlsx": {
+      "new_wo": 4,
+      "updated_wo": 18,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-22"
+    },
+    "WO Status - IBM TLS MSD 9-22-2026 10-15-46 AM.xlsx": {
+      "new_wo": 6,
+      "updated_wo": 40,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-22"
+    },
+    "WO Status - IBM TLS MSD 9-22-2026 10-47-27 AM.xlsx": {
+      "new_wo": 13,
+      "updated_wo": 38,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-22"
+    },
+    "WO Status - IBM TLS MSD 9-22-2026 11-19-15 AM.xlsx": {
+      "new_wo": 13,
+      "updated_wo": 45,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-22"
+    },
+    "WO Status - IBM TLS MSD 9-22-2026 11-50-58 AM.xlsx": {
+      "new_wo": 10,
+      "updated_wo": 39,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-22"
+    },
+    "WO Status - IBM TLS MSD 9-22-2026 12-22-48 PM.xlsx": {
+      "new_wo": 8,
+      "updated_wo": 26,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-22"
+    },
+    "WO Status - IBM TLS MSD 9-22-2026 12-54-37 PM.xlsx": {
+      "new_wo": 9,
+      "updated_wo": 23,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-22"
+    },
+    "WO Status - IBM TLS MSD 9-22-2026 1-26-24 PM.xlsx": {
+      "new_wo": 8,
+      "updated_wo": 25,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-22"
+    },
+    "WO Status - IBM TLS MSD 9-22-2026 1-58-25 PM.xlsx": {
+      "new_wo": 9,
+      "updated_wo": 78,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-22"
+    },
+    "WO Status - IBM TLS MSD 9-22-2026 2-30-39 PM.xlsx": {
+      "new_wo": 20,
+      "updated_wo": 106,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-22"
+    },
+    "WO Status - IBM TLS MSD 9-22-2026 3-02-57 PM.xlsx": {
+      "new_wo": 14,
+      "updated_wo": 91,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-22"
+    },
+    "WO Status - IBM TLS MSD 9-22-2026 3-34-56 PM.xlsx": {
+      "new_wo": 9,
+      "updated_wo": 65,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-22"
     }
   },
   "daily_totals": {
-    "2026-09-20": {
-      "new_wo": 407,
-      "updated_wo": 1084,
+    "2026-09-22": {
+      "new_wo": 132,
+      "updated_wo": 850,
       "new_users": 0
     }
   }

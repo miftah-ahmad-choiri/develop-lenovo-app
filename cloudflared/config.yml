@@ -1,9 +1,9 @@
-﻿tunnel: ce858d75-6e3f-416f-b4f0-d1b5ebb1f016
+tunnel: ce858d75-6e3f-416f-b4f0-d1b5ebb1f016
 credentials-file: C:\Users\MiftahAhmadChoiri\.cloudflared\ce858d75-6e3f-416f-b4f0-d1b5ebb1f016.json
 edge-ip-version: "4"
 
 ingress:
   - hostname: app.ticket-asp.my.id
-    service: http://localhost:5000
+    service: http://localhost:5050
 
   - service: http_status:404

@@ -1,4 +1,4 @@
-﻿# Lenovo ASP - Service Launcher
+# Lenovo ASP - Service Launcher
 $AppDir   = "C:\Users\MiftahAhmadChoiri\Deploy-App\develop-lenovo-app"
 $IconPath = "$AppDir\app\static\launcher.ico"
 
@@ -54,7 +54,7 @@ $Form.Controls.Add($sep)
 
 # Flask row
 $lblFlaskTitle          = New-Object System.Windows.Forms.Label
-$lblFlaskTitle.Text     = "Flask App  (port 5000)"
+$lblFlaskTitle.Text     = "Flask App  (port 5050)"
 $lblFlaskTitle.Font     = New-Object System.Drawing.Font("Segoe UI",10)
 $lblFlaskTitle.AutoSize = $true
 $lblFlaskTitle.Location = New-Object System.Drawing.Point(20,70)
@@ -95,12 +95,12 @@ $lblUrl.Add_LinkClicked({ Start-Process "https://app.ticket-asp.my.id" })
 $Form.Controls.Add($lblUrl)
 
 $lblLocal          = New-Object System.Windows.Forms.LinkLabel
-$lblLocal.Text     = "http://localhost:5000"
+$lblLocal.Text     = "http://localhost:5050"
 $lblLocal.Font     = New-Object System.Drawing.Font("Segoe UI",9)
 $lblLocal.Location = New-Object System.Drawing.Point(20,158)
 $lblLocal.AutoSize = $true
 $lblLocal.Enabled  = $false
-$lblLocal.Add_LinkClicked({ Start-Process "http://localhost:5000" })
+$lblLocal.Add_LinkClicked({ Start-Process "http://localhost:5050" })
 $Form.Controls.Add($lblLocal)
 
 # Log box
@@ -237,7 +237,7 @@ $btnStop.Add_Click({
 })
 
 # Open App click
-$btnBrowser.Add_Click({ Start-Process "http://localhost:5000" })
+$btnBrowser.Add_Click({ Start-Process "http://localhost:5050" })
 
 # Form close: kill children
 $Form.Add_FormClosing({
