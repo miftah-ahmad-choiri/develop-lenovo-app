@@ -1,5 +1,6 @@
 from DrissionPage import ChromiumPage, ChromiumOptions
 from RecaptchaSolver import RecaptchaSolver
+import RecaptchaSolver as _rcmod
 import threading
 import signal
 import sys
@@ -429,6 +430,11 @@ def _is_captcha_already_checked(driver: ChromiumPage) -> bool:
         return False
     except Exception:
         return False
+
+
+# Wire the stronger check into RecaptchaSolver.is_solved() so it benefits from
+# all three DOM signals (aria-checked, class, "You are verified" status div)
+_rcmod._external_is_checked = _is_captcha_already_checked
 
 
 def _wait_for_captcha_checked(driver: ChromiumPage, timeout: int = 10) -> bool:

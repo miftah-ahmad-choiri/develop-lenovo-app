@@ -8,6 +8,9 @@ import time
 from typing import Optional
 from DrissionPage import ChromiumPage
 
+# Forward-declared here so is_solved() can call the stronger check from lenovo_resolve_login
+_external_is_checked = None  # set by lenovo_resolve_login after import
+
 # ── Locate ffmpeg before importing pydub so its internal which() is bypassed ──
 def _find_ffmpeg() -> str | None:
     """Return the absolute path to ffmpeg.exe.
@@ -88,7 +91,7 @@ class RecaptchaSolver:
     TIMEOUT_STANDARD = 10
     TIMEOUT_SHORT = 2
     TIMEOUT_DETECTION = 0.05
-    TIMEOUT_SOLVED = 1  # per-strategy timeout used inside is_solved() poll loop
+    TIMEOUT_SOLVED = 1
 
     def __init__(self, driver: ChromiumPage) -> None:
         self.driver = driver
@@ -313,10 +316,11 @@ class RecaptchaSolver:
 
         Tries multiple strategies in order of reliability so that a stale
         iframe reference after the audio challenge closes does not cause a
-        false negative. Uses TIMEOUT_SOLVED (1s) per strategy so DrissionPage
-        has enough time to pierce the iframe.
+        false negative.
         """
-        T = self.TIMEOUT_SOLVED  # 1s per strategy
+        # Each strategy uses TIMEOUT_SOLVED so DrissionPage has enough time
+        # to pierce the iframe before giving up.
+        T = self.TIMEOUT_SOLVED  # 1s
 
         # Strategy 1: aria-checked="true" on #recaptcha-anchor (most reliable signal)
         try:
