@@ -1,5 +1,8 @@
 # Lenovo ASP - Service Launcher
-$AppDir   = "C:\Users\MiftahAhmadChoiri\Deploy-App\develop-lenovo-app"
+$AppDir   = $PSScriptRoot
+if ([string]::IsNullOrWhiteSpace($AppDir)) {
+    $AppDir = "C:\Users\MiftahAhmadChoiri\Deploy-App\develop-lenovo-app"
+}
 $IconPath = "$AppDir\app\static\launcher.ico"
 
 Add-Type -AssemblyName System.Windows.Forms
@@ -172,8 +175,24 @@ $timer.Add_Tick({
     }
 })
 
+# Clean up any leftover processes using port 5050 or orphaned instances
+function Clear-OrphanedProcesses {
+    try {
+        $conns = Get-NetTCPConnection -LocalPort 5050 -ErrorAction SilentlyContinue
+        if ($conns) {
+            $pids = $conns | Select-Object -ExpandProperty OwningProcess -Unique
+            foreach ($p in $pids) {
+                if ($p -gt 0) {
+                    Start-Process -FilePath "taskkill.exe" -ArgumentList "/F /T /PID $p" -WindowStyle Hidden -Wait -ErrorAction SilentlyContinue
+                }
+            }
+        }
+    } catch {}
+}
+
 # Start click
 $btnStart.Add_Click({
+    Clear-OrphanedProcesses
     if (-not $script:FlaskProc -or $script:FlaskProc.HasExited) {
         Write-Log "Starting Flask app..."
         $psi                  = New-Object System.Diagnostics.ProcessStartInfo
@@ -181,7 +200,7 @@ $btnStart.Add_Click({
         $psi.Arguments        = "run.py"
         $psi.WorkingDirectory = $AppDir
         $psi.UseShellExecute  = $false
-        $psi.CreateNoWindow   = $false
+        $psi.CreateNoWindow   = $true
         $psi.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8"
         $script:FlaskProc = [System.Diagnostics.Process]::Start($psi)
         Write-Log "Flask PID: $($script:FlaskProc.Id)"
@@ -193,7 +212,7 @@ $btnStart.Add_Click({
         $psi2.Arguments        = "tunnel --config cloudflared\config.yml run"
         $psi2.WorkingDirectory = $AppDir
         $psi2.UseShellExecute  = $false
-        $psi2.CreateNoWindow   = $false
+        $psi2.CreateNoWindow   = $true
         $script:CloudflaredProc = [System.Diagnostics.Process]::Start($psi2)
         Write-Log "Cloudflared PID: $($script:CloudflaredProc.Id)"
     }
@@ -206,21 +225,30 @@ $btnStart.Add_Click({
     Write-Log "Both services started."
 })
 
-# Stop click â€” null refs immediately so timer shows Stopped at once
+# Helper to terminate a process and all of its child processes cleanly
+function Stop-ProcessTree($proc, [string]$name) {
+    if ($proc) {
+        try {
+            $pidToKill = $proc.Id
+            # Use taskkill /F /T to forcefully terminate the process tree (including child python/browser processes)
+            Start-Process -FilePath "taskkill.exe" -ArgumentList "/F /T /PID $pidToKill" -WindowStyle Hidden -Wait -ErrorAction SilentlyContinue
+            Write-Log "$name (PID $pidToKill) stopped."
+        } catch {
+            Write-Log "Note stopping $($name): $($_.Exception.Message)"
+        }
+    }
+}
+
+# Stop click
 $btnStop.Add_Click({
     Write-Log "Stopping services..."
-    if ($script:FlaskProc -and -not $script:FlaskProc.HasExited) {
-        $script:FlaskProc.Kill()
-        $script:FlaskProc.WaitForExit(3000)
-        Write-Log "Flask stopped."
-    }
+    $btnStop.Enabled = $false
+    [System.Windows.Forms.Application]::DoEvents()
+
+    Stop-ProcessTree $script:FlaskProc "Flask"
     $script:FlaskProc = $null
 
-    if ($script:CloudflaredProc -and -not $script:CloudflaredProc.HasExited) {
-        $script:CloudflaredProc.Kill()
-        $script:CloudflaredProc.WaitForExit(3000)
-        Write-Log "Cloudflare Tunnel stopped."
-    }
+    Stop-ProcessTree $script:CloudflaredProc "Cloudflare Tunnel"
     $script:CloudflaredProc = $null
 
     $script:dotFlask.Text      = "[ ] Stopped"
@@ -242,8 +270,8 @@ $btnBrowser.Add_Click({ Start-Process "http://localhost:5050" })
 # Form close: kill children
 $Form.Add_FormClosing({
     $timer.Stop()
-    if ($script:FlaskProc -and -not $script:FlaskProc.HasExited)             { $script:FlaskProc.Kill() }
-    if ($script:CloudflaredProc -and -not $script:CloudflaredProc.HasExited) { $script:CloudflaredProc.Kill() }
+    Stop-ProcessTree $script:FlaskProc "Flask"
+    Stop-ProcessTree $script:CloudflaredProc "Cloudflare Tunnel"
     if ($script:AppIcon) { $script:AppIcon.Dispose() }
 })
 

@@ -400,6 +400,18 @@
     "status": "success",
     "upsert_date": "2026-09-22"
   },
+  "GTAAP_Report_export_1790069158908_1790069152.xlsx": {
+    "new_dc": 48,
+    "new_status": 67,
+    "status": "success",
+    "upsert_date": "2026-09-22"
+  },
+  "Generated_DCs_20260922_162547.xlsx": {
+    "new_dc": 7,
+    "new_awb": 48,
+    "status": "success",
+    "upsert_date": "2026-09-22"
+  },
   "GTAAP_Report_export_1790069519536_1790069515.xlsx": {
     "new_dc": 48,
     "new_status": 67,
@@ -435,5 +447,77 @@
     "new_awb": 0,
     "status": "success",
     "upsert_date": "2026-09-22"
+  },
+  "GTAAP_Report_export_1790070009964_1790070005.xlsx": {
+    "new_dc": 4,
+    "new_status": 4,
+    "status": "success",
+    "upsert_date": "2026-09-22"
+  },
+  "Generated_DCs_20260922_164000.xlsx": {
+    "new_dc": 1,
+    "new_awb": 4,
+    "status": "success",
+    "upsert_date": "2026-09-22"
+  },
+  "GTAAP_Report_export_1790139653057_1790139647.xlsx": {
+    "new_dc": 21,
+    "new_status": 81,
+    "status": "success",
+    "upsert_date": "2026-09-23"
+  },
+  "Generated_DCs_20260923_120042.xlsx": {
+    "new_dc": 4,
+    "new_awb": 21,
+    "status": "success",
+    "upsert_date": "2026-09-23"
+  },
+  "GTAAP_Report_export_1790146846115_1790146841.xlsx": {
+    "new_dc": 11,
+    "new_status": 14,
+    "status": "success",
+    "upsert_date": "2026-09-23"
+  },
+  "Generated_DCs_20260923_140036.xlsx": {
+    "new_dc": 1,
+    "new_awb": 11,
+    "status": "success",
+    "upsert_date": "2026-09-23"
+  },
+  "GTAAP_Report_export_1790154046472_1790154043.xlsx": {
+    "new_dc": 1,
+    "new_status": 16,
+    "status": "success",
+    "upsert_date": "2026-09-23"
+  },
+  "Generated_DCs_20260923_160038.xlsx": {
+    "new_dc": 1,
+    "new_awb": 1,
+    "status": "success",
+    "upsert_date": "2026-09-23"
+  },
+  "GTAAP_Report_export_1790161246237_1790161242.xlsx": {
+    "new_dc": 49,
+    "new_status": 51,
+    "status": "success",
+    "upsert_date": "2026-09-23"
+  },
+  "Generated_DCs_20260923_180037.xlsx": {
+    "new_dc": 4,
+    "new_awb": 49,
+    "status": "success",
+    "upsert_date": "2026-09-23"
+  },
+  "GTAAP_Report_export_1790168448479_1790168443.xlsx": {
+    "new_dc": 0,
+    "new_status": 0,
+    "status": "success",
+    "upsert_date": "2026-09-23"
+  },
+  "Generated_DCs_20260923_200038.xlsx": {
+    "new_dc": 0,
+    "new_awb": 0,
+    "status": "success",
+    "upsert_date": "2026-09-23"
   }
 }

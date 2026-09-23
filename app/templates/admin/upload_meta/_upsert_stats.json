@@ -1245,12 +1245,145 @@
       "new_users": 0,
       "status": "success",
       "upsert_date": "2026-09-22"
+    },
+    "WO Status - IBM TLS MSD 9-22-2026 4-34-39 PM.xlsx": {
+      "new_wo": 2,
+      "updated_wo": 11,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-22"
+    },
+    "WO Status - IBM TLS MSD 9-23-2026 10-15-54 AM.xlsx": {
+      "new_wo": 37,
+      "updated_wo": 364,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-23"
+    },
+    "WO Status - IBM TLS MSD 9-23-2026 10-47-45 AM.xlsx": {
+      "new_wo": 6,
+      "updated_wo": 44,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-23"
+    },
+    "WO Status - IBM TLS MSD 9-23-2026 11-19-25 AM.xlsx": {
+      "new_wo": 3,
+      "updated_wo": 57,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-23"
+    },
+    "WO Status - IBM TLS MSD 9-23-2026 11-51-06 AM.xlsx": {
+      "new_wo": 7,
+      "updated_wo": 41,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-23"
+    },
+    "WO Status - IBM TLS MSD 9-23-2026 12-22-50 PM.xlsx": {
+      "new_wo": 4,
+      "updated_wo": 46,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-23"
+    },
+    "WO Status - IBM TLS MSD 9-23-2026 12-54-39 PM.xlsx": {
+      "new_wo": 10,
+      "updated_wo": 17,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-23"
+    },
+    "WO Status - IBM TLS MSD 9-23-2026 1-26-25 PM.xlsx": {
+      "new_wo": 8,
+      "updated_wo": 33,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-23"
+    },
+    "WO Status - IBM TLS MSD 9-23-2026 1-58-20 PM.xlsx": {
+      "new_wo": 11,
+      "updated_wo": 44,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-23"
+    },
+    "WO Status - IBM TLS MSD 9-23-2026 2-30-10 PM.xlsx": {
+      "new_wo": 11,
+      "updated_wo": 72,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-23"
+    },
+    "WO Status - IBM TLS MSD 9-23-2026 3-01-57 PM.xlsx": {
+      "new_wo": 13,
+      "updated_wo": 70,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-23"
+    },
+    "WO Status - IBM TLS MSD 9-23-2026 3-33-48 PM.xlsx": {
+      "new_wo": 8,
+      "updated_wo": 46,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-23"
+    },
+    "WO Status - IBM TLS MSD 9-23-2026 4-36-24 PM.xlsx": {
+      "new_wo": 8,
+      "updated_wo": 89,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-23"
+    },
+    "WO Status - IBM TLS MSD 9-23-2026 5-08-18 PM.xlsx": {
+      "new_wo": 13,
+      "updated_wo": 97,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-23"
+    },
+    "WO Status - IBM TLS MSD 9-23-2026 5-40-04 PM.xlsx": {
+      "new_wo": 7,
+      "updated_wo": 32,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-23"
+    },
+    "WO Status - IBM TLS MSD 9-23-2026 6-04-35 PM.xlsx": {
+      "new_wo": 1,
+      "updated_wo": 7,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-23"
+    },
+    "WO Status - IBM TLS MSD 9-23-2026 6-36-16 PM.xlsx": {
+      "new_wo": 4,
+      "updated_wo": 17,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-23"
+    },
+    "WO Status - IBM TLS MSD 9-23-2026 7-08-03 PM.xlsx": {
+      "new_wo": 1,
+      "updated_wo": 19,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-23"
+    },
+    "WO Status - IBM TLS MSD 9-23-2026 7-39-53 PM.xlsx": {
+      "new_wo": 1,
+      "updated_wo": 6,
+      "new_users": 0,
+      "status": "success",
+      "upsert_date": "2026-09-23"
     }
   },
   "daily_totals": {
-    "2026-09-22": {
-      "new_wo": 132,
-      "updated_wo": 850,
+    "2026-09-23": {
+      "new_wo": 153,
+      "updated_wo": 1101,
       "new_users": 0
     }
   }
